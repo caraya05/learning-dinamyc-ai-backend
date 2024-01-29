@@ -1,0 +1,130 @@
+from openai import OpenAI
+from config import settings
+
+client = OpenAI(organization=settings.OPENAI_API_ORG_ID, api_key=settings.OPENAI_API_KEY)
+
+
+def generate_image_dalle(prompt: str,
+                         model: str = "dall-e-3",
+                         count: int = 1,
+                         size: str = "1024x1024",
+                         quality: str = "standard"):
+    try:
+        response = client.images.generate(
+            model=model,
+            prompt=prompt,
+            size=size,
+            quality=quality,
+            n=count,
+            style="vivid",
+        )
+
+        return response.data[0].url
+
+    except Exception as e:
+        print(e)
+        raise Exception("Image not generated")
+
+
+def generate_gpt4_vision(prompt: list[str],
+                         images: list[str],
+                         prompt_schema: str,
+                         max_tokens: int = 1000,
+                         model: str = "gpt-4-vision-preview"):
+    content_images = [{"type": "image_url", "image_url": {"url": image}} for image in images]
+
+    content_prompt = [{"type": "text", "text": prompt} for prompt in prompt]
+
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            response_format={"type": "json_object"},
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"Describe the following images using the schema '{prompt_schema}'"
+                },
+                {
+                    "role": "user",
+                    "content": content_prompt + content_images
+                }
+            ],
+            max_tokens=max_tokens
+        )
+
+        return response.choices[0].message
+
+    except Exception as e:
+        print(e)
+        raise Exception("Image not analyzed or text not generated")
+
+
+def generate_gpt4(prompt: str,
+                  completion: str,
+                  json_schema: dict = None,
+                  max_tokens: int = 1000,
+                  model: str = "gpt-4-1106-preview"):
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            response_format={"type": "json_object"},
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"You are a wizard of a writer capable of creating a story for a game containing "
+                               f"a set of defined characters, plus creating a new number of characters if requested, "
+                               f"Respond with your story in JSON format. The JSON schema must include '{json_schema}'."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                },
+                {
+                    "role": "user",
+                    "content": completion
+                }
+            ],
+            max_tokens=max_tokens
+        )
+
+        return response.choices[0]
+
+    except Exception as e:
+        print(e)
+        raise Exception("Text not generated")
+
+
+def generate_gpt4_vision_(content_prompt: list[dict],
+                          max_tokens: int = 1000,
+                          model: str = "gpt-4-vision-preview"):
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            # response_format={"type": "json_object"},
+            messages=content_prompt,
+            max_tokens=max_tokens
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        print(e)
+        raise Exception("Image not analyzed or text not generated")
+
+
+def generate_gpt4_(content_prompt: list[dict],
+                   max_tokens: int = 1000,
+                   model: str = "gpt-4-1106-preview"):
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            response_format={"type": "json_object"},
+            messages=content_prompt,
+            max_tokens=max_tokens
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        print(e)
+        raise Exception("Text not generated")

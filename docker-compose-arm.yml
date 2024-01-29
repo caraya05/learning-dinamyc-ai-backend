@@ -1,0 +1,44 @@
+version: '3.7'
+
+services:
+  fastapi:
+    build:
+        context: .
+        dockerfile: .docker/DockerfileARM
+    command: ./fastapi-entrypoint-loc.sh
+    env_file:
+      - .envs/.env
+    volumes:
+      - ./src:/code
+    ports:
+      - "9000:9000"
+#    environment:
+#      - DATABASE_URI=postgresql://web_ai_db_username:web_ai_db_password@postgres/web_ai_db_dev
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:12.1-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - .postgres_data_base:/var/lib/postgresql/data/
+    env_file:
+      - .envs/.env_postgres
+#    environment:
+#      - POSTGRES_USER=web_ai_db_username
+#      - POSTGRES_PASSWORD=web_ai_db_password
+#      - POSTGRES_DB=web_ai_db_dev
+
+  nginx:
+    build: ./nginx
+    image: nginx:latest
+    depends_on:
+      - fastapi
+    ports:
+        - "80:80"
+        - "443:443"
+    volumes:
+        - ./nginx/default.conf:/etc/nginx/default.conf
+        - ./src/statics:/code/statics
+

@@ -1,0 +1,33 @@
+name: Tests
+
+on:
+  pull_request:
+    branches-ignore:
+      - 'master'
+      - 'release'
+    types: [ opened, synchronize, reopened ]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Validate code
+        id: build-image
+        env:
+          IMAGE_TAG: ${{github.run_number}}
+        run: |
+          # Build a docker container and push it to ECR
+          cp .envs/.env_github .envs/.env
+          make build
+          make flake8
+          make black
+      - name: Send slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took,pullRequest # selectable (default: repo,message)
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }} # required
+        if: always() # Pifails or is canceled.

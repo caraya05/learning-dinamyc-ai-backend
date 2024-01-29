@@ -1,0 +1,40 @@
+version: '3.7'
+
+services:
+  fastapi:
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+    command: ./fastapi-entrypoint-loc.sh
+    env_file:
+      - .envs/.env
+    volumes:
+      - ./src/:/code
+    ports:
+      - 9000:9000
+#    environment:
+#      - DATABASE_URI=postgresql://prospero_db_username:prospero_db_password@postgres/prospero_db_dev
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:12.1-alpine
+    ports:
+      - 5432:5432
+    volumes:
+      - .postgres_data_base:/var/lib/postgresql/data/
+    env_file:
+      - .envs/.env_postgres
+#    environment:
+#      - POSTGRES_USER=prospero_db_username
+#      - POSTGRES_PASSWORD=prospero_db_password
+#      - POSTGRES_DB=prospero_db_dev
+
+  nginx:
+    build: ./nginx
+    image: nginx:latest
+    depends_on:
+      - fastapi
+    ports:
+      - "80:80"
+      - "443:443"
