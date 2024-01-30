@@ -1,0 +1,32 @@
+name: Despliegue Develop
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Código
+      uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.TOKEN_GITHUB }}
+
+    - name: Despliegue en Digital Ocean
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.DIGITAL_OCEAN_HOST }}
+        username: ${{ secrets.DIGITAL_OCEAN_USERNAME }}
+        key: ${{ secrets.DIGITAL_OCEAN_SSH_KEY }}
+        passphrase: ${{ secrets.DIGITAL_OCEAN_SSH_KEY_PASSPHRASE }}
+        script: |
+          git config --global url."https://${{ secrets.GH_PAT }}@github.com/".insteadOf "https://github.com/"
+          cd /root/.project/qwestar-ai-backend
+          make stop
+          git pull origin develop
+          make build
+          make up-pro
+          make apply-migrations

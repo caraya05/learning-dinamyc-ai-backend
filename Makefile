@@ -8,7 +8,7 @@ up-pro:
 	docker-compose  up -d
 
 up-db-pro:
-	docker-compose  up postgres -d
+	docker-compose  up -d postgres
 
 down:
 	docker-compose  down
