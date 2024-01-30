@@ -46,7 +46,7 @@ from admin_config import authentication_backend
 from sqladmin import Admin
 
 app = FastAPI(
-    title="Qwestar AI API",
+    title="Qwestar AI API Documentation",
     description="Qwestar AI is a game that uses AI to generate stories, characters, and images.",
     version="1.0",
     docs_url="/v1/api/docs",
