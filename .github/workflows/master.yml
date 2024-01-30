@@ -10,11 +10,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set up Git credentials
-      run: |
-        echo "Setting up Git credentials... ${{ secrets.TOKEN_GITHUB }}" 
-        git config --global url."https://${{ secrets.TOKEN_GITHUB }}@github.com/".insteadOf "https://github.com/"
-
     - name: Checkout Código
       uses: actions/checkout@v2
       with:
@@ -24,12 +19,14 @@ jobs:
       uses: appleboy/ssh-action@master
 
       with:
+        token: ${{ secrets.TOKEN_GITHUB }}
         host: ${{ secrets.DIGITAL_OCEAN_HOST }}
         username: ${{ secrets.DIGITAL_OCEAN_USERNAME }}
         key: ${{ secrets.DIGITAL_OCEAN_SSH_KEY }}
         passphrase: ${{ secrets.DIGITAL_OCEAN_SSH_KEY_PASSPHRASE }}
         script: |
           cd /root/.project/qwestar-ai-backend
+          git config --global url."https://${{ secrets.TOKEN_GITHUB }}@github.com/".insteadOf "https://github.com/"
           make stop
           git pull origin master
           make build
