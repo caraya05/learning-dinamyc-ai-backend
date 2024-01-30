@@ -10,6 +10,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Set up Git credentials
+      run: |
+        git config --global url."https://${{ secrets.TOKEN_GITHUB }}@github.com/".insteadOf "https://github.com/"
+
     - name: Checkout Código
       uses: actions/checkout@v2
       with:
@@ -23,10 +27,9 @@ jobs:
         key: ${{ secrets.DIGITAL_OCEAN_SSH_KEY }}
         passphrase: ${{ secrets.DIGITAL_OCEAN_SSH_KEY_PASSPHRASE }}
         script: |
-          git config --global url."https://${{ secrets.TOKEN_GITHUB }}@github.com/".insteadOf "https://github.com/"
           cd /root/.project/qwestar-ai-backend
           make stop
-          git pull origin develop
+          git pull origin master
           make build
           make up-pro
           make apply-migrations
