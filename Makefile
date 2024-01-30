@@ -4,6 +4,9 @@ build:
 up:
 	docker-compose  up
 
+up-pro:
+	docker-compose  up -d
+
 down:
 	docker-compose  down
 
