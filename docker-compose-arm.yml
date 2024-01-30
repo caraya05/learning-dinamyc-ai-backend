@@ -25,10 +25,6 @@ services:
       - .postgres_data_base:/var/lib/postgresql/data/
     env_file:
       - .envs/.env_postgres
-#    environment:
-#      - POSTGRES_USER=web_ai_db_username
-#      - POSTGRES_PASSWORD=web_ai_db_password
-#      - POSTGRES_DB=web_ai_db_dev
 
   nginx:
     build: ./nginx
