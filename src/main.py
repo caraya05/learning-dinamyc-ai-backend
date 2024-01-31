@@ -78,7 +78,7 @@ app.include_router(game_progress_routers.router, prefix="/v1/api")
 app.include_router(game_routers.router, prefix="/v1/api")
 app.include_router(location_routers.router, prefix="/v1/api")
 app.include_router(scene_routers.router, prefix="/v1/api")
-app.include_router(prompt_routers.router, prefix="/v1/api")
+# app.include_router(prompt_routers.router, prefix="/v1/api")
 
 admin = Admin(
     app,
