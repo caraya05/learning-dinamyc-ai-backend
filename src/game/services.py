@@ -18,6 +18,7 @@ from character.services import create_character_service
 from location.schemas import SchemaCreateLocation
 from location.services import create_location_service
 from prompt.services import get_prompt_by_field
+from utils import upload_image
 
 
 def get_game_by_field(db: Session, field: str, value: str):
@@ -142,132 +143,133 @@ def update_partial_game_service(db: Session,
                                 user_id: str):
     game_db = get_game_by_field(db, 'id', game_id)
 
-    prompt_db_c = get_prompt_by_field(db, 'category', 'character')
-    prompt_db_ci = get_prompt_by_field(db, 'category', 'character_image')
-    prompt_db_l = get_prompt_by_field(db, 'category', 'location')
-    prompt_db_li = get_prompt_by_field(db, 'category', 'location_image')
+    # prompt_db_c = get_prompt_by_field(db, 'category', 'character')
+    # prompt_db_ci = get_prompt_by_field(db, 'category', 'character_image')
+    # prompt_db_l = get_prompt_by_field(db, 'category', 'location')
+    # prompt_db_li = get_prompt_by_field(db, 'category', 'location_image')
+    #
+    # if game_db:
+    #     json_schema = {
+    #         "characters": [
+    #             {
+    #                 "name": "string name character",
+    #                 "type": "string (leading role, enemy, other) in minuscule",
+    #                 "description": "string (description of the character)",
+    #             }
+    #         ]
+    #     }
+    #
+    #     content_prompt = [
+    #         {
+    #             "role": "system",
+    #             "content": f"Eres un gran escritor capaz de desarrollar una historia para cada personaje del juego,"
+    #                        f"utilizando una imagen de portada y una historia existente, crea cada personaje a detalle"
+    #                        f"con nombre, descripción detallada para ser utilizada como prompt para la generacion "
+    #                        f"de una imagen y tipo de personaje  entre los tipos (leading role, enemy, other), "
+    #         },
+    #         {
+    #             "role": "user",
+    #             "content": [
+    #                 {
+    #                     "type": "image_url",
+    #                     "image_url": {
+    #                         "url": game_update.image
+    #                     }
+    #                 },
+    #                 {
+    #                     "type": "text",
+    #                     "text": f"descripccion: {game_db.summary}"
+    #                 },
+    #                 {
+    #                     "type": "text",
+    #                     "text": prompt_db_c.description
+    #                 }
+    #             ]
+    #         }
+    #     ]
+    #
+    #     characters_generated = generate_gpt4_vision_(content_prompt=content_prompt)
+    #
+    #     content_prompt_2 = [
+    #         {
+    #             "role": "system",
+    #             "content": f"Eres un convertidor de respuesta de la IA a JSON, "
+    #                        f"capaz de convertir la respuesta de la IA a un JSON que contenga el esquema '{json_schema}'"
+    #         },
+    #         {
+    #             "role": "user",
+    #             "content": [
+    #                 {
+    #                     "type": "text",
+    #                     "text": prompt_db_l.description
+    #                 },
+    #
+    #                 {
+    #                     "type": "text",
+    #                     "text": characters_generated
+    #                 }
+    #             ]
+    #         }
+    #     ]
+    #
+    #     characters_list_generated = json.loads(generate_gpt4_(content_prompt=content_prompt_2))
+    #
+    #     for ch in characters_list_generated['characters']:
+    #         content_prompt_3 = (
+    #             f"{prompt_db_ci.description} :{ch['description']}")
+    #
+    #         image_character_generated = generate_image_dalle(prompt=content_prompt_3)
+    #
+    #         ch['image'] = image_character_generated
+    #
+    #         create_character_service(db=db,
+    #                                  character=SchemaCreateCharacter(**ch),
+    #                                  game_id=game_id,
+    #                                  user_id=user_id)
+    #
+    #         json_schema_location = {
+    #             "title": "string title location",
+    #             "description": "string (description of the location)",
+    #         }
+    #
+    #         content_prompt_3 = [
+    #             {
+    #                 "role": "system",
+    #                 "content": f"Eres un gran escritor capaz de desarrollar una historia para cada locacion del juego,"
+    #                            f"en base a la descripcion de un personaje, crea cada locacion a detalle con el nombre y la desripcion"
+    #                            f"detallada para ser utilizada como prompt para la generacion de una imagen, la respuesta de la IA"
+    #                            f"debe ser un JSON que contenga el esquema '{json_schema_location}'"
+    #             },
+    #             {
+    #                 "role": "user",
+    #                 "content": [
+    #
+    #                     {
+    #                         "type": "text",
+    #                         "text": characters_generated
+    #                     }
+    #                 ]
+    #             }
+    #         ]
+    #
+    #         location_generated = generate_gpt4_(content_prompt=content_prompt_3)
+    #
+    #         location_generated = json.loads(location_generated)
+    #
+    #         create_location_service(db=db,
+    #                                 schema=SchemaCreateLocation(**location_generated),
+    #                                 game_id=game_id,
+    #                                 user_id=user_id)
 
-    if game_db:
-        json_schema = {
-            "characters": [
-                {
-                    "name": "string name character",
-                    "type": "string (leading role, enemy, other) in minuscule",
-                    "description": "string (description of the character)",
-                }
-            ]
-        }
+    try:
+        game_db.photo = upload_image(url_image=game_update.image, file_name=f"covers/{game_id}-cover.jpg")
 
-        content_prompt = [
-            {
-                "role": "system",
-                "content": f"Eres un gran escritor capaz de desarrollar una historia para cada personaje del juego,"
-                           f"utilizando una imagen de portada y una historia existente, crea cada personaje a detalle"
-                           f"con nombre, descripción detallada para ser utilizada como prompt para la generacion "
-                           f"de una imagen y tipo de personaje  entre los tipos (leading role, enemy, other), "
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": game_update.image
-                        }
-                    },
-                    {
-                        "type": "text",
-                        "text": f"descripccion: {game_db.summary}"
-                    },
-                    {
-                        "type": "text",
-                        "text": prompt_db_c.description
-                    }
-                ]
-            }
-        ]
-
-        characters_generated = generate_gpt4_vision_(content_prompt=content_prompt)
-
-        content_prompt_2 = [
-            {
-                "role": "system",
-                "content": f"Eres un convertidor de respuesta de la IA a JSON, "
-                           f"capaz de convertir la respuesta de la IA a un JSON que contenga el esquema '{json_schema}'"
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": prompt_db_l.description
-                    },
-
-                    {
-                        "type": "text",
-                        "text": characters_generated
-                    }
-                ]
-            }
-        ]
-
-        characters_list_generated = json.loads(generate_gpt4_(content_prompt=content_prompt_2))
-
-        for ch in characters_list_generated['characters']:
-            content_prompt_3 = (
-                f"{prompt_db_ci.description} :{ch['description']}")
-
-            image_character_generated = generate_image_dalle(prompt=content_prompt_3)
-
-            ch['image'] = image_character_generated
-
-            create_character_service(db=db,
-                                     character=SchemaCreateCharacter(**ch),
-                                     game_id=game_id,
-                                     user_id=user_id)
-
-            json_schema_location = {
-                "title": "string title location",
-                "description": "string (description of the location)",
-            }
-
-            content_prompt_3 = [
-                {
-                    "role": "system",
-                    "content": f"Eres un gran escritor capaz de desarrollar una historia para cada locacion del juego,"
-                               f"en base a la descripcion de un personaje, crea cada locacion a detalle con el nombre y la desripcion"
-                               f"detallada para ser utilizada como prompt para la generacion de una imagen, la respuesta de la IA"
-                               f"debe ser un JSON que contenga el esquema '{json_schema_location}'"
-                },
-                {
-                    "role": "user",
-                    "content": [
-
-                        {
-                            "type": "text",
-                            "text": characters_generated
-                        }
-                    ]
-                }
-            ]
-
-            location_generated = generate_gpt4_(content_prompt=content_prompt_3)
-
-            location_generated = json.loads(location_generated)
-
-            create_location_service(db=db,
-                                    schema=SchemaCreateLocation(**location_generated),
-                                    game_id=game_id,
-                                    user_id=user_id)
-
-        try:
-            game_db.photo = game_update.image
-            db.commit()
-            db.refresh(game_db)
-            return game_db
-        except Exception as e:
-            print(e)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Game not updated",
-            )
+        db.commit()
+        db.refresh(game_db)
+        return game_db
+    except Exception as e:
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Game not updated",
+        )

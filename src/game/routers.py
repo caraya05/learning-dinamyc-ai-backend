@@ -17,6 +17,7 @@ from game.services import get_games_service, get_game_service, create_game_servi
 from gpt_ai.utils import generate_image_dalle
 from gpt_ai.utils import generate_gpt4_
 from prompt.services import get_prompt_by_field
+from utils import upload_image
 
 router = APIRouter(prefix="/game", tags=["Game"])
 
@@ -250,6 +251,7 @@ def partial_update_game(game_id: str,
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         )
+
 
     game_db = update_partial_game_service(db, game_id, game, current_user['sub'])
 

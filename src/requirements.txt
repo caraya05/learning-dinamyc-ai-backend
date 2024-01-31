@@ -36,3 +36,4 @@ openai
 fastapi-mail
 pyrebase
 firebase-admin
+boto3

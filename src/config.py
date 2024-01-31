@@ -23,6 +23,8 @@ class Settings(BaseSettings):
     base_dir = os.path.dirname(os.path.abspath(__file__))
     admin_superuser: str = None
     admin_superuser_password: str = None
+    ACCESS_ID_DIGITAL_OCEAN: str = None
+    SECRET_KEY_DIGITAL_OCEAN: str = None
 
 
 
