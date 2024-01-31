@@ -26,7 +26,6 @@ class SchemaRetrieveUser(BaseModel):
     id: UUID
     username: str = Field(..., min_length=3, max_length=100,
                           example="Jhon Doe")
-    password: str = Field(..., min_length=8, example="Password123")
     phone_number: str = Field(..., max_length=10,
                               example="123456789")
     email: str = Field(..., strip_whitespace=True, unique=True, example="jhon@gmail.com")
@@ -69,3 +68,10 @@ class SchemaPartialUpdateUser(BaseModel):
     email: Optional[str] = Field(..., strip_whitespace=True, unique=True,
                                  regex="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$",
                                  example="x@y.com")
+
+
+class SchemaError(BaseModel):
+    detail: str = Field(..., example="Error message")
+
+    class Config:
+        orm_mode = True

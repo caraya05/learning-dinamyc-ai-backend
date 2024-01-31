@@ -13,7 +13,7 @@ def verify_token_firebase(uid):
     try:
         # decoded_token = auth.verify_id_token(token, app=ai_toys_firebase)
         decoded_token = auth.get_user(uid, app=ai_toys_firebase)
-        print("decoded_token", decoded_token)
+        # print("decoded_token", decoded_token)
         uid_token = decoded_token.uid
         email_token = decoded_token.email
         # if uid_token == uid and email_token == email:
