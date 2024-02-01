@@ -26,6 +26,7 @@ class Character(AbstractBaseModel):
     TYPE_CHARACTER = [
         ("leading role", "leading role"),
         ("enemy", "enemy"),
+        ("antagonist", "antagonist"),
         ("other", "other"),
     ]
 
@@ -34,7 +35,9 @@ class Character(AbstractBaseModel):
     type: str = Column(ChoiceType(TYPE_CHARACTER), nullable=False)
     description: str = Column(Text, nullable=False)
     image: str = Column(String, nullable=True)
+    genre: str = Column(String, nullable=True)
     game_id: str = Column(String, nullable=False)
+
 
     def __repr__(self):
         return f"<Character {self.name} - {self.type}>"

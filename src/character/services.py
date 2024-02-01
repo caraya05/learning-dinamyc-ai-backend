@@ -40,7 +40,7 @@ def create_character_service(db: Session, character: SchemaCreateCharacter, game
         print(e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Character not created",
+            detail="Character not created {}",
         )
 
 

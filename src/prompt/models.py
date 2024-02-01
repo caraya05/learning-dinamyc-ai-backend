@@ -15,17 +15,6 @@ from utils import generate_uuid
 Base = declarative_base()
 
 
-class OptionPrompt(str, Enum):
-    character = "character"
-    location = "location"
-    scene = "scene"
-    cover = "cover"
-    history = "history"
-    character_image = "character_image"
-    location_image = "location_image"
-    script = "script"
-
-
 class AbstractBaseModel(Base):
     __abstract__ = True
     id = Column(String, name="id", primary_key=True, default=generate_uuid, index=True)
@@ -38,10 +27,12 @@ class AbstractBaseModel(Base):
 class Prompt(AbstractBaseModel):
     CATEGORY = [
         ("character", "character"),
+        ("characters_principal", "characters_principal"),
         ("location", "location"),
         ("scene", "scene"),
         ("cover", "cover"),
         ("history", "history"),
+        ("synopsis", "synopsis"),
         ("character_image", "character_image"),
         ("location_image", "location_image"),
         ("script", "script"),
@@ -49,6 +40,7 @@ class Prompt(AbstractBaseModel):
     __tablename__ = "prompt"
     title: str = Column(String, unique=True, index=False)
     description: str = Column(Text, nullable=False)
+    prompt_system: str = Column(Text, nullable=True)
     category: str = Column(ChoiceType(CATEGORY), nullable=False)
     is_active: bool = Column(Boolean, nullable=False, default=True)
 

@@ -33,21 +33,21 @@ def get_user_authenticate(db: Session, user: SchemaLogin) -> User:
 
 
 def generate_tokens(user: User):
-    data = {
-        "id": user.id,
-        "username": user.username,
-        "email": user.email,
-        "is_active": user.is_active,
-        "is_superuser": user.is_superuser,
-    }
+    # data = {
+    #     "id": user.id,
+    #     "username": user.username,
+    #     "email": user.email,
+    #     "is_active": user.is_active,
+    #     "is_superuser": user.is_superuser,
+    # }
     access_token_expires = timedelta(minutes=settings.authjwt_access_token_expires)
     auth = AuthJWT()
     return SchemaTokenAccess(
         access=auth.create_access_token(
-            subject=data, expires_time=access_token_expires
+            subject=user.id, expires_time=access_token_expires
         ),
         refresh=auth.create_refresh_token(
-            subject=data, expires_time=timedelta(hours=24)
+            subject=user.id, expires_time=timedelta(hours=24)
         ),
     )
 

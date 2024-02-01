@@ -14,10 +14,14 @@ def get_prompt_by_field(db: Session, field: str, value: str):
     """
     Get a prompt by a field.
     """
-    prompt = db.query(Prompt).filter(getattr(Prompt, field) == value).first()
-    if not prompt:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Prompt with {field} {value} not found")
-    return prompt
+
+    try:
+        prompt = db.query(Prompt).filter(getattr(Prompt, field) == value).first()
+        if not prompt:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Prompt with {field} {value} not found")
+        return prompt
+    except AttributeError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid field to filter prompts.")
 
 
 def get_prompts_service(db: Session, skip: int = 0, limit: int = 100):

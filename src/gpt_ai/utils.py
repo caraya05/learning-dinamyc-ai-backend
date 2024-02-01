@@ -113,6 +113,7 @@ def generate_gpt4_vision_(content_prompt: list[dict],
 
 
 def generate_gpt4_(content_prompt: list[dict],
+                   type_text: str = "",
                    max_tokens: int = 1000,
                    model: str = "gpt-4-1106-preview"):
     try:
@@ -120,11 +121,15 @@ def generate_gpt4_(content_prompt: list[dict],
             model=model,
             response_format={"type": "json_object"},
             messages=content_prompt,
-            max_tokens=max_tokens
+            max_tokens=max_tokens,
+            # temperature=0.6,
+            # top_p=0.8,
+            # frequency_penalty=0.6,
+            # presence_penalty=0.7
         )
 
         return response.choices[0].message.content
 
     except Exception as e:
         print(e)
-        raise Exception("Text not generated")
+        raise Exception(f"Text not generated - {type_text}")

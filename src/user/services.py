@@ -94,22 +94,27 @@ def update_password_service(db: Session, change_password: SchemaUpdatePassword):
 
 
 def get_or_created_user_service(db: Session, user: dict):
-    user_db = get_user_by_field(db, "email", user["email"])
+    user_db = get_user_by_field(db, "email", user.email)
     if user_db:
         return user_db
     else:
-        user_db = User(
-            email=user["email"],
-            username=user["name"],
-            password=get_password_hash(user["sub"] + user["user_id"]),
-            provider=user["firebase"]["sign_in_provider"],
-            is_active=True,
-            uid=user["uid"],
-            photo=user["picture"],
-            created_by=user["email"],
-            updated_by=user["email"],
-        )
-        db.add(user_db)
-        db.commit()
-        db.refresh(user_db)
-        return user_db
+        try:
+            user_db_ = User(
+                email=user.email,
+                username=user.display_name,
+                password=get_password_hash(user.email + user.uid),
+                provider=user.provider_id,
+                is_active=True,
+                uid=user.uid,
+                photo=user.photo_url,
+                created_by=user.email,
+                updated_by=user.email,
+            )
+            db.add(user_db_)
+            db.commit()
+            db.refresh(user_db_)
+            return user_db_
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail=f"User not created {e}"
+            )
