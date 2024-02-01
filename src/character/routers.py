@@ -1,4 +1,3 @@
-import uuid
 
 from fastapi import APIRouter
 from fastapi import Depends
@@ -20,6 +19,7 @@ from character.services import create_character_service
 from character.services import get_character_service
 from character.services import get_characters_service
 from character.services import update_partial_character_service
+from config import auth_scheme
 
 router = APIRouter(prefix='/characters', tags=['Characters'])
 
@@ -30,8 +30,9 @@ def get_db(request: Request):
 
 @router.get("/", response_model=SchemaListCharacter)
 def get_characters(db: Session = Depends(get_db),
+                   game_id: str = None,
                    Authorize: AuthJWT = Depends(),
-                   Token: HTTPAuthorizationCredentials = Depends(),
+                   Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
                    ):
     """
     This endpoint retrieves all characters.
@@ -49,8 +50,10 @@ def get_characters(db: Session = Depends(get_db),
             detail="Invalid token",
         )
 
-    characters_db = get_characters_service(db, skip=0, limit=100)
+    characters_db = get_characters_service(db, skip=0, limit=100, game_id=game_id)
+    print(characters_db[0].__dict__)
 
+    # return SchemaListCharacter(results=characters_db, count=len(characters_db))
     return SchemaListCharacter(results=characters_db, count=len(characters_db))
 
 

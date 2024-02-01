@@ -22,9 +22,17 @@ def get_character_service(db: Session, character_id: str):
     return character_db
 
 
-def get_characters_service(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(Character).offset(skip).limit(limit).all()
-
+def get_characters_service(db: Session, skip: int = 0, limit: int = 100, game_id: str = None):
+    try:
+        if game_id:
+            return db.query(Character).filter(Character.game_id == game_id).offset(skip).limit(limit).all()
+        return db.query(Character).offset(skip).limit(limit).all()
+    except Exception as e:
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Characters not found",
+        )
 
 def create_character_service(db: Session, character: SchemaCreateCharacter, game_id: str, user_id: str):
     try:

@@ -7,7 +7,7 @@ client = OpenAI(organization=settings.OPENAI_API_ORG_ID, api_key=settings.OPENAI
 def generate_image_dalle(prompt: str,
                          model: str = "dall-e-3",
                          count: int = 1,
-                         size: str = "1024x1024",
+                         size: str = "1024x1792",
                          quality: str = "standard"):
     try:
         response = client.images.generate(

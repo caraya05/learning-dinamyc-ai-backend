@@ -1,15 +1,18 @@
 from typing import Optional
 from uuid import UUID
 
+from fastapi import Query
 from pydantic import BaseModel
 from pydantic import Field
+
+from character.models import TypeCharacterEnum
 
 
 class SchemaCreateCharacter(BaseModel):
     name: str = Field(..., min_length=3, max_length=100,
                       example="Jhon Doe")
     genre: str = Field(..., min_length=3, max_length=100,
-                          example="male")
+                       example="male")
     type: str = Field(..., min_length=3, max_length=100,
                       example="leading role")
     description: str = Field(..., min_length=8, example="this is a description")
@@ -19,9 +22,8 @@ class SchemaRetrieveCharacter(BaseModel):
     id: UUID
     name: str = Field(..., min_length=3, max_length=100,
                       example="Jhon Doe")
-    type: str = Field(..., min_length=3, max_length=100,
-                      example="leading role")
-    image: str = Field(..., example="image")
+    type: TypeCharacterEnum = Query(..., example="leading role")
+    image: Optional[str] = Field(..., example="image", default_factory=None)
     description: str = Field(..., min_length=8, example="this is a description")
 
     class Config:

@@ -1,5 +1,5 @@
 import datetime
-from enum import Enum
+import enum
 
 from sqlalchemy import Column
 from sqlalchemy import String
@@ -12,6 +12,12 @@ from utils import generate_uuid
 
 Base = declarative_base()
 
+
+class TypeCharacterEnum(enum.Enum):
+    leading_role = "leading role"
+    enemy = "enemy"
+    antagonist = "antagonist"
+    other = "other"
 
 class AbstractBaseModel(Base):
     __abstract__ = True

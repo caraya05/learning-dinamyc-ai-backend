@@ -60,6 +60,7 @@ def create_game_service(db: Session, game: SchemaCreateGame, user_id: str):
                        history=history,
                        synopsis=synopsys['synopsis_generate'],
                        title=synopsys['title'],
+                       prompt_image=synopsys['prompt_image'],
                        user_id=user_id,
                        updated_by=user_id,
                        created_by=user_id,

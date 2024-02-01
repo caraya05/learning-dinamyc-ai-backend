@@ -27,6 +27,7 @@ class Game(AbstractBaseModel):
     history: str = Column(Text, nullable=True)
     image: str = Column(String, nullable=True)
     image_background: str = Column(String, nullable=True)
+    prompt_image: str = Column(String, nullable=True)
     # is_active: bool = Column(Boolean, default=False)
     # location: str = Column(Text, nullable=True)
     # characters: str = Column(String, nullable=True)
