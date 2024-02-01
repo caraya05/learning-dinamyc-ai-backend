@@ -10,7 +10,10 @@ class PromptAdmin(ModelView, model=Prompt):
     can_create = True
     can_delete = True
     can_view_details = True
+    column_export_list = ["id", "created_at", "created_by", "updated_at", "updated_by", "title", "description",
+                          "category", "prompt_system", "is_active", ]
     can_export = True
+
     icon = "fa-solid fa-prompt"
     form_widget_args = {
         "created_at": {
