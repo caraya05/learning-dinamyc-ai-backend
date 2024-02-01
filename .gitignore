@@ -7,3 +7,5 @@ sql_app.db
 __pycache__
 .src/DS_Store
 src/serviceAccountKey.json
+src/alembic.ini
+nginx/ssl
