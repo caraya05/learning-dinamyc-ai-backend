@@ -8,4 +8,5 @@ __pycache__
 .src/DS_Store
 src/serviceAccountKey.json
 src/alembic.ini
-nginx/ssl
+nginx/ssl/cert.pem
+nginx/ssl/privkey.pem
