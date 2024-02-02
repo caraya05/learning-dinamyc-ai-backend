@@ -98,15 +98,18 @@ def get_or_created_user_service(db: Session, user: dict):
     if user_db:
         return user_db
     else:
+
+        username = user.display_name if user.display_name else user.email.split("@")[0]
+
         try:
             user_db_ = User(
                 email=user.email,
-                username=user.display_name,
+                username=username,
                 password=get_password_hash(user.email + user.uid),
                 provider=user.provider_id,
                 is_active=True,
                 uid=user.uid,
-                photo=user.photo_url,
+                photo=user.photo_url if user.photo_url else None,
                 created_by=user.email,
                 updated_by=user.email,
             )

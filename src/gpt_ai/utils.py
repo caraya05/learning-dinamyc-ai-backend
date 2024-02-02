@@ -1,3 +1,4 @@
+import openai
 from openai import OpenAI
 from config import settings
 
@@ -21,9 +22,9 @@ def generate_image_dalle(prompt: str,
 
         return response.data[0].url
 
-    except Exception as e:
+    except openai.APIError as e:
         print(e)
-        raise Exception("Image not generated")
+        raise Exception(f"Image not generated: {e}")
 
 
 def generate_gpt4_vision(prompt: list[str],
@@ -54,9 +55,9 @@ def generate_gpt4_vision(prompt: list[str],
 
         return response.choices[0].message
 
-    except Exception as e:
+    except openai.APIError as e:
         print(e)
-        raise Exception("Image not analyzed or text not generated")
+        raise Exception(f"Image not analyzed or text not generated: {e}")
 
 
 def generate_gpt4(prompt: str,
@@ -132,4 +133,4 @@ def generate_gpt4_(content_prompt: list[dict],
 
     except Exception as e:
         print(e)
-        raise Exception(f"Text not generated - {type_text}")
+        raise Exception(f"Text not generated {type_text} - {e}")

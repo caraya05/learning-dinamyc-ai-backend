@@ -18,6 +18,7 @@ class SchemaRetrieveGame(BaseModel):
     image: str = Field(..., example="photo", decimal_places=None)
     image_background: str = Field(..., example="photo background", decimal_places=None)
     story_line: Optional[str] = Field(..., example="story_line")
+    attempts: int = Field(..., example=3)
 
     class Config:
         orm_mode = True
@@ -32,5 +33,5 @@ class SchemaListGame(BaseModel):
 
 
 class SchemaPartialUpdateGame(BaseModel):
-    synopsis: Optional[str] = Field(..., min_length=10, example="this is a description")
+    # synopsis: Optional[str] = Field(..., min_length=10, example="this is a description")
     image: Optional[str] = Field(..., example="photo")

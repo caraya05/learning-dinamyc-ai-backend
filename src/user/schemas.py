@@ -26,12 +26,10 @@ class SchemaRetrieveUser(BaseModel):
     id: UUID
     username: str = Field(..., min_length=3, max_length=100,
                           example="Jhon Doe")
-    phone_number: str = Field(..., max_length=10,
-                              example="123456789")
     email: str = Field(..., strip_whitespace=True, unique=True, example="jhon@gmail.com")
 
-    created_at: datetime.date = Field(default=datetime.datetime.utcnow())
-    updated_at: datetime.date = Field(default=datetime.datetime.utcnow())
+    # created_at: datetime.date = Field(default=datetime.datetime.utcnow())
+    # updated_at: datetime.date = Field(default=datetime.datetime.utcnow())
 
     class Config:
         orm_mode = True

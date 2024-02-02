@@ -66,6 +66,7 @@ def create_game_service(db: Session, game: SchemaCreateGame, user_id: str):
                        created_by=user_id,
                        image="",
                        image_background="",
+                       attempts=3
                        )
         db.add(db_game)
         db.commit()
@@ -93,7 +94,8 @@ def create_game_service(db: Session, game: SchemaCreateGame, user_id: str):
 def update_partial_game_service(db: Session,
                                 game_id: str,
                                 game_update: SchemaPartialUpdateGame,
-                                user_id: str):
+                                user_id: str
+                                ):
     game_db = get_game_by_field(db, 'id', game_id)
 
     # prompt_db_c = get_prompt_by_field(db, 'category', 'character')
@@ -215,8 +217,8 @@ def update_partial_game_service(db: Session,
     #                                 user_id=user_id)
 
     try:
-        game_db.photo = upload_image(url_image=game_update.image, file_name=f"covers/{game_id}-cover.jpg")
-
+        game_db.photo = upload_image(url_image=game_update.image, file_name=f"{game_id}/covers/cover.jpg")
+        game_db.updated_by = user_id
         db.commit()
         db.refresh(game_db)
         return game_db
@@ -224,5 +226,18 @@ def update_partial_game_service(db: Session,
         print(e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Game not updated",
+            detail="has reached the maximum number of generation attempts",
         )
+
+
+def subtract_attempts_game_service(db: Session, game_id: str):
+    game_db = get_game_by_field(db, 'id', game_id)
+    if game_db.attempts > 0:
+        game_db.attempts = game_db.attempts - 1
+        db.commit()
+        db.refresh(game_db)
+        return True
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Attempts not subtracted",
+    )

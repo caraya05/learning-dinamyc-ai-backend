@@ -3,6 +3,7 @@ import datetime
 from sqlalchemy import Column
 from sqlalchemy import String
 from sqlalchemy import Date
+from sqlalchemy import Integer
 from sqlalchemy import Text
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -33,7 +34,7 @@ class Game(AbstractBaseModel):
     # characters: str = Column(String, nullable=True)
     story_line = Column(Text, nullable=False)
     user_id: str = Column(String, nullable=False)
-
+    attempts: int = Column(Integer, nullable=True)
     # is_multiverse: bool = Column(Boolean, default=False)
     # multiverse = Column(ARRAY(String), nullable=True)
     # is_future_travel: bool = Column(Boolean, default=False)
