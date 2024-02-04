@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Optional
 from uuid import UUID
 
@@ -15,10 +16,12 @@ class SchemaRetrieveGame(BaseModel):
                        example="Call of suty")
     history: str = Field(..., example="history of the game")
     synopsis: str = Field(..., example="synopsis og the game")
-    image: str = Field(..., example="photo", decimal_places=None)
-    image_background: str = Field(..., example="photo background", decimal_places=None)
+    image: Optional[str] = Field(..., example="photo", decimal_places=None)
+    image_background: Optional[str] = Field(..., example="photo background", decimal_places=None)
     story_line: Optional[str] = Field(..., example="story_line")
-    attempts: int = Field(..., example=3)
+    attempts: Optional[int] = Field(..., example=3)
+    created_at: date
+    created_by: str
 
     class Config:
         orm_mode = True

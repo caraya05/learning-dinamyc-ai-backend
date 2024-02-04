@@ -41,6 +41,10 @@ from prompt import routers as prompt_routers
 from prompt import models as prompt_base
 from prompt.admin import PromptAdmin
 
+from script import routers as script_routers
+from script import models as script_base
+from script.admin import ScriptAdmin
+
 from admin_config import authentication_backend
 
 from sqladmin import Admin
@@ -73,11 +77,12 @@ app.add_middleware(
 
 app.include_router(user_routers.router, prefix="/v1/api")
 app.include_router(token_routers.router, prefix="/v1/api")
+app.include_router(game_routers.router, prefix="/v1/api")
+app.include_router(script_routers.router, prefix="/v1/api")
 app.include_router(character_routers.router, prefix="/v1/api")
 # app.include_router(game_progress_routers.router, prefix="/v1/api")
-app.include_router(game_routers.router, prefix="/v1/api")
-# app.include_router(location_routers.router, prefix="/v1/api")
-# app.include_router(scene_routers.router, prefix="/v1/api")
+app.include_router(location_routers.router, prefix="/v1/api")
+app.include_router(scene_routers.router, prefix="/v1/api")
 # app.include_router(prompt_routers.router, prefix="/v1/api")
 
 admin = Admin(

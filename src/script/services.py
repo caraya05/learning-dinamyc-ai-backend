@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import asc
 from starlette import status
 
 from script.models import Script
@@ -20,11 +21,13 @@ def get_script_by_field(db: Session, field: str, value: str):
     return script
 
 
-def get_scripts_service(db: Session, skip: int = 0, limit: int = 100):
+def get_scripts_service(db: Session, game_id: str, skip: int = 0, limit: int = 100):
     """
     Get a list of scripts.
     """
-    scripts = db.query(Script).offset(skip).limit(limit).all()
+    scripts = (db.query(Script).filter(Script.game_id == game_id).order_by(asc(Script.order))
+               .offset(skip).limit(limit).all())
+
     return SchemaListScript(results=scripts, count=len(scripts))
 
 
@@ -36,15 +39,20 @@ def get_script_service(db: Session, script_id: str):
     return SchemaRetrieveScript.from_orm(script)
 
 
-def create_script_service(db: Session, schema: SchemaCreateScript):
+def create_script_service(db: Session, schema: SchemaCreateScript, user_id: str):
     """
     Create a script.
     """
-    script = Script(**schema.dict())
-    db.add(script)
-    db.commit()
-    db.refresh(script)
-    return SchemaRetrieveScript.from_orm(script)
+    try:
+        script = Script(**schema.dict())
+        script.created_by = user_id
+        script.updated_by = user_id
+        db.add(script)
+        db.commit()
+        db.refresh(script)
+        return SchemaRetrieveScript.from_orm(script)
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 def partial_update_script_service(db: Session, script_id: str, schema: SchemaPartialUpdateScript):
@@ -57,5 +65,3 @@ def partial_update_script_service(db: Session, script_id: str, schema: SchemaPar
     db.commit()
     db.refresh(script)
     return SchemaRetrieveScript.from_orm(script)
-
-

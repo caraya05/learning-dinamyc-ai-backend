@@ -1,4 +1,3 @@
-
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
@@ -10,16 +9,16 @@ from fastapi_jwt_auth import AuthJWT
 
 from sqlalchemy.orm import Session
 
-from character.schemas import SchemaCreateCharacter
-from character.schemas import SchemaPartialUpdateCharacter
+from character.schemas import SchemaUpdatePhotoCharacter
 from character.schemas import SchemaRetrieveCharacter
 from character.schemas import SchemaListCharacter
 
-from character.services import create_character_service
-from character.services import get_character_service
+from character.services import get_character_service, update_attempts_character_service
 from character.services import get_characters_service
 from character.services import update_partial_character_service
 from config import auth_scheme
+from gpt_ai.utils import generate_image_dalle
+from prompt.services import get_prompt_by_field
 
 router = APIRouter(prefix='/characters', tags=['Characters'])
 
@@ -29,8 +28,8 @@ def get_db(request: Request):
 
 
 @router.get("/", response_model=SchemaListCharacter)
-def get_characters(db: Session = Depends(get_db),
-                   game_id: str = None,
+def get_characters(game_id: str,
+                   db: Session = Depends(get_db),
                    Authorize: AuthJWT = Depends(),
                    Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
                    ):
@@ -61,7 +60,7 @@ def get_characters(db: Session = Depends(get_db),
 def get_character(character_id: str,
                   db: Session = Depends(get_db),
                   Authorize: AuthJWT = Depends(),
-                  Token: HTTPAuthorizationCredentials = Depends(),
+                  Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
                   ):
     """
     This endpoint retrieves a character.
@@ -85,40 +84,40 @@ def get_character(character_id: str,
     return SchemaRetrieveCharacter.from_orm(character_db)
 
 
-@router.post("/", response_model=SchemaRetrieveCharacter)
-def create_character(character: SchemaCreateCharacter,
-                     db: Session = Depends(get_db),
-                     Authorize: AuthJWT = Depends(),
-                     Token: HTTPAuthorizationCredentials = Depends(),
-                     ):
-    """
-    This endpoint creates a character.
-
-    It expects the character's information in the request body.
-    If the character is successfully created, it returns the character's information.
-    """
-
-    try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-        )
-
-    character_db = create_character_service(db, character=character)
-
-    return SchemaRetrieveCharacter.from_orm(character_db)
+# @router.post("/", response_model=SchemaRetrieveCharacter)
+# def create_character(character: SchemaCreateCharacter,
+#                      db: Session = Depends(get_db),
+#                      Authorize: AuthJWT = Depends(),
+#                      Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+#                      ):
+#     """
+#     This endpoint creates a character.
+#
+#     It expects the character's information in the request body.
+#     If the character is successfully created, it returns the character's information.
+#     """
+#
+#     try:
+#         Authorize.jwt_required()
+#         current_user = Authorize.get_jwt_subject()
+#
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Invalid token",
+#         )
+#
+#     character_db = create_character_service(db, character=character)
+#
+#     return SchemaRetrieveCharacter.from_orm(character_db)
 
 
 @router.patch("/{character_id}", response_model=SchemaRetrieveCharacter)
 def partial_update_character(character_id: str,
-                             character_update: SchemaPartialUpdateCharacter,
+                             character_update: SchemaUpdatePhotoCharacter,
                              db: Session = Depends(get_db),
                              Authorize: AuthJWT = Depends(),
-                             Token: HTTPAuthorizationCredentials = Depends(),
+                             Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
                              ):
     """
     This endpoint partially updates a character.
@@ -140,3 +139,35 @@ def partial_update_character(character_id: str,
     character_db = update_partial_character_service(db, character_id=character_id, character_update=character_update)
 
     return SchemaRetrieveCharacter.from_orm(character_db)
+
+
+@router.get("/generate_image/{character_id}")
+def generate_image(character_id: str,
+                   db: Session = Depends(get_db),
+                   Authorize: AuthJWT = Depends(),
+                   Token: HTTPAuthorizationCredentials = Depends(auth_scheme), ):
+    """
+    This endpoint generates an image for a character.
+
+    It expects the character's information in the request body.
+    If the image is successfully generated, it returns the image.
+    """
+
+    character_db = get_character_service(db, character_id=character_id)
+
+    if character_db.attempts == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character attempts exhausted",
+        )
+
+    prompt_db_image_character = get_prompt_by_field(db, 'category', 'character_image')
+
+    prompt_content = prompt_db_image_character.description.replace('x_personaje',
+                                                                   f"{character_db.name} {character_db.description}")
+
+    image_generated = generate_image_dalle(prompt_content)
+
+    update_attempts_character_service(db, character_id=character_id)
+
+    return {"image": image_generated}

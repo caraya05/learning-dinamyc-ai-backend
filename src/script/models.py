@@ -1,7 +1,7 @@
 import datetime
 from enum import Enum
 
-from sqlalchemy import Column
+from sqlalchemy import Column, Integer
 from sqlalchemy import String
 from sqlalchemy import Date
 from sqlalchemy import Text
@@ -23,9 +23,10 @@ class AbstractBaseModel(Base):
 
 class Script(AbstractBaseModel):
     __tablename__ = "script"
-    title: str = Column(String, unique=True, index=False)
+    title: str = Column(String, index=False)
     description: str = Column(Text, nullable=False)
     game_id: str = Column(String, nullable=False)
+    order: int = Column(Integer, nullable=False)
 
     def __repr__(self):
         return f"<Script {self.title} - {self.game_id}>"

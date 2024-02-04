@@ -30,7 +30,8 @@ def get_db(request: Request):
 
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
-def get_locations(db: Session = Depends(get_db),
+def get_locations(game_id: str,
+                  db: Session = Depends(get_db),
                   Authorize: AuthJWT = Depends(),
                   Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
                   ):
@@ -50,9 +51,9 @@ def get_locations(db: Session = Depends(get_db),
             detail="Invalid token",
         )
 
-    locations_db = get_locations_service(db, skip=0, limit=100)
+    locations_db = get_locations_service(db, skip=0, limit=100,game_id=game_id)
 
-    return SchemaListLocation(results=locations_db, count=len(locations_db))
+    return locations_db
 
 
 @router.get("/{location_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveLocation)
@@ -83,32 +84,32 @@ def get_location(location_id: str,
     return location_db
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveLocation)
-def create_location(schema: SchemaCreateLocation,
-                    db: Session = Depends(get_db),
-                    Authorize: AuthJWT = Depends(),
-                    Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                    ):
-    """
-    This endpoint creates a location.
-
-    It expects the location's information in the request body.
-    If the location is successfully created, it returns the location's information.
-    """
-
-    try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-        )
-
-    location_db = create_location_service(db, schema)
-
-    return location_db
+# @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveLocation)
+# def create_location(schema: SchemaCreateLocation,
+#                     db: Session = Depends(get_db),
+#                     Authorize: AuthJWT = Depends(),
+#                     Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+#                     ):
+#     """
+#     This endpoint creates a location.
+#
+#     It expects the location's information in the request body.
+#     If the location is successfully created, it returns the location's information.
+#     """
+#
+#     try:
+#         Authorize.jwt_required()
+#         current_user = Authorize.get_jwt_subject()
+#
+#     except Exception as e:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Invalid token",
+#         )
+#
+#     location_db = create_location_service(db, schema)
+#
+#     return location_db
 
 
 @router.patch("/{location_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveLocation)

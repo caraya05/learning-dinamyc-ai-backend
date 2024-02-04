@@ -13,6 +13,8 @@ class SchemaCreateScript(BaseModel):
 
     title: str
     description: str
+    order: int
+    game_id: str
 
 
 class SchemaRetrieveScript(BaseModel):
@@ -25,9 +27,10 @@ class SchemaRetrieveScript(BaseModel):
     description (str): The description of the script.
     """
 
-    id: int
+    id: str
     title: str
     description: str
+    order: int
 
     class Config:
         orm_mode = True

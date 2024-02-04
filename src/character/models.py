@@ -2,6 +2,7 @@ import datetime
 import enum
 
 from sqlalchemy import Column
+from sqlalchemy import Integer
 from sqlalchemy import String
 from sqlalchemy import Date
 from sqlalchemy import Text
@@ -43,7 +44,7 @@ class Character(AbstractBaseModel):
     image: str = Column(String, nullable=True)
     genre: str = Column(String, nullable=True)
     game_id: str = Column(String, nullable=False)
-
+    attempts: int = Column(Integer, nullable=True)
 
     def __repr__(self):
         return f"<Character {self.name} - {self.type}>"

@@ -1,3 +1,5 @@
+import json
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette import status
@@ -8,6 +10,11 @@ from location.schemas import SchemaRetrieveLocation
 from location.schemas import SchemaCreateLocation
 from location.schemas import SchemaPartialUpdateLocation
 from location.schemas import SchemaListLocation
+from prompt.services import get_prompt_by_field
+
+from gpt_ai.utils import generate_image_dalle
+from gpt_ai.utils import generate_gpt4_
+from utils import upload_image
 
 
 def get_location_by_field(db: Session, field: str, value: str):
@@ -20,11 +27,56 @@ def get_location_by_field(db: Session, field: str, value: str):
     return location
 
 
-def get_locations_service(db: Session, skip: int = 0, limit: int = 100):
+def get_locations_service(db: Session, game_id: str, skip: int = 0, limit: int = 100):
     """
     Get a list of locations.
     """
-    locations = db.query(Location).offset(skip).limit(limit).all()
+    locations = db.query(Location).filter(Location.game_id == game_id).offset(skip).limit(limit).all()
+
+    prompt_db_image_location = get_prompt_by_field(db, "category", "location_image")
+
+    json_response = {
+        "description": "string (description of the location)",
+    }
+
+    for location in locations:
+        if not location.image:
+            content = [
+                {
+                    "role": "system",
+                    "content": f"response con el siguiente JSON {json_response} "
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Describe en 5 renglones una pared de ESCENARIO  , y en otros 5 renglones el piso adjunto a esta pared de ESCENARIO"
+                        },
+                        {
+                            "type": "text",
+                            "text": f"Escenario: {location.title} - {location.description}"
+                        }
+                    ]
+                }
+            ]
+
+            description = generate_gpt4_(content_prompt=content,
+                                         max_tokens=4096)
+
+            description = json.loads(description)
+
+            image_generate = generate_image_dalle(
+                f"{prompt_db_image_location.description} {description['description']}")
+
+            image_name = location.title.replace(" ", "_")
+
+            location.image = upload_image(url_image=image_generate,
+                                          file_name=f"{location.game_id}/locations/{image_name}.jpg")
+
+            db.commit()
+            db.refresh(location)
+
     return SchemaListLocation(results=locations, count=len(locations))
 
 
@@ -36,14 +88,13 @@ def get_location_service(db: Session, location_id: str):
     return SchemaRetrieveLocation.from_orm(location)
 
 
-def create_location_service(db: Session, schema: SchemaCreateLocation, user_id: str, game_id: str):
+def create_location_service(db: Session, schema: SchemaCreateLocation, user_id: str):
     """
     Create a location.
     """
     try:
         location = Location(**schema.dict())
         location.user_id = user_id
-        location.game_id = game_id
         location.created_by = user_id
         location.updated_by = user_id
         db.add(location)

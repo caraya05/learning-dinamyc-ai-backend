@@ -5,6 +5,7 @@ from sqlalchemy import String
 from sqlalchemy import Date
 from sqlalchemy import Integer
 from sqlalchemy import Text
+from sqlalchemy import Boolean
 from sqlalchemy.ext.declarative import declarative_base
 
 from utils import generate_uuid
@@ -35,6 +36,8 @@ class Game(AbstractBaseModel):
     story_line = Column(Text, nullable=False)
     user_id: str = Column(String, nullable=False)
     attempts: int = Column(Integer, nullable=True)
+    first_script: bool = Column(Boolean, nullable=True)
+    count_scripts: int = Column(Integer, nullable=True)
     # is_multiverse: bool = Column(Boolean, default=False)
     # multiverse = Column(ARRAY(String), nullable=True)
     # is_future_travel: bool = Column(Boolean, default=False)

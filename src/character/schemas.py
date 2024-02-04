@@ -17,6 +17,10 @@ class SchemaCreateCharacter(BaseModel):
                       example="leading role")
     description: str = Field(..., min_length=8, example="this is a description")
 
+    game_id: str = Field(..., min_length=3, max_length=100, example="game_id")
+
+    attempts: int = Field(..., example=0)
+
 
 class SchemaRetrieveCharacter(BaseModel):
     id: UUID
@@ -40,3 +44,7 @@ class SchemaListCharacter(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class SchemaUpdatePhotoCharacter(BaseModel):
+    image: str = Field(..., example="image")

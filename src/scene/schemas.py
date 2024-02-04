@@ -10,7 +10,11 @@ class SchemaCreateScene(BaseModel):
     title: str
     description: str
     script_id: str
-    characters: list[str]
+    characters_id: list[str]
+    location_id: str
+    dialogues: list[dict]
+    content: str
+    dynamic: str
 
 
 class SchemaPartialUpdateScene(BaseModel):
@@ -33,7 +37,11 @@ class SchemaRetrieveScene(BaseModel):
     title: str
     description: str
     script_id: str
-    characters: list[str]
+    characters_id: list[str]
+    location_id: str
+    dialogues: list[dict]
+    content: str
+    dynamic: str
 
     class Config:
         orm_mode = True

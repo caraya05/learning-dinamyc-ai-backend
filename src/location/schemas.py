@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
@@ -10,9 +10,11 @@ class SchemaCreateLocation(BaseModel):
     name (str): The name of the location.
     description (Optional[str]): The description of the location.
     """
-    name: str
+    title: str
     description: str
     image: Optional[str]
+    zoom: float
+    game_id: str
 
 
 class SchemaPartialUpdateLocation(BaseModel):
@@ -24,9 +26,8 @@ class SchemaPartialUpdateLocation(BaseModel):
     description (Optional[str]): The description of the location.
     image (Optional[str]): The image of the location.
     """
-    name: Optional[str]
-    description: Optional[str]
-    image: Optional[str]
+
+    zoom: Optional[float] = Field(0.0, title="The zoom of the location")
 
 
 class SchemaRetrieveLocation(BaseModel):
@@ -38,10 +39,11 @@ class SchemaRetrieveLocation(BaseModel):
     name (str): The name of the location.
     description (str): The description of the location.
     """
-    id: int
-    name: str
+    id: str
+    title: str
     description: str
-    name: str
+    image: Optional[str]
+    zoom: float
 
     class Config:
         orm_mode = True

@@ -4,6 +4,7 @@ from sqlalchemy import Column
 from sqlalchemy import String
 from sqlalchemy import Date
 from sqlalchemy import Text
+from sqlalchemy import Float
 from sqlalchemy.ext.declarative import declarative_base
 
 from utils import generate_uuid
@@ -22,10 +23,11 @@ class AbstractBaseModel(Base):
 
 class Location(AbstractBaseModel):
     __tablename__ = "location"
-    title: str = Column(String, unique=True, index=False)
+
+    title: str = Column(String, index=False)
     description: str = Column(Text, nullable=False)
     image: str = Column(String, nullable=True)
-    character_id: list[str] = Column(String, nullable=True)
+    zoom: float = Column(Float, nullable=True)
     game_id: str = Column(String, nullable=False)
 
     def __repr__(self):

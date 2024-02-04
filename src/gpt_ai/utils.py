@@ -123,11 +123,19 @@ def generate_gpt4_(content_prompt: list[dict],
             response_format={"type": "json_object"},
             messages=content_prompt,
             max_tokens=max_tokens,
-            # temperature=0.6,
+            temperature=0.6,
             # top_p=0.8,
             # frequency_penalty=0.6,
             # presence_penalty=0.7
         )
+
+        # response = client.chat.with_streaming_response.completions.create(
+        #     model=model,
+        #     response_format={"type": "json_object"},
+        #     messages=content_prompt,
+        #     max_tokens=max_tokens
+        # )
+        # print(response.__dict__)
 
         return response.choices[0].message.content
 
