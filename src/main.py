@@ -185,4 +185,4 @@ def check_if_token_in_denylist(decrypted_token):
 
 @app.get("/")
 async def root():
-    return {"message": "AI toys"}
+    return {"message": "Qwestar AI API"}
