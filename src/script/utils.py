@@ -11,7 +11,7 @@ def get_script_locations_chapter(synopsis: str, num: str, prompt_script: str):
         "characters": [
             {
                 "name": "string (name of the character)",
-                "description": "string (description of the character)",
+                "description": "string (description of the character in detail that can be used to generate an image)",
                 "type": "string (the character types are: leading role, other, enemy, antagonist."
                         "There can only be one antagonist, one leading role, one enemy and many others. ) ",
                 "genre": "string (genre of the character is man or woman )"
@@ -20,7 +20,7 @@ def get_script_locations_chapter(synopsis: str, num: str, prompt_script: str):
         "locations": [
             {
                 "name": "string (name of the location)",
-                "description": "string (description of the location)"
+                "description": "string (description of the location in detail to generate an image of the location)"
             }
         ],
         "objects": [
