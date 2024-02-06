@@ -96,7 +96,7 @@ def update_partial_game_service(db: Session,
     game_db = get_game_by_field(db, 'id', game_id)
 
     try:
-        game_db.photo = upload_image(url_image=game_update.image, file_name=f"{game_id}/covers/cover.jpg")
+        game_db.image = upload_image(url_image=game_update.image, file_name=f"{game_id}/covers/cover.jpg")
         game_db.updated_by = user_id
         db.commit()
         db.refresh(game_db)
@@ -119,4 +119,38 @@ def subtract_attempts_game_service(db: Session, game_id: str):
     raise HTTPException(
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Attempts not subtracted",
+    )
+
+
+def delete_game_service(db: Session, game_id: str):
+    game_db = get_game_by_field(db, 'id', game_id)
+    if not game_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+    try:
+        db.delete(game_db)
+        db.commit()
+        return True
+    except Exception as e:
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Game not deleted",
+        )
+
+
+def update_image_background_game_service(db: Session, game_id: str, image: str, identifier: str):
+    game_db = get_game_by_field(db, 'id', game_id)
+    if game_db:
+        game_db.image_background = upload_image(url_image=image,
+                                                file_name=f"{game_id}/background/background-{identifier}.jpg")
+
+        db.commit()
+        db.refresh(game_db)
+        return game_db
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Game not found",
     )

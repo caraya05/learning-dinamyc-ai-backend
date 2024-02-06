@@ -61,3 +61,15 @@ def partial_update_scene_service(db: Session, scene_id: str, schema: SchemaParti
     db.commit()
     db.refresh(scene)
     return SchemaRetrieveScene.from_orm(scene)
+
+
+def get_last_scene_service(db: Session, script_id: str, number: int = 4):
+    """
+    Get the last scene.
+    """
+    try:
+        scene = (db.query(Scene).filter(Scene.script_id == script_id, Scene.order == number).first())
+        print(scene)
+        return scene
+    except AttributeError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Scene not found")

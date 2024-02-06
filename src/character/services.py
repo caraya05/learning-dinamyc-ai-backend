@@ -83,3 +83,14 @@ def update_attempts_character_service(db: Session, character_id: str):
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Character not found",
     )
+
+
+def get_character_leading_role_service(db: Session, game_id: str):
+    try:
+        return db.query(Character).filter(Character.game_id == game_id, Character.type == 'leading role').first()
+    except Exception as e:
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not found",
+        )

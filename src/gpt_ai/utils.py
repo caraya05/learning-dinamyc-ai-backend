@@ -85,7 +85,7 @@ def generate_gpt4(prompt: str,
                     "content": completion
                 }
             ],
-            max_tokens=max_tokens
+            max_tokens=max_tokens,
         )
 
         return response.choices[0]

@@ -25,10 +25,12 @@ def get_scripts_service(db: Session, game_id: str, skip: int = 0, limit: int = 1
     """
     Get a list of scripts.
     """
-    scripts = (db.query(Script).filter(Script.game_id == game_id).order_by(asc(Script.order))
-               .offset(skip).limit(limit).all())
-
-    return SchemaListScript(results=scripts, count=len(scripts))
+    try:
+        scripts = (db.query(Script).filter(Script.game_id == game_id).order_by(asc(Script.order))
+                   .offset(skip).limit(limit).all())
+        return SchemaListScript(results=scripts, count=len(scripts))
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="scripts not found.")
 
 
 def get_script_service(db: Session, script_id: str):
