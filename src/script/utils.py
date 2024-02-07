@@ -33,7 +33,7 @@ def get_script_locations_chapter(synopsis: str, num: str, prompt_script: str):
         ],
         "scenes": [
             {
-                "number": "string (number of the scene)",
+                "number": "int (number of the scene)",
                 "title": "string (title of the scene)",
                 "description": "string (description of the scene)",
                 "content": "string (content of the scene)",
@@ -97,7 +97,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
     star_time = time.time()
 
     schema_script = {
-        "number": "string (number of the chapter)",
+        "number": "int (number of the chapter greater than 1)",
         "title": "string (title of the chapter)",
         "description": "string (full and detailed description of what happens in the chapter, including settings and characters.)",
     }
