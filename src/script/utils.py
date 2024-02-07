@@ -130,7 +130,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
 
     script_generated = json.loads(response_script)
 
-    # print("script_generated", time.time() - star_time)
+    print("script_generated", time.time() - star_time)
 
     schema_characters_locations = {
         "characters": [
@@ -182,7 +182,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
 
     characters_locations_generated = json.loads(response_characters_locations)
 
-    # print("characters_locations_generated", time.time() - star_time)
+    print("characters_locations_generated", time.time() - star_time)
 
     # for location in characters_locations_generated["locations"]:
     #     content_prompt = f"{prompt_image_locations} {location['description']}"
@@ -255,7 +255,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
 
         scenes_generated.append(json.loads(response_scene))
 
-        # print("scenes_generated", time.time() - star_time)
+        print("scenes_generated", time.time() - star_time)
 
         return {
             "script": script_generated,

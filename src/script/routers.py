@@ -155,6 +155,9 @@ def create_script(game_id: str,
     # response = get_script_locations_chapter(game_db.synopsis, "1", prompt_script.description)
 
     # Create the script
+
+    print(response_script)
+
     script_ = response_script["script"]
 
     script_generate: SchemaCreateScript = SchemaCreateScript(
@@ -171,7 +174,7 @@ def create_script(game_id: str,
             detail="Script not created",
         )
 
-    # print("script created")
+    print("script created")
 
     # Create the locations
 
@@ -194,7 +197,7 @@ def create_script(game_id: str,
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Location not created",
             )
-    # print("location created")
+    print("location created")
     # Create the characters
 
     character_ = response_script["characters_locations"]["characters"]
@@ -215,7 +218,7 @@ def create_script(game_id: str,
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Character not created",
             )
-    # print("character created")
+    print("character created")
 
     # Create the scenes
     scenes_ = response_script["scenes"]
@@ -255,7 +258,7 @@ def create_script(game_id: str,
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Scene not created",
         )
-    # print("scene created")
+    print("scene created")
     return script_db
 
 # @router.patch("/{script_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScript)
