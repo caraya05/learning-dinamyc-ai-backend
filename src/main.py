@@ -1,4 +1,6 @@
 # from fastapi.openapi.utils import get_openapi
+import time
+
 from fastapi.staticfiles import StaticFiles
 
 from database import engine
@@ -116,8 +118,11 @@ prompt_base.Base.metadata.create_all(bind=engine)
 async def db_session_middleware(request: Request, call_next):
     response = Response("Internal server error", status_code=500)
     try:
+        start_time = time.time()
         request.state.db = SessionLocal()
         response = await call_next(request)
+        process_time = time.time() - start_time
+        response.headers["X-Process-Time"] = str(process_time)
     finally:
         request.state.db.close()
     return response

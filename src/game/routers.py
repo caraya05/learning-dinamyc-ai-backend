@@ -16,7 +16,8 @@ from game.schemas import SchemaListGame
 from game.schemas import SchemaCreateGame
 from game.schemas import SchemaPartialUpdateGame
 
-from game.services import get_games_service, update_image_background_game_service
+from game.services import get_games_service
+from game.services import update_image_background_game_service
 from game.services import create_game_service
 from game.services import get_game_service
 from game.services import subtract_attempts_game_service
@@ -166,7 +167,13 @@ def cover_generate(
             detail="Invalid token",
         )
 
-    game_db = get_game_service(db, game_id, current_user['sub'])
+    game_db = get_game_service(db, game_id)
+
+    if game_db.attempts == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Attempts exhausted",
+        )
 
     prompt_db_cover = get_prompt_by_field(db, 'category', 'cover')
 
@@ -288,7 +295,7 @@ def background_generate(
 
     script_db = get_scripts_service(db=db, game_id=game_db.id).results[0]
 
-    print("script_db", script_db.id, script_db.title, script_db.description)
+    # print("script_db", script_db.id, script_db.title, script_db.description)
 
     scenes_db = get_last_scene_service(db=db, script_id=script_db.id, number=4)
 
@@ -296,9 +303,9 @@ def background_generate(
 
     prompt_db_background = get_prompt_by_field(db, 'category', 'image_background')
 
-    print("prompt_db_background", prompt_db_background.description)
+    # print("prompt_db_background", prompt_db_background.description)
 
-    print("scenes_db", scenes_db)
+    # print("scenes_db", scenes_db)
 
     prompt_content = prompt_db_background.description.replace('x_escena', f" {scenes_db.content}")
 

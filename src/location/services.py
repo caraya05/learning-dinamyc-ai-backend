@@ -35,39 +35,37 @@ def get_locations_service(db: Session, game_id: str, skip: int = 0, limit: int =
 
     prompt_db_image_location = get_prompt_by_field(db, "category", "location_image")
 
-    json_response = {
-        "description": "string (description of the location)",
-    }
-
     for location in locations:
         if not location.image:
-            content = [
-                {
-                    "role": "system",
-                    "content": f"response con el siguiente JSON {json_response} "
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "Describe en 5 renglones una pared de ESCENARIO  , y en otros 5 renglones el piso adjunto a esta pared de ESCENARIO"
-                        },
-                        {
-                            "type": "text",
-                            "text": f"Escenario: {location.title} - {location.description}"
-                        }
-                    ]
-                }
-            ]
+            # content = [
+            #     {
+            #         "role": "system",
+            #         "content": f"response con el siguiente JSON {json_response} "
+            #     },
+            #     {
+            #         "role": "user",
+            #         "content": [
+            #             {
+            #                 "type": "text",
+            #                 "text": "Describe en 5 renglones una pared de ESCENARIO  , y en otros 5 renglones el piso adjunto a esta pared de ESCENARIO"
+            #             },
+            #             {
+            #                 "type": "text",
+            #                 "text": f"Escenario: {location.title} - {location.description}"
+            #             }
+            #         ]
+            #     }
+            # ]
+            #
+            # description = generate_gpt4_(content_prompt=content,
+            #                              max_tokens=4096)
+            #
+            # description = json.loads(description)
 
-            description = generate_gpt4_(content_prompt=content,
-                                         max_tokens=4096)
+            content_prompt = f"{prompt_db_image_location.description} {location.description}"
 
-            description = json.loads(description)
-
-            image_generate = generate_image_dalle(
-                f"{prompt_db_image_location.description} {description['description']}")
+            image_generate = generate_image_dalle(prompt=content_prompt,
+                                                  size="1024x1024")
 
             image_name = location.title.replace(" ", "_")
 

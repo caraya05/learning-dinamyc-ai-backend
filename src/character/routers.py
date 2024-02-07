@@ -50,7 +50,7 @@ def get_characters(game_id: str,
         )
 
     characters_db = get_characters_service(db, skip=0, limit=100, game_id=game_id)
-    print(characters_db[0].__dict__)
+    # print(characters_db[0].__dict__)
 
     # return SchemaListCharacter(results=characters_db, count=len(characters_db))
     return SchemaListCharacter(results=characters_db, count=len(characters_db))
@@ -163,10 +163,13 @@ def generate_image(character_id: str,
 
     prompt_db_image_character = get_prompt_by_field(db, 'category', 'character_image')
 
-    prompt_content = prompt_db_image_character.description.replace('x_personaje',
-                                                                   f"{character_db.name} {character_db.description}")
+    content_prompt = f"{prompt_db_image_character.description} genero :{character_db.genre} descripcion: {character_db.description}"
 
-    image_generated = generate_image_dalle(prompt_content)
+    # prompt_content = prompt_db_image_character.description.replace('x_personaje',
+    #                                                                f"{character_db.genre} {character_db.description}")
+
+    image_generated = generate_image_dalle(prompt=content_prompt,
+                                           size="1024x1024")
 
     update_attempts_character_service(db, character_id=character_id)
 

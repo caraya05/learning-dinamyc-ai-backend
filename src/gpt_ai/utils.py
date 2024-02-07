@@ -1,4 +1,5 @@
 import openai
+from fastapi import HTTPException
 from openai import OpenAI
 from config import settings
 
@@ -22,9 +23,13 @@ def generate_image_dalle(prompt: str,
 
         return response.data[0].url
 
-    except openai.APIError as e:
+    except Exception as e:
         print(e)
-        raise Exception(f"Image not generated: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail="The image could not be generated, it probably does not comply with the content policy,"
+                   " try to generate it again or contact Qwestar support.",
+        )
 
 
 def generate_gpt4_vision(prompt: list[str],
@@ -110,7 +115,10 @@ def generate_gpt4_vision_(content_prompt: list[dict],
 
     except Exception as e:
         print(e)
-        raise Exception("Image not analyzed or text not generated")
+        raise HTTPException(
+            status_code=400,
+            detail="Text could not be generated",
+        )
 
 
 def generate_gpt4_(content_prompt: list[dict],
