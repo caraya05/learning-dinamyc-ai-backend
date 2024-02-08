@@ -173,4 +173,4 @@ def generate_image(character_id: str,
 
     update_attempts_character_service(db, character_id=character_id)
 
-    return {"image": image_generated}
+    return image_generated
