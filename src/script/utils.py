@@ -2,7 +2,7 @@ import json
 import time
 
 from gpt_ai.utils import generate_gpt4_
-from gpt_ai.utils import generate_image_dalle
+# from gpt_ai.utils import generate_image_dalle
 
 
 def get_script_locations_chapter(synopsis: str, num: str, prompt_script: str):
@@ -94,10 +94,10 @@ def get_script_locations_chapter_v2(history: str, num: str,
                                     prompt_scene: str,
                                     # prompt_image_locations: str
                                     ):
-    star_time = time.time()
+    # star_time = time.time()
 
     schema_script = {
-        "number": "int (number of the chapter greater than 1)",
+        "number": "int (number of the chapter)",
         "title": "string (title of the chapter)",
         "description": "string (full and detailed description of what happens in the chapter, including settings and characters.)",
     }
@@ -130,7 +130,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
 
     script_generated = json.loads(response_script)
 
-    print("script_generated", time.time() - star_time)
+    # print("script_generated", time.time() - star_time)
 
     schema_characters_locations = {
         "characters": [
@@ -182,7 +182,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
 
     characters_locations_generated = json.loads(response_characters_locations)
 
-    print("characters_locations_generated", time.time() - star_time)
+    # print("characters_locations_generated", time.time() - star_time)
 
     # for location in characters_locations_generated["locations"]:
     #     content_prompt = f"{prompt_image_locations} {location['description']}"
@@ -199,7 +199,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
     #     character["image"] = response_image_character
 
     schema_scene = {
-        "number": "int (number of the scene)",
+        "number": "int (number of the scene described by the user)",
         "title": "string (title of the scene)",
         "description": "string (description of the scene)",
         "content": "string (content of the scene)",
@@ -215,10 +215,10 @@ def get_script_locations_chapter_v2(history: str, num: str,
                 "name": "string (name of the object)",
             },
         ],
-        "id_location": "string (id of the location)",
+        "id_location": "int (id of the location)",
         "characters": [
             {
-                "id": "string (id of the character)",
+                "id": "int (id of the character)",
             },
         ],
     }
@@ -255,10 +255,14 @@ def get_script_locations_chapter_v2(history: str, num: str,
 
         scenes_generated.append(json.loads(response_scene))
 
-        print("scenes_generated", time.time() - star_time)
+        # print("scene_generated" + response_scene)
 
-        return {
-            "script": script_generated,
-            "characters_locations": characters_locations_generated,
-            "scenes": scenes_generated
-        }
+        # print("scene_generated" + str(i+1), time.time() - star_time)
+
+    # print("scenes_generated", time.time() - star_time)
+
+    return {
+        "script": script_generated,
+        "characters_locations": characters_locations_generated,
+        "scenes": scenes_generated
+    }

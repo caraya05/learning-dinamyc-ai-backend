@@ -147,7 +147,7 @@ def create_script(game_id: str,
     # prompt_image_c = get_prompt_by_field(db, "category", "character_image")
 
     # Get the script locations and chapters
-    response_script = get_script_locations_chapter_v2(game_db.synopsis, "1",
+    response_script = get_script_locations_chapter_v2(game_db.history, "1",
                                                       prompt_script.description,
                                                       prompt_scene.description)
     # , prompt_image_c.description, prompt_image_l.description)
@@ -156,7 +156,7 @@ def create_script(game_id: str,
 
     # Create the script
 
-    print(response_script)
+    # print(response_script)
 
     script_ = response_script["script"]
 
@@ -174,7 +174,7 @@ def create_script(game_id: str,
             detail="Script not created",
         )
 
-    print("script created")
+    # print("script created")
 
     # Create the locations
 
@@ -197,7 +197,7 @@ def create_script(game_id: str,
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Location not created",
             )
-    print("location created")
+    # print("location created")
     # Create the characters
 
     character_ = response_script["characters_locations"]["characters"]
@@ -218,32 +218,41 @@ def create_script(game_id: str,
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Character not created",
             )
-    print("character created")
+    # print("character created")
 
     # Create the scenes
     scenes_ = response_script["scenes"]
 
     location_scene = ""
     try:
+        count = 1
         for i in scenes_:
             for j in locations_:
-                if i["id_location"] == j["id"]:
+                # print("location", j["id"])
+                # print("location 2", i["id_location"])
+                if str(i["id_location"]) == str(j["id"]):
+                    # print("location", j)
                     location_scene = get_location_by_field(db, "title", j["name"]).id
-                    break
+                    # print("location_scene", location_scene)
+                    # break
             # location_scene = get_location_by_field(db, "title", i["location"])
 
             characters_scene = []
             for j in i["characters"]:
                 for k in character_:
-                    if j["id"] == k["id"]:
+                    # print("character", k["id"])
+                    # print("character 2", j["id"])
+                    if str(j["id"]) == str(k["id"]):
+                        # print("character", k)
                         characters_scene.append(get_character_by_field(db, "name", k["name"]).id)
-                        break
+                        # print("characters_scene", characters_scene)
+                        # break
                 # characters_scene.append(get_character_by_field(db, "name", j["name"]).id)
 
             scene_generate = SchemaCreateScene(
                 title=i["title"],
                 description=i["description"],
-                order=int(i["number"]),
+                order=count,
                 script_id=script_db.id,
                 dynamic=i["dynamic"],
                 content=i["content"],
@@ -251,6 +260,7 @@ def create_script(game_id: str,
                 characters_id=characters_scene,
                 location_id=location_scene,
             )
+            count += 1
 
             create_scene_service(db, scene_generate, user_id=current_user)
     except Exception as e:
@@ -258,7 +268,7 @@ def create_script(game_id: str,
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Scene not created",
         )
-    print("scene created")
+    # print("scene created")
     return script_db
 
 # @router.patch("/{script_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScript)

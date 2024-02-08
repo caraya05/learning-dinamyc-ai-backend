@@ -54,7 +54,7 @@ def create_game_service(db: Session, game: SchemaCreateGame, user_id: str):
 
     try:
         db_game = Game(story_line=game.story_line,
-                       history=history,
+                       history=str(history),
                        synopsis=synopsys['synopsis_generate'],
                        title=synopsys['title'],
                        prompt_image=synopsys['prompt_image'],
