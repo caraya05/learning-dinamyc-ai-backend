@@ -163,7 +163,7 @@ def create_script(game_id: str,
     script_generate: SchemaCreateScript = SchemaCreateScript(
         title=script_["title"],
         description=script_["description"],
-        order=int(script_["number"]),
+        order=1,
         game_id=game_id,
     )
     try:
