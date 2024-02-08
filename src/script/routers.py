@@ -3,6 +3,7 @@ from fastapi import Depends
 from fastapi import Request
 from fastapi import HTTPException
 from fastapi import status
+from fastapi import BackgroundTasks
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi_jwt_auth import AuthJWT
 
@@ -174,7 +175,7 @@ def create_script(game_id: str,
             detail="Script not created",
         )
 
-    # print("script created")
+    print("script created")
 
     # Create the locations
 
@@ -197,7 +198,7 @@ def create_script(game_id: str,
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Location not created",
             )
-    # print("location created")
+    print("location created")
     # Create the characters
 
     character_ = response_script["characters_locations"]["characters"]
@@ -218,7 +219,7 @@ def create_script(game_id: str,
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Character not created",
             )
-    # print("character created")
+    print("character created")
 
     # Create the scenes
     scenes_ = response_script["scenes"]
@@ -262,13 +263,15 @@ def create_script(game_id: str,
             )
             count += 1
 
+            print("scene_generate " + str(count))
+
             create_scene_service(db, scene_generate, user_id=current_user)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Scene not created",
         )
-    # print("scene created")
+    print("all created")
     return script_db
 
 # @router.patch("/{script_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScript)
