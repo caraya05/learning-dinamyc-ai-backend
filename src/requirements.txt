@@ -37,3 +37,6 @@ fastapi-mail
 pyrebase
 firebase-admin
 boto3
+celery
+redis
+flower

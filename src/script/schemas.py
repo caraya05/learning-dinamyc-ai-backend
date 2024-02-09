@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
@@ -28,9 +28,10 @@ class SchemaRetrieveScript(BaseModel):
     """
 
     id: str
-    title: str
-    description: str
+    title: Optional[str] = Field(None, title="The title of the script")
+    description: Optional[str] = Field(None, title="The description of the script")
     order: int
+    status: int
 
     class Config:
         orm_mode = True
@@ -60,3 +61,4 @@ class SchemaPartialUpdateScript(BaseModel):
 
     title: Optional[str]
     description: Optional[str]
+    status: Optional[int]

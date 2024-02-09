@@ -48,7 +48,7 @@ def create_scene_service(db: Session, schema: SchemaCreateScene, user_id: str):
     db.add(scene)
     db.commit()
     db.refresh(scene)
-    return SchemaRetrieveScene.from_orm(scene)
+    return scene
 
 
 def partial_update_scene_service(db: Session, scene_id: str, schema: SchemaPartialUpdateScene):
@@ -60,7 +60,7 @@ def partial_update_scene_service(db: Session, scene_id: str, schema: SchemaParti
         setattr(scene, field, value)
     db.commit()
     db.refresh(scene)
-    return SchemaRetrieveScene.from_orm(scene)
+    return scene
 
 
 def get_last_scene_service(db: Session, script_id: str, number: int = 4):

@@ -98,7 +98,7 @@ def create_location_service(db: Session, schema: SchemaCreateLocation, user_id: 
         db.add(location)
         db.commit()
         db.refresh(location)
-        return SchemaRetrieveLocation.from_orm(location)
+        return location
     except Exception as e:
         print(e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Location not created")

@@ -23,10 +23,11 @@ class AbstractBaseModel(Base):
 
 class Script(AbstractBaseModel):
     __tablename__ = "script"
-    title: str = Column(String, index=False)
-    description: str = Column(Text, nullable=False)
+    title: str = Column(String, index=True)
+    description: str = Column(Text, nullable=True)
     game_id: str = Column(String, nullable=False)
-    order: int = Column(Integer, nullable=False)
+    order: int = Column(Integer, nullable=True)
+    status: int = Column(Integer, nullable=True)
 
     def __repr__(self):
         return f"<Script {self.title} - {self.game_id}>"

@@ -1,7 +1,7 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import asc
-from starlette import status
+from fastapi import status
 
 from script.models import Script
 
@@ -41,12 +41,13 @@ def get_script_service(db: Session, script_id: str):
     return SchemaRetrieveScript.from_orm(script)
 
 
-def create_script_service(db: Session, schema: SchemaCreateScript, user_id: str):
+def create_script_service(db: Session, schema: SchemaCreateScript, user_id: str, status_script: int = 0):
     """
     Create a script.
     """
     try:
         script = Script(**schema.dict())
+        script.status = status_script
         script.created_by = user_id
         script.updated_by = user_id
         db.add(script)
@@ -66,4 +67,4 @@ def partial_update_script_service(db: Session, script_id: str, schema: SchemaPar
         setattr(script, field, value)
     db.commit()
     db.refresh(script)
-    return SchemaRetrieveScript.from_orm(script)
+    return script

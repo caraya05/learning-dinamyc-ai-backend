@@ -28,16 +28,20 @@ from scene.services import create_scene_service
 from script.schemas import SchemaListScript
 from script.schemas import SchemaRetrieveScript
 from script.schemas import SchemaCreateScript
+from script.schemas import SchemaPartialUpdateScript
 
-from script.services import get_scripts_service
+from script.services import get_scripts_service, partial_update_script_service
 from script.services import get_script_service
 from script.services import create_script_service
+from script.services import get_script_by_field
 
 from script.utils import get_script_locations_chapter_v2
 
 from game.services import get_game_service
 
 from prompt.services import get_prompt_by_field
+
+from celery_worker import create_script_task
 
 router = APIRouter(prefix="/script", tags=["Script"])
 
@@ -103,11 +107,12 @@ def get_script(script_id: str,
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 # ,response_model=SchemaRetrieveScript)
-def create_script(game_id: str,
-                  db: Session = Depends(get_db),
-                  Authorize: AuthJWT = Depends(),
-                  Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                  ):
+async def create_script(game_id: str,
+                        background_tasks: BackgroundTasks,
+                        db: Session = Depends(get_db),
+                        Authorize: AuthJWT = Depends(),
+                        Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+                        ):
     """
     This endpoint creates a script.
 
@@ -148,9 +153,9 @@ def create_script(game_id: str,
     # prompt_image_c = get_prompt_by_field(db, "category", "character_image")
 
     # Get the script locations and chapters
-    response_script = get_script_locations_chapter_v2(game_db.history, "1",
-                                                      prompt_script.description,
-                                                      prompt_scene.description)
+    # response_script = get_script_locations_chapter_v2(game_db.history, "1",
+    #                                                   prompt_script.description,
+    #                                                   prompt_scene.description)
     # , prompt_image_c.description, prompt_image_l.description)
 
     # response = get_script_locations_chapter(game_db.synopsis, "1", prompt_script.description)
@@ -159,145 +164,194 @@ def create_script(game_id: str,
 
     # print(response_script)
 
-    script_ = response_script["script"]
+    # script_ = response_script["script"]
 
     script_generate: SchemaCreateScript = SchemaCreateScript(
-        title=script_["title"],
-        description=script_["description"],
+        title="",
+        description="",
         order=1,
         game_id=game_id,
     )
     try:
-        script_db = create_script_service(db, schema=script_generate, user_id=current_user)
+        script_db = create_script_service(db, schema=script_generate, user_id=current_user, status_script=0)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Script not created",
         )
 
-    print("script created")
+    print()
 
-    # Create the locations
+    create_script_task.delay(token=Authorize._token,
+                                      game_history=game_db.history,
+                                      prompt_script=prompt_script.description,
+                                      prompt_scene=prompt_scene.description,
+                                      game_id=game_id,
+                                      script_id=script_db.id,
+                                      current_user=current_user)
 
-    locations_ = response_script["characters_locations"]["locations"]
+    # print("tasks_", tasks_.get())
 
-    for i in locations_:
-        try:
-            location_generate = SchemaCreateLocation(
-                title=i["name"],
-                description=i["description"],
-                image="",
-                game_id=game_id,
-                zoom=0.0,
-
-            )
-
-            create_location_service(db, location_generate, user_id=current_user)
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Location not created",
-            )
-    print("location created")
-    # Create the characters
-
-    character_ = response_script["characters_locations"]["characters"]
-
-    for i in character_:
-        try:
-            character_generate = SchemaCreateCharacter(
-                name=i["name"],
-                genre=i["genre"],
-                type=i["type"],
-                description=i["description"],
-                game_id=game_id,
-                attempts=3)
-
-            create_character_service(db, character_generate, user_id=current_user)
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Character not created",
-            )
-    print("character created")
-
-    # Create the scenes
-    scenes_ = response_script["scenes"]
-
-    location_scene = ""
-    try:
-        count = 1
-        for i in scenes_:
-            for j in locations_:
-                # print("location", j["id"])
-                # print("location 2", i["id_location"])
-                if str(i["id_location"]) == str(j["id"]):
-                    # print("location", j)
-                    location_scene = get_location_by_field(db, "title", j["name"]).id
-                    # print("location_scene", location_scene)
-                    # break
-            # location_scene = get_location_by_field(db, "title", i["location"])
-
-            characters_scene = []
-            for j in i["characters"]:
-                for k in character_:
-                    # print("character", k["id"])
-                    # print("character 2", j["id"])
-                    if str(j["id"]) == str(k["id"]):
-                        # print("character", k)
-                        characters_scene.append(get_character_by_field(db, "name", k["name"]).id)
-                        # print("characters_scene", characters_scene)
-                        # break
-                # characters_scene.append(get_character_by_field(db, "name", j["name"]).id)
-
-            scene_generate = SchemaCreateScene(
-                title=i["title"],
-                description=i["description"],
-                order=count,
-                script_id=script_db.id,
-                dynamic=i["dynamic"],
-                content=i["content"],
-                dialogues=i["dialogues"],
-                characters_id=characters_scene,
-                location_id=location_scene,
-            )
-            count += 1
-
-            print("scene_generate " + str(count))
-
-            create_scene_service(db, scene_generate, user_id=current_user)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Scene not created",
-        )
-    print("all created")
+    # print("script created")
+    #
+    # # Create the locations
+    #
+    # locations_ = response_script["characters_locations"]["locations"]
+    #
+    # for i in locations_:
+    #     try:
+    #         location_generate = SchemaCreateLocation(
+    #             title=i["name"],
+    #             description=i["description"],
+    #             image="",
+    #             game_id=game_id,
+    #             zoom=0.0,
+    #
+    #         )
+    #
+    #         create_location_service(db, location_generate, user_id=current_user)
+    #     except Exception as e:
+    #         raise HTTPException(
+    #             status_code=status.HTTP_400_BAD_REQUEST,
+    #             detail="Location not created",
+    #         )
+    # print("location created")
+    # # Create the characters
+    #
+    # character_ = response_script["characters_locations"]["characters"]
+    #
+    # for i in character_:
+    #     try:
+    #         character_generate = SchemaCreateCharacter(
+    #             name=i["name"],
+    #             genre=i["genre"],
+    #             type=i["type"],
+    #             description=i["description"],
+    #             game_id=game_id,
+    #             attempts=3)
+    #
+    #         create_character_service(db, character_generate, user_id=current_user)
+    #     except Exception as e:
+    #         raise HTTPException(
+    #             status_code=status.HTTP_400_BAD_REQUEST,
+    #             detail="Character not created",
+    #         )
+    # print("character created")
+    #
+    # # Create the scenes
+    # scenes_ = response_script["scenes"]
+    #
+    # location_scene = ""
+    # try:
+    #     count = 1
+    #     for i in scenes_:
+    #         for j in locations_:
+    #             # print("location", j["id"])
+    #             # print("location 2", i["id_location"])
+    #             if str(i["id_location"]) == str(j["id"]):
+    #                 # print("location", j)
+    #                 location_scene = get_location_by_field(db, "title", j["name"]).id
+    #                 # print("location_scene", location_scene)
+    #                 # break
+    #         # location_scene = get_location_by_field(db, "title", i["location"])
+    #
+    #         characters_scene = []
+    #         for j in i["characters"]:
+    #             for k in character_:
+    #                 # print("character", k["id"])
+    #                 # print("character 2", j["id"])
+    #                 if str(j["id"]) == str(k["id"]):
+    #                     # print("character", k)
+    #                     characters_scene.append(get_character_by_field(db, "name", k["name"]).id)
+    #                     # print("characters_scene", characters_scene)
+    #                     # break
+    #             # characters_scene.append(get_character_by_field(db, "name", j["name"]).id)
+    #
+    #         scene_generate = SchemaCreateScene(
+    #             title=i["title"],
+    #             description=i["description"],
+    #             order=count,
+    #             script_id=script_db.id,
+    #             dynamic=i["dynamic"],
+    #             content=i["content"],
+    #             dialogues=i["dialogues"],
+    #             characters_id=characters_scene,
+    #             location_id=location_scene,
+    #         )
+    #         count += 1
+    #
+    #         print("scene_generate " + str(count))
+    #
+    #         create_scene_service(db, scene_generate, user_id=current_user)
+    # except Exception as e:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail="Scene not created",
+    #     )
+    # print("all created")
     return script_db
 
-# @router.patch("/{script_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScript)
-# async def partial_update_script(script_id: str,
-#                                 schema: SchemaPartialUpdateScript,
-#                                 db: Session = Depends(get_db),
-#                                 Authorize: AuthJWT = Depends(),
-#                                 Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-#                                 ):
-#     """
-#     This endpoint partially updates a script.
-#
-#     It expects a script in the request body.
-#     If the script is successfully updated, it returns the script's information.
-#     """
-#
-#     try:
-#         Authorize.jwt_required()
-#         current_user = Authorize.get_jwt_subject()
-#
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid token",
-#         )
-#
-#     script_db = partial_update_script_service(db, script_id=script_id, schema=schema)
-#
-#     return SchemaRetrieveScript(**script_db)
+
+@router.patch("/{script_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScript)
+async def partial_update_script(script_id: str,
+                                schema: SchemaPartialUpdateScript,
+                                db: Session = Depends(get_db),
+                                Authorize: AuthJWT = Depends(),
+                                Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+                                ):
+    """
+    This endpoint partially updates a script.
+
+    It expects a script in the request body.
+    If the script is successfully updated, it returns the script's information.
+    """
+
+    try:
+        Authorize.jwt_required()
+        current_user = Authorize.get_jwt_subject()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
+
+    script_db = partial_update_script_service(db, script_id=script_id, schema=schema)
+
+    return script_db
+
+
+@router.get("/check/{script_id)", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScript)
+def check_script(script_id: str,
+                 db: Session = Depends(get_db),
+                 Authorize: AuthJWT = Depends(),
+                 Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+                 ):
+    """
+    This endpoint checks a script.
+
+    It returns a message indicating whether the script is valid or not.
+    """
+
+    try:
+        Authorize.jwt_required()
+        current_user = Authorize.get_jwt_subject()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
+
+    # Check the script
+    script_db = get_script_by_field(db, "id", script_id)
+    print(script_db.status)
+    print(script_db.title)
+    # return "nosessss"
+    if script_db.status == 1:
+        return script_db
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Script not finished",
+        )

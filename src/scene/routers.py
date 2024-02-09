@@ -51,7 +51,7 @@ def get_scenes(script_id: str,
             detail="Invalid token",
         )
 
-    scenes_db = get_scenes_service(db, skip=0, limit=100,script_id=script_id)
+    scenes_db = get_scenes_service(db, skip=0, limit=100, script_id=script_id)
 
     return scenes_db
 
@@ -82,33 +82,33 @@ def get_scene(scene_id: str,
 
     return SchemaRetrieveScene(**scene_db.dict())
 
-# @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveScene)
-# def create_scene(schema: SchemaCreateScene,
-#                  db: Session = Depends(get_db),
-#                  Authorize: AuthJWT = Depends(),
-#                  Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-#                  ):
-#     """
-#     This endpoint creates a scene.
-#
-#     It expects a scene in the request body.
-#     If the scene is successfully created, it returns the scene's information.
-#     """
-#
-#     try:
-#         Authorize.jwt_required()
-#         current_user = Authorize.get_jwt_subject()
-#
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid token",
-#         )
-#
-#     scene_db = create_scene_service(db, schema=schema)
-#
-#     return SchemaRetrieveScene(**scene_db.dict())
 
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveScene)
+def create_scene(schema: SchemaCreateScene,
+                 db: Session = Depends(get_db),
+                 Authorize: AuthJWT = Depends(),
+                 Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+                 ):
+    """
+    This endpoint creates a scene.
+
+    It expects a scene in the request body.
+    If the scene is successfully created, it returns the scene's information.
+    """
+
+    try:
+        Authorize.jwt_required()
+        current_user = Authorize.get_jwt_subject()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
+
+    scene_db = create_scene_service(db, schema=schema,user_id=current_user)
+
+    return scene_db
 
 # @router.patch("/{scene_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScene)
 # def partial_update_scene(scene_id: str,
