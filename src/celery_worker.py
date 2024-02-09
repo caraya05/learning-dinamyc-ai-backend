@@ -53,7 +53,7 @@ def create_script_task(token: str,
         script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
             status_location=2
         )
-        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}/",
+        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}",
                                   json=script_generate.dict(),
                                   headers={"Authorization": "Bearer " + token})
 
@@ -94,7 +94,7 @@ def create_script_task(token: str,
         script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
             status_character=2
         )
-        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}/",
+        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}",
                                   json=script_generate.dict(),
                                   headers={"Authorization": "Bearer " + token})
 
@@ -106,7 +106,7 @@ def create_script_task(token: str,
         script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
             status_character=1
         )
-        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}/",
+        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}",
                                   json=script_generate.dict(),
                                   headers={"Authorization": "Bearer " + token})
 
@@ -172,7 +172,7 @@ def create_script_task(token: str,
         script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
             status_scene=2
         )
-        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}/",
+        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}",
                                   json=script_generate.dict(),
                                   headers={"Authorization": "Bearer " + token})
 
@@ -183,7 +183,7 @@ def create_script_task(token: str,
         status_scene=1
     )
     if branch_scene:
-        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}/",
+        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}",
                                   json=script_generate.dict(),
                                   headers={"Authorization": "Bearer " + token})
 
@@ -196,11 +196,10 @@ def create_script_task(token: str,
         )
     try:
 
-        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}/",
+        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}",
                                   json=script_generate.dict(),
                                   headers={"Authorization": "Bearer " + token})
 
-        print("res   " + str(response.json()))
 
     except Exception as e:
         raise print(e)
