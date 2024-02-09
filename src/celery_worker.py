@@ -12,7 +12,8 @@ celery = Celery(__name__)
 celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
-URL_API = os.getenv("URL_API", "http://localhost")
+URL_API = "https://backend-dev.qwestar.ai"
+
 
 @celery.task(name="create_script_task")
 def create_script_task(token: str,
