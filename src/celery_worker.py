@@ -12,6 +12,7 @@ celery = Celery(__name__)
 celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
+URL_API = os.getenv("URL_API", "http://localhost")
 
 @celery.task(name="create_script_task")
 def create_script_task(token: str,
@@ -43,7 +44,7 @@ def create_script_task(token: str,
                 game_id=game_id,
                 zoom=0.0)
 
-            requests.post("http://192.168.1.45/v1/api/location/",
+            requests.post(f"{URL_API}/v1/api/location/",
                           json=location_generate.dict(),
                           headers={"Authorization": "Bearer " + token})
 
@@ -66,7 +67,7 @@ def create_script_task(token: str,
                 game_id=game_id,
                 attempts=3)
 
-            requests.post("http://192.168.1.45/v1/api/characters/",
+            requests.post(f"{URL_API}/v1/api/characters/",
                           json=character_generate.dict(),
                           headers={"Authorization": "Bearer " + token})
 
@@ -88,7 +89,7 @@ def create_script_task(token: str,
                 if str(i["id_location"]) == str(j["id"]):
                     # print("location", j)
                     location_scene = \
-                        requests.get(f"http://192.168.1.45/v1/api/location/by-field/?field=title&value={j['name']}",
+                        requests.get(f"{URL_API}/v1/api/location/by-field/?field=title&value={j['name']}",
                                      headers={"Authorization": "Bearer " + token}).json()["id"]
             # print("location_scene", location_scene)
             # break
@@ -103,7 +104,7 @@ def create_script_task(token: str,
                         # print("character", k)
                         characters_scene.append(
                             requests.get(
-                                f"http://192.168.1.45/v1/api/characters/by-field/?field=name&value={k['name']}",
+                                f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
                                 headers={"Authorization": "Bearer " + token}).json()["id"])
                 # print("characters_scene", characters_scene)
                 # break
@@ -124,7 +125,7 @@ def create_script_task(token: str,
 
             print("scene_generate " + str(count))
 
-            requests.post("http://192.168.1.45/v1/api/scene/",
+            requests.post(f"{URL_API}/v1/api/scene/",
                           json=scene_generate.dict(),
                           headers={"Authorization": "Bearer " + token})
 
@@ -141,7 +142,7 @@ def create_script_task(token: str,
     )
     try:
 
-        response = requests.patch(f"http://192.168.1.45/v1/api/script/{script_id}/",
+        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}/",
                                   json=script_generate.dict(),
                                   headers={"Authorization": "Bearer " + token})
 
