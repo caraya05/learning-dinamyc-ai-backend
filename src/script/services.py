@@ -66,11 +66,10 @@ def partial_update_script_service(db: Session, script_id: str, schema: SchemaPar
     Partially update a script.
     """
     script = get_script_by_field(db, "id", script_id)
-
-    script_data = schema.dict(exclude_unset=True)
-    for key, value in script_data.items():
-        setattr(script, key, value)
-
+    script.status = schema.status if schema.status else script.status
+    script.status_character = schema.status_character if schema.status_character else script.status_character
+    script.status_location = schema.status_location if schema.status_location else script.status_location
+    script.status_scene = schema.status_scene if schema.status_scene else script.status_scene
     db.commit()
     db.refresh(script)
     return script
