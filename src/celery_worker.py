@@ -33,11 +33,10 @@ def create_script_task(token: str,
                                                       prompt_scene)
 
     # Create the locations
-
+    branch_location = True
     locations_ = response_script["characters_locations"]["locations"]
-
-    for i in locations_:
-        try:
+    try:
+        for i in locations_:
             location_generate = SchemaCreateLocation(
                 title=i["name"],
                 description=i["description"],
@@ -49,17 +48,34 @@ def create_script_task(token: str,
                           json=location_generate.dict(),
                           headers={"Authorization": "Bearer " + token})
 
-        except Exception as e:
-            print(e)
+    except Exception as e:
+        branch_location = False
+        script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
+            status_location=2
+        )
+        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}/",
+                                  json=script_generate.dict(),
+                                  headers={"Authorization": "Bearer " + token})
+
+        print("res   " + str(response.json()))
+
+        print(e)
+
+    if branch_location:
+        script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
+            status_location=1
+        )
+        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}/",
+                                  json=script_generate.dict(),
+                                  headers={"Authorization": "Bearer " + token})
 
     print("location created")
 
     # Create the characters
-
+    branch_character = True
     character_ = response_script["characters_locations"]["characters"]
-
-    for i in character_:
-        try:
+    try:
+        for i in character_:
             character_generate = SchemaCreateCharacter(
                 name=i["name"],
                 genre=i["genre"],
@@ -73,14 +89,34 @@ def create_script_task(token: str,
                           headers={"Authorization": "Bearer " + token})
 
 
-        except Exception as e:
-            print(e)
+    except Exception as e:
+        branch_character = False
+        script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
+            status_character=2
+        )
+        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}/",
+                                  json=script_generate.dict(),
+                                  headers={"Authorization": "Bearer " + token})
+
+        print("res   " + str(response.json()))
+
+        print(e)
+
+    if branch_character:
+        script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
+            status_character=1
+        )
+        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}/",
+                                  json=script_generate.dict(),
+                                  headers={"Authorization": "Bearer " + token})
+
     print("character created")
     #
     # Create the scenes
     scenes_ = response_script["scenes"]
 
     location_scene = ""
+    branch_scene = True
     try:
         count = 1
         for i in scenes_:
@@ -132,15 +168,32 @@ def create_script_task(token: str,
 
             # create_scene_service(db, scene_generate, user_id=current_user)
     except Exception as e:
+        branch_scene = False
+        script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
+            status_scene=2
+        )
+        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}/",
+                                  json=script_generate.dict(),
+                                  headers={"Authorization": "Bearer " + token})
+
+        print("res   " + str(response.json()))
+
         print(e)
-
-    script_ = response_script["script"]
-
     script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
-        title=script_["title"],
-        description=script_["description"],
-        status=1
+        status_scene=1
     )
+    if branch_scene:
+        response = requests.patch(f"{URL_API}/v1/api/script/{script_id}/",
+                                  json=script_generate.dict(),
+                                  headers={"Authorization": "Bearer " + token})
+
+        script_ = response_script["script"]
+
+        script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
+            title=script_["title"],
+            description=script_["description"],
+            status=1
+        )
     try:
 
         response = requests.patch(f"{URL_API}/v1/api/script/{script_id}/",

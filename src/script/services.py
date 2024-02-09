@@ -48,6 +48,9 @@ def create_script_service(db: Session, schema: SchemaCreateScript, user_id: str,
     try:
         script = Script(**schema.dict())
         script.status = status_script
+        script.status_character = status_script
+        script.status_location = status_script
+        script.status_scene = status_script
         script.created_by = user_id
         script.updated_by = user_id
         db.add(script)

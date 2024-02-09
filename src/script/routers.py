@@ -321,7 +321,7 @@ async def partial_update_script(script_id: str,
     return script_db
 
 
-@router.get("/check/{script_id)", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScript)
+@router.get("/check/{script_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScript)
 def check_script(script_id: str,
                  db: Session = Depends(get_db),
                  Authorize: AuthJWT = Depends(),
@@ -345,9 +345,6 @@ def check_script(script_id: str,
 
     # Check the script
     script_db = get_script_by_field(db, "id", script_id)
-    print(script_db.status)
-    print(script_db.title)
-    # return "nosessss"
     if script_db.status == 1:
         return script_db
     else:

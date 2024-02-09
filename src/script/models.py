@@ -28,6 +28,9 @@ class Script(AbstractBaseModel):
     game_id: str = Column(String, nullable=False)
     order: int = Column(Integer, nullable=True)
     status: int = Column(Integer, nullable=True)
+    status_character: int = Column(Integer, nullable=True)
+    status_location: int = Column(Integer, nullable=True)
+    status_scene: int = Column(Integer, nullable=True)
 
     def __repr__(self):
         return f"<Script {self.title} - {self.game_id}>"

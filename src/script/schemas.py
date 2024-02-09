@@ -32,6 +32,9 @@ class SchemaRetrieveScript(BaseModel):
     description: Optional[str] = Field(None, title="The description of the script")
     order: int
     status: int
+    status_character: int
+    status_location: int
+    status_scene: int
 
     class Config:
         orm_mode = True
@@ -62,3 +65,6 @@ class SchemaPartialUpdateScript(BaseModel):
     title: Optional[str]
     description: Optional[str]
     status: Optional[int]
+    status_character: Optional[int]
+    status_location: Optional[int]
+    status_scene: Optional[int]
