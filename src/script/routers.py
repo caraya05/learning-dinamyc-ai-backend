@@ -184,12 +184,12 @@ async def create_script(game_id: str,
     print()
 
     create_script_task.delay(token=Authorize._token,
-                                      game_history=game_db.history,
-                                      prompt_script=prompt_script.description,
-                                      prompt_scene=prompt_scene.description,
-                                      game_id=game_id,
-                                      script_id=script_db.id,
-                                      current_user=current_user)
+                             game_history=game_db.history,
+                             prompt_script=prompt_script.description,
+                             prompt_scene=prompt_scene.description,
+                             game_id=game_id,
+                             script_id=script_db.id,
+                             current_user=current_user)
 
     # print("tasks_", tasks_.get())
 
@@ -346,8 +346,15 @@ def check_script(script_id: str,
 
     # Check the script
     script_db = get_script_by_field(db, "id", script_id)
-    if script_db.status == 1:
+    if (script_db.status == 1 and script_db.status_character == 1
+            and script_db.status_location == 1 and script_db.status_scene == 1):
         return script_db
+    elif (script_db.status == 2 or script_db.status_character == 2
+          or script_db.status_location == 2 or script_db.status_scene == 2):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Script not valid",
+        )
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
