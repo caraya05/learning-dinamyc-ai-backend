@@ -34,6 +34,7 @@ from script.services import get_scripts_service, partial_update_script_service
 from script.services import get_script_service
 from script.services import create_script_service
 from script.services import get_script_by_field
+from script.services import delete_script_service
 
 from script.utils import get_script_locations_chapter_v2
 
@@ -352,3 +353,37 @@ def check_script(script_id: str,
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Script not finished",
         )
+
+
+@router.delete("/{script_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_script(script_id: str,
+                  db: Session = Depends(get_db),
+                  Authorize: AuthJWT = Depends(),
+                  Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+                  ):
+    """
+    This endpoint deletes a script.
+
+    It returns a message indicating whether the script was successfully deleted or not.
+    """
+
+    try:
+        Authorize.jwt_required()
+        current_user = Authorize.get_jwt_subject()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
+
+    # Delete the script
+    try:
+        delete_script_service(db, script_id=script_id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Script not deleted",
+        )
+
+    return {"message": "Script deleted"}

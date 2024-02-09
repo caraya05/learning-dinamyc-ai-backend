@@ -73,3 +73,13 @@ def partial_update_script_service(db: Session, script_id: str, schema: SchemaPar
     db.commit()
     db.refresh(script)
     return script
+
+
+def delete_script_service(db: Session, script_id: str):
+    """
+    Delete a script.
+    """
+    script = get_script_by_field(db, "id", script_id)
+    db.delete(script)
+    db.commit()
+    return script
