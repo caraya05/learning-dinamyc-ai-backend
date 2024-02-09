@@ -31,10 +31,10 @@ class SchemaRetrieveScript(BaseModel):
     title: Optional[str] = Field(None, title="The title of the script")
     description: Optional[str] = Field(None, title="The description of the script")
     order: int
-    status: int
-    status_character: int
-    status_location: int
-    status_scene: int
+    status: int = Field(0, title="The status of the script")
+    status_character: int = Field(0, title="The status of the characters")
+    status_location: int = Field(0, title="The status of the locations")
+    status_scene: int = Field(0, title="The status of the scenes")
 
     class Config:
         orm_mode = True
