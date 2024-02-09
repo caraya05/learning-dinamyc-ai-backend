@@ -69,6 +69,8 @@ def create_script_task(token: str,
                                   json=script_generate.dict(),
                                   headers={"Authorization": "Bearer " + token})
 
+        print("res   " + str(response.json()))
+
     print("location created")
 
     # Create the characters
@@ -109,6 +111,8 @@ def create_script_task(token: str,
         response = requests.patch(f"{URL_API}/v1/api/script/{script_id}",
                                   json=script_generate.dict(),
                                   headers={"Authorization": "Bearer " + token})
+
+        print("res   " + str(response.json()))
 
     print("character created")
     #
@@ -187,6 +191,8 @@ def create_script_task(token: str,
                                   json=script_generate.dict(),
                                   headers={"Authorization": "Bearer " + token})
 
+        print("res   " + str(response.json()))
+
         script_ = response_script["script"]
 
         script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
@@ -199,6 +205,8 @@ def create_script_task(token: str,
         response = requests.patch(f"{URL_API}/v1/api/script/{script_id}",
                                   json=script_generate.dict(),
                                   headers={"Authorization": "Bearer " + token})
+
+        print("res   " + str(response.json()))
 
 
     except Exception as e:
