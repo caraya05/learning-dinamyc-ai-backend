@@ -10,6 +10,7 @@ from fastapi_jwt_auth import AuthJWT
 from sqlalchemy.orm import Session
 
 from config import auth_scheme
+from gpt_ai.utils import generate_image_dalle
 
 from location.schemas import SchemaListLocation
 from location.schemas import SchemaRetrieveLocation
@@ -20,6 +21,8 @@ from location.services import get_locations_service, get_location_by_field
 from location.services import get_location_service
 from location.services import create_location_service
 from location.services import partial_update_location_service
+from location.services import update_attempts_location_service
+from prompt.services import get_prompt_by_field
 
 router = APIRouter(prefix="/location", tags=["Location"])
 
@@ -57,6 +60,7 @@ def get_locations(value: str,
 
     return location_db
 
+
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
 def get_locations(game_id: str,
                   db: Session = Depends(get_db),
@@ -79,7 +83,7 @@ def get_locations(game_id: str,
             detail="Invalid token",
         )
 
-    locations_db = get_locations_service(db, skip=0, limit=100,game_id=game_id)
+    locations_db = get_locations_service(db, skip=0, limit=100, game_id=game_id)
 
     return locations_db
 
@@ -168,3 +172,35 @@ def partial_update_location(location_id: str,
     location_db = partial_update_location_service(db, location_id, schema)
 
     return location_db
+
+
+@router.get("/generate_image/{location_id}")
+def generate_image_location(location_id: str,
+                            db: Session = Depends(get_db),
+                            Authorize: AuthJWT = Depends(),
+                            Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+                            ):
+    """
+    This endpoint generates an image for a location.
+
+    It expects the location's id in the request path.
+    If the location is successfully updated, it returns the location's information.
+    """
+    location_db = get_location_service(db, location_id=location_id)
+
+    if location_db.attempts == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character attempts exhausted",
+        )
+    prompt_db_image_location = get_prompt_by_field(db, "category", "location_image")
+
+    content_prompt = f"{prompt_db_image_location.description} {location_db.description}"
+
+    image_generate = generate_image_dalle(prompt=content_prompt,
+                                          size="1024x1024"
+                                          )
+
+    update_attempts_location_service(db, location_id=location_id)
+
+    return image_generate

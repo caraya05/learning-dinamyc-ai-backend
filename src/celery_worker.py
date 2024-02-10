@@ -13,6 +13,7 @@ celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
 URL_API = "https://backend-dev.qwestar.ai"
+# URL_API = "http://192.168.1.45"
 
 
 @celery.task(name="create_script_task")

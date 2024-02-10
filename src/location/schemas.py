@@ -17,6 +17,7 @@ class SchemaCreateLocation(BaseModel):
     game_id: str
 
 
+
 class SchemaPartialUpdateLocation(BaseModel):
     """
     Schema for partially updating a location.
@@ -27,7 +28,7 @@ class SchemaPartialUpdateLocation(BaseModel):
     image (Optional[str]): The image of the location.
     """
 
-    zoom: Optional[float] = Field(0.0, title="The zoom of the location")
+    image: Optional[str]
 
 
 class SchemaRetrieveLocation(BaseModel):
@@ -44,6 +45,7 @@ class SchemaRetrieveLocation(BaseModel):
     description: str
     image: Optional[str]
     zoom: float
+    attempts: Optional[int]
 
     class Config:
         orm_mode = True

@@ -4,6 +4,7 @@ from sqlalchemy import Column
 from sqlalchemy import String
 from sqlalchemy import Date
 from sqlalchemy import Text
+from sqlalchemy import Integer
 from sqlalchemy import Float
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -29,6 +30,7 @@ class Location(AbstractBaseModel):
     image: str = Column(String, nullable=True)
     zoom: float = Column(Float, nullable=True)
     game_id: str = Column(String, nullable=False)
+    attempts: int = Column(Integer, nullable=True)
 
     def __repr__(self):
         return f"<Location {self.title} - {self.game_id}>"

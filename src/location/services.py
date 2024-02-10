@@ -33,10 +33,10 @@ def get_locations_service(db: Session, game_id: str, skip: int = 0, limit: int =
     """
     locations = db.query(Location).filter(Location.game_id == game_id).offset(skip).limit(limit).all()
 
-    prompt_db_image_location = get_prompt_by_field(db, "category", "location_image")
+    # prompt_db_image_location = get_prompt_by_field(db, "category", "location_image")
 
-    for location in locations:
-        if not location.image:
+    # for location in locations:
+    #     if not location.image:
             # content = [
             #     {
             #         "role": "system",
@@ -62,18 +62,18 @@ def get_locations_service(db: Session, game_id: str, skip: int = 0, limit: int =
             #
             # description = json.loads(description)
 
-            content_prompt = f"{prompt_db_image_location.description} {location.description}"
-
-            image_generate = generate_image_dalle(prompt=content_prompt,
-                                                  size="1024x1024")
-
-            image_name = location.title.replace(" ", "_")
-
-            location.image = upload_image(url_image=image_generate,
-                                          file_name=f"{location.game_id}/locations/{image_name}.jpg")
-
-            db.commit()
-            db.refresh(location)
+            # content_prompt = f"{prompt_db_image_location.description} {location.description}"
+            #
+            # image_generate = generate_image_dalle(prompt=content_prompt,
+            #                                       size="1024x1024")
+            #
+            # image_name = location.title.replace(" ", "_")
+            #
+            # location.image = upload_image(url_image=image_generate,
+            #                               file_name=f"{location.game_id}/locations/{image_name}.jpg")
+            #
+            # db.commit()
+            # db.refresh(location)
 
     return SchemaListLocation(results=locations, count=len(locations))
 
@@ -92,6 +92,7 @@ def create_location_service(db: Session, schema: SchemaCreateLocation, user_id: 
     """
     try:
         location = Location(**schema.dict())
+        location.attempts = 3
         location.user_id = user_id
         location.created_by = user_id
         location.updated_by = user_id
@@ -109,8 +110,25 @@ def partial_update_location_service(db: Session, location_id: str, schema: Schem
     Partially update a location.
     """
     location = get_location_by_field(db, "id", location_id)
-    for field, value in schema:
-        setattr(location, field, value)
+
+    image_name = location.title.replace(" ", "_")
+
+    image_name = image_name.replace("'", "")
+
+    location.image = upload_image(url_image=schema.image,
+                                  file_name=f"{location.game_id}/locations/{image_name}.jpg")
+
     db.commit()
     db.refresh(location)
     return SchemaRetrieveLocation.from_orm(location)
+
+
+def update_attempts_location_service(db: Session, location_id: str):
+    """
+    Update the attempts of a location.
+    """
+    location = get_location_by_field(db, "id", location_id)
+    location.attempts = location.attempts - 1
+    db.commit()
+    db.refresh(location)
+    return location
