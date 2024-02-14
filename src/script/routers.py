@@ -27,6 +27,7 @@ from scene.services import create_scene_service
 
 from script.schemas import SchemaListScript
 from script.schemas import SchemaRetrieveScript
+from script.schemas import SchemaRetrieveScriptComplete
 from script.schemas import SchemaCreateScript
 from script.schemas import SchemaPartialUpdateScript
 
@@ -37,6 +38,12 @@ from script.services import get_script_by_field
 from script.services import delete_script_service
 
 from script.utils import get_script_locations_chapter_v2
+
+from scene.services import get_scenes_service
+
+from location.services import get_locations_service
+
+from character.services import get_characters_service
 
 from game.services import get_game_service
 
@@ -79,7 +86,7 @@ def get_scripts(game_id: str,
     return scripts_db
 
 
-@router.get("/{script_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScript)
+@router.get("/{script_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScriptComplete)
 def get_script(script_id: str,
                db: Session = Depends(get_db),
                Authorize: AuthJWT = Depends(),
@@ -102,6 +109,20 @@ def get_script(script_id: str,
         )
 
     script_db = get_script_service(db, script_id=script_id)
+
+    locations_ = get_locations_service(db, game_id=script_db.game_id)
+
+    characters_ = get_characters_service(db, game_id=script_db.game_id)
+
+    scenes_ = get_scenes_service(db, script_id=script_id)
+
+    print("scenes_", scenes_)
+    print("locations_", locations_)
+    print("characters_", characters_)
+
+    script_db.locations = locations_.results if locations_.results else []
+    script_db.characters = characters_ if characters_ else []
+    script_db.scenes = scenes_.results if scenes_.results else []
 
     return script_db
 

@@ -38,7 +38,7 @@ def get_script_service(db: Session, script_id: str):
     Get a script.
     """
     script = get_script_by_field(db, "id", script_id)
-    return SchemaRetrieveScript.from_orm(script)
+    return script
 
 
 def create_script_service(db: Session, schema: SchemaCreateScript, user_id: str, status_script: int = 0):
@@ -56,7 +56,7 @@ def create_script_service(db: Session, schema: SchemaCreateScript, user_id: str,
         db.add(script)
         db.commit()
         db.refresh(script)
-        return SchemaRetrieveScript.from_orm(script)
+        return script
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 

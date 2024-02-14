@@ -14,7 +14,7 @@ class PromptAdmin(ModelView, model=Prompt):
                           "category", "prompt_system", "is_active", ]
     can_export = True
 
-    icon = "fa-solid fa-prompt"
+    icon = "fa-solid fa-brain"
     form_widget_args = {
         "created_at": {
             "readonly": True,

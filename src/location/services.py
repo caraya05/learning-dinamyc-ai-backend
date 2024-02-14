@@ -1,5 +1,3 @@
-import json
-
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette import status
@@ -10,10 +8,7 @@ from location.schemas import SchemaRetrieveLocation
 from location.schemas import SchemaCreateLocation
 from location.schemas import SchemaPartialUpdateLocation
 from location.schemas import SchemaListLocation
-from prompt.services import get_prompt_by_field
 
-from gpt_ai.utils import generate_image_dalle
-from gpt_ai.utils import generate_gpt4_
 from utils import upload_image
 
 
