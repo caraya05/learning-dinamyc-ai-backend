@@ -17,6 +17,8 @@ class SchemaCreateWeapon(BaseModel):
     type: str
     script_id: str
     game_id: str
+    character_id: Optional[str]
+    extra_data: Optional[dict]
 
 
 class SchemaPartialUpdateWeapon(BaseModel):
@@ -68,3 +70,19 @@ class SchemaListWeapon(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class SchemaCreateForType(BaseModel):
+    """
+    Schema for creating a new weapon.
+
+    Attributes:
+    name (str): The name of the weapon.
+    description (Optional[str]): The description of the weapon.
+    image (Optional[str]): The image of the weapon.
+    """
+
+    type: str
+    script_id: str
+    game_id: str
+    character_id: Optional[str]

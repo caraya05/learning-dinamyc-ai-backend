@@ -4,6 +4,7 @@ from sqlalchemy import Column
 from sqlalchemy import String
 from sqlalchemy import Date
 from sqlalchemy import Text
+from sqlalchemy import PickleType
 from sqlalchemy.ext.declarative import declarative_base
 
 from utils import generate_uuid
@@ -28,6 +29,8 @@ class Weapon(AbstractBaseModel):
     image: str = Column(String, nullable=True)
     script_id: str = Column(String, nullable=False)
     game_id: str = Column(String, nullable=False)
+    extra_data: str = Column(PickleType, nullable=True)
+    character_id: str = Column(String, nullable=True)
 
     def __repr__(self):
         return f"<Object(title={self.title}, game_id={self.type})>"

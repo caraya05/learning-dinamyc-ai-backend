@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import Request
@@ -33,6 +35,7 @@ from character.services import get_character_leading_role_service
 from location.services import get_location_service
 
 from gpt_ai.utils import generate_image_dalle
+from gpt_ai.utils import generate_gpt4_
 
 from prompt.services import get_prompt_by_field
 
@@ -177,8 +180,50 @@ def cover_generate(
 
     prompt_db_cover = get_prompt_by_field(db, 'category', 'cover')
 
-    prompt_content = prompt_db_cover.description.replace('x_history', game_db.story_line)
-    image_generated = generate_image_dalle(prompt=prompt_content, quality="hd", size="1024x1792")
+    character_leading_role = get_character_leading_role_service(db, game_db.id)
+
+    prompt_content = prompt_db_cover.description.replace('x_history', game_db.synopsis)
+
+    prompt_content = prompt_content.replace('x_character',
+                                            f"{character_leading_role.description}")
+
+    print("prompt_content", prompt_content)
+
+    # schema_cover = {
+    #     "text": "string (text of the cover)",
+    # }
+
+    # content_prompt_2 = [
+    #     {
+    #         "role": "system",
+    #         "content": f"responde con un JSON que contenga el esquema '{schema_cover}'"
+    #     },
+    #     {
+    #         "role": "assistant",
+    #         "content": f"historia del juego :{game_db.synopsis}"
+    #
+    #     },
+    #     {
+    #         "role": "user",
+    #         "content": [
+    #             {
+    #                 "type": "text",
+    #                 "text": "genera un texto para generar la imagen de portada, debe ser impactante"
+    #             },
+    #             {
+    #                 "type": "text",
+    #                 "text": prompt_content
+    #             }
+    #         ]
+    #     }
+    # ]
+
+    # cover_generated = generate_gpt4_(content_prompt=content_prompt_2, type_text="cover", max_tokens=4096)
+
+    # cover_generated = json.loads(cover_generated)["text"]
+
+    image_generated = generate_image_dalle(prompt=prompt_content,
+                                           quality="hd", size="1024x1792")
 
     try:
         subtract_attempts_game_service(db, game_id)

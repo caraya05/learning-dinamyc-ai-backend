@@ -4,10 +4,8 @@ from starlette import status
 
 from object.models import Object
 
-from object.schemas import SchemaRetrieveObject
 from object.schemas import SchemaCreateObject
 from object.schemas import SchemaPartialUpdateObject
-from object.schemas import SchemaListObject
 
 from utils import upload_image
 
@@ -16,10 +14,10 @@ def get_object_by_field(db: Session, field: str, value: str):
     """
     Get a object by a field.
     """
-    object = db.query(Object).filter(getattr(Object, field) == value).first()
-    if not object:
+    object_ = db.query(Object).filter(getattr(Object, field) == value).first()
+    if not object_:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Object with {field} {value} not found")
-    return object
+    return object_
 
 
 def get_objects_service(db: Session, game_id: str, skip: int = 0, limit: int = 100):
@@ -30,13 +28,13 @@ def get_objects_service(db: Session, game_id: str, skip: int = 0, limit: int = 1
     return objects
 
 
-def create_object_service(db: Session, object: SchemaCreateObject, user_id: str):
+def create_object_service(db: Session, object_: SchemaCreateObject, user_id: str):
     """
     Create a new object.
     """
-    db_object = Object(**object.dict())
-    if object.image:
-        db_object.image = upload_image(object.image, f"{object.game_id}/object/{object.name}.jpg")
+    db_object = Object(**object_.dict())
+    if object_.image:
+        db_object.image = upload_image(object_.image, f"{object_.game_id}/object/{object_.name}.jpg")
     db_object.created_by = user_id
     db_object.updated_by = user_id
     db.add(db_object)
@@ -49,8 +47,8 @@ def retrieve_object_service(db: Session, object_id: str):
     """
     Retrieve a object.
     """
-    object = get_object_by_field(db, "id", object_id)
-    return object
+    object_ = get_object_by_field(db, "id", object_id)
+    return object_
 
 
 def partial_update_object_service(db: Session, object_id: str, object: SchemaPartialUpdateObject):

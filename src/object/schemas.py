@@ -14,7 +14,7 @@ class SchemaCreateObject(BaseModel):
     name: str
     description: str
     image: Optional[str]
-    type: str
+    function: str
     script_id: str
     game_id: str
 
@@ -31,7 +31,6 @@ class SchemaPartialUpdateObject(BaseModel):
     name: Optional[str]
     description: Optional[str]
     image: Optional[str]
-    type: Optional[str]
 
 
 class SchemaRetrieveObject(BaseModel):
@@ -47,7 +46,6 @@ class SchemaRetrieveObject(BaseModel):
     name: str
     description: str
     image: Optional[str]
-    type: str
 
     class Config:
         orm_mode = True

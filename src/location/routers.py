@@ -10,6 +10,7 @@ from fastapi_jwt_auth import AuthJWT
 from sqlalchemy.orm import Session
 
 from config import auth_scheme
+
 from gpt_ai.utils import generate_image_dalle
 
 from location.schemas import SchemaListLocation

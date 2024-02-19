@@ -24,7 +24,7 @@ class Object(AbstractBaseModel):
     __tablename__ = "object"
     name: str = Column(String, index=False, nullable=True)
     description: str = Column(Text, nullable=True)
-    type: str = Column(String, nullable=False)
+    function: str = Column(String, nullable=True)
     image: str = Column(String, nullable=True)
     script_id: str = Column(String, nullable=False)
     game_id: str = Column(String, nullable=False)

@@ -36,7 +36,11 @@ class Prompt(AbstractBaseModel):
         ("character_image", "character_image"),
         ("location_image", "location_image"),
         ("script", "script"),
-        ("image_background", "image_background")
+        ("image_background", "image_background"),
+        ("image_weapon", "image_weapon"),
+        ("image_object", "image_object"),
+        ("image_introduction", "image_introduction"),
+        ("text_introduction", "text_introduction"),
     ]
     __tablename__ = "prompt"
     title: str = Column(String, unique=True, index=False)

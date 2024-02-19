@@ -14,7 +14,7 @@ class GameAdmin(ModelView, model=Game):
     can_delete = True
     can_view_details = True
     can_export = True
-    icon = "fa-solid device-gamepad"
+    icon = "fa-solid fa-gamepad"
     form_widget_args = {
         "created_at": {
             "readonly": True,

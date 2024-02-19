@@ -1,17 +1,18 @@
-# from fastapi.openapi.utils import get_openapi
 import time
 
-from fastapi.staticfiles import StaticFiles
+# import sentry_sdk
 
-from database import engine
-from database import SessionLocal
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import Response
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi_jwt_auth.exceptions import AuthJWTException
 from fastapi_jwt_auth import AuthJWT
+
+from database import engine
+from database import SessionLocal
 
 from user import routers as user_routers
 from user import models as user_base
@@ -23,7 +24,7 @@ from character import routers as character_routers
 from character import models as character_base
 from character.admin import CharacterAdmin
 
-from game_progress import routers as game_progress_routers
+# from game_progress import routers as game_progress_routers
 from game_progress import models as game_progress_base
 from game_progress.admin import GameProgressAdmin
 
@@ -39,7 +40,6 @@ from scene import routers as scene_routers
 from scene import models as scene_base
 from scene.admin import SceneAdmin
 
-from prompt import routers as prompt_routers
 from prompt import models as prompt_base
 from prompt.admin import PromptAdmin
 
@@ -47,9 +47,28 @@ from script import routers as script_routers
 from script import models as script_base
 from script.admin import ScriptAdmin
 
+from object import models as object_base
+from object.admin import ObjectAdmin
+from object import routers as object_routers
+
+from weapon import routers as weapon_routers
+from weapon import models as weapon_base
+from weapon.admin import WeaponAdmin
+
 from admin_config import authentication_backend
 
 from sqladmin import Admin
+
+# sentry_sdk.init(
+#     dsn="https://4e202615deee1365f0d26a614fe834e3@o4506720469319680.ingest.sentry.io/4506720470958080",
+#     # Set traces_sample_rate to 1.0 to capture 100%
+#     # of transactions for performance monitoring.
+#     traces_sample_rate=1.0,
+#     # Set profiles_sample_rate to 1.0 to profile 100%
+#     # of sampled transactions.
+#     # We recommend adjusting this value in production.
+#     profiles_sample_rate=1.0,
+# )
 
 app = FastAPI(
     title="Qwestar AI API",
@@ -86,10 +105,13 @@ app.include_router(character_routers.router, prefix="/v1/api")
 app.include_router(location_routers.router, prefix="/v1/api")
 app.include_router(scene_routers.router, prefix="/v1/api")
 # app.include_router(prompt_routers.router, prefix="/v1/api")
+app.include_router(object_routers.router, prefix="/v1/api")
+app.include_router(weapon_routers.router, prefix="/v1/api")
 
 admin = Admin(
     app,
     engine,
+    logo_url="https://qwestar.ai/wp-content/uploads/2024/01/Logo-Qwestar-Color.png",
     title="Qwestar AI Admin",
     authentication_backend=authentication_backend,
     base_url="/admin",
@@ -102,8 +124,9 @@ admin.add_view(GameAdmin)
 admin.add_view(LocationAdmin)
 admin.add_view(SceneAdmin)
 admin.add_view(PromptAdmin)
-
-
+admin.add_view(ScriptAdmin)
+admin.add_view(ObjectAdmin)
+admin.add_view(WeaponAdmin)
 
 user_base.Base.metadata.create_all(bind=engine)
 character_base.Base.metadata.create_all(bind=engine)
@@ -112,6 +135,9 @@ game_base.Base.metadata.create_all(bind=engine)
 location_base.Base.metadata.create_all(bind=engine)
 scene_base.Base.metadata.create_all(bind=engine)
 prompt_base.Base.metadata.create_all(bind=engine)
+script_base.Base.metadata.create_all(bind=engine)
+object_base.Base.metadata.create_all(bind=engine)
+weapon_base.Base.metadata.create_all(bind=engine)
 
 
 @app.middleware("http")
@@ -146,47 +172,6 @@ def check_if_token_in_denylist(decrypted_token):
     jti = decrypted_token['jti']
     return jti in denylist
 
-
-# def custom_openapi():
-#     if app.openapi_schema:
-#         return app.openapi_schema
-#
-#     openapi_schema = get_openapi(
-#         title="Custom title",
-#         version="2.5.0",
-#         description="This is a very custom OpenAPI schema",
-#         routes=app.routes,
-#     )
-#
-#     # Custom documentation fastapi-jwt-auth
-#     headers = {
-#         "name": "Authorization",
-#         "in": "header",
-#         "required": True,
-#         "schema": {
-#             "title": "Authorization",
-#             "type": "string"
-#         },
-#     }
-#
-#     # Get routes from index 4 because before that fastapi define router for /openapi.json, /redoc, /docs, etc
-#     # Get all router where operation_id is authorize
-#     router_authorize = [route for route in app.routes[4:] if route.operation_id == "authorize"]
-#     print(router_authorize)
-#     for route in router_authorize:
-#         method = list(route.methods)[0].lower()
-#         try:
-#             # If the router has another parameter
-#             openapi_schema["paths"][route.path][method]['parameters'].append(headers)
-#         except Exception:
-#             # If the router doesn't have a parameter
-#             openapi_schema["paths"][route.path][method].update({"parameters":[headers]})
-#
-#     app.openapi_schema = openapi_schema
-#     return app.openapi_schema
-#
-#
-# app.openapi = custom_openapi
 
 @app.get("/")
 async def root():

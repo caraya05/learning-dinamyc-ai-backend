@@ -21,6 +21,8 @@ class SchemaCreateCharacter(BaseModel):
 
     attempts: int = Field(..., example=0)
 
+    extra_data: Optional[dict] = Field(None, example={"key": "value"})
+
 
 class SchemaRetrieveCharacter(BaseModel):
     id: UUID

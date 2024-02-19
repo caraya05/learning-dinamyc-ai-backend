@@ -14,4 +14,4 @@ class CharacterAdmin(ModelView, model=Character):
     can_delete = True
     can_view_details = True
     can_export = True
-    icon = "fa-solid karate"
+    icon = "fa-solid fa-user-astronaut"

@@ -10,11 +10,18 @@ class SchemaCreateScene(BaseModel):
     title: str
     description: str
     script_id: str
+    game_id: str
     characters_id: list[str]
     location_id: str
-    dialogues: list[dict]
+    start_dialogues: list[dict]
+    end_dialogues: list[dict]
+    questions: dict
     content: str
     dynamic: str
+    reward: str
+    count_enemies: int
+    enemy_id: str
+    is_subtractable: bool
 
 
 class SchemaPartialUpdateScene(BaseModel):
@@ -39,9 +46,25 @@ class SchemaRetrieveScene(BaseModel):
     script_id: str
     characters_id: list[str]
     location_id: str
-    dialogues: list[dict]
     content: str
     dynamic: str
+
+    class Config:
+        orm_mode = True
+
+
+class SchemaRetrieveSceneComplete(SchemaRetrieveScene):
+    """
+    Schema for retrieving a scene with all the related fields
+    """
+    locations_valid: list[str]
+    start_dialogues: list[dict]
+    end_dialogues: list[dict]
+    questions: dict
+    reward: str
+    count_enemies: int
+    enemy_id: str
+    is_subtractable: bool
 
     class Config:
         orm_mode = True

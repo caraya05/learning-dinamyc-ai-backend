@@ -14,4 +14,4 @@ class LocationAdmin(ModelView, model=Location):
     can_delete = True
     can_view_details = True
     can_export = True
-    icon = "fa-solid map-pin"
+    icon = "fa-solid fa-map-location-dot"

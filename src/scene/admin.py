@@ -14,4 +14,4 @@ class SceneAdmin(ModelView, model=Scene):
     can_delete = True
     can_view_details = True
     can_export = True
-    icon = "fa-solid fa-scene"
+    icon = "fa-solid fa-film"

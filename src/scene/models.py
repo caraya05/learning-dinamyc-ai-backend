@@ -5,6 +5,7 @@ from sqlalchemy import PickleType
 from sqlalchemy import String
 from sqlalchemy import Date
 from sqlalchemy import Text
+from sqlalchemy import Boolean
 from sqlalchemy import Integer
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -29,8 +30,15 @@ class Scene(AbstractBaseModel):
     title: str = Column(String, index=False)
     description: str = Column(Text, nullable=False)
     script_id: str = Column(String, nullable=False)
+    game_id: str = Column(String, nullable=True)
     location_id: str = Column(String, nullable=False)
     characters_id = Column(PickleType, nullable=True)
-    dialogues = Column(PickleType, nullable=False)
+    start_dialogues = Column(PickleType, nullable=True)
+    end_dialogues = Column(PickleType, nullable=True)
+    questions = Column(PickleType, nullable=True)
     dynamic: str = Column(String, nullable=True)
     content: str = Column(String, nullable=True)
+    reward: str = Column(String, nullable=True)
+    count_enemies: int = Column(Integer, nullable=True)
+    enemy_id: str = Column(String, nullable=True)
+    is_subtractable: bool = Column(Boolean, nullable=True)

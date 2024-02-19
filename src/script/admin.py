@@ -14,4 +14,4 @@ class ScriptAdmin(ModelView, model=Script):
     can_delete = True
     can_view_details = True
     can_export = True
-    icon = "fa-solid fa-script"
+    icon = "fa-solid fa-scroll"

@@ -14,4 +14,4 @@ class GameProgressAdmin(ModelView, model=GameProgress):
     can_delete = True
     can_view_details = True
     can_export = True
-    icon = "fa-solid progress"
+    icon = "fa-solid fa-bars-progress"
