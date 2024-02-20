@@ -21,8 +21,8 @@ celery = Celery(__name__)
 celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
-URL_API = "https://backend-dev.qwestar.ai"
-# URL_API = "http://192.168.1.45"
+# URL_API = "https://backend-dev.qwestar.ai"
+URL_API = "http://192.168.1.45"
 
 
 @celery.task(name="create_script_task")
@@ -210,7 +210,7 @@ def create_script_task(token: str,
     branch_scene = True
     try:
         # print("scenes_ " + str(scenes_) + " " + str(len(scenes_)))
-        count = 1
+        count = 0
         for i in scenes_:
             # print("i " + str(i) + " " + str(len(scenes_)) + " " + str(count))
             for j in locations_:

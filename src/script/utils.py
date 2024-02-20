@@ -364,7 +364,10 @@ def get_script_locations_chapter_v2(history: str, num: str,
                                             type_text="scene cero",
                                             max_tokens=4096)
 
-    response_image_scene_cero = generate_image_dalle(prompt=prompt_image_scene_cero)
+    response_image_scene_cero = generate_image_dalle(prompt=prompt_image_scene_cero,
+                                                     quality="hd",
+                                                     size="1024x1024"
+                                                     )
 
     prompt_text_scene_cero = json.loads(prompt_text_scene_cero)
 
@@ -390,7 +393,10 @@ def get_weapon_image(prompt_weapon: str,
 
     content_prompt = prompt_weapon.replace("x_weapon", complement)
 
-    response_image_weapon = generate_image_dalle(prompt=content_prompt)
+    response_image_weapon = generate_image_dalle(prompt=content_prompt,
+                                                 quality="hd",
+                                                 size="1024x1024"
+                                                 )
 
     return response_image_weapon
 
