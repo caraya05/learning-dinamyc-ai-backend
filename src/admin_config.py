@@ -73,13 +73,13 @@ class AdminAuth(AuthenticationBackend):
             request.session.clear()
             return False
         try:
-            print("token_access", token)
+            # print("token_access", token)
             payload = jwt.decode(token, settings.authjwt_secret_key, algorithms="HS512")
             if payload["exp"] < datetime.now().timestamp():
-                print("exp ......")
+                # print("exp ......")
                 request.session.clear()
                 return False
-            print("payload", payload)
+            # print("payload", payload)
             request.session.update({
                 "access": auth.create_access_token(
                     subject="admin",

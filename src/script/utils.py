@@ -324,9 +324,6 @@ def get_script_locations_chapter_v2(history: str, num: str,
 
     location_scene = scenes_generated[0]["id_location"]
 
-    description_scene = "descripccion: " + scenes_generated[0]["description"] + " contenido: " + scenes_generated[0][
-        "content"]
-
     for i in range(len(characters_locations_generated["locations"])):
         if characters_locations_generated["locations"][i]["id"] == location_scene:
             location_scene = characters_locations_generated["locations"][i]["description"]
@@ -335,8 +332,9 @@ def get_script_locations_chapter_v2(history: str, num: str,
     prompt_image_scene_cero = (f"Genera una imagen en arte voxel y vista isométrica de 1024x1024 "
                                f"del exterior del {location_scene} de la escena 1")
 
-    prompt_text_scene_cero = (f"Genera un resumen introductorio de la historia, referente a la escena 1,"
-                              f", que sea atractivo y genere recordación, y que sea de 6 lineas")
+    prompt_text_scene_cero = (f"Genera una introducción que debe decir un narrador antes de la primera escena de"
+                              f" esta historia, que coloque en contexto y le genere expectativa al jugador,"
+                              f" en no más de 6 renglones. (En inglés)")
 
     json_content_scene_cero = {
         "description_introduction": "string (description of the introduction)",
@@ -348,11 +346,15 @@ def get_script_locations_chapter_v2(history: str, num: str,
             "content": f"responde el prompt con la siguiente estructura JSON: {json_content_scene_cero}"
         },
         {
+            "role": "assistant",
+            "content": f"historia: {history}"
+        },
+        {
             "role": "user",
             "content": [
                 {
                     "type": "text",
-                    "text": prompt_text_scene_cero + description_scene
+                    "text": prompt_text_scene_cero
                 }
             ]
         }

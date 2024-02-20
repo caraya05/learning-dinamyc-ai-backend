@@ -39,6 +39,7 @@ def get_db(request: Request):
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListWeapon)
 def get_weapons(game_id: str,
+                character_id: str = None,
                 db: Session = Depends(get_db),
                 Authorize: AuthJWT = Depends(),
                 Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
@@ -59,7 +60,7 @@ def get_weapons(game_id: str,
             detail="Invalid token",
         )
 
-    weapons_db = get_weapons_service(db, game_id, skip=0, limit=100)
+    weapons_db = get_weapons_service(db, game_id, skip=0, limit=100, character_id=character_id)
 
     return weapons_db
 

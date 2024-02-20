@@ -22,12 +22,14 @@ def get_weapon_by_field(db: Session, field: str, value: str):
     return weapon
 
 
-def get_weapons_service(db: Session, game_id: str, skip: int = 0, limit: int = 100):
+def get_weapons_service(db: Session, game_id: str, skip: int = 0, limit: int = 100,character_id: str = None):
     """
     Get a list of weapons.
     """
-    weapons = db.query(Weapon).filter(Weapon.game_id == game_id).offset(skip).limit(limit).all()
-    return weapons
+    weapons = db.query(Weapon).filter(Weapon.game_id == game_id)
+    if character_id:
+        weapons = weapons.filter(Weapon.character_id == character_id)
+    return weapons.offset(skip).limit(limit).all()
 
 
 def create_weapon_service(db: Session, weapon: SchemaCreateWeapon, user_id: str):
