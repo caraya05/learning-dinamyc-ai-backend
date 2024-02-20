@@ -56,7 +56,7 @@ def get_objects(game_id: str,
 
     objects_db = get_objects_service(db, game_id, skip=0, limit=100)
 
-    return objects_db
+    return SchemaListObject(results=objects_db, count=len(objects_db))
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveObject)

@@ -62,7 +62,7 @@ def get_weapons(game_id: str,
 
     weapons_db = get_weapons_service(db, game_id, skip=0, limit=100, character_id=character_id)
 
-    return weapons_db
+    return SchemaListWeapon(results=weapons_db, count=len(weapons_db))
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveWeapon)
