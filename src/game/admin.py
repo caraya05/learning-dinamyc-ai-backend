@@ -15,6 +15,7 @@ class GameAdmin(ModelView, model=Game):
     can_view_details = True
     can_export = True
     icon = "fa-solid fa-gamepad"
+    column_default_sort = ("created_at", True)
     form_widget_args = {
         "created_at": {
             "readonly": True,

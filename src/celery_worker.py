@@ -21,8 +21,8 @@ celery = Celery(__name__)
 celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
-# URL_API = "https://backend-dev.qwestar.ai"
-URL_API = "http://192.168.1.45"
+URL_API = "https://backend-dev.qwestar.ai"
+# URL_API = "http://192.168.1.45"
 
 
 @celery.task(name="create_script_task")
@@ -251,7 +251,9 @@ def create_script_task(token: str,
                 reward=i["reward"],
                 count_enemies=i["count_enemies"],
                 enemy_id=i["enemy_id"],
-                is_subtractable=i["is_subtractable"]
+                is_subtractable=i["is_subtractable"],
+                start_content=i["start_content"] if "start_content" in i else "",
+                start_image=i["start_image"] if "start_image" in i else ""
             )
             count += 1
 

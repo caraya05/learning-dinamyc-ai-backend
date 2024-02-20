@@ -216,20 +216,6 @@ def get_script_locations_chapter_v2(history: str, num: str,
 
     print("characters_locations_generated", time.time() - star_time)
 
-    # for location in characters_locations_generated["locations"]:
-    #     content_prompt = f"{prompt_image_locations} {location['description']}"
-    #
-    #     response_image_location = generate_image_dalle(prompt=content_prompt)
-    #
-    #     location["image"] = response_image_location
-    #
-    # for character in characters_locations_generated["characters"]:
-    #     content_prompt = f"{prompt_image_characters} genero :{character['description']} descripcion: {character['description']}"
-    #
-    #     response_image_character = generate_image_dalle(prompt=content_prompt)
-    #
-    #     character["image"] = response_image_character
-
     schema_scene = {
         "number": "int (number of the scene described by the user)",
         "title": "string (title of the scene)",
@@ -313,11 +299,77 @@ def get_script_locations_chapter_v2(history: str, num: str,
 
         scenes_generated.append(json.loads(response_scene))
 
-        # print("scene_generated" + response_scene)
-
         print("scene_generated" + str(i + 1), time.time() - star_time)
 
     print("scenes_generated", time.time() - star_time)
+
+    scene_cero = {
+        "number": 0,
+        "title": "introduction chapter",
+        "description": "",
+        "content": "",
+        "dynamic": "",
+        "reward": "",
+        "start_dialogues": [],
+        "end_dialogues": [],
+        "questions": {},
+        "objects": [],
+        "id_location": 0,
+        "characters": [],
+        "valid_locations": [],
+        "count_enemies": 0,
+        "enemy_id": 0,
+        "is_subtractable": False
+    }
+
+    location_scene = scenes_generated[0]["id_location"]
+
+    description_scene = "descripccion: " + scenes_generated[0]["description"] + " contenido: " + scenes_generated[0][
+        "content"]
+
+    for i in range(len(characters_locations_generated["locations"])):
+        if characters_locations_generated["locations"][i]["id"] == location_scene:
+            location_scene = characters_locations_generated["locations"][i]["description"]
+            break
+
+    prompt_image_scene_cero = (f"Genera una imagen en arte voxel y vista isométrica de 1024x1024 "
+                               f"del exterior del {location_scene} de la escena 1")
+
+    prompt_text_scene_cero = (f"Genera un resumen introductorio de la historia, referente a la escena 1,"
+                              f", que sea atractivo y genere recordación, y que sea de 6 lineas")
+
+    json_content_scene_cero = {
+        "description_introduction": "string (description of the introduction)",
+    }
+
+    prompt_content = [
+        {
+            "role": "system",
+            "content": f"responde el prompt con la siguiente estructura JSON: {json_content_scene_cero}"
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": prompt_text_scene_cero + description_scene
+                }
+            ]
+        }
+    ]
+
+    prompt_text_scene_cero = generate_gpt4_(content_prompt=prompt_content,
+                                            type_text="scene cero",
+                                            max_tokens=4096)
+
+    response_image_scene_cero = generate_image_dalle(prompt=prompt_image_scene_cero)
+
+    prompt_text_scene_cero = json.loads(prompt_text_scene_cero)
+
+    scene_cero["start_content"] = prompt_text_scene_cero["description_introduction"]
+    scene_cero["start_image"] = response_image_scene_cero
+
+    scenes_generated.insert(0, scene_cero)
 
     return {
         "script": script_generated,
@@ -347,6 +399,8 @@ def get_object_image(prompt_object: str,
 
     content_prompt = prompt_object.replace("x_object", complement)
 
-    response_image_object = generate_image_dalle(prompt=content_prompt)
+    response_image_object = generate_image_dalle(prompt=content_prompt,
+                                                 quality="hd",
+                                                 size="1024x1024")
 
     return response_image_object

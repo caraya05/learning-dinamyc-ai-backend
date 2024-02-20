@@ -15,3 +15,22 @@ class ScriptAdmin(ModelView, model=Script):
     can_view_details = True
     can_export = True
     icon = "fa-solid fa-scroll"
+    column_default_sort = ("created_at", True)
+    form_widget_args = {
+        "created_at": {
+            "readonly": True,
+            "disabled": True
+        },
+        "created_by": {
+            "readonly": True,
+            "disabled": True
+        },
+        "updated_at": {
+            "readonly": True,
+            "disabled": True
+        },
+        "updated_by": {
+            "readonly": True,
+            "disabled": True
+        },
+    }

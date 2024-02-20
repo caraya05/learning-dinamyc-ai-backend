@@ -9,6 +9,7 @@ from scene.schemas import SchemaRetrieveScene
 from scene.schemas import SchemaCreateScene
 from scene.schemas import SchemaPartialUpdateScene
 from scene.schemas import SchemaListScene
+from utils import upload_image
 
 
 def get_scene_by_field(db: Session, field: str, value: str):
@@ -43,6 +44,9 @@ def create_scene_service(db: Session, schema: SchemaCreateScene, user_id: str):
     Create a scene.
     """
     scene = Scene(**schema.dict())
+    if schema.start_image:
+        scene.start_image = upload_image(schema.start_image, f"{scene.game_id}/scene/{scene.order}_start.jpg")
+
     scene.created_by = user_id
     scene.updated_by = user_id
     db.add(scene)

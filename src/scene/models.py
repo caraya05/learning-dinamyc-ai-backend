@@ -42,3 +42,5 @@ class Scene(AbstractBaseModel):
     count_enemies: int = Column(Integer, nullable=True)
     enemy_id: str = Column(String, nullable=True)
     is_subtractable: bool = Column(Boolean, nullable=True)
+    start_content: str = Column(String, nullable=True)
+    start_image: str = Column(String, nullable=True)

@@ -22,6 +22,8 @@ class SchemaCreateScene(BaseModel):
     count_enemies: int
     enemy_id: str
     is_subtractable: bool
+    start_content: str
+    start_image: str
 
 
 class SchemaPartialUpdateScene(BaseModel):
