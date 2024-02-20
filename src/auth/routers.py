@@ -149,7 +149,7 @@ def sign_in_with_google(data: dict, db: Session = Depends(get_db)):
 
              }
              )
-def sign_in_with_apple(data: dict={"uid":"4c8SEAwFb1ZORQ4psCpxOGQP0RK2"}, db: Session = Depends(get_db)):
+def sign_in_with_apple(data: dict, db: Session = Depends(get_db)):
     """
     Sign in with apple
     """
