@@ -30,6 +30,7 @@ from script.models import Base as script_base
 from object.models import Base as object_base
 from weapon.models import Base as weapon_base
 
+
 def combine_metadata(*args):
     m = MetaData()
     for metadata in args:
@@ -40,7 +41,8 @@ def combine_metadata(*args):
 
 target_metadata = combine_metadata(user_base.metadata, game_base.metadata, character_base.metadata,
                                    game_progress_base.metadata, location_base.metadata, prompt_base.metadata,
-                                   scene_base.metadata, script_base.metadata, object_base.metadata, weapon_base.metadata)
+                                   scene_base.metadata, script_base.metadata, object_base.metadata,
+                                   weapon_base.metadata)
 
 
 # other values from the config, defined by the needs of env.py,
