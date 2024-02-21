@@ -250,7 +250,7 @@ def create_script_task(token: str,
                 questions=i["questions"],
                 reward=i["reward"],
                 count_enemies=i["count_enemies"],
-                enemy_id=i["enemy_id"],
+                enemy_id=i["enemy_id"] if "enemy_id" in i else "",
                 is_subtractable=i["is_subtractable"],
                 start_content=i["start_content"] if "start_content" in i else "",
                 start_image=i["start_image"] if "start_image" in i else ""
