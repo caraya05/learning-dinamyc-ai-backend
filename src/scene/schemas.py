@@ -78,6 +78,7 @@ class SchemaRetrieveSceneComplete(BaseModel):
     is_subtractable: bool = False
     start_content: Optional[str]
     start_image: Optional[str]
+
     class Config:
         orm_mode = True
 

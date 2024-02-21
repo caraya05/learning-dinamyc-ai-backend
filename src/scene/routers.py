@@ -81,7 +81,7 @@ def get_scene(scene_id: str,
 
     scene_db = get_scene_service(db, scene_id=scene_id)
 
-    return SchemaRetrieveScene(**scene_db.dict())
+    return scene_db
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveScene)

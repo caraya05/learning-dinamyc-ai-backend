@@ -36,7 +36,7 @@ def get_scene_service(db: Session, scene_id: str):
     Get a scene.
     """
     scene = get_scene_by_field(db, "id", scene_id)
-    return SchemaRetrieveScene.from_orm(scene)
+    return scene
 
 
 def create_scene_service(db: Session, schema: SchemaCreateScene, user_id: str):
