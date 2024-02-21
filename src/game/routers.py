@@ -180,14 +180,14 @@ def cover_generate(
 
     prompt_db_cover = get_prompt_by_field(db, 'category', 'cover')
 
-    character_leading_role = get_character_leading_role_service(db, game_db.id)
+    # character_leading_role = get_character_leading_role_service(db, game_db.id)
 
     prompt_content = prompt_db_cover.description.replace('x_history', game_db.synopsis)
 
-    prompt_content = prompt_content.replace('x_character',
-                                            f"{character_leading_role.description}")
+    # prompt_content = prompt_content.replace('x_character',
+    #                                         f"{character_leading_role.description}")
 
-    print("prompt_content", prompt_content)
+    print("prompt_content", prompt_db_cover.description)
 
     # schema_cover = {
     #     "text": "string (text of the cover)",
