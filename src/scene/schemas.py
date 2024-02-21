@@ -55,19 +55,29 @@ class SchemaRetrieveScene(BaseModel):
         orm_mode = True
 
 
-class SchemaRetrieveSceneComplete(SchemaRetrieveScene):
+class SchemaRetrieveSceneComplete(BaseModel):
     """
     Schema for retrieving a scene with all the related fields
     """
-    locations_valid: list[str]
-    start_dialogues: list[dict]
-    end_dialogues: list[dict]
-    questions: dict
-    reward: str
-    count_enemies: int
-    enemy_id: str
-    is_subtractable: bool
-
+    id: str
+    order: int
+    title: str
+    description: str
+    script_id: str
+    game_id: Optional[str]
+    characters_id: list[str]
+    location_id: str
+    start_dialogues: Optional[list[dict]] | None
+    end_dialogues: Optional[list[dict]] | None
+    questions: Optional[dict]
+    content: Optional[str]
+    dynamic: Optional[str]
+    reward: Optional[str]
+    count_enemies: Optional[int]
+    enemy_id: Optional[str]
+    is_subtractable: bool = False
+    start_content: Optional[str]
+    start_image: Optional[str]
     class Config:
         orm_mode = True
 

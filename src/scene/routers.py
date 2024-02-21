@@ -14,6 +14,7 @@ from config import auth_scheme
 from scene.schemas import SchemaListScene
 from scene.schemas import SchemaRetrieveScene
 from scene.schemas import SchemaCreateScene
+from scene.schemas import SchemaRetrieveSceneComplete
 from scene.schemas import SchemaPartialUpdateScene
 
 from scene.services import get_scenes_service
@@ -56,7 +57,7 @@ def get_scenes(script_id: str,
     return scenes_db
 
 
-@router.get("/{scene_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScene)
+@router.get("/{scene_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveSceneComplete)
 def get_scene(scene_id: str,
               db: Session = Depends(get_db),
               Authorize: AuthJWT = Depends(),
