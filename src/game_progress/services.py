@@ -20,11 +20,11 @@ def get_game_progress_by_field(db: Session, field: str, value: str):
     return game_progress
 
 
-def get_game_progresses_service(db: Session, skip: int = 0, limit: int = 100):
+def get_game_progresses_service(db: Session, skip: int = 0, limit: int = 100, user_id: str = None):
     """
     Get a list of game_progresses.
     """
-    game_progresses = db.query(GameProgress).offset(skip).limit(limit).all()
+    game_progresses = db.query(GameProgress).filter(GameProgress.user_id==user_id).offset(skip).limit(limit).all()
     return SchemaListGameProgress(results=game_progresses, count=len(game_progresses))
 
 

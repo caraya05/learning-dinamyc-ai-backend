@@ -50,7 +50,7 @@ def get_game_progresses(db: Session = Depends(get_db),
             detail="Invalid token",
         )
 
-    game_progresses_db = get_game_progresses_service(db, skip=0, limit=100)
+    game_progresses_db = get_game_progresses_service(db, skip=0, limit=100,user_id=current_user)
 
     return game_progresses_db
 
