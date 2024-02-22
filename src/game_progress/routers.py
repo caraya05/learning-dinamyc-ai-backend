@@ -21,7 +21,7 @@ from game_progress.services import get_game_progress_service
 from game_progress.services import create_game_progress_service
 from game_progress.services import partial_update_game_progress_service
 
-router = APIRouter(prefix="/game_progress", tags=["GameProgress"])
+router = APIRouter(prefix="/game_progress", tags=["Game Progress"])
 
 
 # Dependency
@@ -52,7 +52,7 @@ def get_game_progresses(db: Session = Depends(get_db),
 
     game_progresses_db = get_game_progresses_service(db, skip=0, limit=100)
 
-    return SchemaListGameProgress(results=game_progresses_db, count=len(game_progresses_db))
+    return game_progresses_db
 
 
 @router.get("/{game_progress_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGameProgress)
@@ -79,7 +79,7 @@ def get_game_progress(game_progress_id: str,
 
     game_progress_db = get_game_progress_service(db, game_progress_id=game_progress_id)
 
-    return SchemaRetrieveGameProgress(**game_progress_db)
+    return game_progress_db
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveGameProgress)
@@ -104,9 +104,9 @@ def create_game_progress(game_progress: SchemaCreateGameProgress,
             detail="Invalid token",
         )
 
-    game_progress_db = create_game_progress_service(db, schema=game_progress)
+    game_progress_db = create_game_progress_service(db, schema=game_progress,user_id=current_user)
 
-    return SchemaRetrieveGameProgress(**game_progress_db)
+    return game_progress_db
 
 
 @router.patch("/{game_progress_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGameProgress)
@@ -134,4 +134,4 @@ def partial_update_game_progress(game_progress_id: str,
 
     game_progress_db = partial_update_game_progress_service(db, game_progress_id=game_progress_id, schema=game_progress)
 
-    return SchemaRetrieveGameProgress(**game_progress_db)
+    return game_progress_db

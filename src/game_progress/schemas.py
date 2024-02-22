@@ -6,18 +6,22 @@ class SchemaCreateGameProgress(BaseModel):
     """
     Schema for creating a game progress
     """
-    user_id: str
+    # user_id: str
     game_id: str
     scene_id: str
+    object: list[str]
+    life: int
+    location_id: str
 
 
 class SchemaPartialUpdateGameProgress(BaseModel):
     """
     Schema for partially updating a game progress
     """
-    user_id: Optional[str]
     game_id: Optional[str]
     scene_id: Optional[str]
+    object: Optional[list[str]]
+    life: Optional[int]
 
 
 class SchemaRetrieveGameProgress(BaseModel):
@@ -28,6 +32,9 @@ class SchemaRetrieveGameProgress(BaseModel):
     user_id: str
     game_id: str
     scene_id: str
+    object: list[str]
+    life: int
+    location_id: str
     is_complete: bool
 
     class Config:

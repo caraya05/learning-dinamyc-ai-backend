@@ -1,4 +1,4 @@
-name: Despliegue Master
+name: Despliegue Desarrollo
 
 on:
   push:

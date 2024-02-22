@@ -3,6 +3,8 @@ import datetime
 from sqlalchemy import Column
 from sqlalchemy import String
 from sqlalchemy import Date
+from sqlalchemy import PickleType
+from sqlalchemy import Integer
 from sqlalchemy.ext.declarative import declarative_base
 
 from utils import generate_uuid
@@ -24,6 +26,9 @@ class GameProgress(AbstractBaseModel):
     user_id: str = Column(String, nullable=False)
     scene_id: str = Column(String, nullable=False)
     game_id: str = Column(String, nullable=False)
+    object: str = Column(PickleType, nullable=True)
+    life: int = Column(Integer, nullable=True)
+    location_id: str = Column(String, nullable=True)
     is_complete: bool = Column(String, nullable=False, default=False)
 
     def __repr__(self):

@@ -24,7 +24,7 @@ from character import routers as character_routers
 from character import models as character_base
 from character.admin import CharacterAdmin
 
-# from game_progress import routers as game_progress_routers
+from game_progress import routers as game_progress_routers
 from game_progress import models as game_progress_base
 from game_progress.admin import GameProgressAdmin
 
@@ -102,15 +102,14 @@ app.add_middleware(
 app.include_router(user_routers.router, prefix="/v1/api")
 app.include_router(token_routers.router, prefix="/v1/api")
 app.include_router(game_routers.router, prefix="/v1/api")
+app.include_router(game_progress_routers.router, prefix="/v1/api")
 app.include_router(script_routers.router, prefix="/v1/api")
 app.include_router(character_routers.router, prefix="/v1/api")
-# app.include_router(game_progress_routers.router, prefix="/v1/api")
 app.include_router(location_routers.router, prefix="/v1/api")
 app.include_router(scene_routers.router, prefix="/v1/api")
 # app.include_router(prompt_routers.router, prefix="/v1/api")
 app.include_router(object_routers.router, prefix="/v1/api")
 app.include_router(weapon_routers.router, prefix="/v1/api")
-
 
 admin = Admin(
     app,
