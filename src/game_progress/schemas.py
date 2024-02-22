@@ -18,9 +18,9 @@ class SchemaPartialUpdateGameProgress(BaseModel):
     """
     Schema for partially updating a game progress
     """
-    game_id: Optional[str]
     scene_id: Optional[str]
     object: Optional[list[str]]
+    location_id: str
     life: Optional[int]
 
 
