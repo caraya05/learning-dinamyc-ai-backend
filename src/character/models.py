@@ -20,6 +20,7 @@ class TypeCharacterEnum(enum.Enum):
     enemy = "enemy"
     antagonist = "antagonist"
     other = "other"
+    mini_enemy = "mini enemy"
 
 
 class AbstractBaseModel(Base):
@@ -35,7 +36,7 @@ class Character(AbstractBaseModel):
     TYPE_CHARACTER = [
         ("leading role", "leading role"),
         ("enemy", "enemy"),
-        ("enemy", "enemy"),
+        ("mini enemy", "mini enemy"),
         ("antagonist", "antagonist"),
         ("other", "other"),
     ]
@@ -49,6 +50,8 @@ class Character(AbstractBaseModel):
     game_id: str = Column(String, nullable=False)
     attempts: int = Column(Integer, nullable=True)
     extra_data: str = Column(PickleType, nullable=True)
+    text_idle: str = Column(PickleType, nullable=True)
+
 
     def __repr__(self):
         return f"<Character {self.name} - {self.type}>"

@@ -4,7 +4,7 @@ from game_progress.models import GameProgress
 
 
 class GameProgressAdmin(ModelView, model=GameProgress):
-    name_plural = "GameProgress"
+    name_plural = "Game Progress"
     column_list = ["id", "game_id", "scene_id", "is_complete", "user_id"]
     # column_searchable_list = ["username", "first_name", "last_name", "email",]
     # column_sorted_list = ["username", "first_name", "last_name", "email",]

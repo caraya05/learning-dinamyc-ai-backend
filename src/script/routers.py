@@ -110,7 +110,11 @@ def get_script(script_id: str,
 
     script_db = get_script_service(db, script_id=script_id)
 
+    print("script_db", script_db.game_id)
+
     locations_ = get_locations_service(db, game_id=script_db.game_id)
+
+
 
     characters_ = get_characters_service(db, game_id=script_db.game_id)
 
@@ -120,9 +124,9 @@ def get_script(script_id: str,
     print("locations_", locations_)
     print("characters_", characters_)
 
-    script_db.locations = locations_.results if locations_.results else []
+    script_db.locations = locations_.results if locations_.results or locations_ else []
     script_db.characters = characters_ if characters_ else []
-    script_db.scenes = scenes_.results if scenes_.results else []
+    script_db.scenes = scenes_.results if scenes_.results or scenes_ else []
 
     return script_db
 

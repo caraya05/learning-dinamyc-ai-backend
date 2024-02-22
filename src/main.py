@@ -55,6 +55,9 @@ from weapon import routers as weapon_routers
 from weapon import models as weapon_base
 from weapon.admin import WeaponAdmin
 
+from customize import models as customize_base
+from customize.admin import CustomizeAdmin
+
 from admin_config import authentication_backend
 
 from sqladmin import Admin
@@ -108,6 +111,7 @@ app.include_router(scene_routers.router, prefix="/v1/api")
 app.include_router(object_routers.router, prefix="/v1/api")
 app.include_router(weapon_routers.router, prefix="/v1/api")
 
+
 admin = Admin(
     app,
     engine,
@@ -127,6 +131,7 @@ admin.add_view(PromptAdmin)
 admin.add_view(ScriptAdmin)
 admin.add_view(ObjectAdmin)
 admin.add_view(WeaponAdmin)
+admin.add_view(CustomizeAdmin)
 
 user_base.Base.metadata.create_all(bind=engine)
 character_base.Base.metadata.create_all(bind=engine)
@@ -138,6 +143,7 @@ prompt_base.Base.metadata.create_all(bind=engine)
 script_base.Base.metadata.create_all(bind=engine)
 object_base.Base.metadata.create_all(bind=engine)
 weapon_base.Base.metadata.create_all(bind=engine)
+customize_base.Base.metadata.create_all(bind=engine)
 
 
 @app.middleware("http")

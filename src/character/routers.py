@@ -111,7 +111,7 @@ def get_character(character_id: str,
 
     character_db = get_character_service(db, character_id=character_id)
 
-    return SchemaRetrieveCharacter.from_orm(character_db)
+    return character_db
 
 
 @router.post("/", response_model=SchemaRetrieveCharacter)
@@ -168,7 +168,7 @@ def partial_update_character(character_id: str,
 
     character_db = update_partial_character_service(db, character_id=character_id, character_update=character_update)
 
-    return SchemaRetrieveCharacter.from_orm(character_db)
+    return character_db
 
 
 @router.get("/generate_image/{character_id}")

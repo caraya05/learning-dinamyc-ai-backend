@@ -26,10 +26,13 @@ def get_character_service(db: Session, character_id: str):
 def get_characters_service(db: Session, skip: int = 0, limit: int = 100, game_id: str = None):
     try:
         if game_id:
-            return db.query(Character).filter(Character.game_id == game_id).offset(skip).limit(limit).all()
+            print('game_id', game_id)
+            all_ = db.query(Character).filter(Character.game_id == game_id).offset(skip).limit(limit).all()
+            print('all_', all_)
+            return all_
         return db.query(Character).offset(skip).limit(limit).all()
     except Exception as e:
-        print(e)
+        print("Error character  " , e)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Characters not found",

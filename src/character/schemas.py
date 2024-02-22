@@ -23,6 +23,8 @@ class SchemaCreateCharacter(BaseModel):
 
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
 
+    text_idle: Optional[dict] = Field(None, example={"key": "value"})
+
 
 class SchemaRetrieveCharacter(BaseModel):
     id: UUID
@@ -31,6 +33,9 @@ class SchemaRetrieveCharacter(BaseModel):
     type: TypeCharacterEnum = Query(..., example="leading role")
     image: Optional[str] = Field(..., example="image", default_factory=None)
     description: str = Field(..., min_length=8, example="this is a description")
+    genre: str = Field(...)
+    extra_data: Optional[dict] = Field(None, example={"key": "value"})
+    text_idle: Optional[dict] = Field(None, example={"key": "value"})
 
     class Config:
         orm_mode = True

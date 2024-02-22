@@ -65,7 +65,7 @@ def create_script_task(token: str,
 
             object_json = object_.json()
 
-            image_generate = requests.get(f"{URL_API}/v1/api/object/generate-image/{object_json['id']}",
+            requests.get(f"{URL_API}/v1/api/object/generate-image/{object_json['id']}",
                                           headers={"Authorization": "Bearer " + token})
 
     print("objects created")
@@ -123,9 +123,17 @@ def create_script_task(token: str,
     branch_character = True
     character_ = response_script["characters_locations"]["characters"]
 
-    print("character_ " + str(character_) + " " + str(len(character_)))
     try:
         for i in character_:
+
+            for j in i["text_idle"]["dialogues"]:
+                for k in locations_:
+                    if str(j["location_id"]) == str(k["id"]):
+                        location_scene = (requests.get(f"{URL_API}/v1/api/location/by-field/?field=title&value={k['name']}",
+                                         headers={"Authorization": "Bearer " + token})).json()
+                        j["location_id"] = location_scene["id"]
+
+
 
             character_generate = SchemaCreateCharacter(
                 name=i["name"],
@@ -133,7 +141,10 @@ def create_script_task(token: str,
                 type=i["type"],
                 description=i["description"],
                 game_id=game_id,
-                attempts=3)
+                attempts=3,
+                extra_data=i["extra_data"],
+                text_idle=i["text_idle"] if "text_idle" in i else "",
+            )
 
             character_response = requests.post(f"{URL_API}/v1/api/characters/",
                                        json=character_generate.dict(),
@@ -150,11 +161,9 @@ def create_script_task(token: str,
                         game_id=game_id
                     )
 
-                    weapon_ = requests.post(f"{URL_API}/v1/api/weapon/",
+                    requests.post(f"{URL_API}/v1/api/weapon/",
                                             json=weapons_.dict(),
                                             headers={"Authorization": "Bearer " + token})
-
-                    print("weapon_ " + str(weapon_.status_code))
 
     except Exception as e:
 
@@ -234,6 +243,27 @@ def create_script_task(token: str,
                             requests.get(
                                 f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
                                 headers={"Authorization": "Bearer " + token}).json()["id"])
+
+
+            for dialogues_start in i["start_dialogues"]:
+                for k in character_:
+                    if str(dialogues_start["id_character"]) == str(k["id"]):
+                        dialogues_start["id_character"] = requests.get(
+                            f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
+                            headers={"Authorization": "Bearer " + token}).json()["id"]
+
+            for dialogues_end in i["end_dialogues"]:
+                for k in character_:
+                    if str(dialogues_end["id_character"]) == str(k["id"]):
+                        dialogues_end["id_character"] = requests.get(
+                            f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
+                            headers={"Authorization": "Bearer " + token}).json()["id"]
+
+            for character_enemy in character_:
+                if str(i["enemy_id"]) == str(character_enemy["id"]):
+                    i["enemy_id"] = requests.get(
+                        f"{URL_API}/v1/api/characters/by-field/?field=name&value={character_enemy['name']}",
+                        headers={"Authorization": "Bearer " + token}).json()["id"]
 
             scene_generate = SchemaCreateScene(
                 title=i["title"],

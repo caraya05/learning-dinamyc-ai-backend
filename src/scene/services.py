@@ -28,6 +28,7 @@ def get_scenes_service(db: Session, script_id: str, skip: int = 0, limit: int = 
     """
     scenes = (db.query(Scene).filter(Scene.script_id == script_id).order_by(asc(Scene.order))
               .offset(skip).limit(limit).all())
+
     return SchemaListScene(results=scenes, count=len(scenes))
 
 
