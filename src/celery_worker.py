@@ -23,6 +23,7 @@ celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6
 
 URL_API = "https://backend-dev.qwestar.ai"
 # URL_API = "http://192.168.1.45"
+# URL_API = "http://192.168.100.169"
 
 
 @celery.task(name="create_script_task")
@@ -33,9 +34,6 @@ def create_script_task(token: str,
                        game_id: str,
                        script_id: str,
                        current_user: str):
-    # script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
-    #     status=1
-    # )
 
     response_script = get_script_locations_chapter_v2(game_history,
                                                       "1",
@@ -66,13 +64,9 @@ def create_script_task(token: str,
             object_json = object_.json()
 
             requests.get(f"{URL_API}/v1/api/object/generate-image/{object_json['id']}",
-                                          headers={"Authorization": "Bearer " + token})
+                         headers={"Authorization": "Bearer " + token})
 
     print("objects created")
-
-
-
-
 
     # Create the locations
     branch_location = True
@@ -115,10 +109,6 @@ def create_script_task(token: str,
 
     print("location created")
 
-
-
-
-
     # Create the characters
     branch_character = True
     character_ = response_script["characters_locations"]["characters"]
@@ -129,11 +119,10 @@ def create_script_task(token: str,
             for j in i["text_idle"]["dialogues"]:
                 for k in locations_:
                     if str(j["location_id"]) == str(k["id"]):
-                        location_scene = (requests.get(f"{URL_API}/v1/api/location/by-field/?field=title&value={k['name']}",
+                        location_scene = (
+                            requests.get(f"{URL_API}/v1/api/location/by-field/?field=title&value={k['name']}",
                                          headers={"Authorization": "Bearer " + token})).json()
                         j["location_id"] = location_scene["id"]
-
-
 
             character_generate = SchemaCreateCharacter(
                 name=i["name"],
@@ -147,8 +136,8 @@ def create_script_task(token: str,
             )
 
             character_response = requests.post(f"{URL_API}/v1/api/characters/",
-                                       json=character_generate.dict(),
-                                       headers={"Authorization": "Bearer " + token})
+                                               json=character_generate.dict(),
+                                               headers={"Authorization": "Bearer " + token})
             print("type " + i["type"])
             if i["type"] == "leading role":
                 print("type check " + i["type"])
@@ -162,8 +151,8 @@ def create_script_task(token: str,
                     )
 
                     requests.post(f"{URL_API}/v1/api/weapon/",
-                                            json=weapons_.dict(),
-                                            headers={"Authorization": "Bearer " + token})
+                                  json=weapons_.dict(),
+                                  headers={"Authorization": "Bearer " + token})
 
     except Exception as e:
 
@@ -208,33 +197,29 @@ def create_script_task(token: str,
 
     print("character created")
 
-
-
-
-
     # Create the scenes
     scenes_ = response_script["scenes"]
 
-    location_scene = ""
     branch_scene = True
     try:
         # print("scenes_ " + str(scenes_) + " " + str(len(scenes_)))
         count = 0
         for i in scenes_:
+            location_scene = ""
             # print("i " + str(i) + " " + str(len(scenes_)) + " " + str(count))
             for j in locations_:
                 # print("i " + str(i["id_location"]) + " j " + str(j["id"]))
                 if str(i["id_location"]) == str(j["id"]):
                     # print("i " + str(i["id_location"]) + " j " + str(j["id"]) + " " + str(j["name"]))
                     location_scene = (requests.get(f"{URL_API}/v1/api/location/by-field/?field=title&value={j['name']}",
-                                     headers={"Authorization": "Bearer " + token})).json()
-                    print("location_scene " , location_scene)
+                                                   headers={"Authorization": "Bearer " + token})).json()
+                    print("location_scene ", location_scene)
                     location_scene = location_scene["id"]
 
             characters_scene = []
-            print("characters_scene " , i["characters"])
+            print("characters_scene ", i["characters"])
             for j in i["characters"]:
-                print("j " , j)
+                print("j ", j)
                 for k in character_:
                     print("k ", k)
                     if str(j["id"]) == str(k["id"]):
@@ -243,7 +228,6 @@ def create_script_task(token: str,
                             requests.get(
                                 f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
                                 headers={"Authorization": "Bearer " + token}).json()["id"])
-
 
             for dialogues_start in i["start_dialogues"]:
                 for k in character_:
@@ -341,7 +325,6 @@ def create_script_task(token: str,
             status=1
         )
 
-
     try:
 
         response = requests.patch(f"{URL_API}/v1/api/script/{script_id}",
@@ -358,9 +341,3 @@ def create_script_task(token: str,
     #
     print("all created")
     return True
-
-#
-# @celery.task(name="create_task")
-# def create_task(a, b, c):
-#     time.sleep(a)
-#     return b + c

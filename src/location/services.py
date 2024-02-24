@@ -9,6 +9,10 @@ from location.schemas import SchemaCreateLocation
 from location.schemas import SchemaPartialUpdateLocation
 from location.schemas import SchemaListLocation
 
+from scene.services import get_scenes_service
+
+from script.services import get_script_by_field
+
 from utils import upload_image
 
 
@@ -28,49 +32,22 @@ def get_locations_service(db: Session, game_id: str, skip: int = 0, limit: int =
     """
     locations = db.query(Location).filter(Location.game_id == game_id).offset(skip).limit(limit).all()
 
-    # prompt_db_image_location = get_prompt_by_field(db, "category", "location_image")
+    script_db = get_script_by_field(db, "game_id", game_id)
 
-    # for location in locations:
-    #     if not location.image:
-            # content = [
-            #     {
-            #         "role": "system",
-            #         "content": f"response con el siguiente JSON {json_response} "
-            #     },
-            #     {
-            #         "role": "user",
-            #         "content": [
-            #             {
-            #                 "type": "text",
-            #                 "text": "Describe en 5 renglones una pared de ESCENARIO  , y en otros 5 renglones el piso adjunto a esta pared de ESCENARIO"
-            #             },
-            #             {
-            #                 "type": "text",
-            #                 "text": f"Escenario: {location.title} - {location.description}"
-            #             }
-            #         ]
-            #     }
-            # ]
-            #
-            # description = generate_gpt4_(content_prompt=content,
-            #                              max_tokens=4096)
-            #
-            # description = json.loads(description)
+    scenes_db = get_scenes_service(db, script_id=script_db.id)
 
-            # content_prompt = f"{prompt_db_image_location.description} {location.description}"
-            #
-            # image_generate = generate_image_dalle(prompt=content_prompt,
-            #                                       size="1024x1024")
-            #
-            # image_name = location.title.replace(" ", "_")
-            #
-            # location.image = upload_image(url_image=image_generate,
-            #                               file_name=f"{location.game_id}/locations/{image_name}.jpg")
-            #
-            # db.commit()
-            # db.refresh(location)
+    locations_order = []
 
-    return SchemaListLocation(results=locations, count=len(locations))
+    for scene in scenes_db.results:
+        for location in locations:
+            if location.id == scene.location_id and location not in locations_order:
+                locations_order.append(location)
+
+    for location in locations:
+        if location not in locations_order:
+            locations_order.append(location)
+
+    return SchemaListLocation(results=locations_order, count=len(locations))
 
 
 def get_location_service(db: Session, location_id: str):

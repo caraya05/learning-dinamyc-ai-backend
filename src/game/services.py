@@ -58,6 +58,7 @@ def create_game_service(db: Session, game: SchemaCreateGame, user_id: str):
                        synopsis=synopsys['synopsis_generate'],
                        title=synopsys['title'],
                        prompt_image=synopsys['prompt_image'],
+                       summary=synopsys['summary'],
                        user_id=user_id,
                        updated_by=user_id,
                        created_by=user_id,
@@ -68,20 +69,12 @@ def create_game_service(db: Session, game: SchemaCreateGame, user_id: str):
         db.add(db_game)
         db.commit()
         db.refresh(db_game)
-        #
-        # for i in characters_principals['characters_generate']:
-        #     create_character_service(db=db,
-        #                              character=SchemaCreateCharacter(name=i['name'],
-        #                                                              genre=i['genre'],
-        #                                                              type=i['type'].lower(),
-        #                                                              description=i['description'],
-        #                                                              game_id=db_game.id,),
-        #                              user_id=user_id)
 
         return db_game
 
     except Exception as e:
         print(e)
+        db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Game not created",

@@ -149,4 +149,4 @@ def generate_gpt4_(content_prompt: list[dict],
 
     except Exception as e:
         print(e)
-        raise Exception(f"Text not generated {type_text} - {e}")
+        raise Exception(f"Text not generated {type_text}")

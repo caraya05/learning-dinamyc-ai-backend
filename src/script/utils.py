@@ -76,12 +76,12 @@ def get_script_locations_chapter_v2(history: str, num: str,
                 },
                 "text_idle": {
                     "dialogues": [
-                    {
-                        "location_id": "int (id of the location)",
-                        "dialogue": "string (dialogue of the character in the location)"
-                    }
-                ]
-            },
+                        {
+                            "location_id": "int (id of the location)",
+                            "dialogue": "string (dialogue of the character in the location)"
+                        }
+                    ]
+                },
                 # "weapons": {
                 #     "id": "int (id of the weapon)",
                 #     "name": "string (name of the weapon)",
@@ -174,7 +174,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
                 "id": "int (id of the object)",
             },
         ],
-        "id_location": "int (id of the location)",
+        "id_location": "int (location ids different from those already used)",
         "characters": [
             {
                 "id": "int (id of the character)",
@@ -192,18 +192,23 @@ def get_script_locations_chapter_v2(history: str, num: str,
 
     scenes_generated = []
 
+    location_id_used = []
+
     for i in range(4):
         prompt_scene = prompt_scene.replace("x_scene", f"{i + 1}")
         prompt_scene = prompt_scene.replace("x_script", num)
         content_prompt = [
             {
                 "role": "system",
-                "content": f"responde el prompt con la siguiente estructura JSON: {schema_scene}"
+                "content": f"Garantiza que en cada escena creada el personaje principal siempre este presente y "
+                           f"tambien varia cada en escena en difrentes locaciones,"
+                           f"responde el prompt con la siguiente estructura JSON: {schema_scene}"
             },
             {
-                "role": "assistant",
+                "role": "system",
                 "content": f"historia: {history} \n"
-                           f"personajes y lugares: {characters_locations_generated}"
+                           f"personajes y lugares: {characters_locations_generated}\n"
+                           f"locaciones usadas: {location_id_used} \n"
             },
             {
                 "role": "user",
@@ -220,7 +225,15 @@ def get_script_locations_chapter_v2(history: str, num: str,
                                         type_text="script",
                                         max_tokens=4096, )
 
-        scenes_generated.append(json.loads(response_scene))
+        print("scene_generated" + str(i + 1), json.loads(response_scene))
+
+        scene_generated_json = json.loads(response_scene)
+
+        location_id_used.append(scene_generated_json["id_location"])
+
+        scenes_generated.append(scene_generated_json)
+
+        print("location_id_used", location_id_used)
 
         print("scene_generated" + str(i + 1), time.time() - star_time)
 

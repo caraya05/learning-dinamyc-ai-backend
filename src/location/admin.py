@@ -6,7 +6,7 @@ from location.models import Location
 class LocationAdmin(ModelView, model=Location):
     name_plural = "Location"
     column_list = ["id", "title", "description", "image"]
-    column_searchable_list = ["id"]
+    column_searchable_list = ["id","game_id"]
     column_sorted_list = ["id"]
     # column_filters = ["username", "first_name", "last_name", "email",]
     can_edit = True

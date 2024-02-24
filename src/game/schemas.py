@@ -20,6 +20,7 @@ class SchemaRetrieveGame(BaseModel):
     image_background: Optional[str] = Field(..., example="photo background", decimal_places=None)
     story_line: Optional[str] = Field(..., example="story_line")
     attempts: Optional[int] = Field(..., example=3)
+    summary: Optional[str] = Field(..., example="summary of the game")
     created_at: date
     created_by: str
 

@@ -180,14 +180,18 @@ def cover_generate(
 
     prompt_db_cover = get_prompt_by_field(db, 'category', 'cover')
 
-    # character_leading_role = get_character_leading_role_service(db, game_db.id)
+    character_leading_role = get_character_leading_role_service(db, game_db.id)
+
+    if not character_leading_role:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="characters have not been created",
+        )
 
     prompt_content = prompt_db_cover.description.replace('x_history', game_db.synopsis)
 
-    # prompt_content = prompt_content.replace('x_character',
-    #                                         f"{character_leading_role.description}")
-
-    print("prompt_content", prompt_db_cover.description)
+    prompt_content = prompt_content.replace('x_character',
+                                            f"{character_leading_role.description}")
 
     # schema_cover = {
     #     "text": "string (text of the cover)",
@@ -208,7 +212,7 @@ def cover_generate(
     #         "content": [
     #             {
     #                 "type": "text",
-    #                 "text": "genera un texto para generar la imagen de portada, debe ser impactante"
+    #                 "text": "genera un texto para generar la imagen animada 3d estilo disney de portada, debe ser impactante"
     #             },
     #             {
     #                 "type": "text",
@@ -217,13 +221,14 @@ def cover_generate(
     #         ]
     #     }
     # ]
-
+    #
     # cover_generated = generate_gpt4_(content_prompt=content_prompt_2, type_text="cover", max_tokens=4096)
-
+    #
     # cover_generated = json.loads(cover_generated)["text"]
 
     image_generated = generate_image_dalle(prompt=prompt_content,
-                                           quality="hd", size="1024x1792")
+                                           quality="hd",
+                                           size="1024x1792")
 
     try:
         subtract_attempts_game_service(db, game_id)

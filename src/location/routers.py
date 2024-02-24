@@ -84,7 +84,11 @@ def get_locations(game_id: str,
             detail="Invalid token",
         )
 
+    print("game_id", game_id)
+
     locations_db = get_locations_service(db, skip=0, limit=100, game_id=game_id)
+
+    print("despues")
 
     return locations_db
 
