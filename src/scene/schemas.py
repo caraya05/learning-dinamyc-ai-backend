@@ -24,6 +24,7 @@ class SchemaCreateScene(BaseModel):
     is_subtractable: bool
     start_content: str
     start_image: str
+    object_id: str
 
 
 class SchemaPartialUpdateScene(BaseModel):
@@ -50,6 +51,7 @@ class SchemaRetrieveScene(BaseModel):
     location_id: str
     content: str
     dynamic: str
+
 
     class Config:
         orm_mode = True
@@ -78,6 +80,7 @@ class SchemaRetrieveSceneComplete(BaseModel):
     is_subtractable: bool = False
     start_content: Optional[str]
     start_image: Optional[str]
+    object_id: Optional[str]
 
     class Config:
         orm_mode = True

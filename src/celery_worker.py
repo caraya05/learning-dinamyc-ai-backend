@@ -57,11 +57,11 @@ def create_script_task(token: str,
                 script_id=script_id,
                 image="")
 
-            object_ = requests.post(f"{URL_API}/v1/api/object/",
+            object__ = requests.post(f"{URL_API}/v1/api/object/",
                                     json=object_generate.dict(),
                                     headers={"Authorization": "Bearer " + token})
 
-            object_json = object_.json()
+            object_json = object__.json()
 
             requests.get(f"{URL_API}/v1/api/object/generate-image/{object_json['id']}",
                          headers={"Authorization": "Bearer " + token})
@@ -115,14 +115,14 @@ def create_script_task(token: str,
 
     try:
         for i in character_:
-
-            for j in i["text_idle"]["dialogues"]:
-                for k in locations_:
-                    if str(j["location_id"]) == str(k["id"]):
-                        location_scene = (
-                            requests.get(f"{URL_API}/v1/api/location/by-field/?field=title&value={k['name']}",
-                                         headers={"Authorization": "Bearer " + token})).json()
-                        j["location_id"] = location_scene["id"]
+            if i["text_idle"]:
+                for j in i["text_idle"]["dialogues"]:
+                    for k in locations_:
+                        if str(j["location_id"]) == str(k["id"]):
+                            location_scene = (
+                                requests.get(f"{URL_API}/v1/api/location/by-field/?field=title&value={k['name']}",
+                                             headers={"Authorization": "Bearer " + token})).json()
+                            j["location_id"] = location_scene["id"]
 
             character_generate = SchemaCreateCharacter(
                 name=i["name"],
@@ -205,6 +205,9 @@ def create_script_task(token: str,
         # print("scenes_ " + str(scenes_) + " " + str(len(scenes_)))
         count = 0
         for i in scenes_:
+
+            print("i " + str(i) + " " + str(len(scenes_)) + " " + str(count))
+
             location_scene = ""
             # print("i " + str(i) + " " + str(len(scenes_)) + " " + str(count))
             for j in locations_:
@@ -244,10 +247,22 @@ def create_script_task(token: str,
                             headers={"Authorization": "Bearer " + token}).json()["id"]
 
             for character_enemy in character_:
-                if str(i["enemy_id"]) == str(character_enemy["id"]):
+                if str(i["enemy_id"]) and str(i["enemy_id"]) == str(character_enemy["id"]):
                     i["enemy_id"] = requests.get(
                         f"{URL_API}/v1/api/characters/by-field/?field=name&value={character_enemy['name']}",
                         headers={"Authorization": "Bearer " + token}).json()["id"]
+
+            object_id = ""
+
+            # print("i object ", i["object_id"])
+
+            if i["object_id"]:
+                for k in object_:
+                    if str(i["object_id"]) == str(k["id"]):
+                        object_id = requests.get(
+                            f"{URL_API}/v1/api/object/by-field/?field=name&value={k['name']}",
+                            headers={"Authorization": "Bearer " + token}).json()["id"]
+
 
             scene_generate = SchemaCreateScene(
                 title=i["title"],
@@ -267,7 +282,8 @@ def create_script_task(token: str,
                 enemy_id=i["enemy_id"] if "enemy_id" in i else "",
                 is_subtractable=i["is_subtractable"],
                 start_content=i["start_content"] if "start_content" in i else "",
-                start_image=i["start_image"] if "start_image" in i else ""
+                start_image=i["start_image"] if "start_image" in i else "",
+                object_id=object_id
             )
             count += 1
 

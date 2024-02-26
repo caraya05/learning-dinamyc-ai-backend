@@ -144,8 +144,8 @@ def get_script_locations_chapter_v2(history: str, num: str,
         "title": "string (title of the scene)",
         "description": "string (description of the scene)",
         "content": "string (content of the scene)",
-        "dynamic": "string (dynamics of the scene deliver, dialog, battle, battle group, search, question. just one option)",
-        "reward": "string (reward of the scene)",
+        "dynamic": "string (dynamics of the scene delivery, dialog, battle, battle group, search, question. just one option)",
+        "reward": "string (scene reward info if the scene is dialogue only, next if no item is delivered, item if item is delivered. only one choice)",
         "start_dialogues": [
             {
                 "id_character": "string (id of the character)",
@@ -169,11 +169,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
             "feedback": "string (feedback of the correct option)",
             "feedback_incorrect": "string (feedback of the incorrect option)"
         },
-        "objects": [
-            {
-                "id": "int (id of the object)",
-            },
-        ],
+        "object_id": "int (id of the object)",
         "id_location": "int (location ids different from those already used)",
         "characters": [
             {
@@ -187,7 +183,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
         ],
         "count_enemies": "int (number of enemies in the scene)",
         "enemy_id": "int (id of the enemy)",
-        "is_subtractable": "bool (if the object to be entered is subtractable)"
+        "is_subtractable": "bool (if the object is kept by the player it is true and if not it is false)"
     }
 
     scenes_generated = []
@@ -202,6 +198,10 @@ def get_script_locations_chapter_v2(history: str, num: str,
                 "role": "system",
                 "content": f"Garantiza que en cada escena creada el personaje principal siempre este presente y "
                            f"tambien varia cada en escena en difrentes locaciones,"
+                           f"solo la dinamica de question puede tener preguntas, "
+                           f"la primera escena debe ser un dialogo, la segunda debe ser una busqueda de un objeto,"
+                           f"la tercera debe ser un pregunta y la cuarta aleatoria,"
+                           f"en cada escena solo pueden haber 2 personajes y 1 locacion,"
                            f"responde el prompt con la siguiente estructura JSON: {schema_scene}"
             },
             {
@@ -249,12 +249,12 @@ def get_script_locations_chapter_v2(history: str, num: str,
         "start_dialogues": [],
         "end_dialogues": [],
         "questions": {},
-        "objects": [],
+        "object_id": [],
         "id_location": 0,
         "characters": [],
         "valid_locations": [],
         "count_enemies": 0,
-        "enemy_id": 0,
+        "enemy_id": "",
         "is_subtractable": False
     }
 

@@ -37,7 +37,6 @@ from script.services import create_script_service
 from script.services import get_script_by_field
 from script.services import delete_script_service
 
-from script.utils import get_script_locations_chapter_v2
 
 from scene.services import get_scenes_service
 

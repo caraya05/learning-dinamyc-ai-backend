@@ -15,7 +15,7 @@ from object.schemas import SchemaListObject
 from object.schemas import SchemaRetrieveObject
 from object.schemas import SchemaCreateObject
 
-from object.services import get_objects_service
+from object.services import get_objects_service, get_object_by_field
 from object.services import retrieve_object_service
 from object.services import create_object_service
 from object.services import partial_update_object_service
@@ -30,6 +30,35 @@ router = APIRouter(prefix="/object", tags=["Object"])
 
 def get_db(request: Request):
     return request.state.db
+
+
+@router.get("/by-field/", response_model=SchemaRetrieveObject)
+def get_objects_by_field(value: str,
+                         field: str,
+                         db: Session = Depends(get_db),
+                         Authorize: AuthJWT = Depends(),
+                         Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+                         ):
+    """
+    This endpoint retrieves a object.
+
+    It expects the object's id in the request path.
+    If the object is successfully retrieved, it returns the object's information.
+    """
+
+    try:
+        Authorize.jwt_required()
+        current_user = Authorize.get_jwt_subject()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
+
+    object_db = get_object_by_field(db, field, value)
+
+    return object_db
 
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListObject)

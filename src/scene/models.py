@@ -44,3 +44,4 @@ class Scene(AbstractBaseModel):
     is_subtractable: bool = Column(Boolean, nullable=True)
     start_content: str = Column(String, nullable=True)
     start_image: str = Column(String, nullable=True)
+    object_id: str = Column(String, nullable=True)
