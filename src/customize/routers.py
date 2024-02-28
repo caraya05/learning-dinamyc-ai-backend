@@ -16,7 +16,7 @@ from config import auth_scheme
 from customize.schemas import SchemaRetrieveCustomize
 from customize.services import get_customize_by_field
 
-router = APIRouter()
+router = APIRouter(prefix='/customizes', tags=['Customizes'])
 
 
 def get_db(request: Request):

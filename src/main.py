@@ -57,6 +57,7 @@ from weapon.admin import WeaponAdmin
 
 from customize import models as customize_base
 from customize.admin import CustomizeAdmin
+from customize import routers as customize_routers
 
 from admin_config import authentication_backend
 
@@ -110,6 +111,7 @@ app.include_router(scene_routers.router, prefix="/v1/api")
 # app.include_router(prompt_routers.router, prefix="/v1/api")
 app.include_router(object_routers.router, prefix="/v1/api")
 app.include_router(weapon_routers.router, prefix="/v1/api")
+app.include_router(customize_routers.router, prefix="/v1/api")
 
 admin = Admin(
     app,
