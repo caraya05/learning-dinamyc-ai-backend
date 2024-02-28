@@ -109,7 +109,7 @@ def get_script(script_id: str,
     script_db.locations = locations_.results if locations_.results or locations_ else []
     script_db.characters = characters_ if characters_ else []
     script_db.scenes = scenes_.results if scenes_.results or scenes_ else []
-    script_db.objects = objects_.results if objects_.results or objects_ else []
+    script_db.objects = objects_.results if objects_ else []
 
     return script_db
 
