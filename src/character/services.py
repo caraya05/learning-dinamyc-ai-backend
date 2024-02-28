@@ -37,8 +37,8 @@ def get_character_service(db: Session, character_id: str):
 
 
 def get_characters_service(db: Session, skip: int = 0, limit: int = 100, game_id: str = None):
-    try:
-        if game_id:
+    # try:
+    #     if game_id:
             all_ = db.query(Character).filter(Character.game_id == game_id).offset(skip).limit(limit).all()
             for character__ in all_:
                 weapon_ = get_weapon_by_field(db, "character_id", character__.id)
@@ -46,15 +46,14 @@ def get_characters_service(db: Session, skip: int = 0, limit: int = 100, game_id
                     character__.weapon = weapon_
                 else:
                     character__.weapon = ""
-
             return all_
-        return db.query(Character).offset(skip).limit(limit).all()
-    except Exception as e:
-        print("Error character  ", e)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Characters not found",
-        )
+        # return db.query(Character).offset(skip).limit(limit).all()
+    # except Exception as e:
+    #     print("Error character  ", e)
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail="Characters not found",
+    #     )
 
 
 def create_character_service(db: Session, character: SchemaCreateCharacter, user_id: str):
