@@ -23,7 +23,7 @@ def get_db(request: Request):
     return request.state.db
 
 
-@router.get("/customize/{customize_id}", response_model=SchemaRetrieveCustomize)
+@router.get("/{customize_id}", response_model=SchemaRetrieveCustomize)
 async def get_customize_by_id(customize_id: str,
                               db: Session = Depends(get_db),
                               Authorize: AuthJWT = Depends(),
@@ -38,5 +38,10 @@ async def get_customize_by_id(customize_id: str,
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         )
+
+    print('customize_id:', customize_id)
+
     customize_db = get_customize_by_field(db, 'id', customize_id)
+
+    print('customize_db:', customize_db)
     return customize_db

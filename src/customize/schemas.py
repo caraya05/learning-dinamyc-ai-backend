@@ -13,11 +13,15 @@ class SchemaCreateCustomize(BaseModel):
 class SchemaRetrieveCustomize(BaseModel):
     id: str
     reference_ui: str
-    genre: str
-    # type: str
+
+    # genre: str
+    # type:  str
     # description: str
     # type_customize: str
     # type_character: str
+
+    class Config:
+        orm_mode = True
 
 
 class SchemaPartialUpdateCustomize(BaseModel):
