@@ -185,9 +185,15 @@ def get_script_locations_chapter_v2(history: str, num: str,
 
     location_id_used = []
 
+    prompt_scene_copy = prompt_scene
+
     for i in range(4):
+        print("scene to generate", i + 1)
         prompt_scene = prompt_scene.replace("x_scene", f"{i + 1}")
         prompt_scene = prompt_scene.replace("x_script", num)
+
+        print("prompt_scene", prompt_scene)
+
         content_prompt = [
             {
                 "role": "system",
@@ -205,6 +211,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
                            f"> personajes y lugares: {characters_locations_generated}\n"
                            f"> locaciones usadas, no repetir: {location_id_used} \n"
                            f"> escenas generadas: {script_generated['scenes']} \n"
+                           f"> escena {scenes_generated[i - 1] if scenes_generated else ''} \n"
             },
             {
                 "role": "user",
@@ -232,6 +239,8 @@ def get_script_locations_chapter_v2(history: str, num: str,
         print("scene_generated" + str(i + 1), time.time() - star_time)
 
         print("scene_generated" + str(i + 1), scene_generated_json)
+
+        prompt_scene = prompt_scene_copy
 
     print("scenes_generated", time.time() - star_time)
 
