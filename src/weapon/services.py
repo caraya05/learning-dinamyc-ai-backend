@@ -17,8 +17,8 @@ def get_weapon_by_field(db: Session, field: str, value: str):
     Get a weapon by a field.
     """
     weapon = db.query(Weapon).filter(getattr(Weapon, field) == value).first()
-    if not weapon:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Weapon with {field} {value} not found")
+    # if not weapon:
+    #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Weapon with {field} {value} not found")
     return weapon
 
 
