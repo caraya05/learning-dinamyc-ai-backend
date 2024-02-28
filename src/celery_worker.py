@@ -289,14 +289,14 @@ def create_script_task(token: str,
 
             object_id = ""
 
-            # print("i object ", i["object_id"])
-
             if i["object_id"]:
                 for k in object_:
                     if str(i["object_id"]) == str(k["id"]):
                         object_id = requests.get(
                             f"{URL_API}/v1/api/object/by-field/?field=name&value={k['name']}",
                             headers={"Authorization": "Bearer " + token}).json()["id"]
+
+            print("scene_generate " + str(count) + str(i))
 
             scene_generate = SchemaCreateScene(
                 title=i["title"],
@@ -312,9 +312,9 @@ def create_script_task(token: str,
                 end_dialogues=i["end_dialogues"],
                 questions=i["questions"] if "questions" in i else [],
                 reward=i["reward"],
-                count_enemies=i["count_enemies"],
-                enemy_id=i["enemy_id"] if "enemy_id" in i else "",
-                is_subtractable=i["is_subtractable"],
+                count_enemies=i["count_enemies"] if i["count_enemies"] else 0,
+                enemy_id=i["enemy_id"] if i["enemy_id"] else "",
+                is_subtractable=i["is_subtractable"] if "is_subtractable" in i else False,
                 start_content=i["start_content"] if "start_content" in i else "",
                 start_image=i["start_image"] if "start_image" in i else "",
                 object_id=object_id

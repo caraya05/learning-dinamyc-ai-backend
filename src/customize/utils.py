@@ -12,7 +12,8 @@ def get_customize_by_character(list_customizes: SchemaListMiniCustomize,
                             "a hair type that corresponds best to him/her")
 
         schema_customize = {
-            "id": "string (id of the customize)"
+            "id": "string (id of the customize)",
+            "reference_ui": "string (reference_ui of the customize)"
         }
 
         content = [

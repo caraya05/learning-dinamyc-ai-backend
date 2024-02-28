@@ -16,9 +16,9 @@ Base = declarative_base()
 class AbstractBaseModel(Base):
     __abstract__ = True
     id = Column(String, name="id", primary_key=True, default=generate_uuid, index=True)
-    created_at: datetime = Column(Date, default=datetime.datetime.utcnow())
+    created_at: datetime = Column(Date, default=datetime.datetime.today())
     created_by: str = Column(String, default="system")
-    updated_at: datetime = Column(Date, default=datetime.datetime.utcnow())
+    updated_at: datetime = Column(Date, default=datetime.datetime.today())
     updated_by: str = Column(String, default="system")
 
 

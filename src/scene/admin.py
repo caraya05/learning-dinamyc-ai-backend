@@ -5,7 +5,7 @@ from scene.models import Scene
 
 class SceneAdmin(ModelView, model=Scene):
     name_plural = "Scenes"
-    column_list = ["id", "order", "title", "description", "script_id", "location_id", "characters_id", ]
+    column_list = ["id","dynamic", "order", "title", "description", "script_id", "location_id", "characters_id", ]
     column_searchable_list = ["order", "title", "description", "script_id", "location_id", "game_id", ]
     column_default_sort = [("created_at", True), ("script_id", True), ("order", False)]
     column_filters = ["order", "title", "description", "script_id", "location_id", "game_id", ]

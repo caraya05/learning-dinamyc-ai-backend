@@ -61,17 +61,14 @@ def create_character_service(db: Session, character: SchemaCreateCharacter, user
         db_character = Character(**character.dict())
         db_character.created_by = user_id
         db_character.updated_by = user_id
-        print("genero :   ", character.genre)
         if character.genre in ["woman", "man"]:
             all_customizes = get_customize_by_type_character_service(db, character.genre, "hair")
 
             customize_character = get_customize_by_character(all_customizes,
                                                              db_character.description)
 
-            print(customize_character)
-            print("customize_character")
-
-            db_character.extra_data["hair_ui"] = customize_character["id"]
+            # db_character.extra_data["hair_ui"] = customize_character["id"]
+            db_character.extra_data["type_combing"] = customize_character["reference_ui"]
 
         db.add(db_character)
         db.commit()

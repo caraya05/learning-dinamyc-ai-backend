@@ -132,7 +132,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
 
     print("characters_locations_generated", time.time() - star_time)
 
-    print("characters_locations_generated", characters_locations_generated)
+    # print("characters_locations_generated", characters_locations_generated)
 
     schema_scene = {
         "number": "int (number of the scene described by the user)",
@@ -188,11 +188,11 @@ def get_script_locations_chapter_v2(history: str, num: str,
     prompt_scene_copy = prompt_scene
 
     for i in range(4):
-        print("scene to generate", i + 1)
+        # print("scene to generate", i + 1)
         prompt_scene = prompt_scene.replace("x_scene", f"{i + 1}")
         prompt_scene = prompt_scene.replace("x_script", num)
 
-        print("prompt_scene", prompt_scene)
+        # print("prompt_scene", prompt_scene)
 
         content_prompt = [
             {
@@ -201,7 +201,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
                            f"tambien varia cada en escena en difrentes locaciones, no puede repetir escenario y location,"
                            f"solo la dinamica de question puede tener preguntas, "
                            f"la primera escena debe ser un dialogo, la segunda debe ser una busqueda de un objeto,"
-                           f"la tercera debe ser un pregunta y la cuarta aleatoria,"
+                           f"la tercera debe ser un pregunta y la cuarta de pelea grupal,"
                            f"en cada escena solo pueden haber 2 personajes y 1 locacion,"
                            f"responde el prompt con la siguiente estructura JSON: {schema_scene}"
             },
@@ -234,11 +234,11 @@ def get_script_locations_chapter_v2(history: str, num: str,
 
         scenes_generated.append(scene_generated_json)
 
-        print("location_id_used", location_id_used)
-
-        print("scene_generated" + str(i + 1), time.time() - star_time)
-
-        print("scene_generated" + str(i + 1), scene_generated_json)
+        # print("location_id_used", location_id_used)
+        #
+        # print("scene_generated" + str(i + 1), time.time() - star_time)
+        #
+        # print("scene_generated" + str(i + 1), scene_generated_json)
 
         prompt_scene = prompt_scene_copy
 

@@ -1,28 +1,18 @@
-import json
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette import status
 
-from character.schemas import SchemaCreateCharacter
 from game.schemas import SchemaCreateGame
 from game.schemas import SchemaPartialUpdateGame
 
 from game.models import Game
 from game.utils import get_history
 from game.utils import get_synopsis
-from game.utils import get_characters_principals
 
-from gpt_ai.utils import generate_gpt4_vision_
-from gpt_ai.utils import generate_gpt4_
-from gpt_ai.utils import generate_image_dalle
-
-from character.services import create_character_service
-from location.schemas import SchemaCreateLocation
-from location.services import create_location_service
-from prompt.services import get_prompt_by_field
 from utils import upload_image
 
+from sqlalchemy import desc
 
 def get_game_by_field(db: Session, field: str, value: str):
     return db.query(Game).filter(getattr(Game, field) == value).first()
@@ -44,7 +34,7 @@ def get_game_service(db: Session, game_id: str, user_id: str = None):
 
 
 def get_games_service(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(Game).offset(skip).limit(limit).all()
+    return db.query(Game).order_by(desc(Game.created_at)).offset(skip).limit(limit).all()
 
 
 def create_game_service(db: Session, game: SchemaCreateGame, user_id: str):
