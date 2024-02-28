@@ -1,7 +1,7 @@
 import os
 import sys
-
 import requests
+
 from celery import Celery
 
 from character.schemas import SchemaCreateCharacter
@@ -34,37 +34,53 @@ def create_script_task(token: str,
                        game_id: str,
                        script_id: str,
                        current_user: str):
-
     response_script = get_script_locations_chapter_v2(game_history,
                                                       "1",
                                                       prompt_script,
                                                       prompt_scene)
 
+    response_all = "ai generated - "
+
     # create objects
 
     print("create objects")
 
-    print(response_script["characters_locations"].keys())
-
     object_ = response_script["characters_locations"]["objects"]
     if object_:
-        for i in object_:
-            object_generate = SchemaCreateObject(
-                name=i["name"],
-                description=i["description"],
-                function=i["function"],
-                game_id=game_id,
-                script_id=script_id,
-                image="")
+        try:
+            for i in object_:
+                object_generate = SchemaCreateObject(
+                    name=i["name"],
+                    description=i["description"],
+                    function=i["function"],
+                    game_id=game_id,
+                    script_id=script_id,
+                    image="")
 
-            object__ = requests.post(f"{URL_API}/v1/api/object/",
-                                    json=object_generate.dict(),
-                                    headers={"Authorization": "Bearer " + token})
+                object__ = requests.post(f"{URL_API}/v1/api/object/",
+                                         json=object_generate.dict(),
+                                         headers={"Authorization": "Bearer " + token})
 
-            object_json = object__.json()
+                object_json = object__.json()
 
-            requests.get(f"{URL_API}/v1/api/object/generate-image/{object_json['id']}",
-                         headers={"Authorization": "Bearer " + token})
+                requests.get(f"{URL_API}/v1/api/object/generate-image/{object_json['id']}",
+                             headers={"Authorization": "Bearer " + token})
+
+            response_all += " Objects created "
+
+        except Exception as e:
+            # script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
+            #                 status_object=2
+            #             )
+            # response = requests.patch(f"{URL_API}/v1/api/script/{script_id}",
+            #                           json=script_generate.dict(),
+            #                           headers={"Authorization": "Bearer " + token})
+
+            # print("res   " + str(response.json()))
+
+            response_all += " Object not created " + str(e)
+
+            print(e)
 
     print("objects created")
 
@@ -84,6 +100,8 @@ def create_script_task(token: str,
                           json=location_generate.dict(),
                           headers={"Authorization": "Bearer " + token})
 
+        response_all += " Location created "
+
     except Exception as e:
         branch_location = False
         script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
@@ -94,6 +112,8 @@ def create_script_task(token: str,
                                   headers={"Authorization": "Bearer " + token})
 
         print("res   " + str(response.json()))
+
+        response_all += " Location not created " + str(e)
 
         print(e)
 
@@ -154,7 +174,11 @@ def create_script_task(token: str,
                                   json=weapons_.dict(),
                                   headers={"Authorization": "Bearer " + token})
 
+        response_all += " Character created "
+
     except Exception as e:
+
+        response_all += " Character not created " + str(e)
 
         e_type, e_object, e_traceback = sys.exc_info()
 
@@ -166,13 +190,6 @@ def create_script_task(token: str,
 
         e_line_number = e_traceback.tb_lineno
 
-        print("e_type " + str(e_type))
-        print("e_object " + str(e_object))
-        print("e_traceback " + str(e_traceback))
-        print("e_filename " + str(e_filename))
-        print("e_message " + str(e_message))
-        print("e_line_number " + str(e_line_number))
-
         branch_character = False
         script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
             status_character=2
@@ -183,7 +200,12 @@ def create_script_task(token: str,
 
         print("res   " + str(response.json()))
 
-        print(e)
+        print("e_type " + str(e_type))
+        print("e_object " + str(e_object))
+        print("e_traceback " + str(e_traceback))
+        print("e_filename " + str(e_filename))
+        print("e_message " + str(e_message))
+        print("e_line_number " + str(e_line_number))
 
     if branch_character:
         script_generate: SchemaPartialUpdateScript = SchemaPartialUpdateScript(
@@ -227,30 +249,43 @@ def create_script_task(token: str,
                     print("k ", k)
                     if str(j["id"]) == str(k["id"]):
                         print("k ", k)
-                        characters_scene.append(
-                            requests.get(
-                                f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
-                                headers={"Authorization": "Bearer " + token}).json()["id"])
+
+                        character_by_field = requests.get(
+                            f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
+                            headers={"Authorization": "Bearer " + token})
+
+                        if character_by_field.status_code == 200:
+                            characters_scene.append(character_by_field.json()["id"])
 
             for dialogues_start in i["start_dialogues"]:
                 for k in character_:
                     if str(dialogues_start["id_character"]) == str(k["id"]):
-                        dialogues_start["id_character"] = requests.get(
+
+                        character_by_field = requests.get(
                             f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
-                            headers={"Authorization": "Bearer " + token}).json()["id"]
+                            headers={"Authorization": "Bearer " + token})
+
+                        if character_by_field.status_code == 200:
+                            dialogues_start["id_character"] = character_by_field.json()["id"]
 
             for dialogues_end in i["end_dialogues"]:
                 for k in character_:
                     if str(dialogues_end["id_character"]) == str(k["id"]):
-                        dialogues_end["id_character"] = requests.get(
+                        character_by_field = requests.get(
                             f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
-                            headers={"Authorization": "Bearer " + token}).json()["id"]
+                            headers={"Authorization": "Bearer " + token})
+
+                        if character_by_field.status_code == 200:
+                            dialogues_end["id_character"] = character_by_field.json()["id"]
 
             for character_enemy in character_:
                 if str(i["enemy_id"]) and str(i["enemy_id"]) == str(character_enemy["id"]):
-                    i["enemy_id"] = requests.get(
+                    character_by_field = requests.get(
                         f"{URL_API}/v1/api/characters/by-field/?field=name&value={character_enemy['name']}",
-                        headers={"Authorization": "Bearer " + token}).json()["id"]
+                        headers={"Authorization": "Bearer " + token})
+
+                    if character_by_field.status_code == 200:
+                        i["enemy_id"] = character_by_field.json()["id"]
 
             object_id = ""
 
@@ -262,7 +297,6 @@ def create_script_task(token: str,
                         object_id = requests.get(
                             f"{URL_API}/v1/api/object/by-field/?field=name&value={k['name']}",
                             headers={"Authorization": "Bearer " + token}).json()["id"]
-
 
             scene_generate = SchemaCreateScene(
                 title=i["title"],
@@ -293,8 +327,12 @@ def create_script_task(token: str,
                           json=scene_generate.dict(),
                           headers={"Authorization": "Bearer " + token})
 
-            # create_scene_service(db, scene_generate, user_id=current_user)
+        response_all += " Scene created "
+
+        # create_scene_service(db, scene_generate, user_id=current_user)
     except Exception as e:
+
+        response_all += " Scene not created " + str(e)
 
         e_type, e_object, e_traceback = sys.exc_info()
 
@@ -347,13 +385,17 @@ def create_script_task(token: str,
                                   json=script_generate.dict(),
                                   headers={"Authorization": "Bearer " + token})
 
+        response_all += " Script created "
+
         print("res   " + str(response.json()))
 
 
     except Exception as e:
+
+        response_all += " Script not created " + str(e)
+
         raise print(e)
 
     print("script created")
-    #
-    print("all created")
-    return True
+
+    return response_all

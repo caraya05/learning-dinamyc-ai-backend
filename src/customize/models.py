@@ -9,7 +9,6 @@ from sqlalchemy_utils import ChoiceType
 
 from utils import generate_uuid
 
-from character.models import Character
 
 Base = declarative_base()
 
@@ -45,9 +44,16 @@ class Customize(AbstractBaseModel):
         ("other", "other"),
     ]
 
-    type_character: str = Column(ChoiceType(Character.TYPE_CHARACTER), nullable=False)
+    TYPE_CHARACTER = [
+        ("human", "human"),
+        ("animal", "animal"),
+        ("other", "other"),
+    ]
+
+    type_character: str = Column(ChoiceType(TYPE_CHARACTER), nullable=False)
+    reference_ui: str = Column(String, nullable=True)
     gender: str = Column(ChoiceType(GENDER_TYPE), nullable=False)
-    name = Column(String, nullable=False)
+    # name = Column(String, nullable=False)
     description = Column(Text, nullable=False)
     type_customize: str = Column(ChoiceType(TYPE_CUSTOMIZE), nullable=False)
 

@@ -6,7 +6,7 @@ from character.models import Character
 class CharacterAdmin(ModelView, model=Character):
     name_plural = "Characters"
     column_list = ["id", "name", "description", "type", "image", "is_active"]
-    column_searchable_list = ["type","game_id"]
+    column_searchable_list = ["type", "game_id"]
     # column_sorted_list = ["username", "first_name", "last_name", "email",]
     can_edit = True
     can_create = True

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from customize.models import Customize
 
+from customize.schemas import SchemaListMiniCustomize
 
 
 def get_customize_by_field(db: Session, field: str, value: str):
@@ -17,9 +18,13 @@ def get_customize_by_field(db: Session, field: str, value: str):
         )
 
 
-def get_customize_by_type_character_service(db: Session, type_character: str):
+def get_customize_by_type_character_service(db: Session, gender: str, type_customize: str):
     try:
-        return db.query(Customize).filter(Customize.type_character == type_character).all()
+        customize_all = db.query(Customize).filter(Customize.gender == gender,
+                                                   Customize.type_customize == type_customize).all()
+
+        return SchemaListMiniCustomize(results=customize_all, count=len(customize_all))
+
     except Exception as e:
         print(e)
         raise HTTPException(

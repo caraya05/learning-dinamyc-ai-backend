@@ -15,8 +15,22 @@ def get_history(db: Session, story_line: str):
         "chapters": [
             {
                 "name": "string (name of the chapter)",
-                "number": "integer (number of the chapter)",
                 "content": "string (content of the chapter)"
+            }
+        ],
+        "chapter": [
+            {
+                "number": "string (number of the chapter)",
+                "name": "string (name of the chapter)",
+                "content": "string (content of the chapter)",
+                "scenes": [
+                    {
+                        "number": "string (number of the scene)",
+                        "name": "string (name of the scene)",
+                        "content": "string (content of the scene)",
+                        "location": "string (location of the scene)"
+                    }
+                ]
             }
         ]
     }
@@ -41,7 +55,7 @@ def get_history(db: Session, story_line: str):
 
     history_generated = generate_gpt4_(content_prompt=content_prompt,
                                        type_text="history",
-                                       max_tokens=4096, )
+                                       max_tokens=4096)
 
     return json.loads(history_generated)
 

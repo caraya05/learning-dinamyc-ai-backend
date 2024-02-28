@@ -1,11 +1,12 @@
 from typing import Optional
-from uuid import UUID
 
 from fastapi import Query
 from pydantic import BaseModel
 from pydantic import Field
 
 from character.models import TypeCharacterEnum
+
+from weapon.schemas import SchemaRetrieveWeapon
 
 
 class SchemaCreateCharacter(BaseModel):
@@ -27,7 +28,7 @@ class SchemaCreateCharacter(BaseModel):
 
 
 class SchemaRetrieveCharacter(BaseModel):
-    id: UUID
+    id: str
     name: str = Field(..., min_length=3, max_length=100,
                       example="Jhon Doe")
     type: TypeCharacterEnum = Query(..., example="leading role")
@@ -36,6 +37,7 @@ class SchemaRetrieveCharacter(BaseModel):
     genre: str = Field(...)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
     text_idle: Optional[dict] = Field(None, example={"key": "value"})
+    # weapon: Optional[SchemaRetrieveWeapon] = Field(None, example="weapon")
 
     class Config:
         orm_mode = True

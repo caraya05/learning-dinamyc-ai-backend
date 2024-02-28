@@ -11,20 +11,6 @@ from config import auth_scheme
 
 from sqlalchemy.orm import Session
 
-from character.schemas import SchemaCreateCharacter
-
-from character.services import get_character_by_field
-from character.services import create_character_service
-
-from location.schemas import SchemaCreateLocation
-
-from location.services import get_location_by_field
-from location.services import create_location_service
-
-from scene.schemas import SchemaCreateScene
-
-from scene.services import create_scene_service
-
 from script.schemas import SchemaListScript
 from script.schemas import SchemaRetrieveScript
 from script.schemas import SchemaRetrieveScriptComplete
@@ -37,7 +23,6 @@ from script.services import create_script_service
 from script.services import get_script_by_field
 from script.services import delete_script_service
 
-
 from scene.services import get_scenes_service
 
 from location.services import get_locations_service
@@ -45,6 +30,10 @@ from location.services import get_locations_service
 from character.services import get_characters_service
 
 from game.services import get_game_service
+
+from object.services import get_objects_service
+
+from weapon.services import get_weapon_by_field
 
 from prompt.services import get_prompt_by_field
 
@@ -109,23 +98,18 @@ def get_script(script_id: str,
 
     script_db = get_script_service(db, script_id=script_id)
 
-    print("script_db", script_db.game_id)
-
     locations_ = get_locations_service(db, game_id=script_db.game_id)
 
-
+    objects_ = get_objects_service(db, game_id=script_db.game_id)
 
     characters_ = get_characters_service(db, game_id=script_db.game_id)
 
     scenes_ = get_scenes_service(db, script_id=script_id)
 
-    print("scenes_", scenes_)
-    print("locations_", locations_)
-    print("characters_", characters_)
-
     script_db.locations = locations_.results if locations_.results or locations_ else []
     script_db.characters = characters_ if characters_ else []
     script_db.scenes = scenes_.results if scenes_.results or scenes_ else []
+    script_db.objects = objects_.results if objects_.results or objects_ else []
 
     return script_db
 

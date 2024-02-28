@@ -16,6 +16,14 @@ def get_script_locations_chapter_v2(history: str, num: str,
         "number": "int (number of the chapter)",
         "title": "string (title of the chapter)",
         "description": "string (full and detailed description of what happens in the chapter, including settings and characters.)",
+        "scenes": [
+            {
+                "number": "int (number of the scene)",
+                "description": "string (description of the scene)",
+                "location": "string (location of the scene)"
+            }
+        ]
+
     }
 
     prompt_script = prompt_script.replace("x_history", history)
@@ -25,10 +33,6 @@ def get_script_locations_chapter_v2(history: str, num: str,
             "role": "system",
             "content": f"responde el prompt con la siguiente estructura JSON: {schema_script}"
         },
-        # {
-        #     "role": "assistant",
-        #     "content": f"historia: {history}"
-        # },
         {
             "role": "user",
             "content": [
@@ -82,21 +86,8 @@ def get_script_locations_chapter_v2(history: str, num: str,
                         }
                     ]
                 },
-                # "weapons": {
-                #     "id": "int (id of the weapon)",
-                #     "name": "string (name of the weapon)",
-                #     "description": "string (description of the weapon)",
-                #     "type": "string (type of the weapon) (short, long)",
-                #     "extra_data": {
-                #         "color_body": "string (color of the body of the weapon in format hexadecimal)",
-                #         "color_tip": "string (color of the tip of the weapon in format hexadecimal)",
-                #         "color_complement_1": "string (color of the complement 1 of the weapon in format hexadecimal)",
-                #         "color_complement_2": "string (color of the complement 2 of the weapon in format hexadecimal)",
-                #     }
-                # }
             },
         ],
-
         "objects": [
             {
                 "id": "int (id of the object)",
@@ -111,7 +102,9 @@ def get_script_locations_chapter_v2(history: str, num: str,
     content_prompt = [
         {
             "role": "system",
-            "content": f"los weapon solo los debe tener el leading role y el enemy, responde el prompt con la siguiente estructura JSON: {schema_characters_locations}"
+            "content": f"los weapon solo los debe tener el leading role,"
+                       f"los escenarios deben ser cerrados y cubiertos ,"
+                       f", responde el prompt con la siguiente estructura JSON: {schema_characters_locations}"
         },
         {
             "role": "assistant",
@@ -138,6 +131,8 @@ def get_script_locations_chapter_v2(history: str, num: str,
     characters_locations_generated = json.loads(response_characters_locations)
 
     print("characters_locations_generated", time.time() - star_time)
+
+    print("characters_locations_generated", characters_locations_generated)
 
     schema_scene = {
         "number": "int (number of the scene described by the user)",
@@ -197,7 +192,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
             {
                 "role": "system",
                 "content": f"Garantiza que en cada escena creada el personaje principal siempre este presente y "
-                           f"tambien varia cada en escena en difrentes locaciones,"
+                           f"tambien varia cada en escena en difrentes locaciones, no puede repetir escenario y location,"
                            f"solo la dinamica de question puede tener preguntas, "
                            f"la primera escena debe ser un dialogo, la segunda debe ser una busqueda de un objeto,"
                            f"la tercera debe ser un pregunta y la cuarta aleatoria,"
@@ -206,9 +201,10 @@ def get_script_locations_chapter_v2(history: str, num: str,
             },
             {
                 "role": "system",
-                "content": f"historia: {history} \n"
-                           f"personajes y lugares: {characters_locations_generated}\n"
-                           f"locaciones usadas: {location_id_used} \n"
+                "content": f"> historia: {history} \n"
+                           f"> personajes y lugares: {characters_locations_generated}\n"
+                           f"> locaciones usadas, no repetir: {location_id_used} \n"
+                           f"> escenas generadas: {script_generated['scenes']} \n"
             },
             {
                 "role": "user",
@@ -225,8 +221,6 @@ def get_script_locations_chapter_v2(history: str, num: str,
                                         type_text="script",
                                         max_tokens=4096, )
 
-        print("scene_generated" + str(i + 1), json.loads(response_scene))
-
         scene_generated_json = json.loads(response_scene)
 
         location_id_used.append(scene_generated_json["id_location"])
@@ -236,6 +230,8 @@ def get_script_locations_chapter_v2(history: str, num: str,
         print("location_id_used", location_id_used)
 
         print("scene_generated" + str(i + 1), time.time() - star_time)
+
+        print("scene_generated" + str(i + 1), scene_generated_json)
 
     print("scenes_generated", time.time() - star_time)
 
@@ -282,7 +278,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
             "content": f"responde el prompt con la siguiente estructura JSON: {json_content_scene_cero}"
         },
         {
-            "role": "assistant",
+            "role": "user",
             "content": f"historia: {history}"
         },
         {
