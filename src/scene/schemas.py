@@ -20,11 +20,11 @@ class SchemaCreateScene(BaseModel):
     dynamic: str
     reward: str
     count_enemies: int
-    enemy_id: Optional[str]
+    enemy_id: Optional[str] | None
     is_subtractable: bool
-    start_content: str
-    start_image: str
-    object_id: str
+    start_content: str | None
+    start_image: str | None
+    object_id: str | None
 
 
 class SchemaPartialUpdateScene(BaseModel):
