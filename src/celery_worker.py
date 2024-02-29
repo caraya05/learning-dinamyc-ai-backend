@@ -22,8 +22,6 @@ celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
 URL_API = "https://backend-dev.qwestar.ai"
-
-
 # URL_API = "http://192.168.1.45"
 # URL_API = "http://192.168.100.169"
 
@@ -36,7 +34,6 @@ def create_script_task(token: str,
                        game_id: str,
                        script_id: str,
                        current_user: str):
-
     response_script = get_script_locations_chapter_v2(game_history,
                                                       "1",
                                                       prompt_script,
@@ -282,8 +279,8 @@ def create_script_task(token: str,
                             dialogues_end["id_character"] = character_by_field.json()["id"]
 
             for character_enemy in character_:
-                if i["enemy_id"] and str(i["enemy_id"]) == str(character_enemy["id"]) and i[
-                    "enemy_id"] != "" and "enemy_id" in i.keys():
+                if (i["enemy_id"] and str(i["enemy_id"]) == str(character_enemy["id"]) and
+                        i["enemy_id"] != "" and "enemy_id" in i.keys()):
                     character_by_field = requests.get(
                         f"{URL_API}/v1/api/characters/by-field/?field=name&value={character_enemy['name']}",
                         headers={"Authorization": "Bearer " + token})
@@ -301,6 +298,10 @@ def create_script_task(token: str,
                             headers={"Authorization": "Bearer " + token}).json()["id"]
 
             print("scene_generate " + str(count) + str(i))
+
+            if i["questions"] and i["questions"] == {'options': [], 'correct_option': None, 'feedback': '',
+                                                     'feedback_incorrect': ''}:
+                i["questions"] = None
 
             scene_generate = SchemaCreateScene(
                 title=i["title"],

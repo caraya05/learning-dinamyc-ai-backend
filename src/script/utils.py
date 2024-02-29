@@ -105,6 +105,7 @@ def get_script_locations_chapter_v2(history: str,
         {
             "role": "system",
             "content": f"los weapon solo los debe tener el leading role,"
+                       f"los personajes deben estar humanizados a excepción del mini enemy, "
                        f"los escenarios deben ser cerrados y cubiertos, "
                        f"nesecito que esten las locaciones, los personajes, los objetos y el resumen de la historia, "
                        f"crea un personaje de cada tipo leading role, other, enemy, mini enemy, antagonist."
@@ -207,12 +208,23 @@ def get_script_locations_chapter_v2(history: str,
         content_prompt = [
             {
                 "role": "system",
-                "content": f"Garantiza que en cada escena creada esten 2 personajes y uno de esos sea el personaje principal y el otro puede ser el mini enemigo, el enemigo o otro, "
+                "content": f"Garantiza que en cada escena creada deben estar 2 personajes y uno de esos sea el personaje principal y el otro puede ser el mini enemigo, el enemigo o otro, "
                 # f"tambien varia cada en escena en difrentes locaciones, no puede repetir escenario y location,"
                            f"solo la dinamica de question debe tener preguntas, "
+                           f"el tipo de dinamica battle group debe ser solo entre el principal y el mini enemigo,"
+                           f"el tipo de dinamica battle debe ser solo entre el principal y el enemigo, "
+                           f"el tipo de dinamica search debe tener un objeto, dos personajes, ni el enemy, de reward item o next no puede tener questions,"
+                           f"el tipo de dinamica dialog debe tener dos personajes y de reward info,"
+                           f"el tipo de dinamica delivery debe tener dos personajes y de reward item o next,"
+                           f"si la recompenza es item, is_subtractable debe ser false y la dinamica debe ser delivery,"
+                           f"si la recompenza es item, is_subtractable debe ser true y la dinamica debe ser search,"
+                           f"las dinamicas de dialog, question, search, delivery, no puede ser un mini enemy, ni el enemy,"
+                           f"las dinamicas de battle, battle group, no puede ser un other, ni antagonista,"
+                           f"las dinamicas de search, battle, battle group, no puede tener questions, "
                            f"la primera escena debe ser un dialogo, la segunda debe ser una busqueda de un objeto,"
+                           f"characters debe contendra los id de los personajes que aparecen en la escena que estan en los dialogos, "
                            f"la tercera debe ser un pregunta y la cuarta de pelea grupal,"
-                # f"en cada escena solo pueden haber 2 personajes y 1 locacion,"
+                           # f"en cada escena solo pueden haber 2 personajes, "
                            f"responde el prompt con la siguiente estructura JSON: {schema_scene}"
             },
             {
