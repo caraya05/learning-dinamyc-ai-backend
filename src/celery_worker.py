@@ -22,6 +22,8 @@ celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
 URL_API = "https://backend-dev.qwestar.ai"
+
+
 # URL_API = "http://192.168.1.45"
 # URL_API = "http://192.168.100.169"
 
@@ -279,7 +281,8 @@ def create_script_task(token: str,
                             dialogues_end["id_character"] = character_by_field.json()["id"]
 
             for character_enemy in character_:
-                if str(i["enemy_id"]) and str(i["enemy_id"]) == str(character_enemy["id"]):
+                if i["enemy_id"] and str(i["enemy_id"]) == str(character_enemy["id"]) and i[
+                    "enemy_id"] != "" and "enemy_id" in i.keys():
                     character_by_field = requests.get(
                         f"{URL_API}/v1/api/characters/by-field/?field=name&value={character_enemy['name']}",
                         headers={"Authorization": "Bearer " + token})
@@ -310,7 +313,9 @@ def create_script_task(token: str,
                 location_id=location_scene,
                 start_dialogues=i["start_dialogues"],
                 end_dialogues=i["end_dialogues"],
-                questions=i["questions"] if i["questions"] or i["questions"] != {'options': [], 'correct_option': None, 'feedback': '', 'feedback_incorrect': ''} else None,
+                questions=i["questions"] if i["questions"] or i["questions"] != {'options': [], 'correct_option': None,
+                                                                                 'feedback': '',
+                                                                                 'feedback_incorrect': ''} else None,
                 reward=i["reward"],
                 count_enemies=i["count_enemies"] if i["count_enemies"] else 0,
                 enemy_id=i["enemy_id"] if i["enemy_id"] else "",
