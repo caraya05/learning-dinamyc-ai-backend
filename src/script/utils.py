@@ -71,14 +71,14 @@ def get_script_locations_chapter_v2(history: str,
                         "There can only be one antagonist, one leading role, one enemy , mini enemy that are animals and many others. ) ",
                 "genre": "string (genre of the character is man or woman )",
                 "extra_data": {
-                    "skin_color": "string (skin color of the character in format hexadecimal)",
-                    "hair_color": "string (hair color of the character in format hexadecimal)",
-                    "eye_color": "string (eye color of the character in format hexadecimal)",
-                    "lips_color": "string (lips color of the character in format hexadecimal)",
-                    "shoes_color": "string (shoes color of the character in format hexadecimal)",
-                    "pants_color": "string (pants color of the character in format hexadecimal)",
-                    "shirt_color": "string (shirt color of the character in format hexadecimal)",
-                    "type_combing": "string (type of combing of the character)",
+                    "skin_color": "string or None (skin color of the character in format hexadecimal)",
+                    "hair_color": "string or None (hair color of the character in format hexadecimal)",
+                    "eye_color": "string or None (eye color of the character in format hexadecimal)",
+                    "lips_color": "string or None (lips color of the character in format hexadecimal)",
+                    "shoes_color": "string or None (shoes color of the character in format hexadecimal)",
+                    "pants_color": "string or None (pants color of the character in format hexadecimal)",
+                    "shirt_color": "string or None (shirt color of the character in format hexadecimal)",
+                    "type_combing": "string or None (type of combing of the character)",
                 },
                 "text_idle": {
                     "dialogues": [
@@ -106,6 +106,7 @@ def get_script_locations_chapter_v2(history: str,
             "role": "system",
             "content": f"los weapon solo los debe tener el leading role,"
                        f"los escenarios deben ser cerrados y cubiertos, "
+                       f"nesecito que esten las locaciones, los personajes, los objetos y el resumen de la historia, "
                        f"crea un personaje de cada tipo leading role, other, enemy, mini enemy, antagonist."
                        f"solo puede haber un antagonist, un leading role, un enemy, mini enemy que sean animales y otros son personajes de relleno. "
                        f", responde el prompt con la siguiente estructura JSON: {schema_characters_locations}"
@@ -148,7 +149,7 @@ def get_script_locations_chapter_v2(history: str,
                    " Battle Group, a combat scene with a number of mini enemies. "
                    "Search, a scene where a character searches for an object."
                    " Question, a scene where a character asks a question to another character. just one option)",
-        "reward": "string (scene reward info if the scene is dialogue only, next if no item is delivered,"
+        "reward": "string (scene reward info if the scene is dialog only, next if no item is delivered,"
                   " item if item is delivered. only one choice)",
         "start_dialogues": [
             {

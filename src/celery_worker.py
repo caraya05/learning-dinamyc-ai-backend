@@ -36,6 +36,7 @@ def create_script_task(token: str,
                        game_id: str,
                        script_id: str,
                        current_user: str):
+
     response_script = get_script_locations_chapter_v2(game_history,
                                                       "1",
                                                       prompt_script,
