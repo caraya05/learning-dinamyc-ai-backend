@@ -5,7 +5,8 @@ from gpt_ai.utils import generate_gpt4_
 from gpt_ai.utils import generate_image_dalle
 
 
-def get_script_locations_chapter_v2(history: str, num: str,
+def get_script_locations_chapter_v2(history: str,
+                                    num: str,
                                     prompt_script: str,
                                     prompt_scene: str,
                                     # prompt_image_locations: str
@@ -31,7 +32,8 @@ def get_script_locations_chapter_v2(history: str, num: str,
     content_prompt = [
         {
             "role": "system",
-            "content": f"responde el prompt con la siguiente estructura JSON: {schema_script}"
+            "content": f"en cada escena debe haber 2 personajes interactuando, "
+                       f"responde el prompt con la siguiente estructura JSON: {schema_script}"
         },
         {
             "role": "user",
@@ -103,12 +105,14 @@ def get_script_locations_chapter_v2(history: str, num: str,
         {
             "role": "system",
             "content": f"los weapon solo los debe tener el leading role,"
-                       f"los escenarios deben ser cerrados y cubiertos ,"
+                       f"los escenarios deben ser cerrados y cubiertos, "
+                       f"crea un personaje de cada tipo leading role, other, enemy, mini enemy, antagonist."
+                       f"solo puede haber un antagonist, un leading role, un enemy, mini enemy que sean animales y otros son personajes de relleno. "
                        f", responde el prompt con la siguiente estructura JSON: {schema_characters_locations}"
         },
         {
             "role": "assistant",
-            "content": f"historia: {script_generated['description']} \n"
+            "content": f"historia: {history} \n"
         },
         {
             "role": "user",
@@ -139,8 +143,13 @@ def get_script_locations_chapter_v2(history: str, num: str,
         "title": "string (title of the scene)",
         "description": "string (description of the scene)",
         "content": "string (content of the scene)",
-        "dynamic": "string (dynamics of the scene delivery, dialog, battle, battle group, search, question. just one option)",
-        "reward": "string (scene reward info if the scene is dialogue only, next if no item is delivered, item if item is delivered. only one choice)",
+        "dynamic": "string (dynamics of the scene Delivery, a scene where a character delivers an object. "
+                   "Dialog, where two characters converse. Battle, a combat scene with an enemy."
+                   " Battle Group, a combat scene with a number of mini enemies. "
+                   "Search, a scene where a character searches for an object."
+                   " Question, a scene where a character asks a question to another character. just one option)",
+        "reward": "string (scene reward info if the scene is dialogue only, next if no item is delivered,"
+                  " item if item is delivered. only one choice)",
         "start_dialogues": [
             {
                 "id_character": "string (id of the character)",
@@ -197,12 +206,12 @@ def get_script_locations_chapter_v2(history: str, num: str,
         content_prompt = [
             {
                 "role": "system",
-                "content": f"Garantiza que en cada escena creada el personaje principal siempre este presente y "
-                           f"tambien varia cada en escena en difrentes locaciones, no puede repetir escenario y location,"
-                           f"solo la dinamica de question puede tener preguntas, "
+                "content": f"Garantiza que en cada escena creada esten 2 personajes y uno de esos sea el personaje principal y el otro puede ser el mini enemigo, el enemigo o otro, "
+                # f"tambien varia cada en escena en difrentes locaciones, no puede repetir escenario y location,"
+                           f"solo la dinamica de question debe tener preguntas, "
                            f"la primera escena debe ser un dialogo, la segunda debe ser una busqueda de un objeto,"
                            f"la tercera debe ser un pregunta y la cuarta de pelea grupal,"
-                           f"en cada escena solo pueden haber 2 personajes y 1 locacion,"
+                # f"en cada escena solo pueden haber 2 personajes y 1 locacion,"
                            f"responde el prompt con la siguiente estructura JSON: {schema_scene}"
             },
             {
@@ -210,7 +219,7 @@ def get_script_locations_chapter_v2(history: str, num: str,
                 "content": f"> historia: {history} \n"
                            f"> personajes y lugares: {characters_locations_generated}\n"
                            f"> locaciones usadas, no repetir: {location_id_used} \n"
-                           f"> escenas generadas: {script_generated['scenes']} \n"
+                # f"> escenas generadas: {script_generated['scenes']} \n"
                            f"> escena {scenes_generated[i - 1] if scenes_generated else ''} \n"
             },
             {

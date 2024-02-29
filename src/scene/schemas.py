@@ -15,7 +15,7 @@ class SchemaCreateScene(BaseModel):
     location_id: str
     start_dialogues: list[dict]
     end_dialogues: list[dict]
-    questions: dict
+    questions: dict | None
     content: str
     dynamic: str
     reward: str
@@ -71,7 +71,7 @@ class SchemaRetrieveSceneComplete(BaseModel):
     location_id: str
     start_dialogues: Optional[list[dict]] | None
     end_dialogues: Optional[list[dict]] | None
-    questions: Optional[dict]
+    questions: Optional[dict] | None
     content: Optional[str]
     dynamic: Optional[str]
     reward: Optional[str]

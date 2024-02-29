@@ -152,7 +152,7 @@ def create_script_task(token: str,
                 game_id=game_id,
                 attempts=3,
                 extra_data=i["extra_data"],
-                text_idle=i["text_idle"] if "text_idle" in i else "",
+                text_idle=i["text_idle"] if i["text_idle"] else []
             )
 
             character_response = requests.post(f"{URL_API}/v1/api/characters/",
@@ -310,13 +310,13 @@ def create_script_task(token: str,
                 location_id=location_scene,
                 start_dialogues=i["start_dialogues"],
                 end_dialogues=i["end_dialogues"],
-                questions=i["questions"] if "questions" in i else [],
+                questions=i["questions"] if i["questions"] or i["questions"] != {'options': [], 'correct_option': None, 'feedback': '', 'feedback_incorrect': ''} else None,
                 reward=i["reward"],
                 count_enemies=i["count_enemies"] if i["count_enemies"] else 0,
                 enemy_id=i["enemy_id"] if i["enemy_id"] else "",
-                is_subtractable=i["is_subtractable"] if "is_subtractable" in i else False,
-                start_content=i["start_content"] if "start_content" in i else "",
-                start_image=i["start_image"] if "start_image" in i else "",
+                is_subtractable=i["is_subtractable"] if i["is_subtractable"] else False,
+                start_content=i["start_content"] if "start_content" in i.keys() else "",
+                start_image=i["start_image"] if "start_image" in i.keys() else "",
                 object_id=object_id
             )
             count += 1

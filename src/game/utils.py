@@ -39,7 +39,12 @@ def get_history(db: Session, story_line: str):
     content_prompt = [
         {
             "role": "system",
-            "content": f"{prompt_history.prompt_system} "
+            "content": f"cada escena de cada capitulo debe ser variada,"
+                       f"logra que el primer capitulo sea el mas interesante,"
+                       f"logra que el primer capitulo tenga un cliffhanger,"
+                       f"logra que el primer primer capitulo tenga un personaje principal, un antagonista, un enemigo "
+                       f"y un mini enemigo que pueden ser un ave, un cuadrupedo grande o un cuadrupedo pequeño, "
+                       f"{prompt_history.prompt_system} "
                        f"responde con un JSON que contenga el esquema '{schema_story}'"
         },
         {
