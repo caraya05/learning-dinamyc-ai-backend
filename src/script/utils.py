@@ -4,8 +4,8 @@ import time
 from gpt_ai.utils import generate_gpt4_
 from gpt_ai.utils import generate_image_dalle
 
-import jsonschema
-from jsonschema import validate
+# import jsonschema
+# from jsonschema import validate
 
 def get_script_locations_chapter_v2(history: str,
                                     num: str,
