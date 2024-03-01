@@ -139,16 +139,16 @@ def get_script_locations_chapter_v2(history: str,
 
     characters_locations_generated = json.loads(response_characters_locations)
 
-    for i in range(len(characters_locations_generated["locations"])):
-        characters_locations_generated["locations"][i]["id"] = i + 1
-
+    # for i in range(len(characters_locations_generated["locations"])):
+    #     characters_locations_generated["locations"][i]["id"] = i + 1
+    #
     print("characters",str(characters_locations_generated["characters"]))
-
-    for i in range(len(characters_locations_generated["characters"])):
-        characters_locations_generated["characters"][i]["id"] = i + 1
-
-    for i in range(len(characters_locations_generated["objects"])):
-        characters_locations_generated["objects"][i]["id"] = i + 1
+    #
+    # for i in range(len(characters_locations_generated["characters"])):
+    #     characters_locations_generated["characters"][i]["id"] = i + 1
+    #
+    # for i in range(len(characters_locations_generated["objects"])):
+    #     characters_locations_generated["objects"][i]["id"] = i + 1
 
 
     print("characters_locations_generated", time.time() - star_time)
