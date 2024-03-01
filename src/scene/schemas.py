@@ -20,7 +20,7 @@ class SchemaCreateScene(BaseModel):
     dynamic: str
     reward: str
     count_enemies: int
-    enemy_id: Optional[str] | None
+    enemy_id: str | None
     is_subtractable: bool
     start_content: str | None
     start_image: str | None

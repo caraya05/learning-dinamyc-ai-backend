@@ -108,7 +108,7 @@ def get_script_locations_chapter_v2(history: str,
                        f"los personajes deben estar humanizados a excepción del mini enemy, "
                        f"los escenarios deben ser cerrados y cubiertos, "
                        f"nesecito que esten las locaciones, los personajes, los objetos y el resumen de la historia, "
-                       f"crea un personaje de cada tipo leading role, other, enemy, mini enemy, antagonist."
+                       f"crea un personaje de cada tipo leading role, other, enemy, mini enemy, antagonist acorde a la historia."
                        f"solo puede haber un antagonist, un leading role, un enemy, mini enemy que sean animales y otros son personajes de relleno. "
                        f", responde el prompt con la siguiente estructura JSON: {schema_characters_locations}"
         },
@@ -210,7 +210,8 @@ def get_script_locations_chapter_v2(history: str,
                 "role": "system",
                 "content": f"Garantiza que en cada escena creada deben estar 2 personajes y uno de esos sea el personaje principal y el otro puede ser el mini enemigo, el enemigo o otro, "
                 # f"tambien varia cada en escena en difrentes locaciones, no puede repetir escenario y location,"
-                           f"solo la dinamica de question debe tener preguntas, "
+                           f"solo la dinamica de question debe tener questions,"
+                           f"todas las escenas deben tener la locacion diferente,"
                            f"el tipo de dinamica battle group debe ser solo entre el principal y el mini enemigo,"
                            f"el tipo de dinamica battle debe ser solo entre el principal y el enemigo, "
                            f"el tipo de dinamica search debe tener un objeto, dos personajes, ni el enemy, de reward item o next no puede tener questions,"
@@ -221,9 +222,10 @@ def get_script_locations_chapter_v2(history: str,
                            f"las dinamicas de dialog, question, search, delivery, no puede ser un mini enemy, ni el enemy,"
                            f"las dinamicas de battle, battle group, no puede ser un other, ni antagonista,"
                            f"las dinamicas de search, battle, battle group, no puede tener questions, "
-                           f"la primera escena debe ser un dialogo, la segunda debe ser una busqueda de un objeto,"
+                           f"verificar los tipos de personajes para las dinamicas si no estan presentes usar otra dinamica,"
+                           # f"la primera escena debe ser un dialogo, la segunda debe ser una busqueda de un objeto,"
                            f"characters debe contendra los id de los personajes que aparecen en la escena que estan en los dialogos, "
-                           f"la tercera debe ser un pregunta y la cuarta de pelea grupal,"
+                           # f"la tercera debe ser un pregunta y la cuarta de pelea grupal,"
                            # f"en cada escena solo pueden haber 2 personajes, "
                            f"responde el prompt con la siguiente estructura JSON: {schema_scene}"
             },

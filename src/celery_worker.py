@@ -22,8 +22,6 @@ celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
 URL_API = "https://backend-dev.qwestar.ai"
-
-
 # URL_API = "http://192.168.1.45"
 # URL_API = "http://192.168.100.169"
 
@@ -281,7 +279,7 @@ def create_script_task(token: str,
                             dialogues_end["åid_character"] = character_by_field.json()["id"]
 
             for character_enemy in character_:
-                if i["enemy_id"] and "enemy_id" in i.keys():
+                if i["enemy_id"]:
                     if str(i["enemy_id"]) == str(character_enemy["id"]) and i[
                         "enemy_id"] != "" and "enemy_id" in i.keys():
                         character_by_field = requests.get(
@@ -323,7 +321,7 @@ def create_script_task(token: str,
                                                                                  'feedback_incorrect': ''} else None,
                 reward=i["reward"],
                 count_enemies=i["count_enemies"] if i["count_enemies"] else 0,
-                enemy_id=i["enemy_id"] if i["enemy_id"] else "",
+                enemy_id=i["enemy_id"] if i["enemy_id"] else None,
                 is_subtractable=i["is_subtractable"] if i["is_subtractable"] else False,
                 start_content=i["start_content"] if "start_content" in i.keys() else "",
                 start_image=i["start_image"] if "start_image" in i.keys() else "",
