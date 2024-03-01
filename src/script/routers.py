@@ -191,11 +191,11 @@ async def create_script(game_id: str,
 
     print()
 
-    create_script_task.delay(token=Authorize._token,
+    create_script_task.delay(game_id=game_id,
+                             token=Authorize._token,
                              game_history=game_db.history,
                              prompt_script=prompt_script.description,
                              prompt_scene=prompt_scene.description,
-                             game_id=game_id,
                              script_id=script_db.id,
                              current_user=current_user)
 
