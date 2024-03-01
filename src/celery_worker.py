@@ -145,6 +145,7 @@ def create_script_task(game_id: str,
                                              headers={"Authorization": "Bearer " + token})).json()
                             j["location_id"] = location_scene["id"]
 
+
             character_generate = SchemaCreateCharacter(
                 name=i["name"],
                 genre=i["genre"],
@@ -153,7 +154,7 @@ def create_script_task(game_id: str,
                 game_id=game_id,
                 attempts=3,
                 extra_data=i["extra_data"],
-                text_idle=i["text_idle"] if i["text_idle"] else []
+                text_idle=i["text_idle"] if "text_idle" in i else [],
             )
 
             character_response = requests.post(f"{URL_API}/v1/api/characters/",
