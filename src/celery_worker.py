@@ -228,7 +228,7 @@ def create_script_task(token: str,
         count = 0
         for i in scenes_:
 
-            print("i " + str(i) + " " + str(len(scenes_)) + " " + str(count))
+            print("escene a crear " + str(i) + " " + str(scenes_) + " " + str(count))
 
             location_scene = ""
             # print("i " + str(i) + " " + str(len(scenes_)) + " " + str(count))
