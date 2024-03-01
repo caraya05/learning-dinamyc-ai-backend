@@ -316,9 +316,10 @@ def create_script_task(game_id: str,
 
             print("scene_generate " + str(count) + str(i))
 
-            if "questions" in i and i["questions"] == {'options': [], 'correct_option': None, 'feedback': '',
+            if "questions" in i:
+                if i["questions"] == {'options': [], 'correct_option': None, 'feedback': '',
                                                        'feedback_incorrect': ''}:
-                i["questions"] = None
+                    i["questions"] = None
 
             scene_generate = SchemaCreateScene(
                 title=i["title"],
