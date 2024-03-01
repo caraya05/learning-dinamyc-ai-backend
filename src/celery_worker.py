@@ -22,8 +22,6 @@ celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
 URL_API = "https://backend-dev.qwestar.ai"
-
-
 # URL_API = "http://192.168.1.45"
 # URL_API = "http://192.168.100.169"
 
@@ -262,26 +260,34 @@ def create_script_task(game_id: str,
 
             for dialogues_start in i["start_dialogues"]:
                 for k in character_:
+                    print("dialogues_start ", dialogues_start["id_character"])
+                    print("k ", k["id"])
+
                     if str(dialogues_start["id_character"]) == str(k["id"]):
 
                         character_by_field = requests.get(
                             f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
                             headers={"Authorization": "Bearer " + token})
 
+                        print("character_by_field ", character_by_field.json())
+
                         if character_by_field.status_code == 200:
                             dialogues_start["id_character"] = character_by_field.json()["id"]
 
             for dialogues_end in i["end_dialogues"]:
                 for k in character_:
+                    print("dialogues_end ", dialogues_end["id_character"])
+                    print("k ", k["id"])
                     if str(dialogues_end["id_character"]) == str(k["id"]):
                         character_by_field = requests.get(
                             f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
                             headers={"Authorization": "Bearer " + token})
 
-                        if character_by_field.status_code == 200:
-                            dialogues_end["åid_character"] = character_by_field.json()["id"]
+                        print("character_by_field ", character_by_field.json())
 
-            print()
+                        if character_by_field.status_code == 200:
+                            dialogues_end["id_character"] = character_by_field.json()["id"]
+
 
             # print("enemy_id " + str(i["enemy_id"]) + " " + str(i["enemy_id"]) != "" + " " + str("enemy_id" in i.keys()))
 

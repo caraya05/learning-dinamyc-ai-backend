@@ -107,13 +107,12 @@ def get_script_locations_chapter_v2(history: str,
     content_prompt = [
         {
             "role": "system",
-            "content": f"los weapon solo los debe tener el leading role,"
-                       f"los personajes deben estar humanizados a excepción del mini enemy, "
+            "content": f"los personajes deben estar humanizados a excepción del mini enemy, "
                        f"los escenarios deben ser cerrados y cubiertos, "
                        f"nesecito que esten las locaciones, los personajes, los objetos y el resumen de la historia, "
                        f"crea un personaje de cada tipo leading role, other, enemy, mini enemy, antagonist acorde a la historia."
                        f"solo puede haber un antagonist, un leading role, un enemy, mini enemy que sean animales y otros son personajes de relleno. "
-                       f", responde el prompt con la siguiente estructura JSON: {schema_characters_locations}"
+                       f" responde el prompt con la siguiente estructura JSON: {schema_characters_locations}"
         },
         {
             "role": "assistant",
