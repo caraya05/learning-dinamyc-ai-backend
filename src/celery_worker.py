@@ -136,7 +136,7 @@ def create_script_task(game_id: str,
 
     try:
         for i in character_:
-            if i["text_idle"]:
+            if "text_idle" in i:
                 for j in i["text_idle"]["dialogues"]:
                     for k in locations_:
                         if str(j["location_id"]) == str(k["id"]):
