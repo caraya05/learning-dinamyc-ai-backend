@@ -54,6 +54,12 @@ def get_characters(value: str,
 
     character_db = get_character_by_field(db, field, value)
 
+    if not character_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found",
+        )
+
     return character_db
 
 

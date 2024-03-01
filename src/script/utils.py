@@ -141,6 +141,16 @@ def get_script_locations_chapter_v2(history: str,
 
     for i in range(len(characters_locations_generated["locations"])):
         characters_locations_generated["locations"][i]["id"] = i + 1
+
+    print("characters",str(characters_locations_generated["characters"]))
+
+    for i in range(len(characters_locations_generated["characters"])):
+        characters_locations_generated["characters"][i]["id"] = i + 1
+
+    for i in range(len(characters_locations_generated["objects"])):
+        characters_locations_generated["objects"][i]["id"] = i + 1
+
+
     print("characters_locations_generated", time.time() - star_time)
 
     # print("characters_locations_generated", characters_locations_generated)
@@ -213,7 +223,7 @@ def get_script_locations_chapter_v2(history: str,
         content_prompt = [
             {
                 "role": "system",
-                "content": f"Garantiza que en cada escena creada deben estar 2 personajes y uno de esos sea el personaje principal y el otro puede ser el mini enemigo, el enemigo o otro, "
+                "content": f"Garantiza que en cada escena creada deben tener solo 2 personajes y uno de esos sea el personaje principal y el otro puede ser el mini enemigo, el enemigo o otro, "
                 # f"tambien varia cada en escena en difrentes locaciones, no puede repetir escenario y location,"
                            f"solo la dinamica de question debe tener questions,"
                            f"todas las escenas deben tener la locacion diferente,"
@@ -264,11 +274,11 @@ def get_script_locations_chapter_v2(history: str,
         characters_scene = []
 
         for h in range(len(scene_generated_json["start_dialogues"])):
-            if scene_generated_json["start_dialogues"][h]["id_character"] not in characters_scene:
+            if {"id": scene_generated_json["start_dialogues"][h]["id_character"]} not in characters_scene:
                 characters_scene.append({"id": scene_generated_json["start_dialogues"][h]["id_character"]})
 
         for h in range(len(scene_generated_json["end_dialogues"])):
-            if scene_generated_json["end_dialogues"][h]["id_character"] not in characters_scene:
+            if {"id": scene_generated_json["end_dialogues"][h]["id_character"]} not in characters_scene:
                 characters_scene.append({"id": scene_generated_json["end_dialogues"][h]["id_character"]})
 
         scene_generated_json["characters"] = characters_scene
@@ -278,7 +288,8 @@ def get_script_locations_chapter_v2(history: str,
         if len(scene_generated_json["characters"]) > 0:
             for i in range(len(scene_generated_json["characters"])):
                 for j in range(len(characters_locations_generated["characters"])):
-                    if scene_generated_json["characters"][i]["id"] == characters_locations_generated["characters"][j]["id"]:
+                    if scene_generated_json["characters"][i]["id"] == characters_locations_generated["characters"][j][
+                        "id"]:
                         if characters_locations_generated["characters"][j]["type"] == "enemy":
                             brand_enemies = True
                             scene_generated_json["enemy_id"] = characters_locations_generated["characters"][j]["id"]
@@ -289,10 +300,15 @@ def get_script_locations_chapter_v2(history: str,
 
         if brand_enemies:
             scene_generated_json["enemy_id"] = ""
+            scene_generated_json["count_enemies"] = 0
 
         if brand_mini_enemies:
             scene_generated_json["count_enemies"] = 0
             scene_generated_json["enemy_id"] = ""
+
+        if scene_generated_json["questions"] == {'options': [], 'correct_option': None, 'feedback': '',
+                                                 'feedback_incorrect': ''}:
+            scene_generated_json["questions"] = None
 
         scenes_generated.append(scene_generated_json)
 

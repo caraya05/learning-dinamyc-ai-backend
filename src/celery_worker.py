@@ -238,17 +238,17 @@ def create_script_task(token: str,
                     # print("i " + str(i["id_location"]) + " j " + str(j["id"]) + " " + str(j["name"]))
                     location_scene = (requests.get(f"{URL_API}/v1/api/location/by-field/?field=title&value={j['name']}",
                                                    headers={"Authorization": "Bearer " + token})).json()
-                    print("location_scene ", location_scene)
+                    # print("location_scene ", location_scene)
                     location_scene = location_scene["id"]
 
             characters_scene = []
-            print("characters_scene ", i["characters"])
+            # print("characters_scene ", i["characters"])
             for j in i["characters"]:
-                print("j ", j)
+                # print("j ", j)
                 for k in character_:
-                    print("k ", k)
+                    # print("k ", k)
                     if str(j["id"]) == str(k["id"]):
-                        print("k ", k)
+                        # print("k ", k)
 
                         character_by_field = requests.get(
                             f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
@@ -278,16 +278,22 @@ def create_script_task(token: str,
                         if character_by_field.status_code == 200:
                             dialogues_end["åid_character"] = character_by_field.json()["id"]
 
-            for character_enemy in character_:
-                if i["enemy_id"]:
-                    if str(i["enemy_id"]) == str(character_enemy["id"]) and i[
-                        "enemy_id"] != "" and "enemy_id" in i.keys():
-                        character_by_field = requests.get(
-                            f"{URL_API}/v1/api/characters/by-field/?field=name&value={character_enemy['name']}",
-                            headers={"Authorization": "Bearer " + token})
+            print()
 
-                        if character_by_field.status_code == 200:
-                            i["enemy_id"] = character_by_field.json()["id"]
+            # print("enemy_id " + str(i["enemy_id"]) + " " + str(i["enemy_id"]) != "" + " " + str("enemy_id" in i.keys()))
+
+            if "enemy_id" in i and i["enemy_id"] != "":
+
+                for character_enemy in character_:
+
+                        if str(i["enemy_id"]) == str(character_enemy["id"]) and i[
+                            "enemy_id"] != "" and "enemy_id" in i.keys():
+                            character_by_field = requests.get(
+                                f"{URL_API}/v1/api/characters/by-field/?field=name&value={character_enemy['name']}",
+                                headers={"Authorization": "Bearer " + token})
+
+                            if character_by_field.status_code == 200:
+                                i["enemy_id"] = character_by_field.json()["id"]
 
             object_id = ""
 
@@ -300,7 +306,7 @@ def create_script_task(token: str,
 
             print("scene_generate " + str(count) + str(i))
 
-            if i["questions"] and i["questions"] == {'options': [], 'correct_option': None, 'feedback': '',
+            if "questions" in i and i["questions"] == {'options': [], 'correct_option': None, 'feedback': '',
                                                      'feedback_incorrect': ''}:
                 i["questions"] = None
 
@@ -320,8 +326,8 @@ def create_script_task(token: str,
                                                                                  'feedback': '',
                                                                                  'feedback_incorrect': ''} else None,
                 reward=i["reward"],
-                count_enemies=i["count_enemies"] if i["count_enemies"] else 0,
-                enemy_id=i["enemy_id"] if i["enemy_id"] else None,
+                count_enemies=i["count_enemies"] if "count_enemies" in i else 0,
+                enemy_id=i["enemy_id"] if "enemy_id" in i else "",
                 is_subtractable=i["is_subtractable"] if i["is_subtractable"] else False,
                 start_content=i["start_content"] if "start_content" in i.keys() else "",
                 start_image=i["start_image"] if "start_image" in i.keys() else "",
