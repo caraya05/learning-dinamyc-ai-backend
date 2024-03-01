@@ -1,8 +1,9 @@
 import json
 import time
-
+import random
 from gpt_ai.utils import generate_gpt4_
 from gpt_ai.utils import generate_image_dalle
+
 
 # import jsonschema
 # from jsonschema import validate
@@ -138,6 +139,8 @@ def get_script_locations_chapter_v2(history: str,
 
     characters_locations_generated = json.loads(response_characters_locations)
 
+    for i in range(len(characters_locations_generated["locations"])):
+        characters_locations_generated["locations"][i]["id"] = i + 1
     print("characters_locations_generated", time.time() - star_time)
 
     # print("characters_locations_generated", characters_locations_generated)
@@ -179,18 +182,18 @@ def get_script_locations_chapter_v2(history: str,
         },
         "object_id": "int (id of the object)",
         "id_location": "int (location ids different from those already used)",
-        "characters": [
-            {
-                "id": "int (id of the character)",
-            },
-        ],
+        # "characters": [
+        #     {
+        #         "id": "int (id of the character)",
+        #     },
+        # ],
         "valid_locations": [
             {
                 "id": "int (id of the location (valid locations for the scene)",
             },
         ],
-        "count_enemies": "int (number of enemies in the scene)",
-        "enemy_id": "int (id of the enemy)",
+        # "count_enemies": "int (number of enemies in the scene)",
+        # "enemy_id": "int (id of the enemy)",
         "is_subtractable": "bool (if the object is kept by the player it is true and if not it is false)"
     }
 
@@ -225,10 +228,10 @@ def get_script_locations_chapter_v2(history: str,
                            f"las dinamicas de battle, battle group, no puede ser un other, ni antagonista,"
                            f"las dinamicas de search, battle, battle group, no puede tener questions, "
                            f"verificar los tipos de personajes para las dinamicas si no estan presentes usar otra dinamica,"
-                           # f"la primera escena debe ser un dialogo, la segunda debe ser una busqueda de un objeto,"
+                # f"la primera escena debe ser un dialogo, la segunda debe ser una busqueda de un objeto,"
                            f"characters debe contendra los id de los personajes que aparecen en la escena que estan en los dialogos, "
-                           # f"la tercera debe ser un pregunta y la cuarta de pelea grupal,"
-                           # f"en cada escena solo pueden haber 2 personajes, "
+                # f"la tercera debe ser un pregunta y la cuarta de pelea grupal,"
+                # f"en cada escena solo pueden haber 2 personajes, "
                            f"responde el prompt con la siguiente estructura JSON: {schema_scene}"
             },
             {
@@ -257,6 +260,39 @@ def get_script_locations_chapter_v2(history: str,
         scene_generated_json = json.loads(response_scene)
 
         location_id_used.append(scene_generated_json["id_location"])
+
+        characters_scene = []
+
+        for h in range(len(scene_generated_json["start_dialogues"])):
+            if scene_generated_json["start_dialogues"][h]["id_character"] not in characters_scene:
+                characters_scene.append({"id": scene_generated_json["start_dialogues"][h]["id_character"]})
+
+        for h in range(len(scene_generated_json["end_dialogues"])):
+            if scene_generated_json["end_dialogues"][h]["id_character"] not in characters_scene:
+                characters_scene.append({"id": scene_generated_json["end_dialogues"][h]["id_character"]})
+
+        scene_generated_json["characters"] = characters_scene
+
+        brand_enemies = False
+        brand_mini_enemies = False
+        if len(scene_generated_json["characters"]) > 0:
+            for i in range(len(scene_generated_json["characters"])):
+                for j in range(len(characters_locations_generated["characters"])):
+                    if scene_generated_json["characters"][i]["id"] == characters_locations_generated["characters"][j]["id"]:
+                        if characters_locations_generated["characters"][j]["type"] == "enemy":
+                            brand_enemies = True
+                            scene_generated_json["enemy_id"] = characters_locations_generated["characters"][j]["id"]
+                        if characters_locations_generated["characters"][j]["type"] == "mini enemy":
+                            brand_mini_enemies = True
+                            scene_generated_json["count_enemies"] = random.randint(1, 3)
+                            scene_generated_json["enemy_id"] = characters_locations_generated["characters"][j]["id"]
+
+        if brand_enemies:
+            scene_generated_json["enemy_id"] = ""
+
+        if brand_mini_enemies:
+            scene_generated_json["count_enemies"] = 0
+            scene_generated_json["enemy_id"] = ""
 
         scenes_generated.append(scene_generated_json)
 
