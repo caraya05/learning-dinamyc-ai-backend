@@ -107,11 +107,12 @@ def get_script_locations_chapter_v2(history: str,
     content_prompt = [
         {
             "role": "system",
-            "content": f"los personajes deben estar humanizados a excepción del mini enemy, "
+            "content": f"los personajes deben estar humanizados a excepción del mini enemy,"
+                       f"crea un personaje de cada tipo leading role, other, enemy, antagonist acorde a la historia."
+                       f" crea el mini enemy siempre y debe ser un zorro marron o un ave negra, "
+                       f"solo puede haber un antagonist, un leading role, un enemy y otros son personajes de relleno. "
                        f"los escenarios deben ser cerrados y cubiertos, "
-                       f"nesecito que esten las locaciones, los personajes, los objetos y el resumen de la historia, "
-                       f"crea un personaje de cada tipo leading role, other, enemy, mini enemy, antagonist acorde a la historia."
-                       f"solo puede haber un antagonist, un leading role, un enemy, mini enemy que sean animales y otros son personajes de relleno. "
+                       f"garantiza que esten las locaciones, los personajes, los objetos, "
                        f" responde el prompt con la siguiente estructura JSON: {schema_characters_locations}"
         },
         {
@@ -124,9 +125,9 @@ def get_script_locations_chapter_v2(history: str,
                 {
                     "type": "text",
                     "text": "Dame una lista con nombre, y descripción física, género del protagonista, el antagonista, "
-                            "y los personajes que aparecen en las primeras 4 escenas. Dale un nombre muy atractivo "
+                            "y los personajes que aparecen en las primeras 4 escenas. Dale un nombre muy atractivo, crea siempre el mini enemy, "
                             "al juego y que genere recordación. también dame una lista con nombre y descripción de los "
-                            "lugares donde se desarrollan las primeras 4 escenas. ademas dame un listado los objetos que aparecen en la historia"
+                            "lugares donde se desarrollan las primeras 4 escenas. ademas dame un listado los objetos que aparecen en la historia."
                 }
             ]
         }
@@ -141,14 +142,15 @@ def get_script_locations_chapter_v2(history: str,
     # for i in range(len(characters_locations_generated["locations"])):
     #     characters_locations_generated["locations"][i]["id"] = i + 1
     #
-    print("characters",str(characters_locations_generated["characters"]))
-    #
-    # for i in range(len(characters_locations_generated["characters"])):
-    #     characters_locations_generated["characters"][i]["id"] = i + 1
-    #
+    print("characters", str(characters_locations_generated["characters"]))
+
+    brand_antagonist = False
+    for i in range(len(characters_locations_generated["characters"])):
+        if characters_locations_generated["characters"][i]["type"] == "mini enemy":
+            print("si hay mini enemy")
+
     # for i in range(len(characters_locations_generated["objects"])):
     #     characters_locations_generated["objects"][i]["id"] = i + 1
-
 
     print("characters_locations_generated", time.time() - star_time)
 
@@ -159,7 +161,8 @@ def get_script_locations_chapter_v2(history: str,
         "title": "string (title of the scene)",
         "description": "string (description of the scene)",
         "content": "string (content of the scene)",
-        "dynamic": "string (dynamics of the scene Delivery, a scene where a character delivers an object. "
+        "dynamic": "string (dynamics of the scene "
+                   "Delivery, a scene in which one character finds an object and must deliver it to another character in another location. "
                    "Dialog, where two characters converse. Battle, a combat scene with an enemy."
                    " Battle Group, a combat scene with a number of mini enemies. "
                    "Search, a scene where a character searches for an object."
@@ -203,7 +206,9 @@ def get_script_locations_chapter_v2(history: str,
         ],
         # "count_enemies": "int (number of enemies in the scene)",
         # "enemy_id": "int (id of the enemy)",
-        "is_subtractable": "bool (if the object is kept by the player it is true and if not it is false)"
+        "is_subtractable": "bool (if the object is kept by the player it is true and if not it is false)",
+        "delivery_location_id": "int (id of the location where the object is delivered)",
+        "delivery_character_id": "int (id of the character who receives the object)"
     }
 
     scenes_generated = []
@@ -227,16 +232,23 @@ def get_script_locations_chapter_v2(history: str,
                            f"solo la dinamica de question debe tener questions,"
                            f"todas las escenas deben tener la locacion diferente,"
                            f"el tipo de dinamica battle group debe ser solo entre el principal y el mini enemigo,"
-                           f"el tipo de dinamica battle debe ser solo entre el principal y el enemigo, "
+                # f"el tipo de dinamica battle debe ser solo entre el principal y el enemigo, "
                            f"el tipo de dinamica search debe tener un objeto, dos personajes, ni el enemy, de reward item o next no puede tener questions,"
-                           f"el tipo de dinamica dialog debe tener dos personajes y de reward info,"
-                           f"el tipo de dinamica delivery debe tener dos personajes y de reward item o next,"
+                           f"el tipo de dinamica dialog debe tener dos personajes y de reward info, "
+                           f"el tipo de dinamica delivery es la unica que tiene delivery_location_id, delivery_character_id y "
+                           f"el delivery_location_id debe ser diferente a el location_id de la escena y el delivery_character_id deber ser difernente y "
+                           f" debe tener dos personajes y un tercero que es al que le entrega el objecto y de reward next,"
                            f"si la recompenza es item, is_subtractable debe ser false y la dinamica debe ser delivery,"
                            f"si la recompenza es item, is_subtractable debe ser true y la dinamica debe ser search,"
                            f"las dinamicas de dialog, question, search, delivery, no puede ser un mini enemy, ni el enemy,"
-                           f"las dinamicas de battle, battle group, no puede ser un other, ni antagonista,"
-                           f"las dinamicas de search, battle, battle group, no puede tener questions, "
+                # f"las dinamicas de battle, battle group, no puede ser un other, ni antagonista,"
+                # f"las dinamicas de search, battle, battle group, no puede tener questions, "
+                           f"las dinamicas de search no puede tener questions, "
                            f"verificar los tipos de personajes para las dinamicas si no estan presentes usar otra dinamica,"
+                           f"la primera escena debe ser de dinamica question,"
+                           f"la segunda escena debe ser de dinamica search, "
+                           f"la tercera de dinamica search y "
+                           f"la cuarta de dinamica battle group,"
                 # f"la primera escena debe ser un dialogo, la segunda debe ser una busqueda de un objeto,"
                            f"characters debe contendra los id de los personajes que aparecen en la escena que estan en los dialogos, "
                 # f"la tercera debe ser un pregunta y la cuarta de pelea grupal,"
@@ -272,13 +284,29 @@ def get_script_locations_chapter_v2(history: str,
 
         characters_scene = []
 
-        for h in range(len(scene_generated_json["start_dialogues"])):
-            if {"id": scene_generated_json["start_dialogues"][h]["id_character"]} not in characters_scene:
-                characters_scene.append({"id": scene_generated_json["start_dialogues"][h]["id_character"]})
+        if scene_generated_json["dynamic"] == "Battle Group":
+            print("si hay battle group")
+            scene_generated_json["count_enemies"] = random.randint(1, 3)
+            scene_generated_json["delivery_location_id"] = ""
+            scene_generated_json["delivery_character_id"] = ""
+            scene_generated_json["object_id"] = ""
+            scene_generated_json["is_subtractable"] = False
+            scene_generated_json["questions"] = None
+            scene_generated_json["reward"] = "next"
 
-        for h in range(len(scene_generated_json["end_dialogues"])):
-            if {"id": scene_generated_json["end_dialogues"][h]["id_character"]} not in characters_scene:
-                characters_scene.append({"id": scene_generated_json["end_dialogues"][h]["id_character"]})
+            for k in characters_locations_generated["characters"]:
+                if k["type"] == "mini enemy":
+                    print("si hay mini enemy en battle group", k["id"])
+                    scene_generated_json["enemy_id"] = k["id"]
+        if "start_dialogues" in scene_generated_json:
+            for h in range(len(scene_generated_json["start_dialogues"])):
+                if {"id": scene_generated_json["start_dialogues"][h]["id_character"]} not in characters_scene:
+                    characters_scene.append({"id": scene_generated_json["start_dialogues"][h]["id_character"]})
+
+        if "end_dialogues" in scene_generated_json:
+            for h in range(len(scene_generated_json["end_dialogues"])):
+                if {"id": scene_generated_json["end_dialogues"][h]["id_character"]} not in characters_scene:
+                    characters_scene.append({"id": scene_generated_json["end_dialogues"][h]["id_character"]})
 
         scene_generated_json["characters"] = characters_scene
 
@@ -305,9 +333,11 @@ def get_script_locations_chapter_v2(history: str,
             scene_generated_json["count_enemies"] = 0
             scene_generated_json["enemy_id"] = ""
 
-        if scene_generated_json["questions"] == {'options': [], 'correct_option': None, 'feedback': '',
-                                                 'feedback_incorrect': ''}:
-            scene_generated_json["questions"] = None
+        # print(scene_generated_json["questions"])
+        if "questions" in scene_generated_json:
+            if scene_generated_json["questions"] == {'options': [], 'correct_option': None, 'feedback': '',
+                                                     'feedback_incorrect': ''}:
+                scene_generated_json["questions"] = None
 
         scenes_generated.append(scene_generated_json)
 
@@ -320,6 +350,22 @@ def get_script_locations_chapter_v2(history: str,
         prompt_scene = prompt_scene_copy
 
     print("scenes_generated", time.time() - star_time)
+
+    for i in range(len(scenes_generated)):
+        if scenes_generated[i]["dynamic"] == "Delivery":
+            print("si hay delivery")
+            if scenes_generated[i]["delivery_location_id"] == scenes_generated[i]["id_location"]:
+                print("es la misma locacion")
+            else:
+                print("no es la misma locacion")
+
+            if scenes_generated[i]["delivery_character_id"] in scenes_generated[i]["characters"]:
+                print("si esta el personaje")
+            else:
+                print("no esta el personaje")
+
+        if scenes_generated[i]["dynamic"] == "Battle group":
+            print("si hay battle group")
 
     scene_cero = {
         "number": 0,

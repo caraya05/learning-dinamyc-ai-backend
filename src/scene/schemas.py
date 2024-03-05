@@ -25,6 +25,8 @@ class SchemaCreateScene(BaseModel):
     start_content: str | None
     start_image: str | None
     object_id: str | None
+    delivery_location_id: str | None
+    delivery_character_id: str | None
 
 
 class SchemaPartialUpdateScene(BaseModel):

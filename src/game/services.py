@@ -1,4 +1,3 @@
-
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette import status
@@ -13,6 +12,7 @@ from game.utils import get_synopsis
 from utils import upload_image
 
 from sqlalchemy import desc
+
 
 def get_game_by_field(db: Session, field: str, value: str):
     return db.query(Game).filter(getattr(Game, field) == value).first()
@@ -33,7 +33,11 @@ def get_game_service(db: Session, game_id: str, user_id: str = None):
     return game_db
 
 
-def get_games_service(db: Session, skip: int = 0, limit: int = 100):
+def get_games_service(db: Session, skip: int = 0, limit: int = 100, user_id: str = None):
+    print(user_id)
+    if user_id:
+        return db.query(Game).filter(Game.created_by == user_id).order_by(desc(Game.created_at)).offset(skip).limit(
+            limit).all()
     return db.query(Game).order_by(desc(Game.created_at)).offset(skip).limit(limit).all()
 
 
@@ -137,3 +141,8 @@ def update_image_background_game_service(db: Session, game_id: str, image: str, 
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Game not found",
     )
+
+
+def get_my_games_service(db: Session, user_id: str, skip: int = 0, limit: int = 100):
+    return db.query(Game).filter(Game.created_by == user_id).order_by(desc(Game.created_at)).offset(skip).limit(
+        limit).all()

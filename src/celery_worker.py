@@ -145,7 +145,6 @@ def create_script_task(game_id: str,
                                              headers={"Authorization": "Bearer " + token})).json()
                             j["location_id"] = location_scene["id"]
 
-
             character_generate = SchemaCreateCharacter(
                 name=i["name"],
                 genre=i["genre"],
@@ -153,28 +152,30 @@ def create_script_task(game_id: str,
                 description=i["description"],
                 game_id=game_id,
                 attempts=3,
-                extra_data=i["extra_data"],
+                extra_data=i["extra_data"] if "extra_data" in i else {},
                 text_idle=i["text_idle"] if "text_idle" in i else [],
             )
 
             character_response = requests.post(f"{URL_API}/v1/api/characters/",
                                                json=character_generate.dict(),
                                                headers={"Authorization": "Bearer " + token})
-            print("type " + i["type"])
-            if i["type"] == "leading role":
-                print("type check " + i["type"])
-                for j in ["long", "short"]:
-                    print("type " + j)
-                    weapons_ = SchemaCreateForType(
-                        type=j,
-                        character_id=character_response.json()["id"],
-                        script_id=script_id,
-                        game_id=game_id
-                    )
 
-                    requests.post(f"{URL_API}/v1/api/weapon/",
-                                  json=weapons_.dict(),
-                                  headers={"Authorization": "Bearer " + token})
+            if character_response.status_code != 200:
+                print("type " + i["type"])
+                if i["type"] == "leading role":
+                    print("type check " + i["type"])
+                    for j in ["long", "short"]:
+                        print("type " + j)
+                        weapons_ = SchemaCreateForType(
+                            type=j,
+                            character_id=character_response.json()["id"],
+                            script_id=script_id,
+                            game_id=game_id
+                        )
+
+                        requests.post(f"{URL_API}/v1/api/weapon/",
+                                      json=weapons_.dict(),
+                                      headers={"Authorization": "Bearer " + token})
 
         response_all += " Character created "
 
@@ -289,10 +290,10 @@ def create_script_task(game_id: str,
                         if character_by_field.status_code == 200:
                             dialogues_end["id_character"] = character_by_field.json()["id"]
 
-
             # print("enemy_id " + str(i["enemy_id"]) + " " + str(i["enemy_id"]) != "" + " " + str("enemy_id" in i.keys()))
 
             if "enemy_id" in i and i["enemy_id"] != "":
+                print("enemy_id " + str(i["enemy_id"]) )
 
                 for character_enemy in character_:
 
@@ -307,7 +308,7 @@ def create_script_task(game_id: str,
 
             object_id = ""
 
-            if i["object_id"]:
+            if "object_id" in i:
                 for k in object_:
                     if str(i["object_id"]) == str(k["id"]):
                         object_id = requests.get(
@@ -318,8 +319,32 @@ def create_script_task(game_id: str,
 
             if "questions" in i:
                 if i["questions"] == {'options': [], 'correct_option': None, 'feedback': '',
-                                                       'feedback_incorrect': ''}:
+                                      'feedback_incorrect': ''}:
                     i["questions"] = None
+
+            if "delivery_location_id" in i:
+                if i["delivery_location_id"] == "":
+                    location_delivery = None
+                else:
+                    for j in locations_:
+                        if str(j["id"]) == str(i["delivery_location_id"]):
+                            location_delivery = requests.get(
+                                f"{URL_API}/v1/api/location/by-field/?field=title&value={j['name']}",
+                                headers={"Authorization": "Bearer " + token}).json()["id"]
+            else:
+                location_delivery = None
+
+            if "delivery_character_id" in i:
+                if i["delivery_character_id"] == "":
+                    character_delivery = None
+                else:
+                    for j in character_:
+                        if str(j["id"]) == str(i["delivery_character_id"]):
+                            character_delivery = requests.get(
+                                f"{URL_API}/v1/api/characters/by-field/?field=name&value={j['name']}",
+                                headers={"Authorization": "Bearer " + token}).json()["id"]
+            else:
+                character_delivery = None
 
             scene_generate = SchemaCreateScene(
                 title=i["title"],
@@ -333,16 +358,16 @@ def create_script_task(game_id: str,
                 location_id=location_scene,
                 start_dialogues=i["start_dialogues"],
                 end_dialogues=i["end_dialogues"],
-                questions=i["questions"] if i["questions"] or i["questions"] != {'options': [], 'correct_option': None,
-                                                                                 'feedback': '',
-                                                                                 'feedback_incorrect': ''} else None,
+                questions=i["questions"] if "questions" in i else None,
                 reward=i["reward"],
                 count_enemies=i["count_enemies"] if "count_enemies" in i else 0,
                 enemy_id=i["enemy_id"] if "enemy_id" in i else "",
-                is_subtractable=i["is_subtractable"] if i["is_subtractable"] else False,
+                is_subtractable=True if "is_subtractable" in i and i['is_subtractable'] else False,
                 start_content=i["start_content"] if "start_content" in i.keys() else "",
                 start_image=i["start_image"] if "start_image" in i.keys() else "",
-                object_id=object_id
+                object_id=object_id,
+                delivery_location_id=location_delivery,
+                delivery_character_id=character_delivery
             )
             count += 1
 

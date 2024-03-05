@@ -193,39 +193,6 @@ def cover_generate(
     prompt_content = prompt_content.replace('x_character',
                                             f"{character_leading_role.description}")
 
-    # schema_cover = {
-    #     "text": "string (text of the cover)",
-    # }
-
-    # content_prompt_2 = [
-    #     {
-    #         "role": "system",
-    #         "content": f"responde con un JSON que contenga el esquema '{schema_cover}'"
-    #     },
-    #     {
-    #         "role": "assistant",
-    #         "content": f"historia del juego :{game_db.synopsis}"
-    #
-    #     },
-    #     {
-    #         "role": "user",
-    #         "content": [
-    #             {
-    #                 "type": "text",
-    #                 "text": "genera un texto para generar la imagen animada 3d estilo disney de portada, debe ser impactante"
-    #             },
-    #             {
-    #                 "type": "text",
-    #                 "text": prompt_content
-    #             }
-    #         ]
-    #     }
-    # ]
-    #
-    # cover_generated = generate_gpt4_(content_prompt=content_prompt_2, type_text="cover", max_tokens=4096)
-    #
-    # cover_generated = json.loads(cover_generated)["text"]
-
     image_generated = generate_image_dalle(prompt=prompt_content,
                                            quality="hd",
                                            size="1024x1792")
@@ -374,3 +341,29 @@ def background_generate(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="not generated",
         )
+
+
+@router.get("/my-games/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
+def my_games(db: Session = Depends(get_db),
+             Authorize: AuthJWT = Depends(),
+             Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+             ):
+    """
+    This endpoint retrieves all games created by the user.
+
+    It returns a list of games.
+    """
+
+    try:
+        Authorize.jwt_required()
+        current_user = Authorize.get_raw_jwt()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
+
+    games_db = get_games_service(db, skip=0, limit=1000,user_id=current_user['sub'])
+
+    return SchemaListGame(results=games_db, count=len(games_db))

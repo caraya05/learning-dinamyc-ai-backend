@@ -5,8 +5,8 @@ from object.models import Object
 
 class ObjectAdmin(ModelView, model=Object):
     name_plural = "Objects"
-    column_list = ["id", "order", "title", "description", "script_id", "location_id", "characters_id"]
-    column_searchable_list = ["characters_id", "type"]
+    column_list = ["id", "description", "script_id", "game_id"]
+    column_searchable_list = ["characters_id", "type", "game_id"]
     # column_sorted_list = ["order", "title", "description", "script_id", "location_id", "characters_id",]
     # column_filters = ["order", "title", "description", "script_id", "location_id", "characters_id",]
     can_edit = True

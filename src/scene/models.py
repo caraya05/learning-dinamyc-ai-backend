@@ -45,3 +45,5 @@ class Scene(AbstractBaseModel):
     start_content: str = Column(String, nullable=True)
     start_image: str = Column(String, nullable=True)
     object_id: str = Column(String, nullable=True)
+    delivery_location_id: str = Column(String, nullable=True)
+    delivery_character_id: str = Column(String, nullable=True)
