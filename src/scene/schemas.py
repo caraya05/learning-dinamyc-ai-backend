@@ -83,6 +83,8 @@ class SchemaRetrieveSceneComplete(BaseModel):
     start_content: Optional[str]
     start_image: Optional[str]
     object_id: Optional[str]
+    delivery_location_id: Optional[str]
+    delivery_character_id: Optional[str]
 
     class Config:
         orm_mode = True
