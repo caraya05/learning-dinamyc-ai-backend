@@ -5,7 +5,7 @@ from category.models import Category
 
 class CategoryAdmin(ModelView, model=Category):
     name_plural = "Categories"
-    column_list = ["id", "name", "description", ]
+    column_list = ["id", "is_active", "name", "description", ]
     column_searchable_list = ["name", "description", ]
     can_edit = True
     can_create = True

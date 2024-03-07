@@ -5,12 +5,12 @@ from .models import Game
 
 class GameAdmin(ModelView, model=Game):
     name_plural = "Games"
-    column_list = ["title", "story_line", "image"]
+    column_list = ["id", "title", "story_line", "image"]
     column_searchable_list = ["id"]
     column_sorted_list = ["id"]
     column_filters = ["id"]
     can_edit = True
-    can_create = True
+    can_create = False
     can_delete = True
     can_view_details = True
     can_export = True

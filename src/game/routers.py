@@ -11,7 +11,9 @@ from fastapi_jwt_auth import AuthJWT
 
 from sqlalchemy.orm import Session
 
+from category.services import get_categories_active_service
 from config import auth_scheme
+from configuration.services import get_configuration_service
 
 from game.schemas import SchemaRetrieveGame
 from game.schemas import SchemaListGame
@@ -36,6 +38,8 @@ from location.services import get_location_service
 
 from gpt_ai.utils import generate_image_dalle
 from gpt_ai.utils import generate_gpt4_
+
+import ast
 
 from prompt.services import get_prompt_by_field
 
@@ -369,3 +373,99 @@ def my_games(db: Session = Depends(get_db),
     games_db = get_games_service(db, skip=0, limit=1000, user_id=current_user['sub'])
 
     return SchemaListGame(results=games_db, count=len(games_db))
+
+
+@router.get("/featured/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
+def features_games(db: Session = Depends(get_db),
+                   Authorize: AuthJWT = Depends(),
+                   Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+                   ):
+    """
+    This endpoint retrieves all featured games.
+
+    It returns a list of games.
+    """
+
+    try:
+        Authorize.jwt_required()
+        current_user = Authorize.get_raw_jwt()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
+
+    games_featured_db = get_configuration_service(db)
+
+    games_db = get_games_service(db, skip=0, limit=1000, games_id=ast.literal_eval(games_featured_db.featured_games))
+
+    return SchemaListGame(results=games_db, count=len(games_db))
+
+
+@router.get("/popular/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
+def popular_games(db: Session = Depends(get_db),
+                  Authorize: AuthJWT = Depends(),
+                  Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+                  ):
+    """
+    This endpoint retrieves all popular games.
+
+    It returns a list of games.
+    """
+
+    try:
+        Authorize.jwt_required()
+        current_user = Authorize.get_raw_jwt()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
+
+    games_featured_db = get_configuration_service(db)
+
+    games_db = get_games_service(db, skip=0, limit=1000, games_id=ast.literal_eval(games_featured_db.popular_games))
+
+    return SchemaListGame(results=games_db, count=len(games_db))
+
+
+@router.get("/categories/", status_code=status.HTTP_200_OK)
+def categories_games(db: Session = Depends(get_db),
+                     Authorize: AuthJWT = Depends(),
+                     Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+                     ):
+    """
+    This endpoint retrieves all games by category.
+
+    It returns a list of games.
+    """
+
+    try:
+        Authorize.jwt_required()
+        current_user = Authorize.get_raw_jwt()
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+        )
+
+    games_featured_db = get_configuration_service(db)
+
+    games_featured_json = json.loads(games_featured_db.games_by_category)
+
+    response_all = []
+
+    categories_active_db = get_categories_active_service(db)
+
+    for category in categories_active_db.results:
+        response = {}
+        for games in games_featured_json:
+            if category.id == games["id"]:
+                response['category'] = category.name
+                response['games'] = get_games_service(db, skip=0, limit=1000, games_id=games["games"])
+        response_all.append(response)
+
+    return {"results": response_all, "count": len(response_all)}

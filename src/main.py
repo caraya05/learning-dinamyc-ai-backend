@@ -62,6 +62,9 @@ from customize import routers as customize_routers
 from category import models as category_base
 from category.admin import CategoryAdmin
 
+from configuration import models as configuration_base
+from configuration.admin import ConfigurationAdmin
+
 from admin_config import authentication_backend
 
 from sqladmin import Admin
@@ -137,6 +140,7 @@ admin.add_view(ObjectAdmin)
 admin.add_view(WeaponAdmin)
 admin.add_view(CustomizeAdmin)
 admin.add_view(CategoryAdmin)
+admin.add_view(ConfigurationAdmin)
 
 user_base.Base.metadata.create_all(bind=engine)
 character_base.Base.metadata.create_all(bind=engine)
@@ -150,6 +154,7 @@ object_base.Base.metadata.create_all(bind=engine)
 weapon_base.Base.metadata.create_all(bind=engine)
 customize_base.Base.metadata.create_all(bind=engine)
 category_base.Base.metadata.create_all(bind=engine)
+configuration_base.Base.metadata.create_all(bind=engine)
 
 
 @app.middleware("http")

@@ -36,9 +36,13 @@ def get_game_service(db: Session, game_id: str, user_id: str = None):
     return game_db
 
 
-def get_games_service(db: Session, skip: int = 0, limit: int = 100, user_id: str = None):
+def get_games_service(db: Session, skip: int = 0, limit: int = 100, user_id: str = None, games_id: list[str] = None):
     if user_id:
         return db.query(Game).filter(Game.created_by == user_id).order_by(desc(Game.created_at)).offset(skip).limit(
+            limit).all()
+    if games_id:
+        print(games_id)
+        return db.query(Game).filter(Game.id.in_(games_id)).order_by(desc(Game.created_at)).offset(skip).limit(
             limit).all()
     return db.query(Game).order_by(desc(Game.created_at)).offset(skip).limit(limit).all()
 
