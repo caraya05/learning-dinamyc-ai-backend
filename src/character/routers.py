@@ -205,6 +205,7 @@ def generate_image(character_id: str,
     #                                                                f"{character_db.genre} {character_db.description}")
 
     image_generated = generate_image_dalle(prompt=content_prompt,
+                                           quality="hd",
                                            size="1024x1024")
 
     update_attempts_character_service(db, character_id=character_id)

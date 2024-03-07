@@ -15,6 +15,7 @@ class SchemaRetrieveGame(BaseModel):
     title: str = Field(..., min_length=3, max_length=100,
                        example="Call of suty")
     history: str = Field(..., example="history of the game")
+    category: str | None = Field(None, example="category of the game")
     synopsis: str = Field(..., example="synopsis og the game")
     image: Optional[str] = Field(..., example="photo", decimal_places=None)
     image_background: Optional[str] = Field(..., example="photo background", decimal_places=None)

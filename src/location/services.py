@@ -88,7 +88,8 @@ def partial_update_location_service(db: Session, location_id: str, schema: Schem
     image_name = image_name.replace("'", "")
 
     location.image = upload_image(url_image=schema.image,
-                                  file_name=f"{location.game_id}/locations/{image_name}.jpg")
+                                  file_name=f"{location.game_id}/locations/{image_name}.jpg",
+                                  size=(812, 812))
 
     db.commit()
     db.refresh(location)

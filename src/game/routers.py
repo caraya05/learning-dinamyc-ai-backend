@@ -331,7 +331,9 @@ def background_generate(
 
     prompt_content = prompt_content + f" ocurre en la siguiente ubicacion {location_db.description}"
 
-    image_generated = generate_image_dalle(prompt=prompt_content, size="1792x1024")
+    image_generated = generate_image_dalle(prompt=prompt_content,
+                                           quality="hd",
+                                           size="1792x1024")
 
     try:
         return update_image_background_game_service(db, game_id, image_generated, "1")
@@ -364,6 +366,6 @@ def my_games(db: Session = Depends(get_db),
             detail="Invalid token",
         )
 
-    games_db = get_games_service(db, skip=0, limit=1000,user_id=current_user['sub'])
+    games_db = get_games_service(db, skip=0, limit=1000, user_id=current_user['sub'])
 
     return SchemaListGame(results=games_db, count=len(games_db))

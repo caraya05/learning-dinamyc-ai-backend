@@ -62,7 +62,9 @@ def get_script_locations_chapter_v2(history: str,
             {
                 "id": "int (location id greater than 1)",
                 "name": "string (name of the location)",
-                "description": "string (Generate a 5-line description of one wall of each of these scenarios, and a 5-line description of the floor attached to this wall of each of these enclosed and covered scenarios.)"
+                "description_general": "string (general description of the location)",
+                "description_indoor": "string (Generates a 5-line isometric view description of a wall, and a 5-line description of the floor adjacent to this stage wall, the space must be closed and covered).",
+                "description_outdoor": "string (Generates a 5-line isometric view description of a wall, and a 5-line description of the floor next to this stage wall)."
             }
         ],
         "characters": [
@@ -391,7 +393,7 @@ def get_script_locations_chapter_v2(history: str,
 
     for i in range(len(characters_locations_generated["locations"])):
         if characters_locations_generated["locations"][i]["id"] == location_scene:
-            location_scene = characters_locations_generated["locations"][i]["description"]
+            location_scene = characters_locations_generated["locations"][i]["description_outdoor"]
             break
 
     prompt_image_scene_cero = (f"Genera una imagen en arte voxel y vista isométrica de 1024x1024 "
@@ -460,8 +462,7 @@ def get_weapon_image(prompt_weapon: str,
 
     response_image_weapon = generate_image_dalle(prompt=content_prompt,
                                                  quality="hd",
-                                                 size="1024x1024"
-                                                 )
+                                                 size="1024x1024")
 
     return response_image_weapon
 

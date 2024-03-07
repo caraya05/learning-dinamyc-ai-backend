@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from gpt_ai.utils import generate_gpt4_
 from prompt.services import get_prompt_by_field
 
+from category.schemas import SchemaRetrieveCategory
+
 
 def get_history(db: Session, story_line: str):
     prompt_history = get_prompt_by_field(db, 'category', 'history')
@@ -148,3 +150,41 @@ def get_characters_principals(db: Session, history: str) -> dict:
                                           max_tokens=4096)
 
     return json.loads(characters_generated)
+
+
+def get_category_game_ai(db: Session, history: str, categories: list[SchemaRetrieveCategory]) -> str:
+    prompt_category = get_prompt_by_field(db, 'category', 'category_game')
+
+    schema_category = {
+        "category_selected": "string (name of the category selected)"
+    }
+
+    text_prompt = prompt_category.description.replace('x_history', history)
+
+    content_prompt = [
+        {
+            "role": "system",
+            "content": f"{prompt_category.prompt_system} "
+                       f"responde con un JSON que contenga el esquema '{schema_category}'"
+        },
+        {
+            "role": "assistant",
+            "content": f"categorias :{categories}"
+
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": text_prompt
+                }
+            ]
+        }
+    ]
+
+    category_generated = generate_gpt4_(content_prompt=content_prompt,
+                                        type_text="category",
+                                        max_tokens=4096)
+
+    return json.loads(category_generated)["category_selected"]

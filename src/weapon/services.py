@@ -22,7 +22,7 @@ def get_weapon_by_field(db: Session, field: str, value: str):
     return weapon
 
 
-def get_weapons_service(db: Session, game_id: str, skip: int = 0, limit: int = 100,character_id: str = None):
+def get_weapons_service(db: Session, game_id: str, skip: int = 0, limit: int = 100, character_id: str = None):
     """
     Get a list of weapons.
     """
@@ -38,7 +38,9 @@ def create_weapon_service(db: Session, weapon: SchemaCreateWeapon, user_id: str)
     """
     db_weapon = Weapon(**weapon.dict())
     if weapon.image:
-        db_weapon.image = upload_image(weapon.image, f"{weapon.game_id}/weapon/{weapon.name}.jpg")
+        db_weapon.image = upload_image(url_image=weapon.image,
+                                       file_name=f"{weapon.game_id}/weapon/{weapon.name}.jpg",
+                                       size=(512, 512))
     db_weapon.created_by = user_id
     db_weapon.updated_by = user_id
     db.add(db_weapon)

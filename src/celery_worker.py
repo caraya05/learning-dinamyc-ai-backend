@@ -92,7 +92,7 @@ def create_script_task(game_id: str,
         for i in locations_:
             location_generate = SchemaCreateLocation(
                 title=i["name"],
-                description=i["description"],
+                description=i["description_indoor"],
                 image="",
                 game_id=game_id,
                 zoom=0.0)
@@ -147,7 +147,7 @@ def create_script_task(game_id: str,
 
             character_generate = SchemaCreateCharacter(
                 name=i["name"],
-                genre=i["genre"],
+                genre=i["genre"] if "genre" in i else None,
                 type=i["type"],
                 description=i["description"],
                 game_id=game_id,

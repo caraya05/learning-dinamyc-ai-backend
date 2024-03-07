@@ -32,17 +32,12 @@ class Game(AbstractBaseModel):
     prompt_image: str = Column(String, nullable=True)
     summary: str = Column(String, nullable=True)
     # is_active: bool = Column(Boolean, default=False)
-    # location: str = Column(Text, nullable=True)
-    # characters: str = Column(String, nullable=True)
     story_line = Column(Text, nullable=False)
     user_id: str = Column(String, nullable=False)
     attempts: int = Column(Integer, nullable=True)
     first_script: bool = Column(Boolean, nullable=True)
     count_scripts: int = Column(Integer, nullable=True)
-    # is_multiverse: bool = Column(Boolean, default=False)
-    # multiverse = Column(ARRAY(String), nullable=True)
-    # is_future_travel: bool = Column(Boolean, default=False)
-    # is_past_travel: bool = Column(Boolean, default=False)
+    category: str = Column(String, nullable=True)
 
     def __repr__(self):
         return f"<Game {self.title} - {self.user_id}>"

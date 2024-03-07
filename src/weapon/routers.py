@@ -257,7 +257,9 @@ def generate_image(weapon_id: str,
                                            quality="hd",
                                            size="1024x1792")
 
-    weapon_db.image = upload_image(image_generated, f"{weapon_db.game_id}/weapon/{weapon_db.name}.jpg")
+    weapon_db.image = upload_image(url_image=image_generated,
+                                   file_name=f"{weapon_db.game_id}/weapon/{weapon_db.name}.jpg",
+                                   size=(512, 512))
 
     db.commit()
     db.refresh(weapon_db)

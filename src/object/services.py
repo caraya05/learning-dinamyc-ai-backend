@@ -34,7 +34,9 @@ def create_object_service(db: Session, object_: SchemaCreateObject, user_id: str
     """
     db_object = Object(**object_.dict())
     if object_.image:
-        db_object.image = upload_image(object_.image, f"{object_.game_id}/object/{object_.name}.jpg")
+        db_object.image = upload_image(url_image=object_.image,
+                                       file_name=f"{object_.game_id}/object/{object_.name}.jpg",
+                                       size=(512, 512))
     db_object.created_by = user_id
     db_object.updated_by = user_id
     db.add(db_object)

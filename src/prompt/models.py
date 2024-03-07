@@ -41,6 +41,7 @@ class Prompt(AbstractBaseModel):
         ("image_object", "image_object"),
         ("image_introduction", "image_introduction"),
         ("text_introduction", "text_introduction"),
+        ("category_game", "category_game"),
     ]
     __tablename__ = "prompt"
     title: str = Column(String, unique=True, index=False)

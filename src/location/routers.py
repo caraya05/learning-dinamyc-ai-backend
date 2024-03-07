@@ -200,11 +200,11 @@ def generate_image_location(location_id: str,
         )
     prompt_db_image_location = get_prompt_by_field(db, "category", "location_image")
 
-    content_prompt = f"{prompt_db_image_location.description} {location_db.description}"
+    content_prompt = f"{prompt_db_image_location.description}, {location_db.description}"
 
     image_generate = generate_image_dalle(prompt=content_prompt,
-                                          size="1024x1024"
-                                          )
+                                          quality="hd",
+                                          size="1024x1024")
 
     update_attempts_location_service(db, location_id=location_id)
 

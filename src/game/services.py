@@ -2,11 +2,14 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette import status
 
+from category.services import get_categories_service
+
 from game.schemas import SchemaCreateGame
 from game.schemas import SchemaPartialUpdateGame
 
 from game.models import Game
 from game.utils import get_history
+from game.utils import get_category_game_ai
 from game.utils import get_synopsis
 
 from utils import upload_image
@@ -34,7 +37,6 @@ def get_game_service(db: Session, game_id: str, user_id: str = None):
 
 
 def get_games_service(db: Session, skip: int = 0, limit: int = 100, user_id: str = None):
-    print(user_id)
     if user_id:
         return db.query(Game).filter(Game.created_by == user_id).order_by(desc(Game.created_at)).offset(skip).limit(
             limit).all()
@@ -44,6 +46,8 @@ def get_games_service(db: Session, skip: int = 0, limit: int = 100, user_id: str
 def create_game_service(db: Session, game: SchemaCreateGame, user_id: str):
     history = get_history(db=db, story_line=game.story_line)
     synopsys = get_synopsis(db=db, history=history)
+    categories_db = get_categories_service(db=db)
+    category = get_category_game_ai(db=db, history=synopsys['summary'], categories=categories_db.results)
     # characters_principals = get_characters_principals(db=db, history=history)
 
     try:
@@ -58,7 +62,8 @@ def create_game_service(db: Session, game: SchemaCreateGame, user_id: str):
                        created_by=user_id,
                        image="",
                        image_background="",
-                       attempts=3
+                       attempts=3,
+                       category=category
                        )
         db.add(db_game)
         db.commit()
@@ -83,7 +88,9 @@ def update_partial_game_service(db: Session,
     game_db = get_game_by_field(db, 'id', game_id)
 
     try:
-        game_db.image = upload_image(url_image=game_update.image, file_name=f"{game_id}/covers/cover.jpg")
+        game_db.image = upload_image(url_image=game_update.image,
+                                     file_name=f"{game_id}/covers/cover.jpg",
+                                     size=(512, 896))
         game_db.updated_by = user_id
         db.commit()
         db.refresh(game_db)
@@ -132,7 +139,8 @@ def update_image_background_game_service(db: Session, game_id: str, image: str, 
     game_db = get_game_by_field(db, 'id', game_id)
     if game_db:
         game_db.image_background = upload_image(url_image=image,
-                                                file_name=f"{game_id}/background/background-{identifier}.jpg")
+                                                file_name=f"{game_id}/background/background-{identifier}.jpg",
+                                                size=(996, 612))
 
         db.commit()
         db.refresh(game_db)

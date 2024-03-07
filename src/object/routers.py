@@ -202,7 +202,9 @@ def generate_image(object_id: str,
                                            quality="hd",
                                            size="1024x1024")
 
-    object_db.image = upload_image(image_generated, f"{object_db.game_id}/object/{object_db.name}.jpg")
+    object_db.image = upload_image(url_image=image_generated,
+                                   file_name=f"{object_db.game_id}/object/{object_db.name}.jpg",
+                                   size=(512, 512))
     db.commit()
     db.refresh(object_db)
 
