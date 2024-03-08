@@ -21,9 +21,10 @@ celery = Celery(__name__)
 celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
-URL_API = "https://backend-dev.qwestar.ai"
-# URL_API = "http://192.168.1.45"
-# URL_API = "http://192.168.100.169"
+URL_API = "https://backend-dev.qwestar.ai" # dev
+# URL_API = "http://192.168.1.45" #casa
+# URL_API = "http://10.215.58.18" #wework usaquen
+# URL_API = "http://192.168.100.169" #telefono
 
 
 @celery.task(name="create_script_task")
@@ -38,8 +39,7 @@ def create_script_task(game_id: str,
                        prompt_imagen_scene_cero: str,
                        prompt_text_introduction_scene_cero: str,
                        prompt_character_locations: str,
-                       prompt_character_locations_system: str,
-                       ):
+                       prompt_character_locations_system: str):
     response_script = get_script_locations_chapter_v2(game_history,
                                                       "1",
                                                       prompt_script,
