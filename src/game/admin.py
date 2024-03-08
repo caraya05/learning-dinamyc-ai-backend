@@ -1,6 +1,7 @@
 from sqladmin import ModelView
 
-from .models import Game
+from game.models import Game
+from utils import get_sub_token
 
 
 class GameAdmin(ModelView, model=Game):
@@ -34,3 +35,14 @@ class GameAdmin(ModelView, model=Game):
             "disabled": True
         },
     }
+
+    async def on_model_change(self, form, model, is_created, request):
+
+        sub = get_sub_token(request.session.get("token"))
+
+        if is_created:
+            form["created_by"] = sub
+            form["updated_by"] = sub
+        else:
+            form["updated_by"] = sub
+

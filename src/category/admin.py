@@ -1,6 +1,7 @@
 from sqladmin import ModelView
 
 from category.models import Category
+from utils import get_sub_token
 
 
 class CategoryAdmin(ModelView, model=Category):
@@ -34,3 +35,13 @@ class CategoryAdmin(ModelView, model=Category):
             "disabled": True
         },
     }
+
+    async def on_model_change(self, form, model, is_created, request):
+
+        sub = get_sub_token(request.session.get("token"))
+
+        if is_created:
+            form["created_by"] = sub
+            form["updated_by"] = sub
+        else:
+            form["updated_by"] = sub

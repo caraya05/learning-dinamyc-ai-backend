@@ -91,7 +91,7 @@ def update_partial_character_service(db: Session, character_id: str, character_u
                 "content": [
                     {
                         "type": "text",
-                        "text": "Describe a detalle el personaje con la siquiente imagen, extrae los colores de la piel, cabello, ojos, labios, zapatos, pantalones y camisa."
+                        "text": "Describe a detalle el personaje con la siquiente imagen y la descrpccion del personaje, extrae los colores de la piel, cabello, ojos, labios, zapatos, pantalones y camisa."
                                 "en dado caso que una prenda no este visible colocar un color adorde a los demas colores."
                     },
                     {
@@ -110,16 +110,21 @@ def update_partial_character_service(db: Session, character_id: str, character_u
 
         extra_data = get_extra_data_character_ai(prompt_content_extra_data)
 
+        print("extra_data", str(extra_data))
+
 
         character_db.extra_data = extra_data["extra_data"]
 
         if character_db.genre in ["woman", "man"]:
+            print("character_db.genre", character_db.genre)
             customizes_db = get_customize_by_type_character_service(db, character_db.genre, "hair")
 
             customize_character = get_customize_by_character(customizes_db,
                                                              character_db.description)
 
             character_db.extra_data["type_combing"] = customize_character["reference_ui"]
+
+        print("character_db.extra_data", str(character_db.extra_data))
 
 
         for key, value in character_update.dict().items():

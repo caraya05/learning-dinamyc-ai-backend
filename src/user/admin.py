@@ -1,11 +1,14 @@
 from sqladmin import ModelView
 
-from .models import User
+from user.models import User
+from user.utils import get_password_hash
+
+from utils import get_sub_token
 
 
 class UserAdmin(ModelView, model=User):
     name_plural = "Users"
-    column_list = ["username", "company_name", "email",]
+    column_list = ["username", "company_name", "email", ]
     # column_searchable_list = ["username", "first_name", "last_name", "email",]
     # column_sorted_list = ["username", "first_name", "last_name", "email",]
     # column_filters = ["username", "first_name", "last_name", "email",]
@@ -16,3 +19,34 @@ class UserAdmin(ModelView, model=User):
     can_export = True
     icon = "fa-solid fa-user"
 
+    form_widget_args = {
+        "created_at": {
+            "readonly": True,
+            "disabled": True
+        },
+        "created_by": {
+            "readonly": True,
+            "disabled": True
+        },
+        "updated_at": {
+            "readonly": True,
+            "disabled": True
+        },
+        "updated_by": {
+            "readonly": True,
+            "disabled": True
+        },
+    }
+
+    async def on_model_change(self, form, model, is_created, request):
+
+        sub = get_sub_token(request.session.get("token"))
+
+        if is_created:
+            form["password"] = get_password_hash(form["password"])
+            form["created_by"] = sub
+            form["updated_by"] = sub
+        else:
+            if str(model.password) != form["password"]:
+                form["password"] = get_password_hash(form["password"])
+            form["updated_by"] = sub

@@ -30,6 +30,7 @@ class AdminAuth(AuthenticationBackend):
         if username != settings.admin_superuser or password != settings.admin_superuser_password:
             print("user")
             user_db = get_user_by_field(get_db(request), "username", username)
+            print("user_db", user_db)
             if not user_db:
                 return False
             if not verify_password(password, user_db.password):
@@ -37,9 +38,11 @@ class AdminAuth(AuthenticationBackend):
             if not user_db.is_superuser or not user_db.is_active:
                 return False
             request.session.update({"token": auth.create_access_token(
-                subject=user_db.id,
-                expires_time=timedelta(minutes=120)
+                subject=user_db.username,
+                expires_time=timedelta(days=1),
+                algorithm="HS512"
             )})
+            print("token", request.session.get("token"))
             return True
         else:
             request.session.update({
@@ -73,16 +76,16 @@ class AdminAuth(AuthenticationBackend):
             request.session.clear()
             return False
         try:
-            # print("token_access", token)
+            print("token_access", token)
             payload = jwt.decode(token, settings.authjwt_secret_key, algorithms="HS512")
             if payload["exp"] < datetime.now().timestamp():
-                # print("exp ......")
+                print("exp ......")
                 request.session.clear()
                 return False
-            # print("payload", payload)
+            print("payload", payload)
             request.session.update({
                 "access": auth.create_access_token(
-                    subject="admin",
+                    subject=payload["sub"],
                     expires_time=timedelta(minutes=120))
             })
             return True

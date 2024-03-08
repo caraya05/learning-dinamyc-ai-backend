@@ -8,16 +8,18 @@ def get_extra_data_character_ai(prompt: list):
     extra_data_text = generate_gpt4_vision_(content_prompt=prompt,
                                             max_tokens=4096)
 
+    print("extra_data_text", extra_data_text)
+
     json_schema = {
         "extra_data": {
-            "skin_color": "string or None (skin color of the character in format hexadecimal)",
-            "hair_color": "string or None (hair color of the character in format hexadecimal)",
-            "eye_color": "string or None (eye color of the character in format hexadecimal)",
-            "lips_color": "string or None (lips color of the character in format hexadecimal)",
-            "shoes_color": "string or None (shoes color of the character in format hexadecimal)",
-            "pants_color": "string or None (pants color of the character in format hexadecimal)",
-            "shirt_color": "string or None (shirt color of the character in format hexadecimal)",
-            "type_combing": "string or None (type of combing of the character)",
+            "skin_color": "string (skin color of the character in format hexadecimal)",
+            "hair_color": "string (hair color of the character in format hexadecimal)",
+            "eye_color": "string (eye color of the character in format hexadecimal)",
+            "lips_color": "string (lips color of the character in format hexadecimal)",
+            "shoes_color": "string (shoes color of the character in format hexadecimal)",
+            "pants_color": "string (pants color of the character in format hexadecimal)",
+            "shirt_color": "string (shirt color of the character in format hexadecimal)",
+            "type_combing": "string (type of combing of the character)",
         }
     }
 

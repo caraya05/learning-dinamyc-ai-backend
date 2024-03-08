@@ -1,4 +1,6 @@
 import uuid
+
+import jwt
 import requests
 
 from boto3 import session
@@ -83,4 +85,15 @@ def upload_image(url_image: str, size: tuple[int, int], file_name: str):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error resizing image",
+        )
+
+
+def get_sub_token(token: str):
+    try:
+        return jwt.decode(token, settings.authjwt_secret_key, algorithms="HS512")["sub"]
+    except Exception as e:
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error decoding token",
         )

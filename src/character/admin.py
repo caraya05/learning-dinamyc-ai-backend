@@ -1,6 +1,7 @@
 from sqladmin import ModelView
 
 from character.models import Character
+from utils import get_sub_token
 
 
 class CharacterAdmin(ModelView, model=Character):
@@ -34,3 +35,13 @@ class CharacterAdmin(ModelView, model=Character):
             "disabled": True
         },
     }
+
+    async def on_model_change(self, form, model, is_created, request):
+
+        sub = get_sub_token(request.session.get("token"))
+
+        if is_created:
+            form["created_by"] = sub
+            form["updated_by"] = sub
+        else:
+            form["updated_by"] = sub
