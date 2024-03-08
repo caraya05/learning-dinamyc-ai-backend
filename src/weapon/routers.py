@@ -88,23 +88,25 @@ def create_weapon(weapon: SchemaCreateForType,
             detail="Invalid token",
         )
 
+    prompt_weapon = get_prompt_by_field(db, "category", "weapon")
+    prompt_imagen_weapon = get_prompt_by_field(db, "category", "image_weapon")
+
     game_db = get_game_by_field(db, "id", weapon.game_id)
 
     character_db = get_character_by_field(db, "id", weapon.character_id)
 
     if weapon.type == "long":
-        prompt1 = ("Dame una idea y su respectiva descripción de un arma de impacto de corto alcance que utilizaria"
-                   " el x_character en esta x_history.")
-        prompt2 = ("Genera una imagen en arte pixel y vista frontal de una arma x_description, con fondo blanco, "
-                   "en resolución 1024 x 1024")
+        # prompt1 = ("Dame una idea y su respectiva descripción de un arma de impacto de corto alcance que utilizaria"
+        #            " el x_character en esta x_history.")
+        prompt1 = prompt_weapon.replace("x_weapon", "de impacto de corto alcance")
+        prompt2 = prompt_imagen_weapon
 
     else:
 
-        prompt1 = ("Dame una idea y su respectiva descripción de un arma que dispara algun tipo de proyectil que "
-                   "utilizaria el x_character en esta x_history.")
-
-        prompt2 = ("Genera una imagen en arte pixel y vista frontal de una arma x_description, con fondo blanco, "
-                   "en resolución 1024 x 1024")
+        # prompt1 = ("Dame una idea y su respectiva descripción de un arma que dispara algun tipo de proyectil que "
+        #            "utilizaria el x_character en esta x_history.")
+        prompt1 = prompt_weapon.replace("x_weapon", "que dispara algun tipo de proyectil")
+        prompt2 = prompt_imagen_weapon
 
     prompt1 = prompt1.replace("x_character", character_db.description)
 

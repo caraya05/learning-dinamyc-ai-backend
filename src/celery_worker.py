@@ -31,14 +31,25 @@ def create_script_task(game_id: str,
                        token: str,
                        game_history: str,
                        prompt_script: str,
+                       prompt_script_system: str,
                        prompt_scene: str,
-
+                       prompt_scene_system: str,
                        script_id: str,
-                       current_user: str):
+                       prompt_imagen_scene_cero: str,
+                       prompt_text_introduction_scene_cero: str,
+                       prompt_character_locations: str,
+                       prompt_character_locations_system: str,
+                       ):
     response_script = get_script_locations_chapter_v2(game_history,
                                                       "1",
                                                       prompt_script,
-                                                      prompt_scene)
+                                                      prompt_script_system,
+                                                      prompt_scene,
+                                                      prompt_scene_system,
+                                                      prompt_imagen_scene_cero,
+                                                      prompt_text_introduction_scene_cero,
+                                                      prompt_character_locations,
+                                                      prompt_character_locations_system)
 
     response_all = f"ai generated - {game_id} "
 
@@ -293,7 +304,7 @@ def create_script_task(game_id: str,
             # print("enemy_id " + str(i["enemy_id"]) + " " + str(i["enemy_id"]) != "" + " " + str("enemy_id" in i.keys()))
 
             if "enemy_id" in i and i["enemy_id"] != "":
-                print("enemy_id " + str(i["enemy_id"]) )
+                print("enemy_id " + str(i["enemy_id"]))
 
                 for character_enemy in character_:
 

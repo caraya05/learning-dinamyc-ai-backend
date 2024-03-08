@@ -11,8 +11,13 @@ from gpt_ai.utils import generate_image_dalle
 def get_script_locations_chapter_v2(history: str,
                                     num: str,
                                     prompt_script: str,
+                                    prompt_script_system: str,
                                     prompt_scene: str,
-                                    # prompt_image_locations: str
+                                    prompt_scene_system: str,
+                                    prompt_imagen_scene_cero: str,
+                                    prompt_text_introduction_scene_cero: str,
+                                    prompt_character_locations: str,
+                                    prompt_character_locations_system: str,
                                     ):
     star_time = time.time()
 
@@ -35,7 +40,8 @@ def get_script_locations_chapter_v2(history: str,
     content_prompt = [
         {
             "role": "system",
-            "content": f"en cada escena debe haber 2 personajes interactuando, "
+            "content": f"{prompt_script_system}"
+            # f"en cada escena debe haber 2 personajes interactuando, "
                        f"responde el prompt con la siguiente estructura JSON: {schema_script}"
         },
         {
@@ -109,12 +115,13 @@ def get_script_locations_chapter_v2(history: str,
     content_prompt = [
         {
             "role": "system",
-            "content": f"los personajes deben estar humanizados a excepción del mini enemy,"
-                       f"crea un personaje de cada tipo leading role, other, enemy, antagonist acorde a la historia."
-                       f" crea el mini enemy siempre y debe ser un zorro marron o un ave negra, "
-                       f"solo puede haber un antagonist, un leading role, un enemy y otros son personajes de relleno. "
-                       f"los escenarios deben ser cerrados y cubiertos, "
-                       f"garantiza que esten las locaciones, los personajes, los objetos, "
+            "content": f"{prompt_character_locations_system}"
+            # f"los personajes deben estar humanizados a excepción del mini enemy,"
+            #            f"crea un personaje de cada tipo leading role, other, enemy, antagonist acorde a la historia."
+            #            f" crea el mini enemy siempre y debe ser un zorro marron o un ave negra, "
+            #            f"solo puede haber un antagonist, un leading role, un enemy y otros son personajes de relleno. "
+            #            f"los escenarios deben ser cerrados y cubiertos, "
+            #            f"garantiza que esten las locaciones, los personajes, los objetos, "
                        f" responde el prompt con la siguiente estructura JSON: {schema_characters_locations}"
         },
         {
@@ -126,10 +133,11 @@ def get_script_locations_chapter_v2(history: str,
             "content": [
                 {
                     "type": "text",
-                    "text": "Dame una lista con nombre, y descripción física, género del protagonista, el antagonista, "
-                            "y los personajes que aparecen en las primeras 4 escenas. Dale un nombre muy atractivo, crea siempre el mini enemy, "
-                            "al juego y que genere recordación. también dame una lista con nombre y descripción de los "
-                            "lugares donde se desarrollan las primeras 4 escenas. ademas dame un listado los objetos que aparecen en la historia."
+                    "text": f"{prompt_character_locations}"
+                    # "Dame una lista con nombre, y descripción física, género del protagonista, el antagonista, "
+                    #     "y los personajes que aparecen en las primeras 4 escenas. Dale un nombre muy atractivo, crea siempre el mini enemy, "
+                    #     "al juego y que genere recordación. también dame una lista con nombre y descripción de los "
+                    #     "lugares donde se desarrollan las primeras 4 escenas. ademas dame un listado los objetos que aparecen en la historia."
                 }
             ]
         }
@@ -196,18 +204,11 @@ def get_script_locations_chapter_v2(history: str,
         },
         "object_id": "int (id of the object)",
         "id_location": "int (location ids different from those already used)",
-        # "characters": [
-        #     {
-        #         "id": "int (id of the character)",
-        #     },
-        # ],
         "valid_locations": [
             {
                 "id": "int (id of the location (valid locations for the scene)",
             },
         ],
-        # "count_enemies": "int (number of enemies in the scene)",
-        # "enemy_id": "int (id of the enemy)",
         "is_subtractable": "bool (if the object is kept by the player it is true and if not it is false)",
         "delivery_location_id": "int (id of the location where the object is delivered)",
         "delivery_character_id": "int (id of the character who receives the object)"
@@ -229,33 +230,34 @@ def get_script_locations_chapter_v2(history: str,
         content_prompt = [
             {
                 "role": "system",
-                "content": f"Garantiza que en cada escena creada deben tener solo 2 personajes y uno de esos sea el personaje principal y el otro puede ser el mini enemigo, el enemigo o otro, "
-                           f"tambien varia cada en escena en difrentes locaciones, "
-                           f"solo la dinamica de question debe tener questions,"
-                           f"todas las escenas deben tener la locacion diferente,"
-                           f"las opciones de las preguntas no deben ser mas de 3, "
-                           f"el tipo de dinamica battle group debe ser solo entre el principal y el mini enemigo,"
-                # f"el tipo de dinamica battle debe ser solo entre el principal y el enemigo, "
-                           f"el tipo de dinamica search debe tener un objeto, dos personajes, ni el enemy, de reward item o next no puede tener questions,"
-                           f"el tipo de dinamica dialog debe tener dos personajes y de reward info, "
-                           f"el tipo de dinamica delivery es la unica que tiene delivery_location_id, delivery_character_id y "
-                           f"el delivery_location_id debe ser diferente a el location_id de la escena y el delivery_character_id deber ser difernente y "
-                           f" debe tener dos personajes y un tercero que es al que le entrega el objecto y de reward next,"
-                           f"si la recompenza es item, is_subtractable debe ser false y la dinamica debe ser delivery,"
-                           f"si la recompenza es item, is_subtractable debe ser true y la dinamica debe ser search,"
-                           f"las dinamicas de dialog, question, search, delivery, no puede ser un mini enemy, ni el enemy,"
-                           f"las dinamicas de battle, battle group, no puede ser un other, ni antagonista,"
-                # f"las dinamicas de search, battle, battle group, no puede tener questions, "
-                           f"las dinamicas de search no puede tener questions, "
-                           f"verificar los tipos de personajes para las dinamicas si no estan presentes usar otra dinamica,"
-                           f"la primera escena debe ser de dinamica question,"
-                           f"la segunda escena debe ser de dinamica search, "
-                           f"la tercera de dinamica delivery y "
-                           f"la cuarta de dinamica battle group,"
-                # f"la primera escena debe ser un dialogo, la segunda debe ser una busqueda de un objeto,"
-                           f"characters debe contendra los id de los personajes que aparecen en la escena que estan en los dialogos, "
-                # f"la tercera debe ser un pregunta y la cuarta de pelea grupal,"
-                # f"en cada escena solo pueden haber 2 personajes, "
+                "content": f"{prompt_scene_system}"
+                #     f"Garantiza que en cada escena creada deben tener solo 2 personajes y uno de esos sea el personaje principal y el otro puede ser el mini enemigo, el enemigo o otro, "
+                #            f"tambien varia cada en escena en difrentes locaciones, "
+                #            f"solo la dinamica de question debe tener questions,"
+                #            f"todas las escenas deben tener la locacion diferente,"
+                #            f"las opciones de las preguntas no deben ser mas de 3, "
+                #            f"el tipo de dinamica battle group debe ser solo entre el principal y el mini enemigo,"
+                # # f"el tipo de dinamica battle debe ser solo entre el principal y el enemigo, "
+                #            f"el tipo de dinamica search debe tener un objeto, dos personajes, ni el enemy, de reward item o next no puede tener questions,"
+                #            f"el tipo de dinamica dialog debe tener dos personajes y de reward info, "
+                #            f"el tipo de dinamica delivery es la unica que tiene delivery_location_id, delivery_character_id y "
+                #            f"el delivery_location_id debe ser diferente a el location_id de la escena y el delivery_character_id deber ser difernente y "
+                #            f" debe tener dos personajes y un tercero que es al que le entrega el objecto y de reward next,"
+                #            f"si la recompenza es item, is_subtractable debe ser false y la dinamica debe ser delivery,"
+                #            f"si la recompenza es item, is_subtractable debe ser true y la dinamica debe ser search,"
+                #            f"las dinamicas de dialog, question, search, delivery, no puede ser un mini enemy, ni el enemy,"
+                #            f"las dinamicas de battle, battle group, no puede ser un other, ni antagonista,"
+                # # f"las dinamicas de search, battle, battle group, no puede tener questions, "
+                #            f"las dinamicas de search no puede tener questions, "
+                #            f"verificar los tipos de personajes para las dinamicas si no estan presentes usar otra dinamica,"
+                #            f"la primera escena debe ser de dinamica question,"
+                #            f"la segunda escena debe ser de dinamica search, "
+                #            f"la tercera de dinamica delivery y "
+                #            f"la cuarta de dinamica battle group,"
+                # # f"la primera escena debe ser un dialogo, la segunda debe ser una busqueda de un objeto,"
+                #            f"characters debe contendra los id de los personajes que aparecen en la escena que estan en los dialogos, "
+                # # f"la tercera debe ser un pregunta y la cuarta de pelea grupal,"
+                # # f"en cada escena solo pueden haber 2 personajes, "
                            f"responde el prompt con la siguiente estructura JSON: {schema_scene}"
             },
             {
@@ -263,8 +265,7 @@ def get_script_locations_chapter_v2(history: str,
                 "content": f"> historia: {history} \n"
                            f"> personajes y lugares: {characters_locations_generated}\n"
                            f"> locaciones usadas, no repetir: {location_id_used} \n"
-                # f"> escenas generadas: {script_generated['scenes']} \n"
-                           f"> escena {scenes_generated[i - 1] if scenes_generated else ''} \n"
+                           f"> escena anterior: {scenes_generated[i - 1] if scenes_generated else ''} \n"
             },
             {
                 "role": "user",
@@ -396,12 +397,9 @@ def get_script_locations_chapter_v2(history: str,
             location_scene = characters_locations_generated["locations"][i]["description_outdoor"]
             break
 
-    prompt_image_scene_cero = (f"Genera una imagen en arte voxel y vista isométrica de 1024x1024 "
-                               f"del exterior del {location_scene} de la escena 1")
+    prompt_image_scene_cero = prompt_imagen_scene_cero.replace("x_location", location_scene)
 
-    prompt_text_scene_cero = (f"Genera una introducción que debe decir un narrador antes de la primera escena de"
-                              f" esta historia, que coloque en contexto y le genere expectativa al jugador,"
-                              f" en no más de 6 renglones. (En inglés)")
+    prompt_text_scene_cero = prompt_text_introduction_scene_cero
 
     json_content_scene_cero = {
         "description_introduction": "string (description of the introduction)",
