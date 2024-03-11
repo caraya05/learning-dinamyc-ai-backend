@@ -10,11 +10,14 @@ from object.schemas import SchemaPartialUpdateObject
 from utils import upload_image
 
 
-def get_object_by_field(db: Session, field: str, value: str):
+def get_object_by_field(db: Session, field: str, value: str, game_id: str = None):
     """
     Get a object by a field.
     """
-    object_ = db.query(Object).filter(getattr(Object, field) == value).first()
+    if game_id:
+        object_ = db.query(Object).filter(getattr(Object, field) == value, Object.game_id == game_id).first()
+    else:
+        object_ = db.query(Object).filter(getattr(Object, field) == value).first()
     if not object_:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Object with {field} {value} not found")
     return object_

@@ -35,6 +35,7 @@ def get_db(request: Request):
 @router.get("/by-field/", response_model=SchemaRetrieveObject)
 def get_objects_by_field(value: str,
                          field: str,
+                         game_id: str = None,
                          db: Session = Depends(get_db),
                          Authorize: AuthJWT = Depends(),
                          Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
@@ -56,7 +57,7 @@ def get_objects_by_field(value: str,
             detail="Invalid token",
         )
 
-    object_db = get_object_by_field(db, field, value)
+    object_db = get_object_by_field(db, field, value, game_id=game_id)
 
     return object_db
 
@@ -111,6 +112,8 @@ def create_object(object_: SchemaCreateObject,
         )
 
     object_db = create_object_service(db, object_, current_user)
+
+    print("object_db", object_db)
 
     return object_db
 

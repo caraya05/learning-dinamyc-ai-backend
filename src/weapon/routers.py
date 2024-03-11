@@ -88,6 +88,8 @@ def create_weapon(weapon: SchemaCreateForType,
             detail="Invalid token",
         )
 
+    print("create_weapon", weapon)
+
     prompt_weapon = get_prompt_by_field(db, "category", "weapon")
     prompt_imagen_weapon = get_prompt_by_field(db, "category", "image_weapon")
 
@@ -160,6 +162,8 @@ def create_weapon(weapon: SchemaCreateForType,
                                     extra_data=weapon_generated['extra_data'])
 
     weapon_db = create_weapon_service(db, weapon_new, current_user)
+
+    print(weapon_db)
 
     return weapon_db
 

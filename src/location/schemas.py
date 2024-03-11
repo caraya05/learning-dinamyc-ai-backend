@@ -29,6 +29,7 @@ class SchemaPartialUpdateLocation(BaseModel):
     """
 
     image: Optional[str]
+    config: Optional[dict]
 
 
 class SchemaRetrieveLocation(BaseModel):
@@ -46,6 +47,7 @@ class SchemaRetrieveLocation(BaseModel):
     image: Optional[str]
     zoom: float
     attempts: Optional[int]
+    config: Optional[dict]
 
     class Config:
         orm_mode = True

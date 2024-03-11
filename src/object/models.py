@@ -30,4 +30,4 @@ class Object(AbstractBaseModel):
     game_id: str = Column(String, nullable=False)
 
     def __repr__(self):
-        return f"<Object(title={self.title}, game_id={self.game_id})>"
+        return f"<Object(title={self.name}, game_id={self.game_id})>"

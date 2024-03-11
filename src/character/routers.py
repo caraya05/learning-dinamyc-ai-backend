@@ -31,6 +31,7 @@ def get_db(request: Request):
 @router.get("/by-field/", response_model=SchemaRetrieveCharacter)
 def get_characters(value: str,
                    field: str,
+                   game_id: str = None,
                    db: Session = Depends(get_db),
                    Authorize: AuthJWT = Depends(),
                    Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
@@ -52,7 +53,7 @@ def get_characters(value: str,
             detail="Invalid token",
         )
 
-    character_db = get_character_by_field(db, field, value)
+    character_db = get_character_by_field(db, field, value, game_id=game_id)
 
     if not character_db:
         raise HTTPException(

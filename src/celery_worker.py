@@ -152,7 +152,7 @@ def create_script_task(game_id: str,
                     for k in locations_:
                         if str(j["location_id"]) == str(k["id"]):
                             location_scene = (
-                                requests.get(f"{URL_API}/v1/api/location/by-field/?field=title&value={k['name']}",
+                                requests.get(f"{URL_API}/v1/api/location/by-field/?field=title&value={k['name']}&game_id={game_id}",
                                              headers={"Authorization": "Bearer " + token})).json()
                             j["location_id"] = location_scene["id"]
 
@@ -250,7 +250,7 @@ def create_script_task(game_id: str,
                 # print("i " + str(i["id_location"]) + " j " + str(j["id"]))
                 if str(i["id_location"]) == str(j["id"]):
                     # print("i " + str(i["id_location"]) + " j " + str(j["id"]) + " " + str(j["name"]))
-                    location_scene = (requests.get(f"{URL_API}/v1/api/location/by-field/?field=title&value={j['name']}",
+                    location_scene = (requests.get(f"{URL_API}/v1/api/location/by-field/?field=title&value={j['name']}&game_id={game_id}",
                                                    headers={"Authorization": "Bearer " + token})).json()
                     # print("location_scene ", location_scene)
                     location_scene = location_scene["id"]
@@ -265,7 +265,7 @@ def create_script_task(game_id: str,
                         # print("k ", k)
 
                         character_by_field = requests.get(
-                            f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
+                            f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}&game_id={game_id}",
                             headers={"Authorization": "Bearer " + token})
 
                         if character_by_field.status_code == 200:
@@ -279,7 +279,7 @@ def create_script_task(game_id: str,
                     if str(dialogues_start["id_character"]) == str(k["id"]):
 
                         character_by_field = requests.get(
-                            f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
+                            f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}&game_id={game_id}",
                             headers={"Authorization": "Bearer " + token})
 
                         print("character_by_field ", character_by_field.json())
@@ -293,7 +293,7 @@ def create_script_task(game_id: str,
                     print("k ", k["id"])
                     if str(dialogues_end["id_character"]) == str(k["id"]):
                         character_by_field = requests.get(
-                            f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}",
+                            f"{URL_API}/v1/api/characters/by-field/?field=name&value={k['name']}&game_id={game_id}",
                             headers={"Authorization": "Bearer " + token})
 
                         print("character_by_field ", character_by_field.json())
@@ -311,7 +311,7 @@ def create_script_task(game_id: str,
                     if str(i["enemy_id"]) == str(character_enemy["id"]) and i[
                         "enemy_id"] != "" and "enemy_id" in i.keys():
                         character_by_field = requests.get(
-                            f"{URL_API}/v1/api/characters/by-field/?field=name&value={character_enemy['name']}",
+                            f"{URL_API}/v1/api/characters/by-field/?field=name&value={character_enemy['name']}&game_id={game_id}",
                             headers={"Authorization": "Bearer " + token})
 
                         if character_by_field.status_code == 200:
@@ -323,7 +323,7 @@ def create_script_task(game_id: str,
                 for k in object_:
                     if str(i["object_id"]) == str(k["id"]):
                         object_id = requests.get(
-                            f"{URL_API}/v1/api/object/by-field/?field=name&value={k['name']}",
+                            f"{URL_API}/v1/api/object/by-field/?field=name&value={k['name']}&game_id={game_id}",
                             headers={"Authorization": "Bearer " + token}).json()["id"]
 
             print("scene_generate " + str(count) + str(i))
@@ -340,7 +340,7 @@ def create_script_task(game_id: str,
                     for j in locations_:
                         if str(j["id"]) == str(i["delivery_location_id"]):
                             location_delivery = requests.get(
-                                f"{URL_API}/v1/api/location/by-field/?field=title&value={j['name']}",
+                                f"{URL_API}/v1/api/location/by-field/?field=title&value={j['name']}&game_id={game_id}",
                                 headers={"Authorization": "Bearer " + token}).json()["id"]
             else:
                 location_delivery = None
@@ -352,7 +352,7 @@ def create_script_task(game_id: str,
                     for j in character_:
                         if str(j["id"]) == str(i["delivery_character_id"]):
                             character_delivery = requests.get(
-                                f"{URL_API}/v1/api/characters/by-field/?field=name&value={j['name']}",
+                                f"{URL_API}/v1/api/characters/by-field/?field=name&value={j['name']}&game_id={game_id}",
                                 headers={"Authorization": "Bearer " + token}).json()["id"]
             else:
                 character_delivery = None

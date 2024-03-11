@@ -6,6 +6,7 @@ from sqlalchemy import Date
 from sqlalchemy import Text
 from sqlalchemy import Integer
 from sqlalchemy import Float
+from sqlalchemy import PickleType
 from sqlalchemy.ext.declarative import declarative_base
 
 from utils import generate_uuid
@@ -31,6 +32,7 @@ class Location(AbstractBaseModel):
     zoom: float = Column(Float, nullable=True)
     game_id: str = Column(String, nullable=False)
     attempts: int = Column(Integer, nullable=True)
+    config: str = Column(PickleType, nullable=True)
 
     def __repr__(self):
         return f"<Location {self.title} - {self.game_id}>"

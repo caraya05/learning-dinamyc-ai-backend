@@ -16,11 +16,14 @@ from script.services import get_script_by_field
 from utils import upload_image
 
 
-def get_location_by_field(db: Session, field: str, value: str):
+def get_location_by_field(db: Session, field: str, value: str, game_id: str = None):
     """
     Get a location by a field.
     """
-    location = db.query(Location).filter(getattr(Location, field) == value).first()
+    if game_id:
+        location = db.query(Location).filter(getattr(Location, field) == value, Location.game_id == game_id).first()
+    else:
+        location = db.query(Location).filter(getattr(Location, field) == value).first()
     if not location:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Location with {field} {value} not found")
     return location
@@ -90,6 +93,8 @@ def partial_update_location_service(db: Session, location_id: str, schema: Schem
     location.image = upload_image(url_image=schema.image,
                                   file_name=f"{location.game_id}/locations/{image_name}.jpg",
                                   size=(812, 812))
+    if schema.config:
+        location.config = schema.config
 
     db.commit()
     db.refresh(location)

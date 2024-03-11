@@ -16,7 +16,9 @@ from customize.services import get_customize_by_type_character_service
 from customize.utils import get_customize_by_character
 
 
-def get_character_by_field(db: Session, field: str, value: str):
+def get_character_by_field(db: Session, field: str, value: str, game_id: str = None):
+    if game_id:
+        return db.query(Character).filter(getattr(Character, field) == value, Character.game_id == game_id).first()
     return db.query(Character).filter(getattr(Character, field) == value).first()
 
 
