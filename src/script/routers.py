@@ -161,6 +161,8 @@ async def create_script(game_id: str,
     prompt_character_locations = get_prompt_by_field(db, "category", "characters_principal")
     prompt_imagen_scene_cero = get_prompt_by_field(db, "category", "imagen_scene_cero")
     prompt_text_introduction_scene_cero = get_prompt_by_field(db, "category", "text_introduction_scene_cero")
+    prompt_before_battle = get_prompt_by_field(db, "category", "before_battle")
+    prompt_finish_chapter = get_prompt_by_field(db, "category", "finish_chapter")
 
     script_generate: SchemaCreateScript = SchemaCreateScript(
         title="",
@@ -187,8 +189,10 @@ async def create_script(game_id: str,
                              prompt_imagen_scene_cero=prompt_imagen_scene_cero.description,
                              prompt_text_introduction_scene_cero=prompt_text_introduction_scene_cero.description,
                              prompt_character_locations=prompt_character_locations.description,
-                             prompt_character_locations_system=prompt_character_locations.prompt_system
-                                )
+                             prompt_character_locations_system=prompt_character_locations.prompt_system,
+                             prompt_before_battle=prompt_before_battle.description,
+                             prompt_finish_chapter=prompt_finish_chapter.description
+                             )
 
     return script_db
 

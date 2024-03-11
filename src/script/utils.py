@@ -18,7 +18,9 @@ def get_script_locations_chapter_v2(history: str,
                                     prompt_text_introduction_scene_cero: str,
                                     prompt_character_locations: str,
                                     prompt_character_locations_system: str,
-                                    ):
+                                    prompt_before_battle: str,
+                                    prompt_finish_chapter: str):
+
     star_time = time.time()
 
     schema_script = {
@@ -442,6 +444,44 @@ def get_script_locations_chapter_v2(history: str,
     scene_cero["start_image"] = response_image_scene_cero
 
     scenes_generated.insert(0, scene_cero)
+
+    image_before_battle = ""
+    image_finish_chapter = ""
+
+    scene_description = ""
+    character1_description = ""
+    character2_description = ""
+
+    for i in scenes_generated:
+
+        if i["dynamic"] == "Battle Group" or i["dynamic"] == "Battle":
+            scene_description = i["description"]
+            for j in characters_locations_generated["characters"]:
+                if j["type"] == "leading role":
+                    character1_description = j["description"]
+                if j["type"] == "mini enemy":
+                    character2_description = j["description"]
+            break
+
+    prompt_finish_chapter = prompt_finish_chapter.replace("x_scene", scene_description)
+
+    prompt_finish_chapter = prompt_finish_chapter.replace("x_character", f"personaje: {character1_description}/n mini enemigo: {character2_description}")
+
+    image_finish_chapter = generate_image_dalle(prompt= prompt_finish_chapter,
+                                                quality="hd",
+                                                size="1024x1024")
+
+
+    scene_finish_chapter = scene_cero
+    scene_finish_chapter["start_content"] = "Finish chapter"
+    scene_finish_chapter["start_image"] = image_finish_chapter
+    scene_finish_chapter["number"] = 5
+    scene_finish_chapter["title"] = "Finish chapter"
+    scenes_generated.insert(5, scene_finish_chapter)
+
+
+
+
 
     return {
         "script": script_generated,
