@@ -86,13 +86,15 @@ def partial_update_location_service(db: Session, location_id: str, schema: Schem
     """
     location = get_location_by_field(db, "id", location_id)
 
-    image_name = location.title.replace(" ", "_")
+    if schema.image:
 
-    image_name = image_name.replace("'", "")
+        image_name = location.title.replace(" ", "_")
 
-    location.image = upload_image(url_image=schema.image,
-                                  file_name=f"{location.game_id}/locations/{image_name}.jpg",
-                                  size=(812, 812))
+        image_name = image_name.replace("'", "")
+
+        location.image = upload_image(url_image=schema.image,
+                                      file_name=f"{location.game_id}/locations/{image_name}.jpg",
+                                      size=(812, 812))
     if schema.config:
         location.config = schema.config
 
