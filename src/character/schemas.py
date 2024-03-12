@@ -10,15 +10,15 @@ from weapon.schemas import SchemaRetrieveWeapon
 
 
 class SchemaCreateCharacter(BaseModel):
-    name: str = Field(..., min_length=3, max_length=100,
+    name: str = Field(..., max_length=100,
                       example="Jhon Doe")
-    genre: str = Field(..., min_length=3, max_length=100,
+    genre: str = Field(...,  max_length=100,
                        example="male")
-    type: str = Field(..., min_length=3, max_length=100,
+    type: str = Field(...,max_length=100,
                       example="leading role")
-    description: str = Field(..., min_length=8, example="this is a description")
+    description: str = Field(..., example="this is a description")
 
-    game_id: str = Field(..., min_length=3, max_length=100, example="game_id")
+    game_id: str = Field(..., max_length=100, example="game_id")
 
     attempts: int = Field(..., example=0)
 

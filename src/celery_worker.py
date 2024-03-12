@@ -171,7 +171,7 @@ def create_script_task(game_id: str,
                                                json=character_generate.dict(),
                                                headers={"Authorization": "Bearer " + token})
 
-            if character_response.status_code != 200:
+            if character_response.status_code == 200:
                 print("type " + i["type"])
                 if i["type"] == "leading role":
                     print("type check " + i["type"])

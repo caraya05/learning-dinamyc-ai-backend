@@ -338,10 +338,12 @@ def get_script_locations_chapter_v2(history: str,
             scene_generated_json["enemy_id"] = ""
 
         # print(scene_generated_json["questions"])
-        if "questions" in scene_generated_json:
-            if scene_generated_json["questions"] == {'options': [], 'correct_option': None, 'feedback': '',
-                                                     'feedback_incorrect': ''}:
-                scene_generated_json["questions"] = None
+        if str(scene_generated_json["dynamic"]).upper() != "Question".upper():
+            scene_generated_json["questions"] = None
+        # if "questions" in scene_generated_json:
+        #     if str(scene_generated_json["questions"]) == str({'options': [], 'correct_option': None, 'feedback': '',
+        #                                              'feedback_incorrect': ''}) and scene_generated_json["dynamic"] != "Question":
+        #         scene_generated_json["questions"] = None
 
         scenes_generated.append(scene_generated_json)
 
