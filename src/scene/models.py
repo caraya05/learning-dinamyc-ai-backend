@@ -47,3 +47,4 @@ class Scene(AbstractBaseModel):
     object_id: str = Column(String, nullable=True)
     delivery_location_id: str = Column(String, nullable=True)
     delivery_character_id: str = Column(String, nullable=True)
+    image_defeat: str = Column(String, nullable=True)

@@ -50,6 +50,11 @@ def create_scene_service(db: Session, schema: SchemaCreateScene, user_id: str):
                                          file_name=f"{scene.game_id}/scene/{scene.order}_start.jpg",
                                          size=(812, 812))
 
+    if schema.image_defeat:
+        scene.image_defeat = upload_image(url_image=schema.image_defeat,
+                                          file_name=f"{scene.game_id}/scene/{scene.order}_defeat.jpg",
+                                          size=(812, 812))
+
     scene.created_by = user_id
     scene.updated_by = user_id
     db.add(scene)

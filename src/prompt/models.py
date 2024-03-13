@@ -47,6 +47,8 @@ class Prompt(AbstractBaseModel):
         ("text_introduction_scene_cero", "text_introduction_scene_cero"),
         ("before_battle", "before_battle"),
         ("finish_chapter", "finish_chapter"),
+        ("text_finish_chapter", "text_finish_chapter"),
+        ("image_game_over", "image_game_over"),
     ]
     __tablename__ = "prompt"
     title: str = Column(String, unique=True, index=False)

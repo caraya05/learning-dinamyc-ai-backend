@@ -27,6 +27,7 @@ class SchemaCreateScene(BaseModel):
     object_id: str | None
     delivery_location_id: str | None
     delivery_character_id: str | None
+    image_defeat: str | None
 
 
 class SchemaPartialUpdateScene(BaseModel):
@@ -85,6 +86,7 @@ class SchemaRetrieveSceneComplete(BaseModel):
     object_id: Optional[str]
     delivery_location_id: Optional[str]
     delivery_character_id: Optional[str]
+    image_defeat: Optional[str]
 
     class Config:
         orm_mode = True

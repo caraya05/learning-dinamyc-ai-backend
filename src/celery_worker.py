@@ -21,11 +21,9 @@ celery = Celery(__name__)
 celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
-# URL_API = "https://backend-dev.qwestar.ai" # dev
+URL_API = "https://backend-dev.qwestar.ai" # dev
 # URL_API = "http://192.168.1.45" #casa
-URL_API = "http://10.215.58.18"  # wework usaquen
-
-
+# URL_API = "http://10.215.58.18"  # wework usaquen
 # URL_API = "http://192.168.100.169" #telefono
 
 
@@ -42,8 +40,9 @@ def create_script_task(game_id: str,
                        prompt_text_introduction_scene_cero: str,
                        prompt_character_locations: str,
                        prompt_character_locations_system: str,
-                       prompt_before_battle: str,
-                       prompt_finish_chapter: str):
+                       prompt_finish_chapter: str,
+                       prompt_text_finish_chapter: str,
+                       prompt_image_game_over: str,):
     response_script = get_script_locations_chapter_v2(game_history,
                                                       "1",
                                                       prompt_script,
@@ -54,8 +53,9 @@ def create_script_task(game_id: str,
                                                       prompt_text_introduction_scene_cero,
                                                       prompt_character_locations,
                                                       prompt_character_locations_system,
-                                                      prompt_before_battle,
-                                                      prompt_finish_chapter)
+                                                      prompt_finish_chapter,
+                                                      prompt_text_finish_chapter,
+                                                      prompt_image_game_over)
 
     response_all = f"ai generated - {game_id} "
 
@@ -384,7 +384,8 @@ def create_script_task(game_id: str,
                 start_image=i["start_image"] if "start_image" in i.keys() else "",
                 object_id=object_id,
                 delivery_location_id=location_delivery,
-                delivery_character_id=character_delivery
+                delivery_character_id=character_delivery,
+                image_defeat=i["game_over_image"] if "game_over_image" in i.keys() else None,
             )
             count += 1
 

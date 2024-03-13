@@ -112,8 +112,7 @@ def update_partial_character_service(db: Session, character_id: str, character_u
 
         extra_data = get_extra_data_character_ai(prompt_content_extra_data)
 
-        print("extra_data", str(extra_data))
-
+        # print("extra_data", str(extra_data))
 
         character_db.extra_data = extra_data["extra_data"]
 

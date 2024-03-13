@@ -18,9 +18,9 @@ def get_script_locations_chapter_v2(history: str,
                                     prompt_text_introduction_scene_cero: str,
                                     prompt_character_locations: str,
                                     prompt_character_locations_system: str,
-                                    prompt_before_battle: str,
-                                    prompt_finish_chapter: str):
-
+                                    prompt_finish_chapter,
+                                    prompt_text_finish_chapter,
+                                    prompt_image_game_over, ):
     star_time = time.time()
 
     schema_script = {
@@ -445,43 +445,84 @@ def get_script_locations_chapter_v2(history: str,
 
     scenes_generated.insert(0, scene_cero)
 
-    image_before_battle = ""
-    image_finish_chapter = ""
-
     scene_description = ""
     character1_description = ""
     character2_description = ""
+    location1_description = ""
 
     for i in scenes_generated:
 
         if i["dynamic"] == "Battle Group" or i["dynamic"] == "Battle":
-            scene_description = i["description"]
+            scene_description = i["content"]
             for j in characters_locations_generated["characters"]:
                 if j["type"] == "leading role":
                     character1_description = j["description"]
                 if j["type"] == "mini enemy":
                     character2_description = j["description"]
+
+            for k in characters_locations_generated["locations"]:
+                if k["id"] == i["id_location"]:
+                    location1_description = k["description_outdoor"]
+
+            prompt_image_game_over = prompt_image_game_over.replace("x_character", character1_description)
+            prompt_image_game_over = prompt_image_game_over.replace("x_mini_enemy", character2_description)
+            prompt_image_game_over = prompt_image_game_over.replace("x_location", location1_description)
+            image_game_over = generate_image_dalle(prompt=prompt_image_game_over,
+                                                   quality="hd",
+                                                   size="1024x1024")
+
+            i["game_over_image"] = image_game_over
+
             break
 
-    prompt_finish_chapter = prompt_finish_chapter.replace("x_scene", scene_description)
+    prompt_finish_chapter = prompt_finish_chapter.replace("x_interaction", scene_description)
 
-    prompt_finish_chapter = prompt_finish_chapter.replace("x_character", f"personaje: {character1_description}/n mini enemigo: {character2_description}")
+    prompt_finish_chapter = prompt_finish_chapter.replace("x_character",
+                                                          f"personaje: {character1_description}/n mini enemigo: {character2_description}")
 
-    image_finish_chapter = generate_image_dalle(prompt= prompt_finish_chapter,
+    image_finish_chapter = generate_image_dalle(prompt=prompt_finish_chapter,
                                                 quality="hd",
                                                 size="1024x1024")
 
+    prompt_text_finish_chapter = prompt_text_finish_chapter.replace("x_num_scene", str(scenes_generated[4]["number"]))
+
+    schema_text_finish_chapter = {
+        "description": "string (description of the finish chapter)"
+    }
+
+    prompt_content = [
+        {
+            "role": "system",
+            "content": f"responde el prompt con la siguiente estructura JSON: {schema_text_finish_chapter}"
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": prompt_text_finish_chapter
+                },
+                {
+                    "type": "text",
+                    "text": f"escena 4: {scenes_generated[4]['description']} \n"
+                            f"historia: {history} \n"
+                }
+            ]
+        }
+    ]
+
+    response_text_finish_chapter = generate_gpt4_(content_prompt=prompt_content,
+                                                  type_text="finish chapter",
+                                                  max_tokens=4096)
+
+    response_text_finish_chapter = json.loads(response_text_finish_chapter)
 
     scene_finish_chapter = scene_cero
-    scene_finish_chapter["start_content"] = "Finish chapter"
+    scene_finish_chapter["start_content"] = response_text_finish_chapter["description"]
     scene_finish_chapter["start_image"] = image_finish_chapter
     scene_finish_chapter["number"] = 5
     scene_finish_chapter["title"] = "Finish chapter"
     scenes_generated.insert(5, scene_finish_chapter)
-
-
-
-
 
     return {
         "script": script_generated,
