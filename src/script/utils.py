@@ -467,7 +467,39 @@ def get_script_locations_chapter_v2(history: str,
             prompt_image_game_over = prompt_image_game_over.replace("x_character", character1_description)
             prompt_image_game_over = prompt_image_game_over.replace("x_mini_enemy", character2_description)
             prompt_image_game_over = prompt_image_game_over.replace("x_location", location1_description)
-            image_game_over = generate_image_dalle(prompt=prompt_image_game_over,
+
+            schema_game_over = {
+                "description": "string (description of the game over)"
+            }
+
+            prompt_content = [
+                {
+                    "role": "system",
+                    "content": f"responde el prompt con la siguiente estructura JSON: {schema_game_over}"
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Con esta información, escribe un texto para generacion de una imagen que describa"
+                                    " la escena de game over, donde el personaje principal pierde la batalla con el enemigo. "
+                        },
+                        {
+                            "type": "text",
+                            "text": prompt_image_game_over
+                        }
+                    ]
+                }
+            ]
+
+            new_response_image_game_over = generate_gpt4_(content_prompt=prompt_content,
+                                                          type_text="game over",
+                                                          max_tokens=4096)
+
+            json_new_response_image_game_over = json.loads(new_response_image_game_over)
+
+            image_game_over = generate_image_dalle(prompt=json_new_response_image_game_over["description"]+ f", la imagen en arte voxel",
                                                    quality="hd",
                                                    size="1024x1024")
 
@@ -478,9 +510,41 @@ def get_script_locations_chapter_v2(history: str,
     prompt_finish_chapter = prompt_finish_chapter.replace("x_interaction", scene_description)
 
     prompt_finish_chapter = prompt_finish_chapter.replace("x_character",
-                                                          f"personaje: {character1_description}/n mini enemigo: {character2_description}")
+                                                          f"personaje: {character1_description}, mini enemigo: {character2_description}")
 
-    image_finish_chapter = generate_image_dalle(prompt=prompt_finish_chapter,
+    json_finish_chapter = {
+        "description": "string (description of the finish chapter)"
+    }
+
+    prompt_content_finish_chapter = [
+        {
+            "role": "system",
+            "content": f"responde el prompt con la siguiente estructura JSON: {json_finish_chapter}"
+        },
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": prompt_finish_chapter
+                },
+                {
+                    "type": "text",
+                    "text": "con esta información, escribe un texto para generacion de una imagen que describa"
+                            " la escena de final de capitulo, donde el personaje principal continua su aventura."
+                            " despues de derrotar con el enemigo, en arte voxel. \n"
+                }
+            ]
+        }
+    ]
+
+    response_finish_chapter = generate_gpt4_(content_prompt=prompt_content_finish_chapter,
+                                            type_text="finish chapter",
+                                            max_tokens=4096)
+
+    response_finish_chapter = json.loads(response_finish_chapter)
+
+    image_finish_chapter = generate_image_dalle(prompt=response_finish_chapter["description"]+ f", la imagen en arte voxel",
                                                 quality="hd",
                                                 size="1024x1024")
 
@@ -500,7 +564,7 @@ def get_script_locations_chapter_v2(history: str,
             "content": [
                 {
                     "type": "text",
-                    "text": prompt_text_finish_chapter
+                    "text": prompt_text_finish_chapter + f" en ingles"
                 },
                 {
                     "type": "text",
@@ -517,7 +581,7 @@ def get_script_locations_chapter_v2(history: str,
 
     response_text_finish_chapter = json.loads(response_text_finish_chapter)
 
-    scene_finish_chapter = scene_cero
+    scene_finish_chapter = scene_cero.copy()
     scene_finish_chapter["start_content"] = response_text_finish_chapter["description"]
     scene_finish_chapter["start_image"] = image_finish_chapter
     scene_finish_chapter["number"] = 5

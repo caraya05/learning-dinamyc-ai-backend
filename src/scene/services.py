@@ -81,7 +81,7 @@ def get_last_scene_service(db: Session, script_id: str, number: int = 4):
     """
     try:
         scene = (db.query(Scene).filter(Scene.script_id == script_id, Scene.order == number).first())
-        print(scene)
+        print(scene.__dict__)
         return scene
     except AttributeError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Scene not found")
