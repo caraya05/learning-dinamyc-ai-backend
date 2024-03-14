@@ -21,6 +21,7 @@ from scene.services import get_scenes_service
 from scene.services import get_scene_service
 from scene.services import create_scene_service
 from scene.services import partial_update_scene_service
+import ast
 
 router = APIRouter(prefix="/scene", tags=["Scene"])
 
@@ -54,6 +55,8 @@ def get_scenes(script_id: str,
 
     scenes_db = get_scenes_service(db, skip=0, limit=100, script_id=script_id)
 
+
+
     return scenes_db
 
 
@@ -80,6 +83,16 @@ def get_scene(scene_id: str,
         )
 
     scene_db = get_scene_service(db, scene_id=scene_id)
+
+    if isinstance(scene_db.characters_id, str):
+        print(scene_db.characters_id)
+        scene_db.characters_id = ast.literal_eval(scene_db.characters_id)
+
+    if isinstance(scene_db.start_dialogues, str):
+        scene_db.start_dialogues = ast.literal_eval(scene_db.start_dialogues)
+
+    if isinstance(scene_db.end_dialogues, str):
+        scene_db.end_dialogues = ast.literal_eval(scene_db.end_dialogues)
 
     return scene_db
 

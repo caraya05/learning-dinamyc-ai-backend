@@ -1,3 +1,5 @@
+import ast
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import asc
@@ -28,6 +30,28 @@ def get_scenes_service(db: Session, script_id: str, skip: int = 0, limit: int = 
     """
     scenes = (db.query(Scene).filter(Scene.script_id == script_id).order_by(asc(Scene.order))
               .offset(skip).limit(limit).all())
+
+    for scene in scenes:
+        if isinstance(scene.characters_id, str):
+            scene.characters_id = ast.literal_eval(scene.characters_id)
+            # if scene.characters_id and scene.characters_id != "[]":
+            #     scene.characters_id = ast.literal_eval(scene.characters_id)
+
+        if isinstance(scene.start_dialogues, str):
+            if scene.start_dialogues:
+                scene.start_dialogues = ast.literal_eval(scene.start_dialogues)
+
+            # if scene.start_dialogues and scene.start_dialogues != "[]":
+            #     scene.start_dialogues = ast.literal_eval(scene.start_dialogues)
+
+        if isinstance(scene.end_dialogues, str):
+            if scene.end_dialogues:
+                scene.end_dialogues = ast.literal_eval(scene.end_dialogues)
+
+            # if scene.end_dialogues and scene.end_dialogues != "[]":
+            #     scene.end_dialogues = ast.literal_eval(scene.end_dialogues)
+        # if scene.end_dialogues:
+        #     scene.end_dialogues = ast.literal_eval(scene.end_dialogues)
 
     return SchemaListScene(results=scenes, count=len(scenes))
 
