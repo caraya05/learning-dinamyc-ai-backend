@@ -50,7 +50,7 @@ class SchemaRetrieveScene(BaseModel):
     title: str
     description: str
     script_id: str
-    characters_id: list[str]
+    characters_id: Optional[list[str]] | None
     location_id: str
     content: str
     dynamic: str
