@@ -7,7 +7,7 @@ from utils import get_sub_token
 class GameAdmin(ModelView, model=Game):
     name_plural = "Games"
     column_list = ["id", "title", "story_line", "image"]
-    column_searchable_list = ["id"]
+    column_searchable_list = ["id", "title","category",]
     column_sorted_list = ["id"]
     column_filters = ["id"]
     can_edit = True
