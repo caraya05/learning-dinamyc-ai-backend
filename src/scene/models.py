@@ -28,10 +28,10 @@ class Scene(AbstractBaseModel):
 
     order: int = Column(Integer, index=False)
     title: str = Column(String, index=False)
-    description: str = Column(Text, nullable=False)
+    description: str = Column(Text, nullable=True)
     script_id: str = Column(String, nullable=False)
     game_id: str = Column(String, nullable=True)
-    location_id: str = Column(String, nullable=False)
+    location_id: str = Column(String, nullable=True)
     characters_id = Column(PickleType, nullable=True)
     start_dialogues = Column(PickleType, nullable=True)
     end_dialogues = Column(PickleType, nullable=True)

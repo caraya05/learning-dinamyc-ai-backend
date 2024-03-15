@@ -67,17 +67,17 @@ class SchemaRetrieveSceneComplete(BaseModel):
     id: str
     order: int
     title: str
-    description: str
+    description: str | None
     script_id: str
     game_id: Optional[str]
     characters_id: list[str]
-    location_id: str
+    location_id: str | None
     start_dialogues: Optional[list[dict]] | None
     end_dialogues: Optional[list[dict]] | None
     questions: Optional[dict] | None
-    content: Optional[str]
-    dynamic: Optional[str]
-    reward: Optional[str]
+    content: Optional[str] | None
+    dynamic: Optional[str] | None
+    reward: Optional[str] | None
     count_enemies: Optional[int]
     enemy_id: Optional[str]
     is_subtractable: bool = False
