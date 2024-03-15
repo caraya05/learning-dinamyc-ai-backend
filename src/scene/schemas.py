@@ -51,7 +51,7 @@ class SchemaRetrieveScene(BaseModel):
     description: str
     script_id: str
     characters_id: Optional[list[str]] | None
-    location_id: str
+    location_id: Optional[str] | None
     content: str
     dynamic: str
 
@@ -71,7 +71,7 @@ class SchemaRetrieveSceneComplete(BaseModel):
     script_id: str
     game_id: Optional[str]
     characters_id: list[str]
-    location_id: str | None
+    location_id: Optional[str] | None
     start_dialogues: Optional[list[dict]] | None
     end_dialogues: Optional[list[dict]] | None
     questions: Optional[dict] | None
