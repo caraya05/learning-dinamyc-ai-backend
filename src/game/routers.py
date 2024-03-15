@@ -398,7 +398,7 @@ def features_games(db: Session = Depends(get_db),
 
     games_featured_db = get_configuration_service(db)
 
-    games_db = get_games_service(db, skip=0, limit=1000, games_id=ast.literal_eval(games_featured_db.featured_games))
+    games_db = get_games_service(db, skip=0, limit=1000, games_id=(games_featured_db.featured_games))
 
     return SchemaListGame(results=games_db, count=len(games_db))
 
@@ -426,7 +426,7 @@ def popular_games(db: Session = Depends(get_db),
 
     games_featured_db = get_configuration_service(db)
 
-    games_db = get_games_service(db, skip=0, limit=1000, games_id=ast.literal_eval(games_featured_db.popular_games))
+    games_db = get_games_service(db, skip=0, limit=1000, games_id=(games_featured_db.popular_games))
 
     return SchemaListGame(results=games_db, count=len(games_db))
 
