@@ -100,15 +100,15 @@ def create_weapon(weapon: SchemaCreateForType,
     if weapon.type == "long":
         # prompt1 = ("Dame una idea y su respectiva descripción de un arma de impacto de corto alcance que utilizaria"
         #            " el x_character en esta x_history.")
-        prompt1 = prompt_weapon.replace("x_weapon", "de impacto de corto alcance")
-        prompt2 = prompt_imagen_weapon
+        prompt1 = prompt_weapon.description.replace("x_weapon", "de impacto de corto alcance")
+        prompt2 = prompt_imagen_weapon.description
 
     else:
 
         # prompt1 = ("Dame una idea y su respectiva descripción de un arma que dispara algun tipo de proyectil que "
         #            "utilizaria el x_character en esta x_history.")
-        prompt1 = prompt_weapon.replace("x_weapon", "que dispara algun tipo de proyectil")
-        prompt2 = prompt_imagen_weapon
+        prompt1 = prompt_weapon.description.replace("x_weapon", "que dispara algun tipo de proyectil")
+        prompt2 = prompt_imagen_weapon.description
 
     prompt1 = prompt1.replace("x_character", character_db.description)
 

@@ -1,3 +1,4 @@
+import ast
 from sqladmin import ModelView
 
 from character.models import Character
@@ -39,6 +40,12 @@ class CharacterAdmin(ModelView, model=Character):
     async def on_model_change(self, form, model, is_created, request):
 
         sub = get_sub_token(request.session.get("token"))
+
+        if form["extra_data"] and isinstance(form["extra_data"], str):
+            form["extra_data"] = ast.literal_eval(form["extra_data"])
+
+        if form["text_idle"] and isinstance(form["text_idle"], str):
+            form["text_idle"] = ast.literal_eval(form["text_idle"])
 
         if is_created:
             form["created_by"] = sub

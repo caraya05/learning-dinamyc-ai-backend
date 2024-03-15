@@ -1,3 +1,4 @@
+import ast
 from sqladmin import ModelView
 
 from configuration.models import Configuration
@@ -40,9 +41,15 @@ class ConfigurationAdmin(ModelView, model=Configuration):
 
         sub = get_sub_token(request.session.get("token"))
 
+        if isinstance(form["featured_games"], str):
+            form["featured_games"] = ast.literal_eval(form["featured_games"])
+        if isinstance(form["popular_games"], str):
+            form["popular_games"] = ast.literal_eval(form["popular_games"])
+        if isinstance(form["games_by_category"], str):
+            form["games_by_category"] = ast.literal_eval(form["games_by_category"])
+
         if is_created:
             form["created_by"] = sub
             form["updated_by"] = sub
         else:
             form["updated_by"] = sub
-

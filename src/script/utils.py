@@ -72,7 +72,7 @@ def get_script_locations_chapter_v2(history: str,
                 "name": "string (name of the location)",
                 "description_general": "string (general description of the location)",
                 "description_indoor": "string (Generates a 5-line isometric view description of a wall, and a 5-line description of the floor adjacent to this stage wall, the space must be closed and covered).",
-                "description_outdoor": "string (Generates a 5-line isometric view description of a wall, and a 5-line description of the floor next to this stage wall)."
+                "description_outdoor": "string (Generates a isometric view description of what the exterior and surroundings of the location would look like.)."
             }
         ],
         "characters": [
@@ -155,6 +155,7 @@ def get_script_locations_chapter_v2(history: str,
     #     characters_locations_generated["locations"][i]["id"] = i + 1
     #
     print("characters", str(characters_locations_generated["characters"]))
+    print("locations", str(characters_locations_generated["locations"]))
 
     brand_antagonist = False
     for i in range(len(characters_locations_generated["characters"])):

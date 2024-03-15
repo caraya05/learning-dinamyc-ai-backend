@@ -1,5 +1,8 @@
+import ast
+
 from sqladmin import ModelView
 
+from utils import get_sub_token
 from weapon.models import Weapon
 
 
@@ -34,3 +37,17 @@ class WeaponAdmin(ModelView, model=Weapon):
             "disabled": True
         },
     }
+
+    async def on_model_change(self, form, model, is_created, request):
+
+        sub = get_sub_token(request.session.get("token"))
+
+        if form["extra_data"] and isinstance(form["extra_data"], str):
+            form["extra_data"] = ast.literal_eval(form["extra_data"])
+
+        if is_created:
+            form["created_by"] = sub
+            form["updated_by"] = sub
+        else:
+            form["updated_by"] = sub
+

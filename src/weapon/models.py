@@ -33,4 +33,4 @@ class Weapon(AbstractBaseModel):
     character_id: str = Column(String, nullable=True)
 
     def __repr__(self):
-        return f"<Object(title={self.title}, game_id={self.type})>"
+        return f"<Object(title={self.name}, game_id={self.type})>"

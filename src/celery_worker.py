@@ -23,7 +23,7 @@ celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6
 
 URL_API = "https://backend-dev.qwestar.ai" # dev
 # URL_API = "http://192.168.1.45" #casa
-# URL_API = "http://10.215.58.18"  # wework usaquen
+# URL_API = "http://10.215.61.62"  # wework usaquen
 # URL_API = "http://192.168.100.169" #telefono
 
 
