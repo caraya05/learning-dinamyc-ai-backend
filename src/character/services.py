@@ -93,8 +93,11 @@ def update_partial_character_service(db: Session, character_id: str, character_u
                 "content": [
                     {
                         "type": "text",
-                        "text": "Describe a detalle el personaje con la siquiente imagen y la descrpccion del personaje, extrae los colores de la piel, cabello, ojos, labios, zapatos, pantalones y camisa."
-                                "en dado caso que una prenda no este visible colocar un color adorde a los demas colores."
+                        "text": "Describe a detalle el personaje con la siquiente imagen y la descrpccion del personaje,"
+                                " extrae los colores de la piel, cabello, ojos, labios, zapatos, pantalones y camisa."
+                                "en dado caso que una prenda no este visible colocar un color adorde a los demas colores,"
+                                "en dado caso de que la imagen no tenga colores colocar colores que se asemejen a la imagen."
+                                "en dado caso no se puedan de terminar los colores colocar colores asocidos a la descripcion."
                     },
                     {
                         "type": "text",

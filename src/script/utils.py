@@ -234,33 +234,6 @@ def get_script_locations_chapter_v2(history: str,
             {
                 "role": "system",
                 "content": f"{prompt_scene_system}"
-                #     f"Garantiza que en cada escena creada deben tener solo 2 personajes y uno de esos sea el personaje principal y el otro puede ser el mini enemigo, el enemigo o otro, "
-                #            f"tambien varia cada en escena en difrentes locaciones, "
-                #            f"solo la dinamica de question debe tener questions,"
-                #            f"todas las escenas deben tener la locacion diferente,"
-                #            f"las opciones de las preguntas no deben ser mas de 3, "
-                #            f"el tipo de dinamica battle group debe ser solo entre el principal y el mini enemigo,"
-                # # f"el tipo de dinamica battle debe ser solo entre el principal y el enemigo, "
-                #            f"el tipo de dinamica search debe tener un objeto, dos personajes, ni el enemy, de reward item o next no puede tener questions,"
-                #            f"el tipo de dinamica dialog debe tener dos personajes y de reward info, "
-                #            f"el tipo de dinamica delivery es la unica que tiene delivery_location_id, delivery_character_id y "
-                #            f"el delivery_location_id debe ser diferente a el location_id de la escena y el delivery_character_id deber ser difernente y "
-                #            f" debe tener dos personajes y un tercero que es al que le entrega el objecto y de reward next,"
-                #            f"si la recompenza es item, is_subtractable debe ser false y la dinamica debe ser delivery,"
-                #            f"si la recompenza es item, is_subtractable debe ser true y la dinamica debe ser search,"
-                #            f"las dinamicas de dialog, question, search, delivery, no puede ser un mini enemy, ni el enemy,"
-                #            f"las dinamicas de battle, battle group, no puede ser un other, ni antagonista,"
-                # # f"las dinamicas de search, battle, battle group, no puede tener questions, "
-                #            f"las dinamicas de search no puede tener questions, "
-                #            f"verificar los tipos de personajes para las dinamicas si no estan presentes usar otra dinamica,"
-                #            f"la primera escena debe ser de dinamica question,"
-                #            f"la segunda escena debe ser de dinamica search, "
-                #            f"la tercera de dinamica delivery y "
-                #            f"la cuarta de dinamica battle group,"
-                # # f"la primera escena debe ser un dialogo, la segunda debe ser una busqueda de un objeto,"
-                #            f"characters debe contendra los id de los personajes que aparecen en la escena que estan en los dialogos, "
-                # # f"la tercera debe ser un pregunta y la cuarta de pelea grupal,"
-                # # f"en cada escena solo pueden haber 2 personajes, "
                            f"responde el prompt con la siguiente estructura JSON: {schema_scene}"
             },
             {
@@ -281,17 +254,21 @@ def get_script_locations_chapter_v2(history: str,
             }
         ]
 
-        response_scene = generate_gpt4_(content_prompt=content_prompt,
-                                        type_text="script",
-                                        max_tokens=4096, )
+        scene_generated_json = None
 
-        scene_generated_json = json.loads(response_scene)
+        while scene_generated_json is None or not ('start_dialogues' in scene_generated_json and 'end_dialogues' in scene_generated_json):
+
+            response_scene = generate_gpt4_(content_prompt=content_prompt,
+                                            type_text="script",
+                                            max_tokens=4096, )
+
+            scene_generated_json = json.loads(response_scene)
 
         location_id_used.append(scene_generated_json["id_location"])
 
         characters_scene = []
 
-        if scene_generated_json["dynamic"] == "Battle Group":
+        if scene_generated_json["dynamic"] in ["Battle Group", "Battle", "battle group"]:
             print("si hay battle group")
             scene_generated_json["count_enemies"] = random.randint(1, 3)
             scene_generated_json["delivery_location_id"] = ""
@@ -340,7 +317,6 @@ def get_script_locations_chapter_v2(history: str,
             scene_generated_json["count_enemies"] = 0
             scene_generated_json["enemy_id"] = ""
 
-        # print(scene_generated_json["questions"])
         if str(scene_generated_json["dynamic"]).upper() != "Question".upper():
             scene_generated_json["questions"] = None
         # if "questions" in scene_generated_json:
@@ -349,12 +325,6 @@ def get_script_locations_chapter_v2(history: str,
         #         scene_generated_json["questions"] = None
 
         scenes_generated.append(scene_generated_json)
-
-        # print("location_id_used", location_id_used)
-        #
-        # print("scene_generated" + str(i + 1), time.time() - star_time)
-        #
-        # print("scene_generated" + str(i + 1), scene_generated_json)
 
         prompt_scene = prompt_scene_copy
 
@@ -373,7 +343,7 @@ def get_script_locations_chapter_v2(history: str,
             else:
                 print("no esta el personaje")
 
-        if scenes_generated[i]["dynamic"] == "Battle group":
+        if scenes_generated[i]["dynamic"] == "Battle group" or scenes_generated[i]["dynamic"] == "battle group":
             print("si hay battle group")
 
     scene_cero = {
@@ -453,7 +423,7 @@ def get_script_locations_chapter_v2(history: str,
 
     for i in scenes_generated:
 
-        if i["dynamic"] == "Battle Group" or i["dynamic"] == "Battle":
+        if i["dynamic"] in ["Battle", "Battle Group", "battle", "battle group"]:
             scene_description = i["content"]
             for j in characters_locations_generated["characters"]:
                 if j["type"] == "leading role":
@@ -479,6 +449,11 @@ def get_script_locations_chapter_v2(history: str,
                     "content": f"responde el prompt con la siguiente estructura JSON: {schema_game_over}"
                 },
                 {
+                    "role": "system",
+                    "content": f"No ir en contra de estas politicas al momento de generar el texto: \n"
+                               f"Sea responsable y ético al usar OpenAI. Siga las leyes, evite dañarse a sí mismo o a otros, y use los resultados para el bien. No comparta resultados para dañar a otros y respete las medidas de seguridad implementadas. De esta manera, podemos asegurarnos de que OpenAI se use para crear un impacto positivo en el mundo."
+                },
+                {
                     "role": "user",
                     "content": [
                         {
@@ -500,9 +475,10 @@ def get_script_locations_chapter_v2(history: str,
 
             json_new_response_image_game_over = json.loads(new_response_image_game_over)
 
-            image_game_over = generate_image_dalle(prompt=json_new_response_image_game_over["description"]+ f", la imagen en arte voxel",
-                                                   quality="hd",
-                                                   size="1024x1024")
+            image_game_over = generate_image_dalle(
+                prompt=json_new_response_image_game_over["description"] + f", la imagen en arte voxel",
+                quality="hd",
+                size="1024x1024")
 
             i["game_over_image"] = image_game_over
 
@@ -523,6 +499,11 @@ def get_script_locations_chapter_v2(history: str,
             "content": f"responde el prompt con la siguiente estructura JSON: {json_finish_chapter}"
         },
         {
+            "role": "system",
+            "content": f"No ir en contra de estas politicas al momento de generar el texto: \n"
+                       f"Sea responsable y ético al usar OpenAI. Siga las leyes, evite dañarse a sí mismo o a otros, y use los resultados para el bien. No comparta resultados para dañar a otros y respete las medidas de seguridad implementadas. De esta manera, podemos asegurarnos de que OpenAI se use para crear un impacto positivo en el mundo."
+        },
+        {
             "role": "user",
             "content": [
                 {
@@ -540,14 +521,16 @@ def get_script_locations_chapter_v2(history: str,
     ]
 
     response_finish_chapter = generate_gpt4_(content_prompt=prompt_content_finish_chapter,
-                                            type_text="finish chapter",
-                                            max_tokens=4096)
+                                             type_text="finish chapter",
+                                             max_tokens=4096)
 
     response_finish_chapter = json.loads(response_finish_chapter)
 
-    image_finish_chapter = generate_image_dalle(prompt=response_finish_chapter["description"]+ f", la imagen en arte voxel",
-                                                quality="hd",
-                                                size="1024x1024")
+    image_finish_chapter = generate_image_dalle(
+        prompt=response_finish_chapter["description"] + f", la imagen en arte voxel",
+        quality="hd",
+        size="1024x1024")
+
 
     prompt_text_finish_chapter = prompt_text_finish_chapter.replace("x_num_scene", str(scenes_generated[4]["number"]))
 
