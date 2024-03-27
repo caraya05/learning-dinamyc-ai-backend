@@ -20,7 +20,7 @@ def get_extra_data_character_ai(prompt: list):
             "pants_color": "string (pants color of the character in format hexadecimal)",
             "shirt_color": "string (shirt color of the character in format hexadecimal)",
             "type_combing": "string (type of combing of the character)",
-            "is_wolf": "boolean (if the character is a wolf)",
+            "type_mini_enemy": "string (classify the character between these options GOBLIN, SPECTRUM, SNAKE, BIRD, WOLF if not classified between none place none)",
         }
     }
 
