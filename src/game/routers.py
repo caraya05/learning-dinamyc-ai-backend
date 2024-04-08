@@ -36,6 +36,8 @@ from character.services import get_character_leading_role_service
 
 from location.services import get_location_service
 
+from user.services import get_current_user_service
+
 from gpt_ai.utils import generate_image_dalle
 from gpt_ai.utils import generate_gpt4_
 
@@ -149,6 +151,14 @@ def create_game(game: SchemaCreateGame,
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
+        )
+
+    user_db = get_current_user_service(db, Authorize.get_raw_jwt())
+
+    if user_db.stars <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You don't have enough stars to create a game",
         )
 
     game_db = create_game_service(db=db, game=game, user_id=current_user['sub'])
