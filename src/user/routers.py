@@ -157,7 +157,7 @@ async def validate_stars(
         print(ex)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error in the getting user") from ex
-    if user_current.stars <= 0 or user_current.stars is None:
+    if user_current.stars is None or user_current.stars <= 0:
         update_attempt_to_create_service(db, user_current.id)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Not enough stars"
