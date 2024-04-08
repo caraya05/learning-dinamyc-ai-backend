@@ -24,16 +24,21 @@ from script.services import get_script_by_field
 from script.services import delete_script_service
 
 from scene.services import get_scenes_service
+from scene.services import delete_scene_service
 
 from location.services import get_locations_service
+from location.services import delete_location_service
 
 from character.services import get_characters_service
+from character.services import delete_character_service
 
-from game.services import get_game_service
+from game.services import get_game_service, update_error_message_game_service
 
 from object.services import get_objects_service
+from object.services import delete_object_service
 
-from weapon.services import get_weapon_by_field
+from weapon.services import delete_weapon_service
+from weapon.services import get_weapons_service
 
 from prompt.services import get_prompt_by_field
 
@@ -161,7 +166,6 @@ async def create_script(game_id: str,
     configuration_db = get_configuration_service(db)
     deduct_stars_service(db, user_id=current_user, stars=configuration_db.stars_create_script)
 
-
     # Get the game information
     game_db = get_game_service(db, game_id=game_id)
 
@@ -234,6 +238,21 @@ async def partial_update_script(script_id: str,
         )
 
     script_db = partial_update_script_service(db, script_id=script_id, schema=schema)
+    message_error = ""
+    if schema.status == 2:
+        message_error = "Error in the history"
+
+    if schema.status_character == 2:
+        message_error = "Error in the characters"
+
+    if schema.status_location == 2:
+        message_error = "Error in the locations"
+
+    if schema.status_scene == 2:
+        message_error = "Error in the scenes"
+
+    if message_error:
+        update_error_message_game_service(db, script_db.game_id, message_error)
 
     return script_db
 
@@ -302,6 +321,33 @@ def delete_script(script_id: str,
 
     # Delete the script
     try:
+        script_db = get_script_service(db, script_id=script_id)
+
+        characters_db = get_characters_service(db, game_id=script_db.game_id)
+        if characters_db:
+            for character_ in characters_db:
+                delete_character_service(db, character_id=character_.id)
+
+        locations_db = get_locations_service(db, game_id=script_db.game_id)
+        if locations_db.results:
+            for location_ in locations_db.results:
+                delete_location_service(db, location_id=location_.id)
+
+        scenes_db = get_scenes_service(db, script_id=script_id)
+        if scenes_db.results:
+            for scene_ in scenes_db.results:
+                delete_scene_service(db, scene_id=scene_.id)
+
+        objects_db = get_objects_service(db, game_id=script_db.game_id)
+        if objects_db:
+            for object_ in objects_db:
+                delete_object_service(db, object_id=object_.id)
+
+        weapons_db = get_weapons_service(db, game_id=script_db.game_id)
+        if weapons_db:
+            for weapon_ in weapons_db:
+                delete_weapon_service(db, weapon_id=weapon_.id)
+
         delete_script_service(db, script_id=script_id)
     except Exception as e:
         raise HTTPException(

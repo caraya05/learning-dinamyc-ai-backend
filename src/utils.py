@@ -57,10 +57,14 @@ def generate_uuid():
 #         )
 
 
-def upload_image(url_image: str, size: tuple[int, int], file_name: str):
+def upload_image(size: tuple[int, int], file_name: str, image_content_type: any = None, url_image: str = None,
+                 name_bucket: str = 'backend'):
     try:
-        image_url = requests.get(url_image)
-        img = Image.open(BytesIO(image_url.content))
+        if image_content_type and not url_image:
+            img = Image.open(BytesIO(image_content_type))
+        else:
+            image_url = requests.get(url_image)
+            img = Image.open(BytesIO(image_url.content))
         img = img.resize(size)
 
         # Save the image to a BytesIO object
@@ -74,7 +78,7 @@ def upload_image(url_image: str, size: tuple[int, int], file_name: str):
                                 aws_access_key_id=settings.ACCESS_ID_DIGITAL_OCEAN,
                                 aws_secret_access_key=settings.SECRET_KEY_DIGITAL_OCEAN)
 
-        response = client.put_object(Bucket='backend',
+        response = client.put_object(Bucket=name_bucket,
                                      Key=file_name,
                                      Body=img_byte_arr,
                                      ACL='public-read',

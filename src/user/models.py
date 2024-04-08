@@ -38,6 +38,9 @@ class User(AbstractBaseModel):
     is_superuser: bool = Column(Boolean, default=False)
     is_staff: bool = Column(Boolean, default=False)
     stars: int = Column(Integer, default=0, nullable=True)
+    number_of_creation_attempts: int = Column(Integer, default=0, nullable=True)
+    attempt_to_create: bool = Column(Boolean, default=False, nullable=True)
+
 
     def __repr__(self):
         return f"<User {self.email} - {self.uid}>"

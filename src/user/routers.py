@@ -3,6 +3,8 @@ from fastapi import Depends
 from fastapi import Request
 from fastapi import HTTPException
 from fastapi import status
+from fastapi import UploadFile
+from fastapi import File
 
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi_jwt_auth import AuthJWT
@@ -10,8 +12,12 @@ from fastapi_jwt_auth import AuthJWT
 from sqlalchemy.orm import Session
 
 from config import auth_scheme
+from utils import upload_image
 
-from .services import get_current_user_service, get_user_by_field
+from user.services import get_current_user_service
+from user.services import get_user_by_field
+from user.services import update_photo_service
+from user.services import update_attempt_to_create_service
 # from .services import create_user_service
 # from .services import update_user_service
 # from .services import partial_update_user_service
@@ -22,6 +28,9 @@ from .schemas import SchemaRetrieveUser
 # from .schemas import SchemaUpdateUser
 # from .schemas import SchemaPartialUpdateUser
 # from .schemas import SchemaUpdatePassword
+
+from PIL import Image
+from io import BytesIO
 
 router = APIRouter(prefix="/user", tags=["User"])
 
@@ -143,17 +152,47 @@ async def validate_stars(
 
         # Retrieve the current user's information
         user_current = get_current_user_service(db, Authorize.get_raw_jwt())
-        if user_current.stars <= 0 or user_current.stars is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Not enough stars"
-            )
-        return {"message": "Stars are enough"}
+    except Exception as ex:
+    # If there is an error, raise an HTTPException
+        print(ex)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error in the getting user") from ex
+    if user_current.stars <= 0 or user_current.stars is None:
+        update_attempt_to_create_service(db, user_current.id)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Not enough stars"
+        )
+    return {"message": "Stars are enough"}
 
+
+# update photo user
+@router.patch("/update-photo/", response_model=SchemaRetrieveUser)
+async def update_photo_user(
+        photo: UploadFile = File(...),
+        db: Session = Depends(get_db),
+        Authorize: AuthJWT = Depends(),
+        Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+):
+    try:
+        # Check if the JWT token is valid
+        Authorize.jwt_required()
+
+        # Retrieve the current user's information
+        user_current = get_current_user_service(db, Authorize.get_raw_jwt())
     except Exception as ex:
         # If there is an error, raise an HTTPException
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error in calculating stars"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Error in the getting user"
         ) from ex
+
+    photo_content = await photo.read()
+
+    url_photo = upload_image(name_bucket="users",
+                             image_content_type=photo_content,
+                             file_name=f"{user_current.id}.jpg",
+                             size=(512, 512))
+
+    return update_photo_service(db=db, user_id=user_current.id, photo=url_photo)
 
 # @router.put("/{id}", response_model=SchemaRetrieveUser)
 # async def update_user(id: str,

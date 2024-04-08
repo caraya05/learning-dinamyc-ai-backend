@@ -67,3 +67,13 @@ def partial_update_weapon_service(db: Session, weapon_id: str, weapon: SchemaPar
     db.commit()
     db.refresh(db_weapon)
     return db_weapon
+
+
+def delete_weapon_service(db: Session, weapon_id: str):
+    """
+    Delete a weapon.
+    """
+    db_weapon = get_weapon_by_field(db, "id", weapon_id)
+    db.delete(db_weapon)
+    db.commit()
+    return True

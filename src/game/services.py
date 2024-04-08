@@ -161,3 +161,19 @@ def update_image_background_game_service(db: Session, game_id: str, image: str, 
 def get_my_games_service(db: Session, user_id: str, skip: int = 0, limit: int = 100):
     return db.query(Game).filter(Game.created_by == user_id).order_by(desc(Game.created_at)).offset(skip).limit(
         limit).all()
+
+
+def update_error_message_game_service(db: Session, game_id: str, error_message: str):
+    game_db = get_game_by_field(db, 'id', game_id)
+    if game_db:
+        if game_db.error_message:
+            game_db.error_message = f"{game_db.error_message} - {error_message}"
+        else:
+            game_db.error_message = error_message
+        db.commit()
+        db.refresh(game_db)
+        return game_db
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Game not found",
+    )

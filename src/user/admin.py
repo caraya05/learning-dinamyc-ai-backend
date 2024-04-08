@@ -8,7 +8,7 @@ from utils import get_sub_token
 
 class UserAdmin(ModelView, model=User):
     name_plural = "Users"
-    column_list = ["username", "company_name", "email", ]
+    column_list = ["username", "email", "number_of_creation_attempts", "attempt_to_create", "stars", ]
     # column_searchable_list = ["username", "first_name", "last_name", "email",]
     # column_sorted_list = ["username", "first_name", "last_name", "email",]
     # column_filters = ["username", "first_name", "last_name", "email",]
