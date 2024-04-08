@@ -55,6 +55,8 @@ def get_db(request: Request):
 async def get_games(db: Session = Depends(get_db),
                     Authorize: AuthJWT = Depends(),
                     Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+                    page: int = 1,
+                    count: int = 10,
                     ):
     """
     This endpoint retrieves all games.
@@ -72,9 +74,9 @@ async def get_games(db: Session = Depends(get_db),
             detail="Invalid token",
         )
 
-    games_db = get_games_service(db, skip=0, limit=100)
+    games_db, count_pages = get_games_service(db, skip=page, limit=count)
 
-    return SchemaListGame(results=games_db, count=len(games_db))
+    return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages)
 
 
 @router.get("/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
@@ -353,6 +355,8 @@ def background_generate(
 def my_games(db: Session = Depends(get_db),
              Authorize: AuthJWT = Depends(),
              Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+             page: int = 1,
+             count: int = 10,
              ):
     """
     This endpoint retrieves all games created by the user.
@@ -370,9 +374,9 @@ def my_games(db: Session = Depends(get_db),
             detail="Invalid token",
         )
 
-    games_db = get_games_service(db, skip=0, limit=1000, user_id=current_user['sub'])
+    games_db, count_pages = get_games_service(db, skip=page, limit=count, user_id=current_user['sub'])
 
-    return SchemaListGame(results=games_db, count=len(games_db))
+    return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages)
 
 
 @router.get("/featured/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
@@ -398,7 +402,7 @@ def features_games(db: Session = Depends(get_db),
 
     games_featured_db = get_configuration_service(db)
 
-    games_db = get_games_service(db, skip=0, limit=1000, games_id=(games_featured_db.featured_games))
+    games_db, count_pages = get_games_service(db, skip=0, limit=1000, games_id=(games_featured_db.featured_games))
 
     return SchemaListGame(results=games_db, count=len(games_db))
 
@@ -426,7 +430,7 @@ def popular_games(db: Session = Depends(get_db),
 
     games_featured_db = get_configuration_service(db)
 
-    games_db = get_games_service(db, skip=0, limit=1000, games_id=(games_featured_db.popular_games))
+    games_db, count_pages = get_games_service(db, skip=0, limit=1000, games_id=(games_featured_db.popular_games))
 
     return SchemaListGame(results=games_db, count=len(games_db))
 
@@ -435,6 +439,9 @@ def popular_games(db: Session = Depends(get_db),
 def categories_games(db: Session = Depends(get_db),
                      Authorize: AuthJWT = Depends(),
                      Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+                     page: int = 1,
+                     count: int = 10,
+                     category: str = None,
                      ):
     """
     This endpoint retrieves all games by category.
@@ -465,7 +472,9 @@ def categories_games(db: Session = Depends(get_db),
         for games in games_featured_json:
             if category.id == games["id"]:
                 response['category'] = category.name
-                response['games'] = get_games_service(db, skip=0, limit=1000, games_id=games["games"])
+                games_list, count_pages = get_games_service(db, skip=page, limit=count, games_id=games["games"])
+                response['games'] = games_list
+
         response_all.append(response)
 
     return {"results": response_all, "count": len(response_all)}

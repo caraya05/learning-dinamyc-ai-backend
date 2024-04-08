@@ -109,3 +109,13 @@ def get_last_scene_service(db: Session, script_id: str, number: int = 4):
         return scene
     except AttributeError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Scene not found")
+
+
+def delete_scene_service(db: Session, scene_id: str):
+    """
+    Delete a scene.
+    """
+    scene = get_scene_by_field(db, "id", scene_id)
+    db.delete(scene)
+    db.commit()
+    return True

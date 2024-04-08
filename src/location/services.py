@@ -87,7 +87,6 @@ def partial_update_location_service(db: Session, location_id: str, schema: Schem
     location = get_location_by_field(db, "id", location_id)
 
     if schema.image:
-
         image_name = location.title.replace(" ", "_")
 
         image_name = image_name.replace("'", "")
@@ -112,3 +111,13 @@ def update_attempts_location_service(db: Session, location_id: str):
     db.commit()
     db.refresh(location)
     return location
+
+
+def delete_location_service(db: Session, location_id: str):
+    """
+    Delete a location.
+    """
+    location = get_location_by_field(db, "id", location_id)
+    db.delete(location)
+    db.commit()
+    return True

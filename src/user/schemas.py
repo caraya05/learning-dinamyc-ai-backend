@@ -1,4 +1,3 @@
-import datetime
 from typing import Optional
 from uuid import UUID
 
@@ -27,6 +26,8 @@ class SchemaRetrieveUser(BaseModel):
     username: str = Field(..., min_length=3, max_length=100,
                           example="Jhon Doe")
     email: str = Field(..., strip_whitespace=True, unique=True, example="jhon@gmail.com")
+    stars: Optional[int] = Field(..., example=0)
+    photo: Optional[str] = Field(..., example="photo.jpg")
 
     # created_at: datetime.date = Field(default=datetime.datetime.utcnow())
     # updated_at: datetime.date = Field(default=datetime.datetime.utcnow())

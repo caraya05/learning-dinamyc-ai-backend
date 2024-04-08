@@ -9,6 +9,8 @@ from .schemas import SchemaUpdatePassword
 from .models import User
 from .utils import get_password_hash
 
+from configuration.services import get_configuration_service
+
 
 def create_user_service(db: Session, user: SchemaUser):
     if get_user_by_field(db, 'email', user.email):
@@ -99,6 +101,8 @@ def get_or_created_user_service(db: Session, user: dict):
         return user_db
     else:
 
+        configuration_db = get_configuration_service(db)
+
         username = user.display_name if user.display_name else user.email.split("@")[0]
 
         try:
@@ -112,6 +116,7 @@ def get_or_created_user_service(db: Session, user: dict):
                 photo=user.photo_url if user.photo_url else None,
                 created_by=user.email,
                 updated_by=user.email,
+                stars=configuration_db.stars_news_users if configuration_db and configuration_db.stars_news_users else 10,
             )
             db.add(user_db_)
             db.commit()
@@ -121,3 +126,56 @@ def get_or_created_user_service(db: Session, user: dict):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"User not created {e}"
             )
+
+
+def deduct_stars_service(db: Session, user_id: str, stars: int):
+    try:
+        user_db = get_user_by_field(db, 'id', user_id)
+        if user_db:
+            user_db.stars -= stars
+            db.commit()
+            db.refresh(user_db)
+            return user_db
+        else:
+            return None
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error in deduct stars {e}"
+        ) from e
+
+
+def update_photo_service(db: Session, user_id: str, photo: str):
+    try:
+        user_db = get_user_by_field(db, 'id', user_id)
+        if user_db:
+            user_db.photo = photo
+            db.commit()
+            db.refresh(user_db)
+            return user_db
+        else:
+            return None
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error in update photo {e}"
+        ) from e
+
+
+def update_attempt_to_create_service(db: Session, user_id: str):
+    try:
+        user_db = get_user_by_field(db, 'id', user_id)
+        if user_db:
+            user_db.attempt_to_create = True
+            if user_db.stars is None:
+                user_db.stars = 0
+            if user_db.number_of_creation_attempts is None:
+                user_db.number_of_creation_attempts = 0
+            user_db.number_of_creation_attempts += 1
+            db.commit()
+            db.refresh(user_db)
+            return user_db
+        else:
+            return None
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error in update attempt to create {e}"
+        ) from e

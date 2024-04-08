@@ -164,3 +164,15 @@ def get_character_leading_role_service(db: Session, game_id: str):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Character not found",
         )
+
+
+def delete_character_service(db: Session, character_id: str):
+    character_db = get_character_by_field(db, 'id', character_id)
+    if character_db:
+        db.delete(character_db)
+        db.commit()
+        return True
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Character not found",
+    )

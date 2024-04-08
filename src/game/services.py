@@ -38,14 +38,17 @@ def get_game_service(db: Session, game_id: str, user_id: str = None):
 
 def get_games_service(db: Session, skip: int = 0, limit: int = 100, user_id: str = None, games_id: list[str] = None):
     if user_id:
-        return db.query(Game).filter(Game.created_by == user_id).order_by(desc(Game.created_at)).offset(skip).limit(
-            limit).all()
-    if games_id:
-        print(games_id)
-        return db.query(Game).filter(Game.id.in_(games_id)).order_by(desc(Game.created_at)).offset(skip).limit(
-            limit).all()
-    return db.query(Game).order_by(desc(Game.created_at)).offset(skip).limit(limit).all()
+        games_query = db.query(Game).filter(Game.created_by == user_id).order_by(desc(Game.created_at))
+    elif games_id:
+        games_query = db.query(Game).filter(Game.id.in_(games_id)).order_by(desc(Game.created_at))
+    else:
+        games_query = db.query(Game).order_by(desc(Game.created_at))
 
+    games = games_query.offset(skip).limit(limit).all()
+    total_games = games_query.count()
+    total_pages = (total_games // limit) + (1 if total_games % limit > 0 else 0)
+
+    return games, total_pages
 
 def create_game_service(db: Session, game: SchemaCreateGame, user_id: str):
     history = get_history(db=db, story_line=game.story_line)
@@ -158,3 +161,19 @@ def update_image_background_game_service(db: Session, game_id: str, image: str, 
 def get_my_games_service(db: Session, user_id: str, skip: int = 0, limit: int = 100):
     return db.query(Game).filter(Game.created_by == user_id).order_by(desc(Game.created_at)).offset(skip).limit(
         limit).all()
+
+
+def update_error_message_game_service(db: Session, game_id: str, error_message: str):
+    game_db = get_game_by_field(db, 'id', game_id)
+    if game_db:
+        if game_db.error_message:
+            game_db.error_message = f"{game_db.error_message} - {error_message}"
+        else:
+            game_db.error_message = error_message
+        db.commit()
+        db.refresh(game_db)
+        return game_db
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Game not found",
+    )
