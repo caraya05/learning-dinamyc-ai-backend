@@ -121,3 +121,19 @@ def get_or_created_user_service(db: Session, user: dict):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"User not created {e}"
             )
+
+
+def deduct_stars_service(db: Session, user_id: str, stars: int):
+    try:
+        user_db = get_user_by_field(db, 'id', user_id)
+        if user_db:
+            user_db.stars -= stars
+            db.commit()
+            db.refresh(user_db)
+            return user_db
+        else:
+            return None
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error in deduct stars {e}"
+        ) from e

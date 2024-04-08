@@ -12,16 +12,16 @@ from sqlalchemy.orm import Session
 from config import auth_scheme
 
 from .services import get_current_user_service, get_user_by_field
-from .services import create_user_service
-from .services import update_user_service
-from .services import partial_update_user_service
-from .services import update_password_service
+# from .services import create_user_service
+# from .services import update_user_service
+# from .services import partial_update_user_service
+# from .services import update_password_service
 
 from .schemas import SchemaRetrieveUser
-from .schemas import SchemaUser
-from .schemas import SchemaUpdateUser
-from .schemas import SchemaPartialUpdateUser
-from .schemas import SchemaUpdatePassword
+# from .schemas import SchemaUser
+# from .schemas import SchemaUpdateUser
+# from .schemas import SchemaPartialUpdateUser
+# from .schemas import SchemaUpdatePassword
 
 router = APIRouter(prefix="/user", tags=["User"])
 
@@ -128,6 +128,31 @@ async def get_user(
         # If there is an error, raise an HTTPException
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Error in the getting user"
+        ) from ex
+
+
+@router.get("/validate-stars/", status_code=status.HTTP_200_OK)
+async def validate_stars(
+        db: Session = Depends(get_db),
+        Authorize: AuthJWT = Depends(),
+        Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+):
+    try:
+        # Check if the JWT token is valid
+        Authorize.jwt_required()
+
+        # Retrieve the current user's information
+        user_current = get_current_user_service(db, Authorize.get_raw_jwt())
+        if user_current.stars <= 0 or user_current.stars is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Not enough stars"
+            )
+        return {"message": "Stars are enough"}
+
+    except Exception as ex:
+        # If there is an error, raise an HTTPException
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error in calculating stars"
         ) from ex
 
 # @router.put("/{id}", response_model=SchemaRetrieveUser)

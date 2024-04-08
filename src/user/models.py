@@ -3,6 +3,7 @@ import datetime
 from sqlalchemy import Column
 from sqlalchemy import String
 from sqlalchemy import Date
+from sqlalchemy import Integer
 from sqlalchemy import Boolean
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -36,6 +37,7 @@ class User(AbstractBaseModel):
     is_active: bool = Column(Boolean, default=False)
     is_superuser: bool = Column(Boolean, default=False)
     is_staff: bool = Column(Boolean, default=False)
+    stars: int = Column(Integer, default=0, nullable=True)
 
     def __repr__(self):
         return f"<User {self.email} - {self.uid}>"

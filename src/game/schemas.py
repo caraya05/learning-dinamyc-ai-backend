@@ -32,6 +32,8 @@ class SchemaRetrieveGame(BaseModel):
 class SchemaListGame(BaseModel):
     count: int
     results: list[SchemaRetrieveGame]
+    page: int
+    total_pages: int
 
     class Config:
         orm_mode = True

@@ -39,6 +39,10 @@ from prompt.services import get_prompt_by_field
 
 from celery_worker import create_script_task
 
+from configuration.services import get_configuration_service
+
+from user.services import deduct_stars_service
+
 router = APIRouter(prefix="/script", tags=["Script"])
 
 
@@ -151,6 +155,12 @@ async def create_script(game_id: str,
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         )
+
+    # Deduct stars
+
+    configuration_db = get_configuration_service(db)
+    deduct_stars_service(db, user_id=current_user, stars=configuration_db.stars_create_script)
+
 
     # Get the game information
     game_db = get_game_service(db, game_id=game_id)

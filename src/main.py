@@ -64,6 +64,7 @@ from category.admin import CategoryAdmin
 
 from configuration import models as configuration_base
 from configuration.admin import ConfigurationAdmin
+from configuration import routers as configuration_routers
 
 from admin_config import authentication_backend
 
@@ -118,6 +119,7 @@ app.include_router(scene_routers.router, prefix="/v1/api")
 app.include_router(object_routers.router, prefix="/v1/api")
 app.include_router(weapon_routers.router, prefix="/v1/api")
 app.include_router(customize_routers.router, prefix="/v1/api")
+app.include_router(configuration_routers.router, prefix="/v1/api")
 
 admin = Admin(
     app,
