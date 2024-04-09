@@ -1,4 +1,5 @@
 import json
+import ast
 
 from fastapi import APIRouter
 from fastapi import Depends
@@ -414,7 +415,7 @@ def features_games(db: Session = Depends(get_db),
 
     games_db, count_pages = get_games_service(db, skip=0, limit=1000, games_id=(games_featured_db.featured_games))
 
-    return SchemaListGame(results=games_db, count=len(games_db))
+    return SchemaListGame(results=games_db, count=len(games_db),page=0, total_pages=count_pages)
 
 
 @router.get("/popular/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
@@ -442,7 +443,7 @@ def popular_games(db: Session = Depends(get_db),
 
     games_db, count_pages = get_games_service(db, skip=0, limit=1000, games_id=(games_featured_db.popular_games))
 
-    return SchemaListGame(results=games_db, count=len(games_db))
+    return SchemaListGame(results=games_db, count=len(games_db),page=0, total_pages=count_pages)
 
 
 @router.get("/categories/", status_code=status.HTTP_200_OK)
@@ -451,7 +452,7 @@ def categories_games(db: Session = Depends(get_db),
                      Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
                      page: int = 1,
                      count: int = 10,
-                     category: str = None,
+                     # category: str = None,
                      ):
     """
     This endpoint retrieves all games by category.
@@ -471,7 +472,7 @@ def categories_games(db: Session = Depends(get_db),
 
     games_featured_db = get_configuration_service(db)
 
-    games_featured_json = json.loads(games_featured_db.games_by_category)
+    games_featured_json = games_featured_db.games_by_category
 
     response_all = []
 
