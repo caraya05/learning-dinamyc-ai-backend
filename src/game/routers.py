@@ -415,7 +415,7 @@ def features_games(db: Session = Depends(get_db),
 
     games_db, count_pages = get_games_service(db, skip=0, limit=1000, games_id=(games_featured_db.featured_games))
 
-    return SchemaListGame(results=games_db, count=len(games_db),page=0, total_pages=count_pages)
+    return SchemaListGame(results=games_db, count=len(games_db), page=0, total_pages=count_pages)
 
 
 @router.get("/popular/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
@@ -443,16 +443,16 @@ def popular_games(db: Session = Depends(get_db),
 
     games_db, count_pages = get_games_service(db, skip=0, limit=1000, games_id=(games_featured_db.popular_games))
 
-    return SchemaListGame(results=games_db, count=len(games_db),page=0, total_pages=count_pages)
+    return SchemaListGame(results=games_db, count=len(games_db), page=0, total_pages=count_pages)
 
 
 @router.get("/categories/", status_code=status.HTTP_200_OK)
-def categories_games(db: Session = Depends(get_db),
+def categories_games(category: str,
+                     db: Session = Depends(get_db),
                      Authorize: AuthJWT = Depends(),
                      Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
                      page: int = 1,
                      count: int = 10,
-                     # category: str = None,
                      ):
     """
     This endpoint retrieves all games by category.
@@ -471,21 +471,13 @@ def categories_games(db: Session = Depends(get_db),
         )
 
     games_featured_db = get_configuration_service(db)
-
-    games_featured_json = games_featured_db.games_by_category
-
-    response_all = []
-
     categories_active_db = get_categories_active_service(db)
 
-    for category in categories_active_db.results:
-        response = {}
-        for games in games_featured_json:
-            if category.id == games["id"]:
-                response['category'] = category.name
-                games_list, count_pages = get_games_service(db, skip=page, limit=count, games_id=games["games"])
-                response['games'] = games_list
+    if category not in [category_active.name for category_active in categories_active_db.results]:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
 
-        response_all.append(response)
+    games_ids = next(
+        (games_["games"] for games_ in games_featured_db.games_by_category if games_["name"] == category), [])
+    games_list, count_pages = get_games_service(db, skip=page, limit=count, games_id=games_ids)
 
-    return {"results": response_all, "count": len(response_all)}
+    return {"results": games_list, "count": len(games_list), "page": page, "total_pages": count_pages}
