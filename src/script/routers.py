@@ -164,7 +164,7 @@ async def create_script(game_id: str,
     # Deduct stars
 
     configuration_db = get_configuration_service(db)
-    deduct_stars_service(db, user_id=current_user, stars=configuration_db.stars_create_script)
+    deduct_stars_service(db, user_id=current_user, stars=configuration_db.stars_news_users)
 
     # Get the game information
     game_db = get_game_service(db, game_id=game_id)

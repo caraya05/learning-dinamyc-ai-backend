@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     admin_superuser_password: str = None
     ACCESS_ID_DIGITAL_OCEAN: str = None
     SECRET_KEY_DIGITAL_OCEAN: str = None
+    URL_DIGITAL_OCEAN: str = None
 
 
 # callback to get your configuration

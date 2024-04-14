@@ -10,7 +10,13 @@ from sqlalchemy.ext.declarative import declarative_base
 from pydantic import constr
 from pydantic import EmailStr
 
+from fastapi_storages.integrations.sqlalchemy import FileType
+from sqlalchemy.orm import relationship
+
+from utils import storage
 from utils import generate_uuid
+
+# from record_daily.models import RecordDaily
 
 Base = declarative_base()
 
@@ -25,7 +31,7 @@ class AbstractBaseModel(Base):
 
 
 class User(AbstractBaseModel):
-    __tablename__ = "user"
+    __tablename__ = "users"
     username: str = Column(String, unique=True, index=True)
     phone_number: str = Column(String, nullable=True)
     email: EmailStr = Column(String, unique=True, index=True)
@@ -40,7 +46,8 @@ class User(AbstractBaseModel):
     stars: int = Column(Integer, default=0, nullable=True)
     number_of_creation_attempts: int = Column(Integer, default=0, nullable=True)
     attempt_to_create: bool = Column(Boolean, default=False, nullable=True)
+    file = Column(FileType(storage), nullable=True)
 
-
+    # record_daily = relationship("DailyRecord", back_populates="user")
     def __repr__(self):
         return f"<User {self.email} - {self.uid}>"
