@@ -1,7 +1,5 @@
 import time
 
-# import sentry_sdk
-
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import Response
@@ -67,20 +65,12 @@ from configuration import models as configuration_base
 from configuration.admin import ConfigurationAdmin
 from configuration import routers as configuration_routers
 
+from record_daily import models as record_daily_base
+from record_daily.admin import DailyRecordAdmin
+
 from admin_config import authentication_backend
 
 from sqladmin import Admin
-
-# sentry_sdk.init(
-#     dsn="https://4e202615deee1365f0d26a614fe834e3@o4506720469319680.ingest.sentry.io/4506720470958080",
-#     # Set traces_sample_rate to 1.0 to capture 100%
-#     # of transactions for performance monitoring.
-#     traces_sample_rate=1.0,
-#     # Set profiles_sample_rate to 1.0 to profile 100%
-#     # of sampled transactions.
-#     # We recommend adjusting this value in production.
-#     profiles_sample_rate=1.0,
-# )
 
 app = FastAPI(
     title="Qwestar AI API",
@@ -145,6 +135,7 @@ admin.add_view(WeaponAdmin)
 admin.add_view(CustomizeAdmin)
 admin.add_view(CategoryAdmin)
 admin.add_view(ConfigurationAdmin)
+admin.add_view(DailyRecordAdmin)
 
 user_base.Base.metadata.create_all(bind=engine)
 character_base.Base.metadata.create_all(bind=engine)
@@ -159,6 +150,7 @@ weapon_base.Base.metadata.create_all(bind=engine)
 customize_base.Base.metadata.create_all(bind=engine)
 category_base.Base.metadata.create_all(bind=engine)
 configuration_base.Base.metadata.create_all(bind=engine)
+record_daily_base.Base.metadata.create_all(bind=engine)
 
 
 @app.middleware("http")

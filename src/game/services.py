@@ -70,7 +70,8 @@ def create_game_service(db: Session, game: SchemaCreateGame, user_id: str):
                        image="",
                        image_background="",
                        attempts=3,
-                       category=category
+                       category=category,
+                       is_wrong=False,
                        )
         db.add(db_game)
         db.commit()

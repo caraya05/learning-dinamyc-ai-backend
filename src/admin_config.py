@@ -6,11 +6,8 @@ from config import settings
 from datetime import datetime, timedelta
 from sqladmin.authentication import AuthenticationBackend
 
-from auth.schemas import SchemaTokenAccess
-
 from user.services import get_user_by_field
 from user.utils import verify_password
-from user.schemas import SchemaRetrieveUser
 
 
 def get_db(request: Request):

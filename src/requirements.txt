@@ -41,3 +41,4 @@ celery
 redis
 flower
 Pillow
+fastapi-storages

@@ -39,6 +39,7 @@ class Game(AbstractBaseModel):
     count_scripts: int = Column(Integer, nullable=True)
     category: str = Column(String, nullable=True)
     response_error: str = Column(Text, nullable=True)
+    is_wrong: bool = Column(Boolean, nullable=True)
 
     def __repr__(self):
         return f"<Game {self.title} - {self.user_id}>"

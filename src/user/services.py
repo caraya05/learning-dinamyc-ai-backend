@@ -1,7 +1,10 @@
+from datetime import datetime
+
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette import status
 
+from record_daily.service import register_daily_record_service
 from .schemas import SchemaUser
 from .schemas import SchemaPartialUpdateUser
 from .schemas import SchemaUpdateUser
@@ -133,6 +136,12 @@ def deduct_stars_service(db: Session, user_id: str, stars: int):
         user_db = get_user_by_field(db, 'id', user_id)
         if user_db:
             user_db.stars -= stars
+            register_daily_record_service(db, user_id, datetime.utcnow(),
+                                          balance=user_db.stars,
+                                          expenses=stars,
+                                          games_created=1,
+                                          sets_with_errors=0,
+                                          attempts_to_create_without_balance=0)
             db.commit()
             db.refresh(user_db)
             return user_db
@@ -170,6 +179,9 @@ def update_attempt_to_create_service(db: Session, user_id: str):
             if user_db.number_of_creation_attempts is None:
                 user_db.number_of_creation_attempts = 0
             user_db.number_of_creation_attempts += 1
+            register_daily_record_service(db, user_id, datetime.utcnow(),
+                                          balance=user_db.stars,
+                                          attempts_to_create_without_balance=1)
             db.commit()
             db.refresh(user_db)
             return user_db
