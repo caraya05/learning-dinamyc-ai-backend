@@ -31,7 +31,7 @@ class AbstractBaseModel(Base):
 
 
 class User(AbstractBaseModel):
-    __tablename__ = "users"
+    __tablename__ = "user"
     username: str = Column(String, unique=True, index=True)
     phone_number: str = Column(String, nullable=True)
     email: EmailStr = Column(String, unique=True, index=True)
