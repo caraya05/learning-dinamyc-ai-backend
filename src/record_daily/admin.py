@@ -1,13 +1,8 @@
 from sqladmin import ModelView
-from sqlalchemy import cast, Boolean, String
-from sqlalchemy.sql import Select
 
 from record_daily.models import DailyRecord
 
 from utils import get_sub_token
-from utils import resize_image
-
-from config import settings
 
 
 class DailyRecordAdmin(ModelView, model=DailyRecord):
@@ -26,7 +21,8 @@ class DailyRecordAdmin(ModelView, model=DailyRecord):
     # can_delete = True
     # can_view_details = True
     # can_export = True
-    # icon = "fa-solid fa-user"
+    icon = "fa-solid fa-newspaper"
+    export_types = ["csv", "by_date", "by_user", ]
 
     form_widget_args = {
         "created_at": {

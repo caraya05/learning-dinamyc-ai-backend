@@ -1,6 +1,15 @@
+from typing import Any
+
+from fastapi import Query
 from sqladmin import ModelView
-from sqlalchemy import cast, Boolean, String
+
+from sqlalchemy import String
+from sqlalchemy import Boolean
+from sqlalchemy import cast
+from sqlalchemy.orm import joinedload
+
 from sqlalchemy.sql import Select
+from starlette.requests import Request
 
 from user.models import User
 from user.utils import get_password_hash
@@ -18,10 +27,12 @@ class UserAdmin(ModelView, model=User):
     # column_sorted_list = ["username", "first_name", "last_name", "email",]
     column_filters = [User.attempt_to_create, ]
 
-    column_details_exclude_list = ["password", "uid", "provider", "last_access", "is_active", "is_superuser", "is_staff",
+    column_details_exclude_list = ["password", "uid", "provider", "last_access", "is_active", "is_superuser",
+                                   "is_staff",
                                    "created_at", "created_by", "updated_at", "updated_by", "file", ]
 
-    form_columns = ["username", "email", "password", "number_of_creation_attempts", "attempt_to_create", "stars", "file", ]
+    form_columns = ["username", "email", "password", "number_of_creation_attempts", "attempt_to_create", "stars",
+                    "file", ]
 
     can_edit = True
     can_create = True
@@ -48,6 +59,17 @@ class UserAdmin(ModelView, model=User):
             "disabled": True
         },
     }
+
+    async def get_object_for_edit(self, value: Any) -> Any:
+
+        stmt = self._stmt_by_identifier(value)
+
+        for relation in self._form_relations:
+            stmt = stmt.options(joinedload(relation))
+
+        obj = await self._get_object_by_pk(stmt)
+        obj.file = None
+        return obj
 
     async def on_model_change(self, form, model, is_created, request):
 

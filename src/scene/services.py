@@ -7,10 +7,10 @@ from starlette import status
 
 from scene.models import Scene
 
-from scene.schemas import SchemaRetrieveScene
 from scene.schemas import SchemaCreateScene
 from scene.schemas import SchemaPartialUpdateScene
 from scene.schemas import SchemaListScene
+from sound.services import get_sound_by_field
 from utils import upload_image
 
 
@@ -61,6 +61,8 @@ def get_scene_service(db: Session, scene_id: str):
     Get a scene.
     """
     scene = get_scene_by_field(db, "id", scene_id)
+    if scene.sound_id:
+        scene.sound = get_sound_by_field(db, "id", scene.sound_id).sound
     return scene
 
 

@@ -67,6 +67,10 @@ from configuration import routers as configuration_routers
 
 from record_daily import models as record_daily_base
 from record_daily.admin import DailyRecordAdmin
+from record_daily import routers as record_daily_routers
+
+from sound import models as sound_base
+from sound.admin import SoundAdmin
 
 from admin_config import authentication_backend
 
@@ -113,6 +117,9 @@ app.include_router(customize_routers.router, prefix="/v1/api")
 app.include_router(configuration_routers.router, prefix="/v1/api")
 app.include_router(category_routers.router, prefix="/v1/api")
 
+# url export data admin
+app.include_router(record_daily_routers.router, prefix="/admin")
+
 admin = Admin(
     app,
     engine,
@@ -136,6 +143,7 @@ admin.add_view(CustomizeAdmin)
 admin.add_view(CategoryAdmin)
 admin.add_view(ConfigurationAdmin)
 admin.add_view(DailyRecordAdmin)
+admin.add_view(SoundAdmin)
 
 user_base.Base.metadata.create_all(bind=engine)
 character_base.Base.metadata.create_all(bind=engine)
@@ -151,6 +159,7 @@ customize_base.Base.metadata.create_all(bind=engine)
 category_base.Base.metadata.create_all(bind=engine)
 configuration_base.Base.metadata.create_all(bind=engine)
 record_daily_base.Base.metadata.create_all(bind=engine)
+sound_base.Base.metadata.create_all(bind=engine)
 
 
 @app.middleware("http")

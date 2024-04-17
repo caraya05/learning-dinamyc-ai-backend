@@ -42,3 +42,4 @@ redis
 flower
 Pillow
 fastapi-storages
+openpyxl

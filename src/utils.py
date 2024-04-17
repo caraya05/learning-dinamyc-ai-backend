@@ -2,60 +2,24 @@ import uuid
 import jwt
 import requests
 
-from boto3 import session
-from typing import BinaryIO
+from PIL import Image
+from io import BytesIO
 
-from fastapi import HTTPException, UploadFile, Path
+from boto3 import session
+
+from fastapi import UploadFile
+from fastapi import HTTPException
 from fastapi import status
+
 from fastapi_storages import S3Storage
 
 from config import settings
-
-from PIL import Image
-from io import BytesIO
 
 session = session.Session()
 
 
 def generate_uuid():
     return str(uuid.uuid4())
-
-
-#
-# def upload_image(url_image: str, file_name: str ):
-#     # Initiate session
-#     image_request = requests.get(url_image, stream=True)
-#
-#     image_buffer = image_request.raw.read()
-#
-#     image_buffer = bytes(image_buffer)
-#
-#     image_buffer = bytearray(image_buffer)
-#
-#     client = session.client('s3',
-#                             region_name='qwestar',
-#                             endpoint_url='https://qwestar.sfo3.digitaloceanspaces.com',
-#                             aws_access_key_id=settings.ACCESS_ID_DIGITAL_OCEAN,
-#                             aws_secret_access_key=settings.SECRET_KEY_DIGITAL_OCEAN)
-#
-#     # Upload a file to your Space
-#     # client.upload_file('test.html', 'hello-spaces', 'new-folder/new_file_name.html')
-#
-#     try:
-#         response = client.put_object(Bucket='backend',
-#                                      Key=file_name,
-#                                      Body=image_buffer,
-#                                      ACL='public-read',
-#                                      ContentType='image/jpeg')
-#
-#         return f"https://qwestar.sfo3.digitaloceanspaces.com/backend/{file_name}"
-#
-#     except Exception as e:
-#         print(e)
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Error uploading image",
-#         )
 
 
 def upload_image(size: tuple[int, int], file_name: str, image_content_type: any = None, url_image: str = None,
@@ -113,6 +77,7 @@ def resize_image(image: UploadFile, size: tuple[int, int]) -> UploadFile:
     img_byte_arr.seek(0)  # Reset the file pointer to the beginning
     return UploadFile(file=img_byte_arr, filename=image.filename)
 
+
 class PublicAssetS3Storage(S3Storage):
     AWS_ACCESS_KEY_ID = settings.ACCESS_ID_DIGITAL_OCEAN
     AWS_SECRET_ACCESS_KEY = settings.SECRET_KEY_DIGITAL_OCEAN
@@ -128,6 +93,12 @@ class PublicAssetS3Storage(S3Storage):
         self._http_scheme = "https" if self.AWS_S3_USE_SSL else "http"
         self._url = f"{self._http_scheme}://{self.AWS_S3_ENDPOINT_URL}"
         return self.AWS_S3_BUCKET_NAME
+
+    def __init__(self):
+        super().__init__()
+        self._bucket = self._s3.Bucket(name=self.AWS_S3_BUCKET_NAME)
+        self._http_scheme = "https" if self.AWS_S3_USE_SSL else "http"
+        self._url = f"{self._http_scheme}://{self.AWS_S3_ENDPOINT_URL}"
 
     def get_path(self, name: str) -> str:
         key = self.get_name(name)

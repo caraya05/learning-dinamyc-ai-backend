@@ -87,6 +87,7 @@ class SchemaRetrieveSceneComplete(BaseModel):
     delivery_location_id: Optional[str]
     delivery_character_id: Optional[str]
     image_defeat: Optional[str]
+    sound: Optional[str]
 
     class Config:
         orm_mode = True
