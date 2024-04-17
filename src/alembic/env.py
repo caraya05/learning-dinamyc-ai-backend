@@ -33,7 +33,7 @@ from customize.models import Base as customize_base
 from category.models import Base as category_base
 from configuration.models import Base as configuration_base
 from record_daily.models import Base as record_daily_base
-
+from sound.models import Base as sound_base
 
 def combine_metadata(*args):
     m = MetaData()
@@ -47,7 +47,7 @@ target_metadata = combine_metadata(user_base.metadata, game_base.metadata, chara
                                    game_progress_base.metadata, location_base.metadata, prompt_base.metadata,
                                    scene_base.metadata, script_base.metadata, object_base.metadata,
                                    weapon_base.metadata, customize_base.metadata, category_base.metadata,
-                                   configuration_base.metadata, record_daily_base.metadata)
+                                   configuration_base.metadata, record_daily_base.metadata, sound_base.metadata)
 
 
 # other values from the config, defined by the needs of env.py,

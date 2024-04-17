@@ -48,6 +48,7 @@ class SchemaRetrieveLocation(BaseModel):
     zoom: float
     attempts: Optional[int]
     config: Optional[dict]
+    sound: Optional[str]
 
     class Config:
         orm_mode = True

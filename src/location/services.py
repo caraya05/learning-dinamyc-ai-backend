@@ -13,6 +13,8 @@ from scene.services import get_scenes_service
 
 from script.services import get_script_by_field
 
+from sound.services import get_sound_by_field
+
 from utils import upload_image
 
 
@@ -58,6 +60,8 @@ def get_location_service(db: Session, location_id: str):
     Get a location.
     """
     location = get_location_by_field(db, "id", location_id)
+    if location.sound_id:
+        location.sound = get_sound_by_field(db, "id", location.sound_id).sound
     return SchemaRetrieveLocation.from_orm(location)
 
 

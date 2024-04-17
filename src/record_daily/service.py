@@ -64,3 +64,39 @@ def register_daily_record_service(db: Session,
         return daily_record
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Daily record not updated {e}") from e
+
+
+def get_list_daily_record_service(db: Session, type_export: str):
+    try:
+        if type_export == "by_date":
+            daily_records = (
+                db.query(
+                    func.date(DailyRecord.created_at).label("date"),
+                    func.sum(DailyRecord.expenses).label("total_expenses"),
+                    func.sum(DailyRecord.games_created).label("total_games_created"),
+                    func.sum(DailyRecord.sets_with_errors).label("total_sets_with_errors"),
+                )
+                .group_by(func.date(DailyRecord.created_at))
+                .all()
+            )
+            return daily_records
+        elif type_export == "by_user":
+            daily_records = (
+                db.query(
+                    DailyRecord.user,
+                    # func.date(DailyRecord.user).label("date"),
+                    func.sum(DailyRecord.balance).label("total_balance"),
+                    func.sum(DailyRecord.expenses).label("total_expenses"),
+                    func.sum(DailyRecord.games_created).label("total_games_created"),
+                    func.sum(DailyRecord.sets_with_errors).label("total_sets_with_errors"),
+                    func.sum(DailyRecord.attempts_to_create_without_balance).label("total_attempts_without_balance"),
+                )
+                .group_by(DailyRecord.user)
+                .all()
+            )
+            return daily_records
+        else:
+            daily_records = db.query(DailyRecord).all()
+            return daily_records
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Daily records not retrieved {e}") from e

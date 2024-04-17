@@ -33,6 +33,8 @@ class Location(AbstractBaseModel):
     game_id: str = Column(String, nullable=False)
     attempts: int = Column(Integer, nullable=True)
     config: str = Column(PickleType, nullable=True)
+    sound_id: str = Column(String, nullable=True)
+
 
     def __repr__(self):
         return f"<Location {self.title} - {self.game_id}>"

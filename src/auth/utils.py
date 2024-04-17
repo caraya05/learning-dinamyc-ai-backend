@@ -15,6 +15,7 @@ from user.utils import verify_password
 from user.models import User
 from user.schemas import SchemaRetrieveUser
 
+
 def get_user_authenticate(db: Session, user: SchemaLogin) -> User:
     db_user = db.query(User).filter(User.email == user.email).first()
     if not db_user:
