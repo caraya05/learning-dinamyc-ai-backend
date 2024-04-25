@@ -31,6 +31,11 @@ black:
 bash:
 	docker-compose  run --rm fastapi sh
 
+clean:
+	docker-compose down --rmi all --volumes --remove-orphans | true
+	docker-compose rm -f | true
+
+
 arm-build:
 	docker-compose -f docker-compose-arm.yml build
 

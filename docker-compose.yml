@@ -1,4 +1,4 @@
-version: '3.7'
+version: '3.8'
 
 services:
   fastapi:
@@ -13,34 +13,36 @@ services:
       - ./src/:/code
     ports:
       - "9000:9000"
-    #    environment:
-    #      - DATABASE_URI=postgresql://prospero_db_username:prospero_db_password@postgres/prospero_db_dev
     depends_on:
-      - postgres
+      - mongodb
 
-  postgres:
-    container_name: postgres
-    image: postgres:12.1-alpine
+  mongodb:
+    container_name: mongodb
+    image: mongo:latest
     ports:
-      - 5432:5432
+      - "6000:27017"
     volumes:
-      - .postgres_data_base:/var/lib/postgresql/data/
-    env_file:
-      - .envs/.env_postgres
+      - ./mongodb_data_base:/data/db
+#    env_file:
+#      - .envs/.env
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=mongo_user
+      - MONGO_INITDB_ROOT_PASSWORD=mongo
+      - MONGO_INITDB_DATABASE=qwestar__db
 
-  nginx:
-    container_name: nginx
-    build: ./nginx
-    image: nginx:latest
-    depends_on:
-      - fastapi
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx:/etc/nginx/conf.d/:ro
-      - ./nginx/ssl:/etc/ssl/:ro
-      - ./src/statics:/code/statics
+#  nginx:
+#    container_name: nginx
+#    build: ./nginx
+#    image: nginx:latest
+#    depends_on:
+#      - fastapi
+#    ports:
+#      - "80:80"
+#      - "443:443"
+#    volumes:
+#      - ./nginx:/etc/nginx/conf.d/:ro
+#      - ./nginx/ssl:/etc/ssl/:ro
+#      - ./src/statics:/code/statics
 
   redis:
     container_name: redis
@@ -61,7 +63,6 @@ services:
       - fastapi
       - redis
 
-
   flower:
     container_name: flower
     build:
@@ -77,9 +78,3 @@ services:
       - fastapi
       - redis
       - celery_worker
-
-
-
-
-
-

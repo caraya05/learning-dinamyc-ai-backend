@@ -13,7 +13,6 @@ MarkupSafe==2.1.2
 mypy-extensions==0.4.3
 pathspec==0.11.0
 platformdirs==2.6.2
-psycopg2-binary==2.9.5
 pydantic==1.10.4
 PyJWT==1.7.1
 sniffio==1.3.0
@@ -27,6 +26,7 @@ requests==2.26.0
 itsdangerous==2.1.2
 passlib==1.7.4
 itsdangerous==2.1.2
+pymongo[srv]
 pytest
 httpx
 pytest-html
