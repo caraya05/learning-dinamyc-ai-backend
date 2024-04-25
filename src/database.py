@@ -16,38 +16,29 @@
 #
 # Base = declarative_base()
 import os
-import time
 
-from pymongo import MongoClient
-import pymongo
+
+from mongoengine import connect
+
+
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
 
 DATABASE_URL = os.getenv("DATABASE_URI", "")
-INITIAL_DATABASE = os.getenv("MONGO_INITDB_DATABASE", "")
+client = MongoClient(DATABASE_URL, server_api=ServerApi('1'))
+db = client.get_database("QwestarLocal")
 
-client = MongoClient(DATABASE_URL)
-print('Connected to MongoDB...')
+try:
+    client.admin.command('ping')
+    print("Pinged your deployment. You successfully connected to MongoDB!")
+except Exception as e:
+    print(e)
 
-# db = client[INITIAL_DATABASE]
+from motor.motor_asyncio import AsyncIOMotorClient
+from odmantic.engine import AIOEngine
 
+engine = AIOEngine(
+    client=AsyncIOMotorClient(DATABASE_URL), database="QwestarLocal"
+)
 
-# User = db.create_collection("users")
-# Post = db.posts
-#
-# print(db.name)
-# print(db.list_collection_names())
-# from pymongo.errors import ServerSelectionTimeoutError
-#
-#
-# def create_index(collection, index, unique=False):
-#     try:
-#         collection.create_index(index, unique=unique)
-#     except ServerSelectionTimeoutError:
-#         print(str(ServerSelectionTimeoutError.errors))
-#         print("MongoDB no está listo. Esperando 10 segundos antes de volver a intentarlo...")
-#         time.sleep(10)
-#         create_index(collection, index, unique)
-#
-#
-# # Luego puedes llamar a esta función para crear tus índices:
-# create_index(User, [("email", pymongo.ASCENDING)], unique=True)
-# create_index(Post, [("title", pymongo.ASCENDING)], unique=True)
+connection = connect(host=DATABASE_URL)

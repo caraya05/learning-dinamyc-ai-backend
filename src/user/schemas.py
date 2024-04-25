@@ -1,7 +1,8 @@
+import uuid
 from typing import Optional
-from uuid import UUID
 
 from pydantic import BaseModel
+from pydantic import EmailStr
 from pydantic import Field
 
 
@@ -12,17 +13,23 @@ class SchemaBaseUser(BaseModel):
 
 
 class SchemaUser(BaseModel):
-    username: str = Field(..., min_length=3, max_length=100,
-                          example="Jhon Doe")
-    phone_number: str = Field(..., max_length=10,
-                              example="123456789")
-    email: str = Field(..., strip_whitespace=True, unique=True,
-                       regex="^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", example="jhon@gmail.com")
-    password: str = Field(..., min_length=8, example="password123")
+    id: str = Field(default_factory=uuid.uuid4, example="uuid")
+    username: str = Field(..., example="Jhon Doe")
+    email: EmailStr = Field(..., strip_whitespace=True, unique=True, example="jhon@gmail.com")
+    password: Optional[str] = Field(..., example="password123")
+    photo: Optional[str] = Field(..., example="photo.jpg")
+    uid: str = Field(..., example="123")
+    provider: str = Field(..., example="local")
+    is_active: bool = Field(default=False, example=False)
+    is_superuser: bool = Field(default=False, example=False)
+    is_staff: bool = Field(default=False, example=False)
+    stars: Optional[int] = Field(default=0, example=0)
+    number_of_creation_attempts: Optional[int] = Field(default=0, example=0)
+    attempt_to_create: Optional[bool] = Field(default=False, example=False)
 
 
 class SchemaRetrieveUser(BaseModel):
-    id: UUID
+    id: str
     username: str = Field(..., min_length=3, max_length=100,
                           example="Jhon Doe")
     email: str = Field(..., strip_whitespace=True, unique=True, example="jhon@gmail.com")

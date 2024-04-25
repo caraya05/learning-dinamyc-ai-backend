@@ -1,4 +1,6 @@
 import time
+import logging
+from fastapi import HTTPException
 
 from fastapi import FastAPI
 from fastapi import Request
@@ -13,8 +15,10 @@ from fastapi_jwt_auth import AuthJWT
 # from database import SessionLocal
 
 # from user import routers as user_routers
-# from user import models as user_base
-# from user.admin import UserAdmin
+# from user.models import Author, Book
+from user.models import Category, Product
+# from user.admin import AuthorView
+from user.admin import CategoryView, ProductView
 #
 # from auth import routers as token_routers
 #
@@ -72,12 +76,15 @@ from fastapi_jwt_auth import AuthJWT
 # from sound import models as sound_base
 # from sound.admin import SoundAdmin
 #
-# from admin_config import authentication_backend
-#
-# from sqladmin import Admin
+from admin_config import UsernameAndPasswordProvider
 
-from database import client
-from database import INITIAL_DATABASE
+from starlette_admin.views import Link
+from starlette_admin import I18nConfig
+# from starlette_admin.contrib.odmantic import Admin, ModelView
+from starlette_admin.contrib.mongoengine import Admin, ModelView
+from database import db
+from database import engine
+from database import connection
 
 app = FastAPI(
     title="Qwestar AI API",
@@ -105,7 +112,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 #
 # app.include_router(user_routers.router, prefix="/v1/api")
 # app.include_router(token_routers.router, prefix="/v1/api")
@@ -124,17 +130,36 @@ app.add_middleware(
 #
 # # url export data admin
 # app.include_router(record_daily_routers.router, prefix="/admin")
+from starlette.middleware import Middleware
+from starlette.middleware.sessions import SessionMiddleware
 
-# admin = Admin(
-#     app,
-#     # engine,
-#     logo_url="https://qwestar.ai/wp-content/uploads/2024/01/Logo-Qwestar-Color.png",
-#     title="Qwestar AI Admin",
-#     authentication_backend=authentication_backend,
-#     base_url="/admin",
-# )
-#
-# admin.add_view(UserAdmin)
+admin = Admin(
+    # engine,
+    logo_url="https://qwestar.ai/wp-content/uploads/2024/01/Logo-Qwestar-Color.png",
+    title="Qwestar AI Admin",
+    auth_provider=UsernameAndPasswordProvider(),
+    middlewares=[Middleware(SessionMiddleware, secret_key="2ssss")],
+    base_url="/admin",
+)
+from starlette_admin import DropDown
+
+admin.add_view(
+    DropDown(
+        label="Store",
+        icon="fa fa-store",
+        views=[ProductView(Product), CategoryView(Category, label="Categories")],
+    )
+)
+admin.add_view(
+    Link(
+        "StarletteAdmin Docs",
+        url="https://jowilf.github.io/starlette-admin/",
+        icon="fa fa-book",
+        target="_blank",
+    )
+)
+admin.add_view(Link(label="Go Back to Home", icon="fa fa-link", url="/admin/"))
+
 # admin.add_view(CharacterAdmin)
 # admin.add_view(GameProgressAdmin)
 # admin.add_view(GameAdmin)
@@ -149,6 +174,9 @@ app.add_middleware(
 # admin.add_view(ConfigurationAdmin)
 # admin.add_view(DailyRecordAdmin)
 # admin.add_view(SoundAdmin)
+
+admin.mount_to(app)
+
 
 # user_base.Base.metadata.create_all(bind=engine)
 # character_base.Base.metadata.create_all(bind=engine)
@@ -166,19 +194,23 @@ app.add_middleware(
 # record_daily_base.Base.metadata.create_all(bind=engine)
 # sound_base.Base.metadata.create_all(bind=engine)
 
-
 @app.middleware("http")
 async def db_session_middleware(request: Request, call_next):
     response = Response("Internal server error", status_code=500)
     try:
         start_time = time.time()
-        request.state.db = client.mongo_client[INITIAL_DATABASE]
+        request.state.db = connection
         response = await call_next(request)
-        process_time = time.time() - start_time
-        response.headers["X-Process-Time"] = str(process_time)
+    except HTTPException as e:
+        response = JSONResponse(status_code=e.status_code, content={"detail": e.detail})
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
     finally:
-        request.state.db.mongo_client.close()
+        process_time = time.time() - start_time
+        logging.info(f"Processed request in {process_time} seconds")
+        request.state.db = None
     return response
+
 
 # @app.on_event("startup")
 # def startup_db_client():
@@ -210,6 +242,46 @@ def check_if_token_in_denylist(decrypted_token):
     return jti in denylist
 
 
+from pydantic import BaseModel
+from typing import Optional
+
+
+class ProductModel(BaseModel):
+    id: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    dimension: Optional[str] = None
+    image: Optional[str] = None
+    manual: Optional[str] = None
+    created_at: Optional[str] = None
+    category: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
 @app.get("/")
 async def root():
+    print(Product.objects().all())
+    for product in Product.objects().all():
+        print(product.id)
+    category = Product.objects().get(id="662ae74950b1d4c8cf3f290e")
+    print(category.image)
     return {"message": "Qwestar AI API"}
+
+
+@app.get("/product/{product_id}", response_model=ProductModel)
+async def get_product(product_id: str):
+    product = Product.objects().get(id=product_id)
+    return {
+        "id": str(product.id),
+        "title": product.title,
+        "description": product.description,
+        "price": product.price,
+        "dimension": str(product.dimension),
+        "image": str(product.image),
+        "manual": str(product.manual),
+        "created_at": str(product.created_at),
+        "category": product.category
+    }

@@ -27,6 +27,7 @@ itsdangerous==2.1.2
 passlib==1.7.4
 itsdangerous==2.1.2
 pymongo[srv]
+mongoengine
 pytest
 httpx
 pytest-html
@@ -43,3 +44,5 @@ flower
 Pillow
 fastapi-storages
 openpyxl
+starlette-admin
+odmantic
