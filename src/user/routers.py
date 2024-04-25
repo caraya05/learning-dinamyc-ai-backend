@@ -166,7 +166,7 @@ async def validate_stars(
 
 
 # update photo user
-@router.patch("/update-photo/", response_model=SchemaRetrieveUser)
+@router.post("/update-photo/", response_model=SchemaRetrieveUser)
 async def update_photo_user(
         photo: UploadFile = File(...),
         db: Session = Depends(get_db),
