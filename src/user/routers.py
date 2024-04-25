@@ -189,7 +189,7 @@ async def update_photo_user(
 
     url_photo = upload_image(name_bucket="users",
                              image_content_type=photo_content,
-                             file_name=f"{user_current.id}.jpg",
+                             file_name=f"user/{user_current.id}.jpg",
                              size=(512, 512))
 
     return update_photo_service(db=db, user_id=user_current.id, photo=url_photo)
