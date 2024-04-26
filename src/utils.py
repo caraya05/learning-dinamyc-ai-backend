@@ -43,11 +43,15 @@ def upload_image(size: tuple[int, int], file_name: str, image_content_type: any 
                                 aws_access_key_id=settings.ACCESS_ID_DIGITAL_OCEAN,
                                 aws_secret_access_key=settings.SECRET_KEY_DIGITAL_OCEAN)
 
-        response = client.upload_file(Bucket=name_bucket,
-                                      Key=file_name,
-                                      Body=img_byte_arr,
-                                      ACL='public-read',
-                                      ContentType='image/jpeg')
+        # response = client.upload_file(Bucket=name_bucket,
+        #                               Key=file_name,
+        #                               Body=img_byte_arr,
+        #                               ACL='public-read',
+        #                               ContentType='image/jpeg')
+        response =client.upload_file(file_name,name_bucket, img_byte_arr)
+
+        print(response)
+
         return f"{settings.URL_DIGITAL_OCEAN}{file_name}"
     except Exception as e:
         print(e)
