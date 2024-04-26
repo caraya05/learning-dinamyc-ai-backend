@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from config import auth_scheme
 from utils import upload_image
+from utils import delete_image
 
 from user.services import get_current_user_service
 from user.services import get_user_by_field
@@ -153,7 +154,7 @@ async def validate_stars(
         # Retrieve the current user's information
         user_current = get_current_user_service(db, Authorize.get_raw_jwt())
     except Exception as ex:
-    # If there is an error, raise an HTTPException
+        # If there is an error, raise an HTTPException
         print(ex)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error in the getting user") from ex
@@ -187,9 +188,13 @@ async def update_photo_user(
 
     photo_content = await photo.read()
 
-    url_photo = upload_image(name_bucket="users",
+    if user_current.photo:
+        delete_image(file_name=f"user/{user_current.photo.split('/')[-1]}",
+                     name_bucket="backend")
+
+    url_photo = upload_image(name_bucket="backend",
                              image_content_type=photo_content,
-                             file_name=f"user/{user_current.id}.jpg",
+                             file_name=f"user/{photo.filename}",
                              size=(512, 512))
 
     return update_photo_service(db=db, user_id=user_current.id, photo=url_photo)

@@ -22,6 +22,27 @@ def generate_uuid():
     return str(uuid.uuid4())
 
 
+def delete_image(file_name: str, name_bucket: str = 'backend'):
+    try:
+        client = session.client('s3',
+                                region_name='qwestar',
+                                endpoint_url='https://qwestar.sfo3.digitaloceanspaces.com',
+                                aws_access_key_id=settings.ACCESS_ID_DIGITAL_OCEAN,
+                                aws_secret_access_key=settings.SECRET_KEY_DIGITAL_OCEAN)
+
+        response = client.delete_object(Bucket=name_bucket,
+                                        Key=file_name)
+
+        print("delete_image", response)
+        return response
+    except Exception as e:
+        print(e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error deleting image",
+        )
+
+
 def upload_image(size: tuple[int, int], file_name: str, image_content_type: any = None, url_image: str = None,
                  name_bucket: str = 'backend'):
     try:
@@ -43,16 +64,14 @@ def upload_image(size: tuple[int, int], file_name: str, image_content_type: any 
                                 aws_access_key_id=settings.ACCESS_ID_DIGITAL_OCEAN,
                                 aws_secret_access_key=settings.SECRET_KEY_DIGITAL_OCEAN)
 
-        # response = client.upload_file(Bucket=name_bucket,
-        #                               Key=file_name,
-        #                               Body=img_byte_arr,
-        #                               ACL='public-read',
-        #                               ContentType='image/jpeg')
-        response = client.upload_file(f"backend/{file_name}", "qwestar", img_byte_arr)
+        response = client.put_object(Bucket=name_bucket,
+                                     Key=file_name,
+                                     Body=img_byte_arr,
+                                     ACL='public-read',
+                                     ContentType='image/jpeg')
+        # response = client.upload_file(f"backend/{file_name}", "qwestar", img_byte_arr)
 
-        print(response)
-
-        return f"{settings.URL_DIGITAL_OCEAN}{file_name}"
+        return f"https://qwestar.sfo3.cdn.digitaloceanspaces.com/{name_bucket}/{file_name}"
     except Exception as e:
         print(e)
         raise HTTPException(
