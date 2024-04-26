@@ -48,7 +48,7 @@ def upload_image(size: tuple[int, int], file_name: str, image_content_type: any 
         #                               Body=img_byte_arr,
         #                               ACL='public-read',
         #                               ContentType='image/jpeg')
-        response = client.upload_file(f"backend/{file_name}", name_bucket, img_byte_arr)
+        response = client.upload_file(f"backend/{file_name}", "qwestar", img_byte_arr)
 
         print(response)
 
