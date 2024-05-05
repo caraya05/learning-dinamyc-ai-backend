@@ -9,6 +9,6 @@ class Category(BaseModel):
     description: str = Field(..., example="This is a category")
     is_active: bool = Field(default=True, example=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    created_by: str = Field(default="system", example="system")
+    created_by: str = Field(default="", example="system")
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_by: str = Field(default="system", example="system")
+    updated_by: str = Field(default="", example="system")
