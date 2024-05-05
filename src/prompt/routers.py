@@ -63,10 +63,15 @@ async def get_prompt(
 
     It returns a single prompt.
     """
-
-    prompt_db = await get_prompt_service(_id=prompt_id)
-
-    return prompt_db
+    try:
+        prompt_db = await get_prompt_service(_id=prompt_id)
+        return prompt_db
+    except Exception as e:
+        print(f"Error get prompt: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prompt not found",
+        )
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrievePrompt)
@@ -80,13 +85,20 @@ async def create_prompt(
 
     It returns a single prompt.
     """
-    prompt_created = Prompt(**prompt.dict(),
-                            created_by=str(user_db.get("_id")),
-                            updated_by=str(user_db.get("_id")))
+    try:
+        prompt_created = Prompt(**prompt.dict(),
+                                created_by=str(user_db.get("_id")),
+                                updated_by=str(user_db.get("_id")))
 
-    prompt_db = await create_prompt_service(schema=prompt_created)
+        prompt_db = await create_prompt_service(schema=prompt_created)
 
-    return prompt_db
+        return prompt_db
+    except Exception as e:
+        print(f"Error create prompt: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prompt not created",
+        )
 
 
 @router.put("/{prompt_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrievePrompt)
@@ -101,7 +113,14 @@ async def update_prompt(
 
     It returns a single prompt.
     """
-    return await update_prompt_service(_id=prompt_id, schema=prompt)
+    try:
+        return await update_prompt_service(_id=prompt_id, schema=prompt)
+    except Exception as e:
+        print(f"Error update prompt: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prompt not found",
+        )
 
 
 @router.delete("/{prompt_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -115,4 +134,11 @@ async def delete_prompt(
 
     It returns a single prompt.
     """
-    return await delete_prompt_service(_id=prompt_id)
+    try:
+        return await delete_prompt_service(_id=prompt_id)
+    except Exception as e:
+        print(f"Error delete prompt: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Prompt not found",
+        )
