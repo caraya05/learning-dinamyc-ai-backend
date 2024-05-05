@@ -1,10 +1,11 @@
 import sys
 import os
 import csv
-from core.database import db
-from category.models import Category
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from core.database import db
+from category.models import Category
 
 with open('Category.csv', 'r') as f:
     reader = csv.DictReader(f)
