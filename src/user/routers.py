@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from utils import upload_image
 
-from user.services import get_user_by_field
+from user.services import get_user_by_id_service
 from user.services import create_user_service
 from user.services import update_photo_service
 from user.services import update_attempt_to_create_service
@@ -113,7 +113,7 @@ async def get_user(
         # Authorize.jwt_required()
 
         # Retrieve the current user's information
-        return get_user_by_field("id", user_id)
+        return await get_user_by_id_service(user_id=str(user_id))
     except Exception as ex:
         # If there is an error, raise an HTTPException
         raise HTTPException(

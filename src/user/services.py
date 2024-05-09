@@ -198,3 +198,15 @@ async def update_attempt_to_create_service(user_id: str):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error in update attempt to create {e}"
         )
+
+
+async def get_user_by_id_service(user_id: str):
+    try:
+        user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
+        return user_db
+    except Exception as e:
+        print(f"Error in get user by id {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error in get user by id {e}"
+        )
