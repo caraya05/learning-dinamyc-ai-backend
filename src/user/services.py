@@ -137,7 +137,7 @@ async def deduct_stars_service(user_id: str, stars: int):
             await register_daily_record_service(
                 user_id=user_id,
                 created_at=datetime.utcnow(),
-                balance=user_db.stars,
+                balance=user_db["stars"],
                 expenses=stars,
                 games_created=1,
                 sets_with_errors=0,
