@@ -68,8 +68,8 @@ async def generate_token(user_id: PyObjectId, password_ts: float) -> dict:
         refresh, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
     )
     return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
+        "access": access_token,
+        "refresh": refresh_token,
         "token_type": "bearer",
     }
 
