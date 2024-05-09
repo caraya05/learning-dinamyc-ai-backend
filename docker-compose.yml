@@ -18,7 +18,7 @@ services:
     container_name: nginx
     build:
       context: ./nginx
-      dockerfile: .docker/Dockerfile
+      dockerfile: Dockerfile
     depends_on:
       - fastapi
     ports:
