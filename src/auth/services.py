@@ -24,7 +24,7 @@ from user.services import get_or_created_user_service
 async def authenticate_user(email: str, password: str) -> dict | None:
     if user := await db["user"].find_one({"email": email}):
         if verify_password(password, user.get("password")):
-            if user.get("active"):
+            if user.get("is_active"):
                 return user
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -107,3 +107,14 @@ async def social_auth_firebase(data: dict):
     user_token = await get_user_token_firebase(data)
     user_id, user_password = await get_or_created_user_service(user_token)
     return await generate_token(user_id, user_password)
+
+
+async def is_token_valid(token: str) -> bool:
+    if payload := await decode_token(token):
+        if payload.get("type") == TokenType.ACCESS.value:
+            exp = payload.get("exp")
+            if exp:
+                exp_date = datetime.fromtimestamp(exp)
+                if exp_date > datetime.utcnow():
+                    return True
+    return False

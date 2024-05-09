@@ -9,7 +9,7 @@ class User(BaseModel):
     username: str = Field(..., example="user")
     email: EmailStr = Field(..., example="user@example.com")
     photo: str = Field(None, example="photo.jpg")
-    uid: str = Field(..., example="123")
+    uid: str = Field(None, example="123")
     provider: str = Field(default="local", example="local")
     password: str = Field(..., min_length=8, example="password123")
     is_active: bool = Field(default=False, example=False)

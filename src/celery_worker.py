@@ -5,7 +5,6 @@ import requests
 from celery import Celery
 
 from character.schemas import SchemaCreateCharacter
-# from character.schemas import SchemaCreateCharacter
 
 from location.schemas import SchemaCreateLocation
 
@@ -23,7 +22,7 @@ celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
 # URL_API = "https://backend-dev.qwestar.ai"  # dev
-URL_API = "http://192.168.1.45"  # casa
+URL_API = os.getenv("URL_API", "http://localhost:8000")  # local
 
 
 # URL_API = "http://10.215.61.62"  # wework usaquen

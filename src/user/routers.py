@@ -1,56 +1,56 @@
 from fastapi import APIRouter
 from fastapi import Depends
-
 from fastapi import HTTPException
 from fastapi import status
 from fastapi import UploadFile
 from fastapi import File
 from fastapi.security import HTTPAuthorizationCredentials
+from uuid import uuid4
 
 from utils import upload_image
 
-# from user.services import get_current_user_service
 from user.services import get_user_by_field
+from user.services import create_user_service
 from user.services import update_photo_service
 from user.services import update_attempt_to_create_service
 
 from user.schemas import SchemaRetrieveUser
+from user.schemas import SchemaUser
 
 from auth.utils import auth_schema
 from auth.auth import auth
-
 from PIL import Image
 from io import BytesIO
 
 router = APIRouter(prefix="/user", tags=["User"])
 
 
-# @router.post("/", response_model=SchemaRetrieveUser, status_code=status.HTTP_201_CREATED)
-# async def create_user(user: SchemaUser, db: Session = Depends(get_db)):
-#     """
-#     This endpoint creates a new user.
-#
-#     It expects the user's information in the request body. If the user is successfully created, it returns the user's information.
-#     If the user already exists, it raises an HTTPException with status code 400.
-#
-#     Parameters:
-#     user (SchemaUser): The user's information to be created.
-#     db (Session): Database session for executing queries.
-#
-#     Returns:
-#     SchemaRetrieveUser: The created user's information.
-#
-#     Raises:
-#     HTTPException: If the user already exists, an HTTPException is raised with status code 400.
-#     """
-#     db_user = create_user_service(db=db, user=user)
-#     if db_user:
-#         return db_user
-#     else:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="User already registered",
-#         )
+@router.post("/", response_model=SchemaRetrieveUser, status_code=status.HTTP_201_CREATED, include_in_schema=False)
+async def create_user(user: SchemaUser):
+    """
+    This endpoint creates a new user.
+
+    It expects the user's information in the request body. If the user is successfully created, it returns the user's information.
+    If the user already exists, it raises an HTTPException with status code 400.
+
+    Parameters:
+    user (SchemaUser): The user's information to be created.
+    db (Session): Database session for executing queries.
+
+    Returns:
+    SchemaRetrieveUser: The created user's information.
+
+    Raises:
+    HTTPException: If the user already exists, an HTTPException is raised with status code 400.
+    """
+    db_user = await create_user_service(user=user)
+    if db_user:
+        return db_user
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User already registered",
+        )
 
 
 @router.get("/current-user", response_model=SchemaRetrieveUser)
@@ -144,7 +144,7 @@ async def update_photo_user(
     url_photo = upload_image(
         name_bucket="users",
         image_content_type=photo_content,
-        file_name=f"{user_db['_id']}.jpg",
+        file_name=f"user/{uuid4()}.jpg",
         size=(512, 512),
     )
 

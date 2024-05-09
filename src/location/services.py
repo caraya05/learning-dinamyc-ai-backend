@@ -125,9 +125,9 @@ async def partial_update_location_service(*, location_id: str, schema: SchemaPar
                     file_name=f"locations/{uuid4()}.jpg",
                     size=(812, 812),
                 )
-            if schema.config:
+            if schema.configuration:
                 json_config = {
-                    "config": schema.config,
+                    "config": schema.configuration,
                     "user": user_id,
                 }
                 location_db["config"].append(json_config)

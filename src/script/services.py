@@ -31,13 +31,13 @@ async def get_script_by_game_id_service(game_id: str) -> dict:
                         detail="Script not found.")
 
 
-def get_scripts_service(game_id: str, skip: int = 0, limit: int = 100):
+async def get_scripts_service(game_id: str, skip: int = 0, limit: int = 100):
     """
     Get a list of scripts.
     """
     try:
-        scripts_db = db['chapter'].find({"game_id": game_id}).skip(skip).limit(limit).to_list(None)
-        counts = db['chapter'].count_documents({"game_id": game_id})
+        scripts_db = await db['chapter'].find({"game_id": game_id}).skip(skip).limit(limit).to_list(None)
+        counts = await db['chapter'].count_documents({"game_id": game_id})
         return scripts_db, counts
     except Exception as e:
         print(f"Error in get scripts service: {e}")

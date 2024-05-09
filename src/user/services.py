@@ -18,12 +18,12 @@ from configuration.services import get_configurations_service
 
 
 async def create_user_service(user: SchemaUser):
-    if get_user_by_field('email', user.email):
+    if user_db := await db["user"].find_one({"email": user.email}):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Nombre de la empresa ya registrado - company_name",
+            detail="Correo electrónico ya registrado - email",
         )
-    if get_user_by_field('username', user.username):
+    if user_db := await db["user"].find_one({"username": user.username}):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Nombre de usuario ya registrado - username",
@@ -31,8 +31,8 @@ async def create_user_service(user: SchemaUser):
 
     db_user = User(**user.dict())
     db_user.password = get_password_hash(db_user.password)
-    new_user = await db["user"].insert(db_user.dict())
-    user_created = await db["user"].find_one({"_id": new_user._id})
+    new_user = await db["user"].insert_one(db_user.dict())
+    user_created = await db["user"].find_one({"_id": new_user.inserted_id})
 
     return user_created
 

@@ -1,35 +1,34 @@
 from auth.services import social_auth_firebase
-from fastapi import APIRouter, HTTPException, status, Depends
-from fastapi.security import HTTPAuthorizationCredentials
-
-from auth.auth import auth
-from auth.utils import auth_schema
-from auth.schemas import Credentials, Refresh, Token
-from auth.services import auth_refresh, authenticate_user, generate_token
+from auth.services import is_token_valid
+from fastapi import APIRouter
+from fastapi import HTTPException
+from fastapi import status
+from auth.schemas import Credentials
+from auth.schemas import Refresh
+from auth.schemas import Token
+from auth.services import auth_refresh
+from auth.services import authenticate_user
+from auth.services import generate_token
 from core.schemas import ExceptionModel
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
 
-# @router.post("/verify", status_code=status.HTTP_200_OK)
-# def verify_token(
-#         user: dict = Depends(auth),
-#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-# ):
-#     """
-#     Verify if token_user is valid
-#     """
-#     try:
-#         Authorize.jwt_required()
-#         return {"message": "Token is valid"}
-#     except JWTDecodeError as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED, detail="Error token expired"
-#         ) from e
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED, detail="Error token expired"
-#         ) from e
+@router.post("/verify", status_code=status.HTTP_200_OK)
+def verify_token(
+        token: dict = {"access": ""},
+):
+    """
+    Verify if token_user is valid
+    """
+    if is_token_valid(token["access"]):
+        return {"message": "Token is valid"}
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
 
 @router.post(
     "/token",
@@ -68,7 +67,7 @@ async def sign_in_with_google(data: dict):
     "/apple",
     status_code=status.HTTP_200_OK
 )
-async def sign_in_with_apple(data: dict ):
+async def sign_in_with_apple(data: dict):
     """
     Sign in with apple
     """

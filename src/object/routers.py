@@ -27,33 +27,23 @@ from utils import upload_image
 router = APIRouter(prefix="/object", tags=["Object"])
 
 
-#TODO - arreglar el get_objects y el update
+# TODO - arreglar el get_objects y el update
 
-# @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListObject)
-# def get_objects(
-#         game_id: str,
-#         user_db: dict = Depends(auth),
-#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-# ):
-#     """
-#     This endpoint retrieves all objects.
-#
-#     It returns a list of objects.
-#     """
-#
-#     try:
-#         Authorize.jwt_required()
-#         current_user = Authorize.get_jwt_subject()
-#
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid token",
-#         )
-#
-#     objects_db = get_objects_service(db, game_id, skip=0, limit=100)
-#
-#     return SchemaListObject(results=objects_db, count=len(objects_db))
+@router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListObject)
+async def get_objects(
+        game_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves all objects.
+
+    It returns a list of objects.
+    """
+
+    objects_db, counts_objects = await get_objects_service(game_id, skip=0, limit=100)
+
+    return SchemaListObject(results=objects_db, count=counts_objects)
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveObject)
@@ -80,32 +70,21 @@ async def create_object(
         )
 
 
-# @router.get("/{object_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveObject)
-# def retrieve_object(
-#         object_id: str,
-#         db: Session = Depends(get_db),
-#         Authorize: AuthJWT = Depends(),
-#         Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-# ):
-#     """
-#     This endpoint retrieves a object.
-#
-#     It returns a object.
-#     """
-#
-#     try:
-#         Authorize.jwt_required()
-#         current_user = Authorize.get_jwt_subject()
-#
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid token",
-#         )
-#
-#     object_db = retrieve_object_service(db, object_id=object_id)
-#
-#     return SchemaRetrieveObject(**object_db.dict())
+@router.get("/{object_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveObject)
+def retrieve_object(
+        object_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves a object.
+
+    It returns a object.
+    """
+
+    object_db = retrieve_object_service(object_id=object_id)
+
+    return object_db
 
 
 # @router.patch("/{object_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveObject)

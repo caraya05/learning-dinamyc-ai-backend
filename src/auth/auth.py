@@ -38,3 +38,4 @@ async def auth_admin(token: str = Depends(auth_header)) -> dict:
         detail="User is not an admin",
         headers={"WWW-Authenticate": "Bearer"},
     )
+

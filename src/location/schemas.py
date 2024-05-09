@@ -48,7 +48,7 @@ class SchemaPartialUpdateLocation(BaseModel):
     description: Optional[str]
     prompt_user: Optional[str]
     image: Optional[str]
-    config: Optional[dict]
+    configuration: Optional[dict]
 
 
 class SchemaRetrieveLocation(ResponseModel):

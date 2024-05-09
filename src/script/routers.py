@@ -1,42 +1,33 @@
 from fastapi import APIRouter
 from fastapi import Depends
-from fastapi import Request
 from fastapi import HTTPException
 from fastapi import status
-from fastapi import BackgroundTasks
 from fastapi.security import HTTPAuthorizationCredentials
 
 from auth.auth import auth
 from auth.utils import auth_schema
-from script.schemas import SchemaListScript
+from character.services import get_characters_service
+from character.services import delete_character_service
+from location.services import get_locations_service
+from location.services import delete_location_service
+from object.services import get_objects_service
+from object.services import delete_object_service
+from scene.services import get_scenes_service
+from scene.services import delete_scene_service
 from script.schemas import SchemaRetrieveScript
+from script.schemas import SchemaListScript
 from script.schemas import SchemaRetrieveScriptComplete
 from script.schemas import SchemaCreateScript
 from script.schemas import SchemaPartialUpdateScript
 
 from script.services import get_scripts_service
+from script.services import delete_script_service
 from script.services import get_script_by_id_service
 from script.services import create_chapter_service
 from script.services import partial_update_script_service
-# from script.services import delete_script_service
-
-# from scene.services import get_scenes_service
-# from scene.services import delete_scene_service
-
-# from location.services import get_locations_service
-# from location.services import delete_location_service
-
-# from character.services import get_characters_service
-# from character.services import delete_character_service
 
 from game.services import get_game_service
 from game.services import update_error_message_game_service
-
-# from object.services import get_objects_service
-# from object.services import delete_object_service
-
-# from weapon.services import delete_weapon_service
-# from weapon.services import get_weapons_service
 
 from prompt.services import get_prompt_by_category_service
 
@@ -45,79 +36,77 @@ from celery_worker import create_script_task
 from configuration.services import get_configurations_service
 
 from user.services import deduct_stars_service
+from weapon.services import get_weapons_service
+from weapon.services import delete_weapon_service
 
 router = APIRouter(prefix="/script", tags=["Script"])
 
 
-# @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListScript)
-# def get_scripts(
-#     game_id: str,
-#     db: Session = Depends(get_db),
-#     Authorize: AuthJWT = Depends(),
-#     Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-# ):
-#     """
-#     This endpoint retrieves all scripts.
-#
-#     It returns a list of scripts.
-#     """
-#
-#     try:
-#         Authorize.jwt_required()
-#         current_user = Authorize.get_jwt_subject()
-#
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid token",
-#         )
-#
-#     scripts_db = get_scripts_service(db, skip=0, limit=100, game_id=game_id)
-#
-#     return scripts_db
+@router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListScript)
+async def get_scripts(
+        game_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves all scripts.
+
+    It returns a list of scripts.
+    """
+    scripts_db, count = await get_scripts_service(skip=0, limit=100, game_id=game_id)
+
+    for script in scripts_db:
+        script["_id"] = str(script["_id"])
+
+    return SchemaListScript(results=scripts_db, count=count)
 
 
-# @router.get(
-#     "/{script_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScriptComplete
-# )
-# def get_script(
-#     script_id: str,
-#     db: Session = Depends(get_db),
-#     Authorize: AuthJWT = Depends(),
-#     Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-# ):
-#     """
-#     This endpoint retrieves a script.
-#
-#     It returns a script.
-#     """
-#
-#     try:
-#         Authorize.jwt_required()
-#         current_user = Authorize.get_jwt_subject()
-#
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid token",
-#         )
-#
-#     script_db = get_script_service(db, script_id=script_id)
-#
-#     locations_ = get_locations_service(db, game_id=script_db.game_id)
-#
-#     objects_ = get_objects_service(db, game_id=script_db.game_id)
-#
-#     characters_ = get_characters_service(db, game_id=script_db.game_id)
-#
-#     scenes_ = get_scenes_service(db, script_id=script_id)
-#
-#     script_db.locations = locations_.results if locations_.results and locations_ else []
-#     script_db.characters = characters_ if characters_ else []
-#     script_db.scenes = scenes_.results if scenes_.results and scenes_ else []
-#     script_db.objects = objects_ if objects_ else []
-#
-#     return script_db
+@router.get(
+    "/{script_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScriptComplete
+)
+async def get_script(
+        script_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves a script.
+
+    It returns a script.
+    """
+
+    script_db = await get_script_by_id_service(script_id=script_id)
+
+    locations_ = await get_locations_service(game_id=script_db['game_id'])
+
+    if locations_[0]:
+        for location in locations_[0]:
+            location['_id'] = str(location['_id'])
+
+    objects_ = await get_objects_service(game_id=script_db['game_id'])
+
+    if objects_[0]:
+        for object_ in objects_[0]:
+            object_['_id'] = str(object_['_id'])
+
+    characters_ = await get_characters_service(game_id=script_db['game_id'])
+
+    if characters_:
+        for character_ in characters_:
+            character_['_id'] = str(character_['_id'])
+
+    scenes_ = await get_scenes_service(script_id=script_id)
+
+    if scenes_[0]:
+        for scene_ in scenes_[0]:
+            scene_['_id'] = str(scene_['_id'])
+
+    script_db["locations"] = locations_[0] if locations_[0] and locations_ else []
+    script_db["characters"] = characters_ if characters_ else []
+    script_db["scenes"] = scenes_[0] if scenes_[0] and scenes_ else []
+    script_db["objects"] = objects_[0] if objects_[0] else []
+
+    return script_db
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveScript)
@@ -147,9 +136,8 @@ async def create_script(
 
     # Check if the token is valid
     try:
-        # configuration_db = get_configuration_service(db)
-        # deduct_stars_service(db, user_id=current_user, stars=configuration_db.sta
-        # Get the game information
+        configuration_db = await get_configurations_service()
+        await deduct_stars_service(user_id=str(user_db["_id"]), stars=configuration_db["stars_by_game"])
         game_db = await get_game_service(game_id=game_id)
 
         # Get the script prompt
@@ -286,63 +274,47 @@ async def check_script(
             detail="Script not finished",
         )
 
-# @router.delete("/{script_id}", status_code=status.HTTP_204_NO_CONTENT)
-# def delete_script(
-#         script_id: str,
-#         db: Session = Depends(get_db),
-#         Authorize: AuthJWT = Depends(),
-#         Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-# ):
-#     """
-#     This endpoint deletes a script.
-#
-#     It returns a message indicating whether the script was successfully deleted or not.
-#     """
-#
-#     try:
-#         Authorize.jwt_required()
-#         current_user = Authorize.get_jwt_subject()
-#
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid token",
-#         )
-#
-#     # Delete the script
-#     try:
-#         script_db = get_script_service(db, script_id=script_id)
-#
-#         characters_db = get_characters_service(db, game_id=script_db.game_id)
-#         if characters_db:
-#             for character_ in characters_db:
-#                 delete_character_service(db, character_id=character_.id)
-#
-#         locations_db = get_locations_service(db, game_id=script_db.game_id)
-#         if locations_db.results:
-#             for location_ in locations_db.results:
-#                 delete_location_service(db, location_id=location_.id)
-#
-#         scenes_db = get_scenes_service(db, script_id=script_id)
-#         if scenes_db.results:
-#             for scene_ in scenes_db.results:
-#                 delete_scene_service(db, scene_id=scene_.id)
-#
-#         objects_db = get_objects_service(db, game_id=script_db.game_id)
-#         if objects_db:
-#             for object_ in objects_db:
-#                 delete_object_service(db, object_id=object_.id)
-#
-#         weapons_db = get_weapons_service(db, game_id=script_db.game_id)
-#         if weapons_db:
-#             for weapon_ in weapons_db:
-#                 delete_weapon_service(db, weapon_id=weapon_.id)
-#
-#         delete_script_service(db, script_id=script_id)
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Script not deleted",
-#         )
-#
-#     return {"message": "Script deleted"}
+
+@router.delete("/{script_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_script(
+        script_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint deletes a script.
+
+    It returns a message indicating whether the script was successfully deleted or not.
+    """
+    try:
+        script_db = await get_script_by_id_service(script_id=script_id)
+
+        if characters_db := await get_characters_service(game_id=script_db['game_id']):
+            for character_ in characters_db:
+                await delete_character_service(character_id=character_['_id'])
+
+        if locations_db := await get_locations_service(game_id=script_db['game_id']):
+            for location_ in locations_db[0]:
+                await delete_location_service(location_id=location_['_id'])
+
+        if scenes_db := await get_scenes_service(script_id=script_id):
+            for scene_ in scenes_db[0]:
+                await delete_scene_service(scene_id=scene_['_id'])
+
+        if objects_db := await get_objects_service(game_id=script_db['game_id']):
+            for object_ in objects_db[0]:
+                await delete_object_service(object_id=object_['_id'])
+
+        if weapons_db := await get_weapons_service(game_id=script_db['game_id']):
+            for weapon_ in weapons_db[0]:
+                await delete_weapon_service(weapon_id=weapon_['_id'])
+
+        await delete_script_service(script_id=script_id)
+    except Exception as e:
+        print(f"Error deleting script: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Script not deleted",
+        )
+
+    return {"message": "Script deleted"}

@@ -9,7 +9,6 @@ from fastapi.security import HTTPAuthorizationCredentials
 from auth.auth import auth
 from auth.utils import auth_schema
 from scene.schemas import SchemaListScene
-from scene.schemas import SchemaRetrieveScene
 from scene.schemas import SchemaCreateScene
 from scene.schemas import SchemaRetrieveSceneComplete
 from scene.schemas import SchemaPartialUpdateScene

@@ -338,6 +338,9 @@ async def my_games(
     try:
         games_db, count_pages = await get_games_service(skip=page, limit=count, user_id=str(user.get("_id")))
 
+        for game in games_db:
+            game["_id"] = str(game["_id"])
+
         return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages)
 
     except Exception as e:
@@ -362,9 +365,15 @@ async def features_games(
     try:
         games_featured_db = await get_configurations_service()
 
+        if not games_featured_db["featured_games"]:
+            return SchemaListGame(results=[], count=0, page=0, total_pages=0)
+
         games_db, count_pages = await get_games_service(
-            skip=0, limit=1000, games_id=(games_featured_db[0]["featured_games"])
+            skip=0, limit=1000, games_id=(games_featured_db["featured_games"])
         )
+
+        for game in games_db:
+            game["_id"] = str(game["_id"])
 
         return SchemaListGame(results=games_db, count=len(games_db), page=0, total_pages=count_pages)
 
@@ -390,8 +399,14 @@ async def popular_games(
     try:
         games_featured_db = await get_configurations_service()
 
+        if not games_featured_db["popular_games"]:
+            return SchemaListGame(results=[], count=0, page=0, total_pages=0)
+
         games_db, count_pages = await get_games_service(skip=0, limit=1000,
-                                                        games_id=(games_featured_db[0]["popular_games"]))
+                                                        games_id=(games_featured_db["popular_games"]))
+
+        for game in games_db:
+            game["_id"] = str(game["_id"])
 
         return SchemaListGame(results=games_db, count=len(games_db), page=0, total_pages=count_pages)
 
@@ -419,6 +434,9 @@ async def categories_games(
 
     try:
         games_featured_db = await get_configurations_service()
+        if not games_featured_db["games_by_category"]:
+            return SchemaListGame(results=[], count=0, page=0, total_pages=0)
+
         categories_active_db, counts_categories = await get_categories_active_service(0, 100)
 
         if category not in [category_active["name"] for category_active in categories_active_db]:
@@ -427,12 +445,15 @@ async def categories_games(
         games_ids = next(
             (
                 games_["games"]
-                for games_ in games_featured_db[0]["games_by_category"]
+                for games_ in games_featured_db["games_by_category"]
                 if games_["name"] == category
             ),
             [],
         )
         games_list, count_pages = await get_games_service(skip=page, limit=count, games_id=games_ids)
+
+        for game in games_list:
+            game["_id"] = str(game["_id"])
 
         return {
             "results": games_list,
