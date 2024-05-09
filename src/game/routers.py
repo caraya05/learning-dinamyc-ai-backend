@@ -203,7 +203,7 @@ async def cover_generate(
         )
 
 
-@router.patch("/{game_id}", status_code=status.HTTP_200_OK)
+@router.patch("/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
 async def partial_update_game(
         game_id: str,
         game: SchemaPartialUpdateGame,
