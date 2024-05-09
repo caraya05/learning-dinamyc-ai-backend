@@ -53,7 +53,7 @@ app = FastAPI(
     },
     # root_path="/admin",
     # root_path_in_servers=False,
-    debug=True,
+    # debug=True,
     # servers=[
     #     {
     #         "url": "http://localhost",
