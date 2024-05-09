@@ -8,19 +8,22 @@ from gpt_ai.utils import generate_image_dalle
 # import jsonschema
 # from jsonschema import validate
 
-def get_script_locations_chapter_v2(history: str,
-                                    num: str,
-                                    prompt_script: str,
-                                    prompt_script_system: str,
-                                    prompt_scene: str,
-                                    prompt_scene_system: str,
-                                    prompt_imagen_scene_cero: str,
-                                    prompt_text_introduction_scene_cero: str,
-                                    prompt_character_locations: str,
-                                    prompt_character_locations_system: str,
-                                    prompt_finish_chapter,
-                                    prompt_text_finish_chapter,
-                                    prompt_image_game_over, ):
+
+def get_script_locations_chapter_v2(
+        history: str,
+        num: str,
+        prompt_script: str,
+        prompt_script_system: str,
+        prompt_scene: str,
+        prompt_scene_system: str,
+        prompt_imagen_scene_cero: str,
+        prompt_text_introduction_scene_cero: str,
+        prompt_character_locations: str,
+        prompt_character_locations_system: str,
+        prompt_finish_chapter,
+        prompt_text_finish_chapter,
+        prompt_image_game_over,
+):
     star_time = time.time()
 
     schema_script = {
@@ -31,10 +34,9 @@ def get_script_locations_chapter_v2(history: str,
             {
                 "number": "int (number of the scene)",
                 "description": "string (description of the scene)",
-                "location": "string (location of the scene)"
+                "location": "string (location of the scene)",
             }
-        ]
-
+        ],
     }
 
     prompt_script = prompt_script.replace("x_history", history)
@@ -44,22 +46,16 @@ def get_script_locations_chapter_v2(history: str,
             "role": "system",
             "content": f"{prompt_script_system}"
             # f"en cada escena debe haber 2 personajes interactuando, "
-                       f"responde el prompt con la siguiente estructura JSON: {schema_script}"
+                       f"responde el prompt con la siguiente estructura JSON: {schema_script}",
         },
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": prompt_script
-                }
-            ]
-        }
+        {"role": "user", "content": [{"type": "text", "text": prompt_script}]},
     ]
 
-    response_script = generate_gpt4_(content_prompt=content_prompt,
-                                     type_text="script",
-                                     max_tokens=4096, )
+    response_script = generate_gpt4_(
+        content_prompt=content_prompt,
+        type_text="script",
+        max_tokens=4096,
+    )
 
     script_generated = json.loads(response_script)
 
@@ -72,7 +68,7 @@ def get_script_locations_chapter_v2(history: str,
                 "name": "string (name of the location)",
                 "description_general": "string (general description of the location)",
                 "description_indoor": "string (Generates a 5-line isometric view description of a wall, and a 5-line description of the floor adjacent to this stage wall, the space must be closed and covered).",
-                "description_outdoor": "string (Generates a isometric view description of what the exterior and surroundings of the location would look like.)."
+                "description_outdoor": "string (Generates a isometric view description of what the exterior and surroundings of the location would look like.).",
             }
         ],
         "characters": [
@@ -82,7 +78,7 @@ def get_script_locations_chapter_v2(history: str,
                 "description": "string (description of the character in detail that can be used to generate an image)",
                 "type": "string (the character types are: leading role, other, enemy, mini enemy, antagonist."
                         "There can only be one antagonist, one leading role, one enemy , mini enemy that are animals and many others. ) ",
-                "genre": "string (genre of the character is man or woman )",
+                "gender": "string (genre of the character is man or woman )",
                 "extra_data": {
                     "skin_color": "string or None (skin color of the character in format hexadecimal)",
                     "hair_color": "string or None (hair color of the character in format hexadecimal)",
@@ -97,7 +93,7 @@ def get_script_locations_chapter_v2(history: str,
                     "dialogues": [
                         {
                             "location_id": "int (id of the location)",
-                            "dialogue": "string (dialogue of the character in the location)"
+                            "dialogue": "string (dialogue of the character in the location)",
                         }
                     ]
                 },
@@ -108,10 +104,10 @@ def get_script_locations_chapter_v2(history: str,
                 "id": "int (id of the object)",
                 "name": "string (name of the object)",
                 "description": "string (description of the object in detail to generate an image of the object)",
-                "function": "string (describes the functioning of the object in history)"
+                "function": "string (describes the functioning of the object in history)",
             }
         ],
-        "summary": "string (summary of all characters and locations)"
+        "summary": "string (summary of all characters and locations)",
     }
 
     content_prompt = [
@@ -124,12 +120,9 @@ def get_script_locations_chapter_v2(history: str,
             #            f"solo puede haber un antagonist, un leading role, un enemy y otros son personajes de relleno. "
             #            f"los escenarios deben ser cerrados y cubiertos, "
             #            f"garantiza que esten las locaciones, los personajes, los objetos, "
-                       f" responde el prompt con la siguiente estructura JSON: {schema_characters_locations}"
+                       f" responde el prompt con la siguiente estructura JSON: {schema_characters_locations}",
         },
-        {
-            "role": "assistant",
-            "content": f"historia: {history} \n"
-        },
+        {"role": "assistant", "content": f"historia: {history} \n"},
         {
             "role": "user",
             "content": [
@@ -141,21 +134,23 @@ def get_script_locations_chapter_v2(history: str,
                     #     "al juego y que genere recordación. también dame una lista con nombre y descripción de los "
                     #     "lugares donde se desarrollan las primeras 4 escenas. ademas dame un listado los objetos que aparecen en la historia."
                 }
-            ]
-        }
+            ],
+        },
     ]
 
-    response_characters_locations = generate_gpt4_(content_prompt=content_prompt,
-                                                   type_text="script",
-                                                   max_tokens=4096, )
+    response_characters_locations = generate_gpt4_(
+        content_prompt=content_prompt,
+        type_text="script",
+        max_tokens=4096,
+    )
 
     characters_locations_generated = json.loads(response_characters_locations)
 
     # for i in range(len(characters_locations_generated["locations"])):
     #     characters_locations_generated["locations"][i]["id"] = i + 1
     #
-    print("characters", str(characters_locations_generated["characters"]))
-    print("locations", str(characters_locations_generated["locations"]))
+    # print("characters", str(characters_locations_generated["characters"]))
+    # print("locations", str(characters_locations_generated["locations"]))
 
     brand_antagonist = False
     for i in range(len(characters_locations_generated["characters"])):
@@ -185,25 +180,22 @@ def get_script_locations_chapter_v2(history: str,
         "start_dialogues": [
             {
                 "id_character": "string (id of the character)",
-                "content": "string (content of the dialogue)"
+                "content": "string (content of the dialogue)",
             },
         ],
         "end_dialogues": [
             {
                 "id_character": "string (id of the character)",
-                "content": "string (content of the dialogue)"
+                "content": "string (content of the dialogue)",
             }
         ],
         "questions": {
             "options": [
-                {
-                    "id": "int (number of the option)",
-                    "content": "string (content of the option)"
-                },
+                {"id": "int (number of the option)", "content": "string (content of the option)"},
             ],
             "correct_option": "int (number of the correct option)",
             "feedback": "string (feedback of the correct option)",
-            "feedback_incorrect": "string (feedback of the incorrect option)"
+            "feedback_incorrect": "string (feedback of the incorrect option)",
         },
         "object_id": "int (id of the object)",
         "id_location": "int (location ids different from those already used)",
@@ -214,7 +206,7 @@ def get_script_locations_chapter_v2(history: str,
         ],
         "is_subtractable": "bool (if the object is kept by the player it is true and if not it is false)",
         "delivery_location_id": "int (id of the location where the object is delivered)",
-        "delivery_character_id": "int (id of the character who receives the object)"
+        "delivery_character_id": "int (id of the character who receives the object)",
     }
 
     scenes_generated = []
@@ -234,33 +226,28 @@ def get_script_locations_chapter_v2(history: str,
             {
                 "role": "system",
                 "content": f"{prompt_scene_system}"
-                           f"responde el prompt con la siguiente estructura JSON: {schema_scene}"
+                           f"responde el prompt con la siguiente estructura JSON: {schema_scene}",
             },
             {
                 "role": "system",
                 "content": f"> historia: {history} \n"
                            f"> personajes y lugares: {characters_locations_generated}\n"
                            f"> locaciones usadas, no repetir: {location_id_used} \n"
-                           f"> escena anterior: {scenes_generated[i - 1] if scenes_generated else ''} \n"
+                           f"> escena anterior: {scenes_generated[i - 1] if scenes_generated else ''} \n",
             },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": prompt_scene
-                    }
-                ]
-            }
+            {"role": "user", "content": [{"type": "text", "text": prompt_scene}]},
         ]
 
         scene_generated_json = None
 
-        while scene_generated_json is None or not ('start_dialogues' in scene_generated_json and 'end_dialogues' in scene_generated_json):
-
-            response_scene = generate_gpt4_(content_prompt=content_prompt,
-                                            type_text="script",
-                                            max_tokens=4096, )
+        while scene_generated_json is None or not (
+                'start_dialogues' in scene_generated_json and 'end_dialogues' in scene_generated_json
+        ):
+            response_scene = generate_gpt4_(
+                content_prompt=content_prompt,
+                type_text="script",
+                max_tokens=4096,
+            )
 
             scene_generated_json = json.loads(response_scene)
 
@@ -269,7 +256,7 @@ def get_script_locations_chapter_v2(history: str,
         characters_scene = []
 
         if scene_generated_json["dynamic"] in ["Battle Group", "Battle", "battle group"]:
-            print("si hay battle group")
+            # print("si hay battle group")
             scene_generated_json["count_enemies"] = random.randint(1, 3)
             scene_generated_json["delivery_location_id"] = ""
             scene_generated_json["delivery_character_id"] = ""
@@ -280,17 +267,25 @@ def get_script_locations_chapter_v2(history: str,
 
             for k in characters_locations_generated["characters"]:
                 if k["type"] == "mini enemy":
-                    print("si hay mini enemy en battle group", k["id"])
+                    # print("si hay mini enemy en battle group", k["id"])
                     scene_generated_json["enemy_id"] = k["id"]
         if "start_dialogues" in scene_generated_json:
             for h in range(len(scene_generated_json["start_dialogues"])):
-                if {"id": scene_generated_json["start_dialogues"][h]["id_character"]} not in characters_scene:
-                    characters_scene.append({"id": scene_generated_json["start_dialogues"][h]["id_character"]})
+                if {
+                    "id": scene_generated_json["start_dialogues"][h]["id_character"]
+                } not in characters_scene:
+                    characters_scene.append(
+                        {"id": scene_generated_json["start_dialogues"][h]["id_character"]}
+                    )
 
         if "end_dialogues" in scene_generated_json:
             for h in range(len(scene_generated_json["end_dialogues"])):
-                if {"id": scene_generated_json["end_dialogues"][h]["id_character"]} not in characters_scene:
-                    characters_scene.append({"id": scene_generated_json["end_dialogues"][h]["id_character"]})
+                if {
+                    "id": scene_generated_json["end_dialogues"][h]["id_character"]
+                } not in characters_scene:
+                    characters_scene.append(
+                        {"id": scene_generated_json["end_dialogues"][h]["id_character"]}
+                    )
 
         scene_generated_json["characters"] = characters_scene
 
@@ -299,15 +294,21 @@ def get_script_locations_chapter_v2(history: str,
         if len(scene_generated_json["characters"]) > 0:
             for i in range(len(scene_generated_json["characters"])):
                 for j in range(len(characters_locations_generated["characters"])):
-                    if scene_generated_json["characters"][i]["id"] == characters_locations_generated["characters"][j][
-                        "id"]:
+                    if (
+                            scene_generated_json["characters"][i]["id"]
+                            == characters_locations_generated["characters"][j]["id"]
+                    ):
                         if characters_locations_generated["characters"][j]["type"] == "enemy":
                             brand_enemies = True
-                            scene_generated_json["enemy_id"] = characters_locations_generated["characters"][j]["id"]
+                            scene_generated_json["enemy_id"] = characters_locations_generated[
+                                "characters"
+                            ][j]["id"]
                         if characters_locations_generated["characters"][j]["type"] == "mini enemy":
                             brand_mini_enemies = True
                             scene_generated_json["count_enemies"] = random.randint(1, 3)
-                            scene_generated_json["enemy_id"] = characters_locations_generated["characters"][j]["id"]
+                            scene_generated_json["enemy_id"] = characters_locations_generated[
+                                "characters"
+                            ][j]["id"]
 
         if brand_enemies:
             scene_generated_json["enemy_id"] = ""
@@ -332,7 +333,7 @@ def get_script_locations_chapter_v2(history: str,
 
     for i in range(len(scenes_generated)):
         if scenes_generated[i]["dynamic"] == "Delivery":
-            print("si hay delivery")
+            # print("si hay delivery")
             if scenes_generated[i]["delivery_location_id"] == scenes_generated[i]["id_location"]:
                 print("es la misma locacion")
             else:
@@ -343,7 +344,10 @@ def get_script_locations_chapter_v2(history: str,
             else:
                 print("no esta el personaje")
 
-        if scenes_generated[i]["dynamic"] == "Battle group" or scenes_generated[i]["dynamic"] == "battle group":
+        if (
+                scenes_generated[i]["dynamic"] == "Battle group"
+                or scenes_generated[i]["dynamic"] == "battle group"
+        ):
             print("si hay battle group")
 
     scene_cero = {
@@ -362,7 +366,7 @@ def get_script_locations_chapter_v2(history: str,
         "valid_locations": [],
         "count_enemies": 0,
         "enemy_id": "",
-        "is_subtractable": False
+        "is_subtractable": False,
     }
 
     location_scene = scenes_generated[0]["id_location"]
@@ -383,31 +387,19 @@ def get_script_locations_chapter_v2(history: str,
     prompt_content = [
         {
             "role": "system",
-            "content": f"responde el prompt con la siguiente estructura JSON: {json_content_scene_cero}"
+            "content": f"responde el prompt con la siguiente estructura JSON: {json_content_scene_cero}",
         },
-        {
-            "role": "user",
-            "content": f"historia: {history}"
-        },
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": prompt_text_scene_cero
-                }
-            ]
-        }
+        {"role": "user", "content": f"historia: {history}"},
+        {"role": "user", "content": [{"type": "text", "text": prompt_text_scene_cero}]},
     ]
 
-    prompt_text_scene_cero = generate_gpt4_(content_prompt=prompt_content,
-                                            type_text="scene cero",
-                                            max_tokens=4096)
+    prompt_text_scene_cero = generate_gpt4_(
+        content_prompt=prompt_content, type_text="scene cero", max_tokens=4096
+    )
 
-    response_image_scene_cero = generate_image_dalle(prompt=prompt_image_scene_cero,
-                                                     quality="hd",
-                                                     size="1024x1024"
-                                                     )
+    response_image_scene_cero = generate_image_dalle(
+        prompt=prompt_image_scene_cero, quality="hd", size="1024x1024"
+    )
 
     prompt_text_scene_cero = json.loads(prompt_text_scene_cero)
 
@@ -435,23 +427,27 @@ def get_script_locations_chapter_v2(history: str,
                 if k["id"] == i["id_location"]:
                     location1_description = k["description_outdoor"]
 
-            prompt_image_game_over = prompt_image_game_over.replace("x_character", character1_description)
-            prompt_image_game_over = prompt_image_game_over.replace("x_mini_enemy", character2_description)
-            prompt_image_game_over = prompt_image_game_over.replace("x_location", location1_description)
+            prompt_image_game_over = prompt_image_game_over.replace(
+                "x_character", character1_description
+            )
+            prompt_image_game_over = prompt_image_game_over.replace(
+                "x_mini_enemy", character2_description
+            )
+            prompt_image_game_over = prompt_image_game_over.replace(
+                "x_location", location1_description
+            )
 
-            schema_game_over = {
-                "description": "string (description of the game over)"
-            }
+            schema_game_over = {"description": "string (description of the game over)"}
 
             prompt_content = [
                 {
                     "role": "system",
-                    "content": f"responde el prompt con la siguiente estructura JSON: {schema_game_over}"
+                    "content": f"responde el prompt con la siguiente estructura JSON: {schema_game_over}",
                 },
                 {
                     "role": "system",
                     "content": f"No ir en contra de estas politicas al momento de generar el texto: \n"
-                               f"Sea responsable y ético al usar OpenAI. Siga las leyes, evite dañarse a sí mismo o a otros, y use los resultados para el bien. No comparta resultados para dañar a otros y respete las medidas de seguridad implementadas. De esta manera, podemos asegurarnos de que OpenAI se use para crear un impacto positivo en el mundo."
+                               f"Sea responsable y ético al usar OpenAI. Siga las leyes, evite dañarse a sí mismo o a otros, y use los resultados para el bien. No comparta resultados para dañar a otros y respete las medidas de seguridad implementadas. De esta manera, podemos asegurarnos de que OpenAI se use para crear un impacto positivo en el mundo.",
                 },
                 {
                     "role": "user",
@@ -459,26 +455,25 @@ def get_script_locations_chapter_v2(history: str,
                         {
                             "type": "text",
                             "text": "Con esta información, escribe un texto para generacion de una imagen que describa"
-                                    " la escena de game over, donde el personaje principal pierde la batalla con el enemigo. "
+                                    " la escena de game over, donde el personaje principal pierde la batalla con el enemigo. ",
                         },
-                        {
-                            "type": "text",
-                            "text": prompt_image_game_over
-                        }
-                    ]
-                }
+                        {"type": "text", "text": prompt_image_game_over},
+                    ],
+                },
             ]
 
-            new_response_image_game_over = generate_gpt4_(content_prompt=prompt_content,
-                                                          type_text="game over",
-                                                          max_tokens=4096)
+            new_response_image_game_over = generate_gpt4_(
+                content_prompt=prompt_content, type_text="game over", max_tokens=4096
+            )
 
             json_new_response_image_game_over = json.loads(new_response_image_game_over)
 
             image_game_over = generate_image_dalle(
-                prompt=json_new_response_image_game_over["description"] + f", la imagen en arte voxel",
+                prompt=json_new_response_image_game_over["description"]
+                       + f", la imagen en arte voxel",
                 quality="hd",
-                size="1024x1024")
+                size="1024x1024",
+            )
 
             i["game_over_image"] = image_game_over
 
@@ -486,82 +481,76 @@ def get_script_locations_chapter_v2(history: str,
 
     prompt_finish_chapter = prompt_finish_chapter.replace("x_interaction", scene_description)
 
-    prompt_finish_chapter = prompt_finish_chapter.replace("x_character",
-                                                          f"personaje: {character1_description}, mini enemigo: {character2_description}")
+    prompt_finish_chapter = prompt_finish_chapter.replace(
+        "x_character",
+        f"personaje: {character1_description}, mini enemigo: {character2_description}",
+    )
 
-    json_finish_chapter = {
-        "description": "string (description of the finish chapter)"
-    }
+    json_finish_chapter = {"description": "string (description of the finish chapter)"}
 
     prompt_content_finish_chapter = [
         {
             "role": "system",
-            "content": f"responde el prompt con la siguiente estructura JSON: {json_finish_chapter}"
+            "content": f"responde el prompt con la siguiente estructura JSON: {json_finish_chapter}",
         },
         {
             "role": "system",
             "content": f"No ir en contra de estas politicas al momento de generar el texto: \n"
-                       f"Sea responsable y ético al usar OpenAI. Siga las leyes, evite dañarse a sí mismo o a otros, y use los resultados para el bien. No comparta resultados para dañar a otros y respete las medidas de seguridad implementadas. De esta manera, podemos asegurarnos de que OpenAI se use para crear un impacto positivo en el mundo."
+                       f"Sea responsable y ético al usar OpenAI. Siga las leyes, evite dañarse a sí mismo o a otros, y use los resultados para el bien. No comparta resultados para dañar a otros y respete las medidas de seguridad implementadas. De esta manera, podemos asegurarnos de que OpenAI se use para crear un impacto positivo en el mundo.",
         },
         {
             "role": "user",
             "content": [
-                {
-                    "type": "text",
-                    "text": prompt_finish_chapter
-                },
+                {"type": "text", "text": prompt_finish_chapter},
                 {
                     "type": "text",
                     "text": "con esta información, escribe un texto para generacion de una imagen que describa"
                             " la escena de final de capitulo, donde el personaje principal continua su aventura."
-                            " despues de derrotar con el enemigo, en arte voxel. \n"
-                }
-            ]
-        }
+                            " despues de derrotar con el enemigo, en arte voxel. \n",
+                },
+            ],
+        },
     ]
 
-    response_finish_chapter = generate_gpt4_(content_prompt=prompt_content_finish_chapter,
-                                             type_text="finish chapter",
-                                             max_tokens=4096)
+    response_finish_chapter = generate_gpt4_(
+        content_prompt=prompt_content_finish_chapter, type_text="finish chapter", max_tokens=4096
+    )
 
     response_finish_chapter = json.loads(response_finish_chapter)
 
     image_finish_chapter = generate_image_dalle(
         prompt=response_finish_chapter["description"] + f", la imagen en arte voxel",
         quality="hd",
-        size="1024x1024")
+        size="1024x1024",
+    )
 
+    prompt_text_finish_chapter = prompt_text_finish_chapter.replace(
+        "x_num_scene", str(scenes_generated[4]["number"])
+    )
 
-    prompt_text_finish_chapter = prompt_text_finish_chapter.replace("x_num_scene", str(scenes_generated[4]["number"]))
-
-    schema_text_finish_chapter = {
-        "description": "string (description of the finish chapter)"
-    }
+    schema_text_finish_chapter = {"description": "string (description of the finish chapter)"}
 
     prompt_content = [
         {
             "role": "system",
-            "content": f"responde el prompt con la siguiente estructura JSON: {schema_text_finish_chapter}"
+            "content": f"responde el prompt con la siguiente estructura JSON: {schema_text_finish_chapter}",
         },
         {
             "role": "user",
             "content": [
-                {
-                    "type": "text",
-                    "text": prompt_text_finish_chapter + f" en ingles"
-                },
+                {"type": "text", "text": prompt_text_finish_chapter + f" en ingles"},
                 {
                     "type": "text",
                     "text": f"escena 4: {scenes_generated[4]['description']} \n"
-                            f"historia: {history} \n"
-                }
-            ]
-        }
+                            f"historia: {history} \n",
+                },
+            ],
+        },
     ]
 
-    response_text_finish_chapter = generate_gpt4_(content_prompt=prompt_content,
-                                                  type_text="finish chapter",
-                                                  max_tokens=4096)
+    response_text_finish_chapter = generate_gpt4_(
+        content_prompt=prompt_content, type_text="finish chapter", max_tokens=4096
+    )
 
     response_text_finish_chapter = json.loads(response_text_finish_chapter)
 
@@ -575,35 +564,29 @@ def get_script_locations_chapter_v2(history: str,
     return {
         "script": script_generated,
         "characters_locations": characters_locations_generated,
-        "scenes": scenes_generated
+        "scenes": scenes_generated,
     }
 
 
-def get_weapon_image(prompt_weapon: str,
-                     type_weapon: str,
-                     description: str,
-                     extra_data: dict):
-    complement = (f"description: {description} \n"
-                  f"extra_data: {extra_data}"
-                  f"tipo: {type_weapon}")
+def get_weapon_image(prompt_weapon: str, type_weapon: str, description: str, extra_data: dict):
+    complement = f"description: {description} \n" f"extra_data: {extra_data}" f"tipo: {type_weapon}"
 
     content_prompt = prompt_weapon.replace("x_weapon", complement)
 
-    response_image_weapon = generate_image_dalle(prompt=content_prompt,
-                                                 quality="hd",
-                                                 size="1024x1024")
+    response_image_weapon = generate_image_dalle(
+        prompt=content_prompt, quality="hd", size="1024x1024"
+    )
 
     return response_image_weapon
 
 
-def get_object_image(prompt_object: str,
-                     description: str):
+def get_object_image(prompt_object: str, description: str):
     complement = f"description: {description}"
 
     content_prompt = prompt_object.replace("x_object", complement)
 
-    response_image_object = generate_image_dalle(prompt=content_prompt,
-                                                 quality="hd",
-                                                 size="1024x1024")
+    response_image_object = generate_image_dalle(
+        prompt=content_prompt, quality="hd", size="1024x1024"
+    )
 
     return response_image_object

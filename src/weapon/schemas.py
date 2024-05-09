@@ -1,5 +1,19 @@
-from pydantic import BaseModel
+from bson import ObjectId
+from pydantic import BaseModel, Field
 from typing import Optional
+
+from core import PyObjectId
+
+
+class ResponseModel(BaseModel):
+    id: PyObjectId = Field(alias="_id")
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
+class ResponseModelStr(BaseModel):
+    id: str = Field(alias="_id")
 
 
 class SchemaCreateWeapon(BaseModel):
@@ -11,6 +25,7 @@ class SchemaCreateWeapon(BaseModel):
     description (Optional[str]): The description of the weapon.
     image (Optional[str]): The image of the weapon.
     """
+
     name: str
     description: Optional[str]
     image: Optional[str]
@@ -30,6 +45,7 @@ class SchemaPartialUpdateWeapon(BaseModel):
     description (Optional[str]): The description of the weapon.
     image (Optional[str]): The image of the weapon.
     """
+
     name: Optional[str]
     description: Optional[str]
 
@@ -37,7 +53,7 @@ class SchemaPartialUpdateWeapon(BaseModel):
     type: Optional[str]
 
 
-class SchemaRetrieveWeapon(BaseModel):
+class SchemaRetrieveWeapon(ResponseModel):
     """
     Schema for retrieving a weapon.
 
@@ -46,7 +62,26 @@ class SchemaRetrieveWeapon(BaseModel):
     name (str): The name of the weapon.
     description (str): The description of the weapon.
     """
-    id: str
+
+    name: str
+    description: str
+    image: Optional[str]
+    type: str
+
+    class Config:
+        orm_mode = True
+
+
+class SchemaRetrieveWeaponStr(ResponseModelStr):
+    """
+    Schema for retrieving a weapon.
+
+    Attributes:
+    id (int): The id of the weapon.
+    name (str): The name of the weapon.
+    description (str): The description of the weapon.
+    """
+
     name: str
     description: str
     image: Optional[str]
@@ -65,8 +100,9 @@ class SchemaListWeapon(BaseModel):
     name (str): The name of the weapon.
     description (str): The description of the weapon.
     """
+
     count: int
-    results: list[SchemaRetrieveWeapon]
+    results: list[SchemaRetrieveWeaponStr]
 
     class Config:
         orm_mode = True

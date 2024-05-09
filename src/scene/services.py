@@ -1,123 +1,112 @@
-import ast
-
+from bson import ObjectId
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
-from sqlalchemy import asc
+
 from starlette import status
 
+from core.database import db
 from scene.models import Scene
 
 from scene.schemas import SchemaCreateScene
 from scene.schemas import SchemaPartialUpdateScene
-from scene.schemas import SchemaListScene
-from sound.services import get_sound_by_field
+
 from utils import upload_image
 
-
-def get_scene_by_field(db: Session, field: str, value: str):
-    """
-    Get a scene by a field.
-    """
-    scene = db.query(Scene).filter(getattr(Scene, field) == value).first()
-    if not scene:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Scene with {field} {value} not found")
-    return scene
+from uuid import uuid4
 
 
-def get_scenes_service(db: Session, script_id: str, skip: int = 0, limit: int = 100):
+async def get_scenes_service(script_id: str, skip: int = 0, limit: int = 100):
     """
     Get a list of scenes.
     """
-    scenes = (db.query(Scene).filter(Scene.script_id == script_id).order_by(asc(Scene.order))
-              .offset(skip).limit(limit).all())
-
-    for scene in scenes:
-        if isinstance(scene.characters_id, str):
-            scene.characters_id = ast.literal_eval(scene.characters_id)
-            # if scene.characters_id and scene.characters_id != "[]":
-            #     scene.characters_id = ast.literal_eval(scene.characters_id)
-
-        if isinstance(scene.start_dialogues, str):
-            if scene.start_dialogues:
-                scene.start_dialogues = ast.literal_eval(scene.start_dialogues)
-
-            # if scene.start_dialogues and scene.start_dialogues != "[]":
-            #     scene.start_dialogues = ast.literal_eval(scene.start_dialogues)
-
-        if isinstance(scene.end_dialogues, str):
-            if scene.end_dialogues:
-                scene.end_dialogues = ast.literal_eval(scene.end_dialogues)
-
-            # if scene.end_dialogues and scene.end_dialogues != "[]":
-            #     scene.end_dialogues = ast.literal_eval(scene.end_dialogues)
-        # if scene.end_dialogues:
-        #     scene.end_dialogues = ast.literal_eval(scene.end_dialogues)
-
-    return SchemaListScene(results=scenes, count=len(scenes))
+    try:
+        scenes_db = await db["scene"].find({"script_id": script_id}).skip(skip).limit(limit).to_list(None)
+        count_scenes = await db["scene"].count_documents({"script_id": script_id})
+        return scenes_db, count_scenes
+    except Exception as e:
+        print(f"Error in get scenes service: {e}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scenes not found.")
 
 
-def get_scene_service(db: Session, scene_id: str):
+async def get_scene_service(scene_id: str):
     """
     Get a scene.
     """
-    scene = get_scene_by_field(db, "id", scene_id)
-    if scene.sound_id:
-        scene.sound = get_sound_by_field(db, "id", scene.sound_id).sound
-    return scene
+    try:
+        scene_db = await db["scene"].find_one({"_id": ObjectId(scene_id)})
+        # if scene_db.sound_id:
+        #     scene.sound = get_sound_by_field(db, "id", scene.sound_id).sound
+        return scene_db
+    except Exception as e:
+        print(f"Error in get scene service: {e}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Scene not found.")
 
 
-def create_scene_service(db: Session, schema: SchemaCreateScene, user_id: str):
+async def create_scene_service(schema: SchemaCreateScene, user_id: str):
     """
     Create a scene.
     """
-    scene = Scene(**schema.dict())
-    if schema.start_image:
-        scene.start_image = upload_image(url_image=schema.start_image,
-                                         file_name=f"{scene.game_id}/scene/{scene.order}_start.jpg",
-                                         size=(812, 812))
+    try:
+        scene_schema = Scene(**schema.dict())
+        if scene_schema.start_image:
+            scene_schema.start_image = upload_image(
+                url_image=schema.start_image,
+                file_name=f"scene/{uuid4()}_start.jpg",
+                size=(812, 812),
+            )
 
-    if schema.image_defeat:
-        scene.image_defeat = upload_image(url_image=schema.image_defeat,
-                                          file_name=f"{scene.game_id}/scene/{scene.order}_defeat.jpg",
-                                          size=(812, 812))
+        if scene_schema.image_defeat:
+            scene_schema.image_defeat = upload_image(
+                url_image=schema.image_defeat,
+                file_name=f"scene/{uuid4()}_defeat.jpg",
+                size=(812, 812),
+            )
 
-    scene.created_by = user_id
-    scene.updated_by = user_id
-    db.add(scene)
-    db.commit()
-    db.refresh(scene)
-    return scene
+        scene_schema.created_by = user_id
+        scene_schema.updated_by = user_id
+        scene_created = await db["scene"].insert_one(scene_schema.dict())
+        if scene_db := await db["scene"].find_one({"_id": scene_created.inserted_id}):
+            return scene_db
+    except Exception as e:
+        print(f"Error in create scene service: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Scene not created.")
 
 
-def partial_update_scene_service(db: Session, scene_id: str, schema: SchemaPartialUpdateScene):
+async def partial_update_scene_service(scene_id: str, schema: SchemaPartialUpdateScene):
     """
     Partially update a scene.
     """
-    scene = get_scene_by_field(db, "id", scene_id)
-    for field, value in schema:
-        setattr(scene, field, value)
-    db.commit()
-    db.refresh(scene)
-    return scene
+    try:
+        scene_db = await db["scene"].find_one({"_id": ObjectId(scene_id)})
+        for field, value in schema:
+            setattr(scene_db, field, value)
+        scene_updated = await db["scene"].update_one({"_id": ObjectId(scene_id)}, {"$set": scene_db})
+        if scene_updated.modified_count:
+            scene_db = await db["scene"].find_one({"_id": ObjectId(scene_id)})
+            return scene_db
+    except Exception as e:
+        print(f"Error in partial update scene service: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Scene not updated.")
 
 
-def get_last_scene_service(db: Session, script_id: str, number: int = 4):
+async def get_last_scene_service(script_id: str, number: int = 4):
     """
     Get the last scene.
     """
     try:
-        scene = (db.query(Scene).filter(Scene.script_id == script_id, Scene.order == number).first())
-        print(scene.__dict__)
-        return scene
+        scene_db = await db["scene"].find_one({"script_id": script_id, "order": number})
+        return scene_db
     except AttributeError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Scene not found")
 
 
-def delete_scene_service(db: Session, scene_id: str):
+async def delete_scene_service(scene_id: str):
     """
     Delete a scene.
     """
-    scene = get_scene_by_field(db, "id", scene_id)
-    db.delete(scene)
-    db.commit()
-    return True
+    try:
+        scene_deleted = await db["scene"].delete_one({"_id": ObjectId(scene_id)})
+        if scene_deleted.deleted_count:
+            return True
+    except Exception as e:
+        print(f"Error in delete scene service: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Scene not deleted.")

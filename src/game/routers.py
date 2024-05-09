@@ -1,66 +1,58 @@
-import json
-import ast
+from uuid import uuid4
 
+from bson import ObjectId
 from fastapi import APIRouter
 from fastapi import Depends
-from fastapi import Request
 from fastapi import HTTPException
 from fastapi import status
 
 from fastapi.security import HTTPAuthorizationCredentials
-from fastapi_jwt_auth import AuthJWT
-
-from sqlalchemy.orm import Session
 
 from category.services import get_categories_active_service
-from config import auth_scheme
-from configuration.services import get_configuration_service
+from character.services import get_character_leading_role_service
+
+from configuration.services import get_configurations_service
+from core.database import db
 
 from game.schemas import SchemaRetrieveGame
 from game.schemas import SchemaListGame
 from game.schemas import SchemaCreateGame
 from game.schemas import SchemaPartialUpdateGame
 
-from game.services import get_games_service
-from game.services import update_image_background_game_service
-from game.services import create_game_service
 from game.services import get_game_service
+from game.services import get_games_service
+from game.services import create_game_service
 from game.services import subtract_attempts_game_service
 from game.services import update_partial_game_service
 from game.services import delete_game_service
 
-from script.services import get_scripts_service
+from auth.auth import auth
 
-from scene.services import get_last_scene_service
+from auth.utils import auth_schema
+from prompt.services import get_prompt_by_category_service
 
-from character.services import get_character_leading_role_service
+# from script.services import get_scripts_service
 
-from location.services import get_location_service
+# from scene.services import get_last_scene_service
 
-from user.services import get_current_user_service
+# from character.services import get_character_leading_role_service
+
+# from location.services import get_location_service
+
 
 from gpt_ai.utils import generate_image_dalle
-from gpt_ai.utils import generate_gpt4_
-
-import ast
-
-from prompt.services import get_prompt_by_field
+from utils import upload_image
 
 router = APIRouter(prefix="/game", tags=["Game"])
 
 
-# Dependency
-def get_db(request: Request):
-    return request.state.db
-
-
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
-async def get_games(db: Session = Depends(get_db),
-                    Authorize: AuthJWT = Depends(),
-                    Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                    page: int = 1,
-                    count: int = 10,
-                    ):
+async def get_games(
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        page: int = 1,
+        count: int = 10,
+):
     """
     This endpoint retrieves all games.
 
@@ -68,26 +60,27 @@ async def get_games(db: Session = Depends(get_db),
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
+        games_db, count_pages = await get_games_service(skip=page, limit=count)
+
+        for game in games_db:
+            game["_id"] = str(game["_id"])
+
+        return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages // count + 1)
 
     except Exception as e:
+        print(f"Error getting games: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Games not found",
         )
-
-    games_db, count_pages = get_games_service(db, skip=page, limit=count)
-
-    return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages)
 
 
 @router.get("/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
-def get_game(game_id: str,
-             db: Session = Depends(get_db),
-             Authorize: AuthJWT = Depends(),
-             Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-             ):
+async def get_game(
+        game_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint retrieves a game.
 
@@ -107,26 +100,21 @@ def get_game(game_id: str,
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_raw_jwt()
-
+        return await get_game_service(game_id)
     except Exception as e:
+        print(f"Error getting game: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Game not found",
         )
-
-    game_db = get_game_service(db, game_id, current_user['sub'])
-
-    return game_db
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveGame)
-def create_game(game: SchemaCreateGame,
-                db: Session = Depends(get_db),
-                Authorize: AuthJWT = Depends(),
-                Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                ):
+async def create_game(
+        game: SchemaCreateGame,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint creates a new game.
 
@@ -145,93 +133,83 @@ def create_game(game: SchemaCreateGame,
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_raw_jwt()
+        if user_db.get("stars") <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="You don't have enough stars to create a game",
+            )
+
+        game_db = await create_game_service(game=game, user_id=str(user_db.get("_id")))
+
+        return game_db
 
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-        )
-
-    user_db = get_current_user_service(db, Authorize.get_raw_jwt())
-
-    if user_db.stars <= 0:
+        print(f"Error creating game: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You don't have enough stars to create a game",
+            detail="Game not created",
         )
-
-    game_db = create_game_service(db=db, game=game, user_id=current_user['sub'])
-
-    return game_db
 
 
 @router.get("/generate-cover/{game_id}", status_code=status.HTTP_200_OK)
-def cover_generate(
+async def cover_generate(
         game_id: str,
-        db: Session = Depends(get_db),
-        Authorize: AuthJWT = Depends(),
-        Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint generates a cover for a game.
     """
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_raw_jwt()
 
+        game_db = await get_game_service(game_id)
+
+        if game_db.get("attempts") == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Attempts exhausted",
+            )
+
+        prompt_db_cover = await get_prompt_by_category_service('cover')
+
+        character_leading_role = await get_character_leading_role_service(game_id)
+
+        if not character_leading_role:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="characters have not been created",
+            )
+
+        prompt_content = prompt_db_cover.get("description").replace('x_history', game_db.get("synopsis"))
+
+        prompt_content = prompt_content.replace('x_character', f"{character_leading_role.get('description')}")
+
+        image_generated = generate_image_dalle(prompt=prompt_content, quality="hd", size="1024x1792")
+
+        try:
+            await subtract_attempts_game_service(game_id)
+        except Exception as e:
+            print(f"Error subtracting attempts: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Image not generated or attempts exhausted",
+            )
+        return {"images": image_generated}
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-        )
-
-    game_db = get_game_service(db, game_id)
-
-    if game_db.attempts == 0:
+        print(f"Error generating cover: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Attempts exhausted",
+            detail="Cover not generated",
         )
-
-    prompt_db_cover = get_prompt_by_field(db, 'category', 'cover')
-
-    character_leading_role = get_character_leading_role_service(db, game_db.id)
-
-    if not character_leading_role:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="characters have not been created",
-        )
-
-    prompt_content = prompt_db_cover.description.replace('x_history', game_db.synopsis)
-
-    prompt_content = prompt_content.replace('x_character',
-                                            f"{character_leading_role.description}")
-
-    image_generated = generate_image_dalle(prompt=prompt_content,
-                                           quality="hd",
-                                           size="1024x1792")
-
-    try:
-        subtract_attempts_game_service(db, game_id)
-    except Exception as e:
-        print(e)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Image not generated or attempts exhausted",
-        )
-    return {"images": image_generated}
 
 
 @router.patch("/{game_id}", status_code=status.HTTP_200_OK)
-def partial_update_game(game_id: str,
-                        game: SchemaPartialUpdateGame,
-                        db: Session = Depends(get_db),
-                        Authorize: AuthJWT = Depends(),
-                        Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                        ):
+async def partial_update_game(
+        game_id: str,
+        game: SchemaPartialUpdateGame,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint updates a game.
 
@@ -251,26 +229,23 @@ def partial_update_game(game_id: str,
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_raw_jwt()
+        game_db = await update_partial_game_service(game_id, game, str(user_db.get("_id")))
+        return game_db
 
     except Exception as e:
+        print(f"Error updating game: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Game not updated",
         )
-
-    game_db = update_partial_game_service(db, game_id, game, current_user['sub'])
-
-    return game_db
 
 
 @router.delete("/{game_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_game(game_id: str,
-                db: Session = Depends(get_db),
-                Authorize: AuthJWT = Depends(),
-                Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                ):
+async def delete_game(
+        game_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint deletes a game.
 
@@ -289,86 +264,71 @@ def delete_game(game_id: str,
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_raw_jwt()
+        await delete_game_service(game_id)
+
+        return {"message": "Game successfully deleted"}
 
     except Exception as e:
+        print(f"Error deleting game: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Game not deleted",
         )
 
-    delete_game_service(db, game_id)
 
-    return {"message": "Game successfully deleted"}
-
-
-@router.get("/generate-background/{game_id}", status_code=status.HTTP_200_OK)
-def background_generate(
+@router.get("/generate-background/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
+async def background_generate(
         game_id: str,
-        db: Session = Depends(get_db),
-        Authorize: AuthJWT = Depends(),
-        Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint generates a background for a game.
     """
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_raw_jwt()
 
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        character_leading_role = await db['character'].find_one({'game_id': game_id, 'type': 'leading role'})
+        script_db = await db['chapter'].find_one({'game_id': game_id})
+        scenes_db = await db['scene'].find({'script_id': str(script_db['_id'])}).sort('number', -1).to_list(None)
+        location_db = await db['location'].find_one({'_id': ObjectId(scenes_db[4]['location_id'])})
+        prompt_db_background = await db['prompt'].find_one({'category': 'image_background'})
+        prompt_content = prompt_db_background['description'].replace('x_escena', f" {scenes_db[4]['content']}")
+        prompt_content = prompt_content.replace(
+            'x_personaje', f"{character_leading_role['name']} {character_leading_role['description']}"
         )
-
-    game_db = get_game_service(db, game_id)
-
-    character_leading_role = get_character_leading_role_service(db, game_db.id)
-
-    script_db = get_scripts_service(db=db, game_id=game_db.id).results[0]
-
-    # print("script_db", script_db.id, script_db.title, script_db.description)
-
-    scenes_db = get_last_scene_service(db=db, script_id=script_db.id, number=4)
-
-    location_db = get_location_service(db, scenes_db.location_id)
-
-    prompt_db_background = get_prompt_by_field(db, 'category', 'image_background')
-
-    # print("prompt_db_background", prompt_db_background.description)
-
-    # print("scenes_db", scenes_db)
-
-    prompt_content = prompt_db_background.description.replace('x_escena', f" {scenes_db.content}")
-
-    prompt_content = prompt_content.replace('x_personaje',
-                                            f"{character_leading_role.name} {character_leading_role.description}")
-
-    prompt_content = prompt_content + f" ocurre en la siguiente ubicacion {location_db.description}"
-
-    image_generated = generate_image_dalle(prompt=prompt_content,
-                                           quality="hd",
-                                           size="1792x1024")
-
-    try:
-        return update_image_background_game_service(db, game_id, image_generated, "1")
+        prompt_content = prompt_content + f" ocurre en la siguiente ubicacion {location_db['description']}"
+        image_generated = generate_image_dalle(prompt=prompt_content, quality="hd", size="1792x1024")
+        try:
+            game_db["image_background"] = upload_image(
+                    url_image=image_generated,
+                    file_name=f"background/{uuid4()}.jpg",
+                    size=(1218, 686),
+                )
+            game_updated = await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': game_db})
+            if game_updated.modified_count:
+                return await db['game'].find_one({'_id': ObjectId(game_id)})
+        except Exception as e:
+            print(f"Error generating background: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="not generated",
+            )
     except Exception as e:
-        print(e)
+        print(f"Error generating background: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="not generated",
+            detail="Background not generated",
         )
 
 
 @router.get("/my-games/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
-def my_games(db: Session = Depends(get_db),
-             Authorize: AuthJWT = Depends(),
-             Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-             page: int = 1,
-             count: int = 10,
-             ):
+async def my_games(
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        page: int = 1,
+        count: int = 10,
+):
     """
     This endpoint retrieves all games created by the user.
 
@@ -376,25 +336,23 @@ def my_games(db: Session = Depends(get_db),
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_raw_jwt()
+        games_db, count_pages = await get_games_service(skip=page, limit=count, user_id=str(user.get("_id")))
+
+        return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages)
 
     except Exception as e:
+        print(f"Error getting my games: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Games not found",
         )
-
-    games_db, count_pages = get_games_service(db, skip=page, limit=count, user_id=current_user['sub'])
-
-    return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages)
 
 
 @router.get("/featured/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
-def features_games(db: Session = Depends(get_db),
-                   Authorize: AuthJWT = Depends(),
-                   Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                   ):
+async def features_games(
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint retrieves all featured games.
 
@@ -402,27 +360,27 @@ def features_games(db: Session = Depends(get_db),
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_raw_jwt()
+        games_featured_db = await get_configurations_service()
 
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+        games_db, count_pages = await get_games_service(
+            skip=0, limit=1000, games_id=(games_featured_db[0]["featured_games"])
         )
 
-    games_featured_db = get_configuration_service(db)
+        return SchemaListGame(results=games_db, count=len(games_db), page=0, total_pages=count_pages)
 
-    games_db, count_pages = get_games_service(db, skip=0, limit=1000, games_id=(games_featured_db.featured_games))
-
-    return SchemaListGame(results=games_db, count=len(games_db), page=0, total_pages=count_pages)
+    except Exception as e:
+        print(f"Error getting featured games: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Games not found",
+        )
 
 
 @router.get("/popular/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
-def popular_games(db: Session = Depends(get_db),
-                  Authorize: AuthJWT = Depends(),
-                  Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                  ):
+async def popular_games(
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint retrieves all popular games.
 
@@ -430,30 +388,29 @@ def popular_games(db: Session = Depends(get_db),
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_raw_jwt()
+        games_featured_db = await get_configurations_service()
+
+        games_db, count_pages = await get_games_service(skip=0, limit=1000,
+                                                        games_id=(games_featured_db[0]["popular_games"]))
+
+        return SchemaListGame(results=games_db, count=len(games_db), page=0, total_pages=count_pages)
 
     except Exception as e:
+        print(f"Error getting popular games: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Games not found",
         )
-
-    games_featured_db = get_configuration_service(db)
-
-    games_db, count_pages = get_games_service(db, skip=0, limit=1000, games_id=(games_featured_db.popular_games))
-
-    return SchemaListGame(results=games_db, count=len(games_db), page=0, total_pages=count_pages)
 
 
 @router.get("/categories/", status_code=status.HTTP_200_OK)
-def categories_games(category: str,
-                     db: Session = Depends(get_db),
-                     Authorize: AuthJWT = Depends(),
-                     Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                     page: int = 1,
-                     count: int = 10,
-                     ):
+async def categories_games(
+        category: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        page: int = 1,
+        count: int = 10,
+):
     """
     This endpoint retrieves all games by category.
 
@@ -461,23 +418,32 @@ def categories_games(category: str,
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_raw_jwt()
+        games_featured_db = await get_configurations_service()
+        categories_active_db, counts_categories = await get_categories_active_service(0, 100)
+
+        if category not in [category_active["name"] for category_active in categories_active_db]:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+
+        games_ids = next(
+            (
+                games_["games"]
+                for games_ in games_featured_db[0]["games_by_category"]
+                if games_["name"] == category
+            ),
+            [],
+        )
+        games_list, count_pages = await get_games_service(skip=page, limit=count, games_id=games_ids)
+
+        return {
+            "results": games_list,
+            "count": len(games_list),
+            "page": page,
+            "total_pages": count_pages,
+        }
 
     except Exception as e:
+        print(f"Error getting categories games: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Games not found",
         )
-
-    games_featured_db = get_configuration_service(db)
-    categories_active_db = get_categories_active_service(db)
-
-    if category not in [category_active.name for category_active in categories_active_db.results]:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
-
-    games_ids = next(
-        (games_["games"] for games_ in games_featured_db.games_by_category if games_["name"] == category), [])
-    games_list, count_pages = get_games_service(db, skip=page, limit=count, games_id=games_ids)
-
-    return {"results": games_list, "count": len(games_list), "page": page, "total_pages": count_pages}

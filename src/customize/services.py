@@ -1,33 +1,31 @@
+from bson import ObjectId
 from fastapi import HTTPException
 from fastapi import status
-from sqlalchemy.orm import Session
 
-from customize.models import Customize
-
-from customize.schemas import SchemaListMiniCustomize
+from core.database import db
 
 
-def get_customize_by_field(db: Session, field: str, value: str):
+async def get_customize_by_id_service(customize_id: str):
     try:
-        return db.query(Customize).filter(getattr(Customize, field) == value).first()
+        customize_db = await db["customize"].find_one({"_id": ObjectId(customize_id)})
+        return customize_db
     except Exception as e:
-        print(e)
+        print(f"Error in get customize by id service: {e}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Customize not found",
         )
 
 
-def get_customize_by_type_character_service(db: Session, gender: str, type_customize: str):
+async def get_customize_by_type_character_service(gender: str, type_customize: str):
     try:
-        customize_all = db.query(Customize).filter(Customize.gender == gender,
-                                                   Customize.type_customize == type_customize).all()
-
-        return SchemaListMiniCustomize(results=customize_all, count=len(customize_all))
+        customize_all = await db["customize"].find({"gender": gender, "type_customize": type_customize}).to_list(None)
+        count_customize = await db["customize"].count_documents({})
+        return customize_all, count_customize
 
     except Exception as e:
-        print(e)
+        print(f"Error in get customize by type character service: {e}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Customize not found",
         )

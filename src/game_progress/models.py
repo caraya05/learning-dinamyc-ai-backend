@@ -1,35 +1,17 @@
-import datetime
-
-from sqlalchemy import Column
-from sqlalchemy import String
-from sqlalchemy import Date
-from sqlalchemy import PickleType
-from sqlalchemy import Integer
-from sqlalchemy.ext.declarative import declarative_base
-
-from utils import generate_uuid
-
-Base = declarative_base()
+from pydantic import BaseModel
+from pydantic import Field
+from datetime import datetime
 
 
-class AbstractBaseModel(Base):
-    __abstract__ = True
-    id = Column(String, name="id", primary_key=True, default=generate_uuid, index=True)
-    created_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    created_by: str = Column(String, default="system")
-    updated_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    updated_by: str = Column(String, default="system")
-
-
-class GameProgress(AbstractBaseModel):
-    __tablename__ = "game_progress"
-    user_id: str = Column(String, nullable=False)
-    scene_id: str = Column(String, nullable=False)
-    game_id: str = Column(String, nullable=False)
-    object: str = Column(PickleType, nullable=True)
-    life: int = Column(Integer, nullable=True)
-    location_id: str = Column(String, nullable=True)
-    is_complete: bool = Column(String, nullable=False, default=False)
-
-    def __repr__(self):
-        return f"<GameProgress {self.user_id} - {self.game_id}>"
+class GameProgress(BaseModel):
+    user_id: str = Field(..., example="123")
+    scene_id: str = Field(..., example="123")
+    game_id: str = Field(..., example="123")
+    object: str = Field(..., example="Object")
+    life: int = Field(..., example=1)
+    location_id: str = Field(..., example="123")
+    is_complete: bool = Field(..., example=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: str = Field(default="system", example="system")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: str = Field(default="system", example="system")

@@ -1,11 +1,27 @@
+from bson import ObjectId
 from pydantic import BaseModel
+from pydantic import Field
 from typing import Optional
+
+from core import PyObjectId
+
+
+class ResponseModel(BaseModel):
+    id: PyObjectId = Field(alias="_id")
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
+class ResponseModelStr(BaseModel):
+    id: str = Field(alias="_id")
 
 
 class SchemaCreateScene(BaseModel):
     """
     Schema for creating a scene
     """
+
     order: int
     title: str
     description: str
@@ -13,9 +29,9 @@ class SchemaCreateScene(BaseModel):
     game_id: str
     characters_id: list[str]
     location_id: str
-    start_dialogues: list[dict]
-    end_dialogues: list[dict]
-    questions: dict | None
+    start_dialogues: Optional[list[dict]] = None
+    end_dialogues: Optional[list[dict]] = None
+    questions: Optional[dict] = None
     content: str
     dynamic: str
     reward: str
@@ -34,6 +50,7 @@ class SchemaPartialUpdateScene(BaseModel):
     """
     Schema for partially updating a scene
     """
+
     order: Optional[int]
     title: Optional[str]
     description: Optional[str]
@@ -41,11 +58,11 @@ class SchemaPartialUpdateScene(BaseModel):
     characters: Optional[list[str]]
 
 
-class SchemaRetrieveScene(BaseModel):
+class SchemaRetrieveScene(ResponseModelStr):
     """
     Schema for retrieving a scene
     """
-    id: str
+
     order: int
     title: str
     description: str
@@ -55,7 +72,6 @@ class SchemaRetrieveScene(BaseModel):
     content: str
     dynamic: str
 
-
     class Config:
         orm_mode = True
 
@@ -64,7 +80,7 @@ class SchemaRetrieveSceneComplete(BaseModel):
     """
     Schema for retrieving a scene with all the related fields
     """
-    id: str
+
     order: int
     title: str
     description: str | None
@@ -72,8 +88,8 @@ class SchemaRetrieveSceneComplete(BaseModel):
     game_id: Optional[str]
     characters_id: list[str]
     location_id: Optional[str] | None
-    start_dialogues: Optional[list[dict]] | None
-    end_dialogues: Optional[list[dict]] | None
+    start_dialogues: Optional[list[dict]] = None
+    end_dialogues: Optional[list[dict]] = None
     questions: Optional[dict] | None
     content: Optional[str] | None
     dynamic: Optional[str] | None
@@ -97,6 +113,7 @@ class SchemaListScene(BaseModel):
     """
     Schema for listing scenes
     """
+
     results: list[SchemaRetrieveScene]
     count: int
 

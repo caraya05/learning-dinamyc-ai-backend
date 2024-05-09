@@ -1,35 +1,19 @@
-import datetime
-
-from sqlalchemy import Column
-from sqlalchemy import String
-from sqlalchemy import Date
-from sqlalchemy import Integer
-from sqlalchemy import PickleType
-from sqlalchemy.ext.declarative import declarative_base
-
-from utils import generate_uuid
-
-Base = declarative_base()
+from pydantic import BaseModel
+from pydantic import Field
+from typing import List
+from typing import Dict
+from datetime import datetime
 
 
-class AbstractBaseModel(Base):
-    __abstract__ = True
-    id = Column(String, name="id", primary_key=True, default=generate_uuid, index=True)
-    created_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    created_by: str = Column(String, default="system")
-    updated_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    updated_by: str = Column(String, default="system")
-
-
-class Configuration(AbstractBaseModel):
-    __tablename__ = "configuration"
-
-    featured_games: list = Column(PickleType)
-    popular_games: list = Column(PickleType)
-    games_by_category: dict = Column(PickleType)
-
-    stars_news_users: int = Column(Integer, default=0,nullable=True)
-    stars_by_game: int = Column(Integer, default=0,nullable=True)
-
-    def __repr__(self):
-        return f"<Configuration {self.id}>"
+class Configuration(BaseModel):
+    featured_games: List[str] = Field(None, example=["game1", "game2"])
+    popular_games: List[str] = Field(None, example=["game1", "game2"])
+    games_by_category: Dict[str, List[str]] = Field(None, example={"category1": ["game1", "game2"]})
+    stars_news_users: int = Field(None, example=0)
+    stars_by_game: int = Field(None, example=0)
+    stars_by_creation_place: int = Field(None, example=0)
+    stars_by_creation_location: int = Field(None, example=0)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: str = Field(default="system", example="system")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: str = Field(default="system", example="system")

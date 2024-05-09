@@ -1,57 +1,25 @@
-import datetime
-import enum
+from datetime import datetime
+from typing import Optional
 
-from sqlalchemy import Column
-from sqlalchemy import Integer
-from sqlalchemy import String
-from sqlalchemy import Date
-from sqlalchemy import PickleType
-from sqlalchemy import Text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy_utils import ChoiceType
+from pydantic import Field
+from pydantic import BaseModel
 
-from utils import generate_uuid
-
-Base = declarative_base()
+from character.enums import TypeCharacter
+from character.enums import GenderCharacter
 
 
-class TypeCharacterEnum(enum.Enum):
-    leading_role = "leading role"
-    enemy = "enemy"
-    antagonist = "antagonist"
-    other = "other"
-    mini_enemy = "mini enemy"
-
-
-class AbstractBaseModel(Base):
-    __abstract__ = True
-    id = Column(String, name="id", primary_key=True, default=generate_uuid, index=True)
-    created_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    created_by: str = Column(String, default="system")
-    updated_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    updated_by: str = Column(String, default="system")
-
-
-class Character(AbstractBaseModel):
-    TYPE_CHARACTER = [
-        ("leading role", "leading role"),
-        ("enemy", "enemy"),
-        ("mini enemy", "mini enemy"),
-        ("antagonist", "antagonist"),
-        ("other", "other"),
-    ]
-
-    __tablename__ = "character"
-    name: str = Column(String, index=False)
-    type: str = Column(ChoiceType(TYPE_CHARACTER), nullable=False)
-    description: str = Column(Text, nullable=False)
-    image: str = Column(String, nullable=True)
-    genre: str = Column(String, nullable=True)
-    game_id: str = Column(String, nullable=False)
-    attempts: int = Column(Integer, nullable=True)
-    extra_data: str = Column(PickleType, nullable=True)
-    text_idle: str = Column(PickleType, nullable=True)
-
-
-    def __repr__(self):
-        return f"<Character {self.name} - {self.type}>"
+class Character(BaseModel):
+    description: str = Field(..., example="This is a character")
+    name: str = Field(..., example="Character Name")
+    is_active: bool = Field(default=True, example=True)
+    image: Optional[str] = Field(None, example="image.jpg")
+    gender: str = Field(..., example=GenderCharacter.MAN)
+    game_id: str = Field(..., example="game_id")
+    attempts: Optional[int] = Field(3, example=1)
+    extra_data: Optional[dict] = Field(None, example="Extra data")
+    text_idle: Optional[dict] = Field(None, example="Text idle")
+    type: str = Field(..., example=TypeCharacter.LEADING_ROLE)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: str = Field(default="system", example="system")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: str = Field(default="system", example="system")

@@ -5,12 +5,9 @@ from fastapi import HTTPException
 from fastapi import status
 
 from fastapi.security import HTTPAuthorizationCredentials
-from fastapi_jwt_auth import AuthJWT
 
-from sqlalchemy.orm import Session
-
-from config import auth_scheme
-
+from auth.auth import auth
+from auth.utils import auth_schema
 from scene.schemas import SchemaListScene
 from scene.schemas import SchemaRetrieveScene
 from scene.schemas import SchemaCreateScene
@@ -21,7 +18,6 @@ from scene.services import get_scenes_service
 from scene.services import get_scene_service
 from scene.services import create_scene_service
 from scene.services import partial_update_scene_service
-import ast
 
 router = APIRouter(prefix="/scene", tags=["Scene"])
 
@@ -32,11 +28,11 @@ def get_db(request: Request):
 
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListScene)
-def get_scenes(script_id: str,
-               db: Session = Depends(get_db),
-               Authorize: AuthJWT = Depends(),
-               Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-               ):
+async def get_scenes(
+        script_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint retrieves all scenes.
 
@@ -44,28 +40,27 @@ def get_scenes(script_id: str,
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
+        scenes_db, counts = await get_scenes_service(skip=0, limit=100, script_id=script_id)
+        for i in scenes_db:
+            i["_id"] = str(i["_id"])
+        return SchemaListScene(results=scenes_db, count=counts)
 
     except Exception as e:
+        print(f"Error in get scenes: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Scenes not found.",
         )
 
-    scenes_db = get_scenes_service(db, skip=0, limit=100, script_id=script_id)
 
-
-
-    return scenes_db
-
-
-@router.get("/{scene_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveSceneComplete)
-def get_scene(scene_id: str,
-              db: Session = Depends(get_db),
-              Authorize: AuthJWT = Depends(),
-              Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-              ):
+@router.get(
+    "/{scene_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveSceneComplete
+)
+async def get_scene(
+        scene_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint retrieves a scene.
 
@@ -73,36 +68,23 @@ def get_scene(scene_id: str,
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
+        scene_db = await get_scene_service(scene_id=scene_id)
+        return scene_db
 
     except Exception as e:
+        print(f"Error in get scene: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Scene not found.",
         )
 
-    scene_db = get_scene_service(db, scene_id=scene_id)
 
-    if isinstance(scene_db.characters_id, str):
-        print(scene_db.characters_id)
-        scene_db.characters_id = ast.literal_eval(scene_db.characters_id)
-
-    if isinstance(scene_db.start_dialogues, str):
-        scene_db.start_dialogues = ast.literal_eval(scene_db.start_dialogues)
-
-    if isinstance(scene_db.end_dialogues, str):
-        scene_db.end_dialogues = ast.literal_eval(scene_db.end_dialogues)
-
-    return scene_db
-
-
-@router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveScene)
-def create_scene(schema: SchemaCreateScene,
-                 db: Session = Depends(get_db),
-                 Authorize: AuthJWT = Depends(),
-                 Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                 ):
+@router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveSceneComplete)
+async def create_scene(
+        schema: SchemaCreateScene,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint creates a scene.
 
@@ -111,43 +93,38 @@ def create_scene(schema: SchemaCreateScene,
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
+        scene_db = await create_scene_service(schema=schema, user_id=str(user_db.get("_id")))
+        return scene_db
 
     except Exception as e:
+        print(f"Error in create scene: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Scene not created.",
         )
 
-    scene_db = create_scene_service(db, schema=schema,user_id=current_user)
 
-    return scene_db
+@router.patch("/{scene_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveSceneComplete)
+def partial_update_scene(scene_id: str,
+                         schema: SchemaPartialUpdateScene,
+                         user_db: dict = Depends(auth),
+                         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+                         ):
+    """
+    This endpoint partially updates a scene.
 
-# @router.patch("/{scene_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveScene)
-# def partial_update_scene(scene_id: str,
-#                          schema: SchemaPartialUpdateScene,
-#                          db: Session = Depends(get_db),
-#                          Authorize: AuthJWT = Depends(),
-#                          Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-#                          ):
-#     """
-#     This endpoint partially updates a scene.
-#
-#     It expects a scene in the request body.
-#     If the scene is successfully updated, it returns the scene's information.
-#     """
-#
-#     try:
-#         Authorize.jwt_required()
-#         current_user = Authorize.get_jwt_subject()
-#
-#     except Exception as e:
-#         raise HTTPException(
-#             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid token",
-#         )
-#
-#     scene_db = partial_update_scene_service(db, scene_id=scene_id, schema=schema)
-#
-#     return SchemaRetrieveScene(**scene_db.dict())
+    It expects a scene in the request body.
+    If the scene is successfully updated, it returns the scene's information.
+    """
+
+    try:
+        scene_db = partial_update_scene_service(scene_id=scene_id, schema=schema)
+
+        return scene_db
+
+    except Exception as e:
+        print(f"Error in partial update scene: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Scene not updated.",
+        )

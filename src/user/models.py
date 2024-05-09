@@ -1,49 +1,24 @@
 import datetime
 
-from sqlalchemy import Column
-from sqlalchemy import String
-from sqlalchemy import Date
-from sqlalchemy import Integer
-from sqlalchemy import Boolean
-from sqlalchemy.ext.declarative import declarative_base
-
-from pydantic import constr
+from pydantic import BaseModel
 from pydantic import EmailStr
-
-from fastapi_storages.integrations.sqlalchemy import FileType
-
-from utils import storage
-from utils import generate_uuid
-
-Base = declarative_base()
+from pydantic import Field
 
 
-class AbstractBaseModel(Base):
-    __abstract__ = True
-    id = Column(String, name="id", primary_key=True, default=generate_uuid, index=True)
-    created_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    created_by: str = Column(String, default="system")
-    updated_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    updated_by: str = Column(String, default="system")
-
-
-class User(AbstractBaseModel):
-    __tablename__ = "user"
-    username: str = Column(String, unique=True, index=True)
-    phone_number: str = Column(String, nullable=True)
-    email: EmailStr = Column(String, unique=True, index=True)
-    photo: str = Column(String, nullable=True)
-    uid: str = Column(String, unique=True, index=True)
-    provider: str = Column(String, nullable=False, default="local")
-    password: constr(min_length=8) = Column(String, nullable=False)
-    last_access: datetime = Column(Date, default=datetime.datetime.utcnow())
-    is_active: bool = Column(Boolean, default=False)
-    is_superuser: bool = Column(Boolean, default=False)
-    is_staff: bool = Column(Boolean, default=False)
-    stars: int = Column(Integer, default=0, nullable=True)
-    number_of_creation_attempts: int = Column(Integer, default=0, nullable=True)
-    attempt_to_create: bool = Column(Boolean, default=False, nullable=True)
-    file = Column(FileType(storage), nullable=True)
-
-    def __repr__(self):
-        return f"<User {self.email} - {self.uid}>"
+class User(BaseModel):
+    username: str = Field(..., example="user")
+    email: EmailStr = Field(..., example="user@example.com")
+    photo: str = Field(None, example="photo.jpg")
+    uid: str = Field(..., example="123")
+    provider: str = Field(default="local", example="local")
+    password: str = Field(..., min_length=8, example="password123")
+    is_active: bool = Field(default=False, example=False)
+    is_superuser: bool = Field(default=False, example=False)
+    is_staff: bool = Field(default=False, example=False)
+    stars: int = Field(default=0, example=0)
+    number_of_creation_attempts: int = Field(default=0, example=0)
+    attempt_to_create: bool = Field(default=False, example=False)
+    created_at: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    created_by: str = Field(default="system", example="system")
+    updated_at: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
+    updated_by: str = Field(default="system", example="system")

@@ -1,8 +1,10 @@
 .venv
 .envs
+.env
 sql_app.db
 .postgres_data_base
 .idea
+.DS_Store
 *.pyc
 __pycache__
 .src/DS_Store

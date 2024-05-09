@@ -1,44 +1,28 @@
 from fastapi import APIRouter
 from fastapi import Depends
-from fastapi import Request
+
 from fastapi import HTTPException
 from fastapi import status
 from fastapi import UploadFile
 from fastapi import File
-
 from fastapi.security import HTTPAuthorizationCredentials
-from fastapi_jwt_auth import AuthJWT
 
-from sqlalchemy.orm import Session
-
-from config import auth_scheme
 from utils import upload_image
-from utils import delete_image
 
-from user.services import get_current_user_service
+# from user.services import get_current_user_service
 from user.services import get_user_by_field
 from user.services import update_photo_service
 from user.services import update_attempt_to_create_service
-# from .services import create_user_service
-# from .services import update_user_service
-# from .services import partial_update_user_service
-# from .services import update_password_service
 
-from .schemas import SchemaRetrieveUser
-# from .schemas import SchemaUser
-# from .schemas import SchemaUpdateUser
-# from .schemas import SchemaPartialUpdateUser
-# from .schemas import SchemaUpdatePassword
+from user.schemas import SchemaRetrieveUser
+
+from auth.utils import auth_schema
+from auth.auth import auth
 
 from PIL import Image
 from io import BytesIO
 
 router = APIRouter(prefix="/user", tags=["User"])
-
-
-# Dependency
-def get_db(request: Request):
-    return request.state.db
 
 
 # @router.post("/", response_model=SchemaRetrieveUser, status_code=status.HTTP_201_CREATED)
@@ -68,11 +52,11 @@ def get_db(request: Request):
 #             detail="User already registered",
 #         )
 
+
 @router.get("/current-user", response_model=SchemaRetrieveUser)
 async def get_current_user(
-        db: Session = Depends(get_db),
-        Authorize: AuthJWT = Depends(),
-        Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves the current user's information.
@@ -92,11 +76,7 @@ async def get_current_user(
     """
 
     try:
-        # Check if the JWT token is valid
-        Authorize.jwt_required()
-
-        # Retrieve the current user's information
-        return get_current_user_service(db, Authorize.get_raw_jwt())
+        return user_db
     except Exception as ex:
         # If there is an error, raise an HTTPException
         raise HTTPException(
@@ -107,9 +87,9 @@ async def get_current_user(
 @router.get("/{user_id}", response_model=SchemaRetrieveUser)
 async def get_user(
         user_id: str,
-        db: Session = Depends(get_db),
-        Authorize: AuthJWT = Depends(),
-        Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+
 ):
     """
     This endpoint retrieves the current user's information.
@@ -130,10 +110,10 @@ async def get_user(
 
     try:
         # Check if the JWT token is valid
-        Authorize.jwt_required()
+        # Authorize.jwt_required()
 
         # Retrieve the current user's information
-        return get_user_by_field(db, "id", user_id)
+        return get_user_by_field("id", user_id)
     except Exception as ex:
         # If there is an error, raise an HTTPException
         raise HTTPException(
@@ -143,26 +123,12 @@ async def get_user(
 
 @router.get("/validate-stars/", status_code=status.HTTP_200_OK)
 async def validate_stars(
-        db: Session = Depends(get_db),
-        Authorize: AuthJWT = Depends(),
-        Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
-    try:
-        # Check if the JWT token is valid
-        Authorize.jwt_required()
-
-        # Retrieve the current user's information
-        user_current = get_current_user_service(db, Authorize.get_raw_jwt())
-    except Exception as ex:
-        # If there is an error, raise an HTTPException
-        print(ex)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Error in the getting user") from ex
-    if user_current.stars is None or user_current.stars <= 0:
-        update_attempt_to_create_service(db, user_current.id)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Not enough stars"
-        )
+    if user_db['stars'] is None or user_db['stars'] <= 0:
+        await update_attempt_to_create_service(str(user_db['_id']))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not enough stars")
     return {"message": "Stars are enough"}
 
 
@@ -170,34 +136,19 @@ async def validate_stars(
 @router.post("/update-photo/", response_model=SchemaRetrieveUser)
 async def update_photo_user(
         photo: UploadFile = File(...),
-        db: Session = Depends(get_db),
-        Authorize: AuthJWT = Depends(),
-        Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
-    try:
-        # Check if the JWT token is valid
-        Authorize.jwt_required()
-
-        # Retrieve the current user's information
-        user_current = get_current_user_service(db, Authorize.get_raw_jwt())
-    except Exception as ex:
-        # If there is an error, raise an HTTPException
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Error in the getting user"
-        ) from ex
-
     photo_content = await photo.read()
 
-    if user_current.photo:
-        delete_image(file_name=f"user/{user_current.photo.split('/')[-1]}",
-                     name_bucket="backend")
+    url_photo = upload_image(
+        name_bucket="users",
+        image_content_type=photo_content,
+        file_name=f"{user_db['_id']}.jpg",
+        size=(512, 512),
+    )
 
-    url_photo = upload_image(name_bucket="backend",
-                             image_content_type=photo_content,
-                             file_name=f"user/{photo.filename}",
-                             size=(512, 512))
-
-    return update_photo_service(db=db, user_id=user_current.id, photo=url_photo)
+    return await update_photo_service(user_id=str(user_db['_id']), photo=url_photo)
 
 # @router.put("/{id}", response_model=SchemaRetrieveUser)
 # async def update_user(id: str,
