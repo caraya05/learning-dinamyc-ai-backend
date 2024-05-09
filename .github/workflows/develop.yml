@@ -31,4 +31,4 @@ jobs:
           git pull origin develop
           make build
           make up-pro
-          make apply-migrations
+#          make apply-migrations
