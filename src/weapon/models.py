@@ -1,36 +1,19 @@
-import datetime
-
-from sqlalchemy import Column
-from sqlalchemy import String
-from sqlalchemy import Date
-from sqlalchemy import Text
-from sqlalchemy import PickleType
-from sqlalchemy.ext.declarative import declarative_base
-
-from utils import generate_uuid
-
-Base = declarative_base()
+from pydantic import BaseModel
+from pydantic import Field
+from datetime import datetime
+from typing import Optional, Dict
 
 
-class AbstractBaseModel(Base):
-    __abstract__ = True
-    id = Column(String, name="id", primary_key=True, default=generate_uuid, index=True)
-    created_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    created_by: str = Column(String, default="system")
-    updated_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    updated_by: str = Column(String, default="system")
-
-
-class Weapon(AbstractBaseModel):
-    __tablename__ = "weapon"
-    name: str = Column(String, index=False, nullable=True)
-    description: str = Column(Text, nullable=True)
-    type: str = Column(String, nullable=False)
-    image: str = Column(String, nullable=True)
-    script_id: str = Column(String, nullable=False)
-    game_id: str = Column(String, nullable=False)
-    extra_data: str = Column(PickleType, nullable=True)
-    character_id: str = Column(String, nullable=True)
-
-    def __repr__(self):
-        return f"<Object(title={self.name}, game_id={self.type})>"
+class Weapon(BaseModel):
+    name: Optional[str] = Field(None, example="Weapon Name")
+    description: Optional[str] = Field(None, example="This is a weapon description")
+    type: str = Field(..., example="Type")
+    image: Optional[str] = Field(None, example="image.jpg")
+    script_id: str = Field(..., example="123")
+    game_id: str = Field(..., example="123")
+    extra_data: Optional[Dict[str, str]] = Field(None, example={"key": "value"})
+    character_id: Optional[str] = Field(None, example="123")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: str = Field(default="system", example="system")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: str = Field(default="system", example="system")

@@ -1,9 +1,10 @@
 from pydantic import BaseModel, Field
 from typing import Optional
 from scene.schemas import SchemaRetrieveScene
-from character.schemas import SchemaRetrieveCharacter
+# from character.schemas import SchemaRetrieveCharacter
 from location.schemas import SchemaRetrieveLocation
 from object.schemas import SchemaRetrieveObject
+from core.schemas import ResponseModel
 
 
 class SchemaCreateScript(BaseModel):
@@ -21,7 +22,7 @@ class SchemaCreateScript(BaseModel):
     game_id: str
 
 
-class SchemaRetrieveScript(BaseModel):
+class SchemaRetrieveScript(ResponseModel):
     """
     Schema for retrieving a script.
 
@@ -31,7 +32,6 @@ class SchemaRetrieveScript(BaseModel):
     description (str): The description of the script.
     """
 
-    id: Optional[str]
     title: Optional[str] = Field(None, title="The title of the script")
     description: Optional[str] = Field(None, title="The description of the script")
     order: Optional[int]
@@ -46,7 +46,7 @@ class SchemaRetrieveScript(BaseModel):
 
 class SchemaRetrieveScriptComplete(SchemaRetrieveScript):
     scenes: list[SchemaRetrieveScene] = Field([], title="The scenes in the script")
-    characters: list[SchemaRetrieveCharacter] = Field([], title="The characters in the script")
+    # characters: list[SchemaRetrieveCharacter] = Field([], title="The characters in the script")
     locations: list[SchemaRetrieveLocation] = Field([], title="The locations in the script")
     objects: list[SchemaRetrieveObject] = Field([], title="The objects in the script")
     start_info: dict = Field({}, title="The start info of the script")

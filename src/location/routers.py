@@ -1,16 +1,12 @@
 from fastapi import APIRouter
 from fastapi import Depends
-from fastapi import Request
 from fastapi import HTTPException
 from fastapi import status
 
 from fastapi.security import HTTPAuthorizationCredentials
-from fastapi_jwt_auth import AuthJWT
 
-from sqlalchemy.orm import Session
-
-from config import auth_scheme
-
+from auth.auth import auth
+from auth.utils import auth_schema
 from gpt_ai.utils import generate_image_dalle
 
 from location.schemas import SchemaListLocation
@@ -18,57 +14,24 @@ from location.schemas import SchemaRetrieveLocation
 from location.schemas import SchemaCreateLocation
 from location.schemas import SchemaPartialUpdateLocation
 
-from location.services import get_locations_service, get_location_by_field
+from location.services import get_locations_service
+from location.services import get_place_by_location_service
 from location.services import get_location_service
 from location.services import create_location_service
 from location.services import partial_update_location_service
 from location.services import update_attempts_location_service
-from prompt.services import get_prompt_by_field
+from prompt.services import get_prompt_by_category_service
 
 router = APIRouter(prefix="/location", tags=["Location"])
 
 
-# Dependency
-def get_db(request: Request):
-    return request.state.db
-
-
-@router.get("/by-field/", response_model=SchemaRetrieveLocation)
-def get_locations(value: str,
-                  field: str,
-                  game_id: str = None,
-                  db: Session = Depends(get_db),
-                  Authorize: AuthJWT = Depends(),
-                  Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                  ):
-    """
-    This endpoint retrieves a location.
-
-    It expects the location's id in the request path.
-    If the location is successfully retrieved, it returns the location's information.
-    """
-
-    try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-        )
-
-    location_db = get_location_by_field(db, field, value, game_id=game_id)
-
-    return location_db
-
-
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
-def get_locations(game_id: str,
-                  db: Session = Depends(get_db),
-                  Authorize: AuthJWT = Depends(),
-                  Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                  ):
+async def get_locations(
+        game_id: str = None,
+        place_id: str = None,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint retrieves all locations.
 
@@ -76,26 +39,28 @@ def get_locations(game_id: str,
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
+        locations_db, count_locations = await get_locations_service(skip=0, limit=100, game_id=game_id,
+                                                                    place_id=place_id)
+
+        for location in locations_db:
+            location["_id"] = str(location["_id"])
+
+        return SchemaListLocation(results=locations_db, count=count_locations)
 
     except Exception as e:
+        print(f"Error in get locations: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Locations not found",
         )
-
-    locations_db = get_locations_service(db, skip=0, limit=100, game_id=game_id)
-
-    return locations_db
 
 
 @router.get("/{location_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveLocation)
-def get_location(location_id: str,
-                 db: Session = Depends(get_db),
-                 Authorize: AuthJWT = Depends(),
-                 Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                 ):
+async def get_location(
+        location_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint retrieves a location.
 
@@ -104,8 +69,9 @@ def get_location(location_id: str,
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
+        location_db = await get_location_service(location_id=location_id, user_id=str(user_db['_id']))
+
+        return location_db
 
     except Exception as e:
         raise HTTPException(
@@ -113,17 +79,13 @@ def get_location(location_id: str,
             detail="Invalid token",
         )
 
-    location_db = get_location_service(db, location_id)
-
-    return location_db
-
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveLocation)
-def create_location(schema: SchemaCreateLocation,
-                    db: Session = Depends(get_db),
-                    Authorize: AuthJWT = Depends(),
-                    Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                    ):
+async def create_location(
+        schema: SchemaCreateLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint creates a location.
 
@@ -132,27 +94,26 @@ def create_location(schema: SchemaCreateLocation,
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
+        location_db = await create_location_service(schema, str(user_db['_id']))
+        return location_db
 
     except Exception as e:
+        print(f"Error in create location: {e}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Location not created",
         )
 
-    location_db = create_location_service(db, schema, current_user)
 
-    return location_db
-
-
-@router.patch("/{location_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveLocation)
-def partial_update_location(location_id: str,
-                            schema: SchemaPartialUpdateLocation,
-                            db: Session = Depends(get_db),
-                            Authorize: AuthJWT = Depends(),
-                            Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                            ):
+@router.patch(
+    "/{location_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveLocation
+)
+async def partial_update_location(
+        location_id: str,
+        schema: SchemaPartialUpdateLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint partially updates a location.
 
@@ -162,47 +123,57 @@ def partial_update_location(location_id: str,
     """
 
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
+        location_db = await partial_update_location_service(location_id=location_id, schema=schema,
+                                                            user_id=str(user_db['_id']))
+        return location_db
 
     except Exception as e:
+        print(f"Error in partial update location: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Location not updated",
         )
 
-    location_db = partial_update_location_service(db, location_id, schema)
 
-    return location_db
-
-
-@router.get("/generate_image/{location_id}")
-def generate_image_location(location_id: str,
-                            db: Session = Depends(get_db),
-                            Authorize: AuthJWT = Depends(),
-                            Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                            ):
+@router.get("/generate_image/{location_id}", status_code=status.HTTP_200_OK)
+async def generate_image_location(
+        location_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint generates an image for a location.
 
     It expects the location's id in the request path.
     If the location is successfully updated, it returns the location's information.
     """
-    location_db = get_location_service(db, location_id=location_id)
-
-    if location_db.attempts == 0:
+    location_db = await get_location_service(location_id=location_id, user_id=str(user_db['_id']))
+    if location_db["attempts"] == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Character attempts exhausted",
         )
-    prompt_db_image_location = get_prompt_by_field(db, "category", "location_image")
 
-    content_prompt = f"{prompt_db_image_location.description}, {location_db.description}"
+    place_db = await get_place_by_location_service(location_id=location_id)
+
+    if place_db:
+        prompt_db_image_location = await get_prompt_by_category_service("location_place_image")
+        prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
+            "{{PromptUserLocation}}", location_db["prompt_user"])
+        prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
+            "{{PromptUserPlace}}", place_db["prompt_user"])
+        prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
+            "{{descriptionPlace}}", place_db["prompt_user"])
+        content_prompt = prompt_db_image_location["description"]
+    else:
+        prompt_db_image_location = await get_prompt_by_category_service("location_image")
+
+        content_prompt = f'{prompt_db_image_location["description"]}, {location_db["description"]}'
 
     image_generate = generate_image_dalle(prompt=content_prompt,
                                           quality="hd",
-                                          size="1024x1024")
+                                          size="1792x1024")
 
-    update_attempts_location_service(db, location_id=location_id)
+    await update_attempts_location_service(location_id=location_id)
 
     return image_generate

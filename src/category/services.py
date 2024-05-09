@@ -12,10 +12,10 @@ from category.schemas import SchemaUpdateDocumentCategory
 async def get_categories_service(skip: int, limit: int):
     try:
         count_categories = 0
-        if categories := await db["category"].find().to_list(None):
-            count_categories = len(categories)
-            categories = await db["category"].find().skip(skip).limit(limit).to_list(None)
-        return categories, count_categories
+        if categories_db := await db["category"].find().to_list(None):
+            count_categories = len(categories_db)
+            categories_db = await db["category"].find().skip(skip).limit(limit).to_list(None)
+        return categories_db, count_categories
     except Exception as e:
         print(f"Error get categories service: {str(e)}")
         raise HTTPException(

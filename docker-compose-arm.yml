@@ -17,9 +17,9 @@ services:
   nginx:
     container_name: nginxARM
     build:
-        context: ./nginx
-        dockerfile: DockerfileARM
-#    image: nginx:latest
+      context: ./nginx
+      dockerfile: DockerfileARM
+    #    image: nginx:latest
     depends_on:
       - fastapi
     ports:
@@ -30,35 +30,35 @@ services:
       - ./nginx/ssl:/etc/ssl/:ro
       - ./src/statics:/code/statics
 
-#  redis:
-#    container_name: redisARM
-#    image: arm64v8/redis:6.2-alpine
-#
-#  celery_worker:
-#    container_name: celery_workerARM
-#    build:
-#      context: .
-#      dockerfile: .docker/DockerfileARM
-#    command: celery -A celery_worker.celery worker --loglevel=info
-#    volumes:
-#      - ./src/:/code
-#    env_file:
-#      - .envs/.env
-#    depends_on:
-#      - fastapi
-#      - redis
-#
-#  flower:
-#    container_name: flowerARM
-#    build:
-#      context: .
-#      dockerfile: .docker/DockerfileARM
-#    command: celery -A celery_worker.celery flower --port=5555
-#    ports:
-#      - "5556:5555"
-#    env_file:
-#      - .envs/.env
-#    depends_on:
-#      - fastapi
-#      - redis
-#      - celery_worker
+  redis:
+    container_name: redisARM
+    image: arm64v8/redis:6.2-alpine
+
+  celery_worker:
+    container_name: celery_workerARM
+    build:
+      context: .
+      dockerfile: .docker/DockerfileARM
+    command: celery -A celery_worker.celery worker --loglevel=info
+    volumes:
+      - ./src/:/code
+    env_file:
+      - .env
+    depends_on:
+      - fastapi
+      - redis
+
+  flower:
+    container_name: flowerARM
+    build:
+      context: .
+      dockerfile: .docker/DockerfileARM
+    command: celery -A celery_worker.celery flower --port=5555
+    ports:
+      - "5556:5555"
+    env_file:
+      - .env
+    depends_on:
+      - fastapi
+      - redis
+      - celery_worker

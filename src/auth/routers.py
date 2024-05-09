@@ -68,7 +68,7 @@ async def sign_in_with_google(data: dict):
     "/apple",
     status_code=status.HTTP_200_OK
 )
-async def sign_in_with_apple(data: dict = {"uid": "4c8SEAwFb1ZORQ4psCpxOGQP0RK2"}):
+async def sign_in_with_apple(data: dict ):
     """
     Sign in with apple
     """

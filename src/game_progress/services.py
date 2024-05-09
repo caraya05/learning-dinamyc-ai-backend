@@ -16,19 +16,25 @@ def get_game_progress_by_field(db: Session, field: str, value: str):
     """
     game_progress = db.query(GameProgress).filter(getattr(GameProgress, field) == value).first()
     if not game_progress:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail=f"GameProgress with {field} {value} not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"GameProgress with {field} {value} not found",
+        )
     return game_progress
 
 
-def get_game_progresses_service(db: Session, skip: int = 0, limit: int = 100, user_id: str = None, game_id: str = None):
+def get_game_progresses_service(
+    db: Session, skip: int = 0, limit: int = 100, user_id: str = None, game_id: str = None
+):
     """
     Get a list of game_progresses.
     """
     game_progresses = db.query(GameProgress)
     if game_id:
         game_progresses = game_progresses.filter(GameProgress.game_id == game_id)
-    game_progresses = game_progresses.filter(GameProgress.user_id == user_id).offset(skip).limit(limit).all()
+    game_progresses = (
+        game_progresses.filter(GameProgress.user_id == user_id).offset(skip).limit(limit).all()
+    )
     return SchemaListGameProgress(results=game_progresses, count=len(game_progresses))
 
 
@@ -56,10 +62,14 @@ def create_game_progress_service(db: Session, schema: SchemaCreateGameProgress, 
     except Exception as e:
         print(e)
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error creating game progress")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Error creating game progress"
+        )
 
 
-def partial_update_game_progress_service(db: Session, game_progress_id: str, schema: SchemaPartialUpdateGameProgress):
+def partial_update_game_progress_service(
+    db: Session, game_progress_id: str, schema: SchemaPartialUpdateGameProgress
+):
     """
     Partially update a game_progress.
     """
@@ -75,5 +85,7 @@ def partial_update_game_progress_service(db: Session, game_progress_id: str, sch
     except Exception as e:
         print(e)
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail=f"Error updating game_progress {game_progress_id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error updating game_progress {game_progress_id}",
+        )

@@ -4,9 +4,9 @@ from motor import motor_asyncio
 from config import settings
 
 client = motor_asyncio.AsyncIOMotorClient(
-    settings.DATABASE_URL, serverSelectionTimeoutMS=10000
+    settings.DATABASE_URL, serverSelectionTimeoutMS=30000
 )
-db = client.database
+db = client.get_database(settings.DATABASE_NAME)
 
 
 class PyObjectId(ObjectId):
@@ -28,6 +28,9 @@ class PyObjectId(ObjectId):
 async def create_index():
     await db["user"].create_index("username")
     await db["user"].create_index("email")
+
+    await db["game"].create_index("title")
+    await db["game"].create_index("category_id")
 
     await db["category"].create_index("name")
 

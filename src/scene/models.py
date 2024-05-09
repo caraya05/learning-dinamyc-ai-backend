@@ -1,51 +1,34 @@
-import datetime
-
-from sqlalchemy import Column
-from sqlalchemy import PickleType
-from sqlalchemy import String
-from sqlalchemy import Date
-from sqlalchemy import Text
-from sqlalchemy import Boolean
-from sqlalchemy import Integer
-from sqlalchemy.ext.declarative import declarative_base
-
-from utils import generate_uuid
-
-Base = declarative_base()
+from pydantic import BaseModel
+from pydantic import Field
+from datetime import datetime
+from typing import Optional
 
 
-class AbstractBaseModel(Base):
-    __abstract__ = True
-    id = Column(String, name="id", primary_key=True, default=generate_uuid, index=True)
-    created_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    created_by: str = Column(String, default="system")
-    updated_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    updated_by: str = Column(String, default="system")
-
-
-class Scene(AbstractBaseModel):
-    __tablename__ = "scene"
-
-    order: int = Column(Integer, index=False)
-    title: str = Column(String, index=False)
-    description: str = Column(Text, nullable=True)
-    script_id: str = Column(String, nullable=False)
-    game_id: str = Column(String, nullable=True)
-    location_id: str = Column(String, nullable=True)
-    characters_id = Column(PickleType, nullable=True)
-    start_dialogues = Column(PickleType, nullable=True)
-    end_dialogues = Column(PickleType, nullable=True)
-    questions = Column(PickleType, nullable=True)
-    dynamic: str = Column(String, nullable=True)
-    content: str = Column(String, nullable=True)
-    reward: str = Column(String, nullable=True)
-    count_enemies: int = Column(Integer, nullable=True)
-    enemy_id: str = Column(String, nullable=True)
-    is_subtractable: bool = Column(Boolean, nullable=True)
-    start_content: str = Column(String, nullable=True)
-    start_image: str = Column(String, nullable=True)
-    object_id: str = Column(String, nullable=True)
-    delivery_location_id: str = Column(String, nullable=True)
-    delivery_character_id: str = Column(String, nullable=True)
-    image_defeat: str = Column(String, nullable=True)
-    sound_id: str = Column(String, nullable=True)
+class Scene(BaseModel):
+    order: int = Field(..., example=1)
+    title: str = Field(..., example="Scene Title")
+    description: str = Field(None, example="This is a scene description")
+    script_id: str = Field(..., example="123")
+    game_id: str = Field(None, example="123")
+    location_id: str = Field(None, example="123")
+    characters_id: list[str] = Field(None, example={"123": "Character 1", "456": "Character 2"})
+    start_dialogues: Optional[list[dict]] = Field(None, example={"1": "Hello", "2": "Hi"})
+    end_dialogues: Optional[list[dict]] = Field(None, example={"1": "Goodbye", "2": "Bye"})
+    questions: dict = Field(None, example={"1": "Question 1", "2": "Question 2"})
+    dynamic: str = Field(None, example="Dynamic")
+    content: str = Field(None, example="Content")
+    reward: str = Field(None, example="Reward")
+    count_enemies: Optional[int] = Field(None, example=1)
+    enemy_id: Optional[str] = Field(None, example="123")
+    is_subtract: bool = Field(None, example=True)
+    start_content: Optional[str] = Field(None, example="Start Content")
+    start_image: Optional[str] = Field(None, example="image.jpg")
+    object_id: Optional[str] = Field(None, example="123")
+    delivery_location_id: Optional[str] = Field(None, example="123")
+    delivery_character_id: Optional[str] = Field(None, example="123")
+    image_defeat: Optional[str] = Field(None, example="image.jpg")
+    sound_id: Optional[str] = Field(None, example="123")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: str = Field(default="system", example="system")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: str = Field(default="system", example="system")

@@ -6,6 +6,7 @@ class SchemaCreateGameProgress(BaseModel):
     """
     Schema for creating a game progress
     """
+
     # user_id: str
     game_id: str
     scene_id: str
@@ -18,6 +19,7 @@ class SchemaPartialUpdateGameProgress(BaseModel):
     """
     Schema for partially updating a game progress
     """
+
     scene_id: Optional[str]
     object: Optional[list[str]]
     location_id: str
@@ -28,6 +30,7 @@ class SchemaRetrieveGameProgress(BaseModel):
     """
     Schema for retrieving a game progress
     """
+
     id: str
     user_id: str
     game_id: str
@@ -45,6 +48,7 @@ class SchemaListGameProgress(BaseModel):
     """
     Schema for listing game progress
     """
+
     results: list[SchemaRetrieveGameProgress]
     count: int
 

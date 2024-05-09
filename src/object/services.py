@@ -1,78 +1,115 @@
+from uuid import uuid4
+
+from bson import ObjectId
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
+from core.database import db
 from starlette import status
 
 from object.models import Object
 
 from object.schemas import SchemaCreateObject
-from object.schemas import SchemaPartialUpdateObject
+# from object.schemas import SchemaPartialUpdateObject
 
 from utils import upload_image
 
 
-def get_object_by_field(db: Session, field: str, value: str, game_id: str = None):
-    """
-    Get a object by a field.
-    """
-    if game_id:
-        object_ = db.query(Object).filter(getattr(Object, field) == value, Object.game_id == game_id).first()
-    else:
-        object_ = db.query(Object).filter(getattr(Object, field) == value).first()
-    if not object_:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Object with {field} {value} not found")
-    return object_
-
-
-def get_objects_service(db: Session, game_id: str, skip: int = 0, limit: int = 100):
+async def get_objects_service(game_id: str, skip: int = 0, limit: int = 100):
     """
     Get a list of objects.
     """
-    objects = db.query(Object).filter(Object.game_id == game_id).offset(skip).limit(limit).all()
-    return objects
+    try:
+        objects_db = await db["object"].find({"game_id": game_id}).skip(skip).limit(limit).to_list(None)
+        count_objects = await db["object"].count_documents({"game_id": game_id})
+        return objects_db, count_objects
+    except Exception as e:
+        print(f"Error in get objects service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Objects not found",
+        )
 
 
-def create_object_service(db: Session, object_: SchemaCreateObject, user_id: str):
+async def create_object_service(schema: SchemaCreateObject, user_id: str):
     """
     Create a new object.
     """
-    db_object = Object(**object_.dict())
-    if object_.image:
-        db_object.image = upload_image(url_image=object_.image,
-                                       file_name=f"{object_.game_id}/object/{object_.name}.jpg",
-                                       size=(512, 512))
-    db_object.created_by = user_id
-    db_object.updated_by = user_id
-    db.add(db_object)
-    db.commit()
-    db.refresh(db_object)
-    return db_object
+    try:
+        schema_object = Object(**schema.dict())
+        if schema.image:
+            schema_object.image = upload_image(
+                url_image=schema.image,
+                file_name=f"object/{uuid4()}.jpg",
+                size=(512, 512),
+            )
+        schema_object.created_by = user_id
+        schema_object.updated_by = user_id
+
+        if object_created := await db["object"].insert_one(schema_object.dict()):
+            return await db["object"].find_one({"_id": object_created.inserted_id})
+
+    except Exception as e:
+        print(f"Error in create object service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Object not created",
+        )
 
 
-def retrieve_object_service(db: Session, object_id: str):
+async def retrieve_object_service(object_id: str):
     """
     Retrieve a object.
     """
-    object_ = get_object_by_field(db, "id", object_id)
-    return object_
+    try:
+        if object_db := await db["object"].find_one({"_id": ObjectId(object_id)}):
+            return object_db
+    except Exception as e:
+        print(f"Error in retrieve object service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Object not found",
+        )
 
 
-def partial_update_object_service(db: Session, object_id: str, object: SchemaPartialUpdateObject):
-    """
-    Partial update a object.
-    """
-    db_object = get_object_by_field(db, "id", object_id)
-    for field, value in object.dict().items():
-        setattr(db_object, field, value) if value else None
-    db.commit()
-    db.refresh(db_object)
-    return db_object
+# def partial_update_object_service(object_id: str, object: SchemaPartialUpdateObject):
+#     """
+#     Partial update a object.
+#     """
+#     db_object = get_object_by_field(db, "id", object_id)
+#     for field, value in object.dict().items():
+#         setattr(db_object, field, value) if value else None
+#     db.commit()
+#     db.refresh(db_object)
+#     return db_object
 
 
-def delete_object_service(db: Session, object_id: str):
+async def delete_object_service(object_id: str):
     """
     Delete a object.
     """
-    db_object = get_object_by_field(db, "id", object_id)
-    db.delete(db_object)
-    db.commit()
-    return db_object
+    try:
+        object_deleted = await db["object"].delete_one({"_id": ObjectId(object_id)})
+        if object_deleted.deleted_count:
+            return True
+    except Exception as e:
+        print(f"Error in delete object service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Object not found",
+        )
+
+
+async def update_image_object_service(object_id: str, image: str):
+    """
+    Update image of a object.
+    """
+    try:
+        object_db = await db["object"].find_one({"_id": ObjectId(object_id)})
+        object_db["image"] = image
+        await db["object"].update_one({"_id": ObjectId(object_id)}, {"$set": object_db})
+        return await db["object"].find_one({"_id": ObjectId(object_id)})
+    except Exception as e:
+        print(f"Error in update image object service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Object not found",
+        )

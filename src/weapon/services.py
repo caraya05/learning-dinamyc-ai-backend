@@ -1,79 +1,69 @@
+from bson import ObjectId
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 from starlette import status
-
+from uuid import uuid4
 from weapon.models import Weapon
 
-from weapon.schemas import SchemaRetrieveWeapon
 from weapon.schemas import SchemaCreateWeapon
 from weapon.schemas import SchemaPartialUpdateWeapon
-from weapon.schemas import SchemaListWeapon
 
 from utils import upload_image
 
-
-def get_weapon_by_field(db: Session, field: str, value: str):
-    """
-    Get a weapon by a field.
-    """
-    weapon = db.query(Weapon).filter(getattr(Weapon, field) == value).first()
-    # if not weapon:
-    #     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Weapon with {field} {value} not found")
-    return weapon
+from core.database import db
 
 
-def get_weapons_service(db: Session, game_id: str, skip: int = 0, limit: int = 100, character_id: str = None):
+async def get_weapons_service(game_id: str, skip: int = 0, limit: int = 100, character_id: str = None):
     """
     Get a list of weapons.
     """
-    weapons = db.query(Weapon).filter(Weapon.game_id == game_id)
-    if character_id:
-        weapons = weapons.filter(Weapon.character_id == character_id)
-    return weapons.offset(skip).limit(limit).all()
+    weapons_db = await db["weapon"].find({"game_id": game_id}).skip(skip).limit(limit).to_list(None)
+    counts = await db["weapon"].count_documents({"game_id": game_id})
+    return weapons_db, counts
 
 
-def create_weapon_service(db: Session, weapon: SchemaCreateWeapon, user_id: str):
+async def create_weapon_service(schema: SchemaCreateWeapon, user_id: str):
     """
     Create a new weapon.
     """
-    db_weapon = Weapon(**weapon.dict())
-    if weapon.image:
-        db_weapon.image = upload_image(url_image=weapon.image,
-                                       file_name=f"{weapon.game_id}/weapon/{weapon.name}.jpg",
-                                       size=(512, 512))
-    db_weapon.created_by = user_id
-    db_weapon.updated_by = user_id
-    db.add(db_weapon)
-    db.commit()
-    db.refresh(db_weapon)
-    return db_weapon
+    weapon_schema = Weapon(**schema.dict())
+    if weapon_schema.image:
+        weapon_schema.image = upload_image(
+            url_image=weapon_schema.image,
+            file_name=f"weapon/{uuid4()}.jpg",
+            size=(512, 512),
+        )
+    weapon_schema.created_by = user_id
+    weapon_schema.updated_by = user_id
+    weapon_created = await db["weapon"].insert_one(weapon_schema.dict())
+    return await db["weapon"].find_one({"_id": weapon_created.inserted_id})
 
 
-def retrieve_weapon_service(db: Session, weapon_id: str):
+async def retrieve_weapon_service(weapon_id: str):
     """
     Retrieve a weapon.
     """
-    weapon = get_weapon_by_field(db, "id", weapon_id)
-    return weapon
+    weapon_db = await db["weapon"].find_one({"_id": ObjectId(weapon_id)})
+    return weapon_db
 
 
-def partial_update_weapon_service(db: Session, weapon_id: str, weapon: SchemaPartialUpdateWeapon):
+async def partial_update_weapon_service(weapon_id: str, weapon: SchemaPartialUpdateWeapon):
     """
     Partial update a weapon.
     """
-    db_weapon = get_weapon_by_field(db, "id", weapon_id)
+    db_weapon = await db["weapon"].find_one({"_id": ObjectId(weapon_id)})
     for var, value in weapon:
         setattr(db_weapon, var, value)
-    db.commit()
-    db.refresh(db_weapon)
-    return db_weapon
+    await db["weapon"].update_one({"_id": ObjectId(weapon_id)}, {"$set": db_weapon})
+    return await db["weapon"].find_one({"_id": ObjectId(weapon_id)})
 
 
-def delete_weapon_service(db: Session, weapon_id: str):
+async def delete_weapon_service(weapon_id: str):
     """
     Delete a weapon.
     """
-    db_weapon = get_weapon_by_field(db, "id", weapon_id)
-    db.delete(db_weapon)
-    db.commit()
-    return True
+    weapon_deleted = await db["weapon"].delete_one({"_id": ObjectId(weapon_id)})
+    if weapon_deleted.deleted_count == 0:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Weapon not found",
+        )

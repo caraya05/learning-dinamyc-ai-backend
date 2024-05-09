@@ -5,8 +5,7 @@ from gpt_ai.utils import generate_gpt4_
 
 
 def get_extra_data_character_ai(prompt: list):
-    extra_data_text = generate_gpt4_vision_(content_prompt=prompt,
-                                            max_tokens=4096)
+    extra_data_text = generate_gpt4_vision_(content_prompt=prompt, max_tokens=4096)
 
     print("extra_data_text", extra_data_text)
 
@@ -27,7 +26,7 @@ def get_extra_data_character_ai(prompt: list):
     prompt_content_json = [
         {
             "role": "system",
-            "content": f"responde el prompt con la siguiente estructura JSON: {json_schema}"
+            "content": f"responde el prompt con la siguiente estructura JSON: {json_schema}",
         },
         {
             "role": "user",
@@ -35,13 +34,12 @@ def get_extra_data_character_ai(prompt: list):
                 {
                     "type": "text",
                     "text": f"convertir a json la siquiente descripcion del personaje: {extra_data_text},"
-                            f"en dado que no se puedan determinar los colores colocar un color adorde a los demas colores."
+                    f"en dado que no se puedan determinar los colores colocar un color adorde a los demas colores.",
                 }
-            ]
-        }
+            ],
+        },
     ]
 
-    extra_data_generated = generate_gpt4_(content_prompt=prompt_content_json,
-                                          max_tokens=4096)
+    extra_data_generated = generate_gpt4_(content_prompt=prompt_content_json, max_tokens=4096)
 
     return json.loads(extra_data_generated)

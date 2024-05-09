@@ -1,5 +1,22 @@
+from bson import ObjectId
+
 from pydantic import BaseModel
+from pydantic import Field
+
 from typing import Optional
+
+from core import PyObjectId
+
+
+class ResponseModel(BaseModel):
+    id: PyObjectId = Field(alias="_id")
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
+class ResponseModelStr(BaseModel):
+    id: str = Field(alias="_id")
 
 
 class SchemaCreateLocation(BaseModel):
@@ -10,12 +27,12 @@ class SchemaCreateLocation(BaseModel):
     name (str): The name of the location.
     description (Optional[str]): The description of the location.
     """
-    title: str
-    description: str
+    title: Optional[str]
+    description: Optional[str]
     image: Optional[str]
-    zoom: float
-    game_id: str
-
+    prompt_user: Optional[str]
+    place_id: Optional[str]
+    game_id: Optional[str]
 
 
 class SchemaPartialUpdateLocation(BaseModel):
@@ -27,12 +44,14 @@ class SchemaPartialUpdateLocation(BaseModel):
     description (Optional[str]): The description of the location.
     image (Optional[str]): The image of the location.
     """
-
+    title: Optional[str]
+    description: Optional[str]
+    prompt_user: Optional[str]
     image: Optional[str]
     config: Optional[dict]
 
 
-class SchemaRetrieveLocation(BaseModel):
+class SchemaRetrieveLocation(ResponseModel):
     """
     Schema for retrieving a location.
 
@@ -41,13 +60,33 @@ class SchemaRetrieveLocation(BaseModel):
     name (str): The name of the location.
     description (str): The description of the location.
     """
-    id: str
-    title: str
-    description: str
+
+    title: Optional[str]
+    description: Optional[str]
     image: Optional[str]
-    zoom: float
+    attempts: Optional[int] = 3
+    configuration: Optional[dict] = {}
+    sound: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
+class SchemaRetrieveLocationStr(ResponseModelStr):
+    """
+    Schema for retrieving a location.
+
+    Attributes:
+    id (int): The id of the location.
+    name (str): The name of the location.
+    description (str): The description of the location.
+    """
+
+    title: str
+    description: Optional[str]
+    image: Optional[str]
     attempts: Optional[int]
-    config: Optional[dict]
+    configuration: Optional[dict]
     sound: Optional[str]
 
     class Config:
@@ -62,7 +101,8 @@ class SchemaListLocation(BaseModel):
     results (list[SchemaRetrieveLocation]): The list of locations.
     count (int): The number of locations.
     """
-    results: list[SchemaRetrieveLocation]
+
+    results: list[SchemaRetrieveLocationStr]
     count: int
 
     class Config:

@@ -22,7 +22,9 @@ def verify_token_firebase(uid):
         return None
     except InvalidArgumentError as e:
         print(e)
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Signature invalid") from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Signature invalid"
+        ) from e
 
 
 def get_user(uid):
@@ -33,7 +35,7 @@ def get_user(uid):
         return None
 
 
-def get_user_token_firebase(data: dict):
+async def get_user_token_firebase(data: dict):
     # token = data.get("token")
     # email = data.get("email")
     uid = data.get("uid")

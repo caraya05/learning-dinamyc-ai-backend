@@ -11,5 +11,7 @@ def get_sound_by_field(db: Session, field: str, value: str):
     """
     sound = db.query(Sound).filter(getattr(Sound, field) == value).first()
     if not sound:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Sound with {field} {value} not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=f"Sound with {field} {value} not found"
+        )
     return sound

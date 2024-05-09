@@ -1,32 +1,29 @@
 from datetime import datetime
 
+from bson import ObjectId
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
 from starlette import status
 
 from record_daily.service import register_daily_record_service
-from .schemas import SchemaUser
-from .schemas import SchemaPartialUpdateUser
-from .schemas import SchemaUpdateUser
-from .schemas import SchemaUpdatePassword
-from .models import User
-from .utils import get_password_hash
 
-from configuration.services import get_configuration_service
+from user.schemas import SchemaUser
+
+from user.utils import get_password_hash
+from core.database import db
+
+from user.models import User
 
 
-def create_user_service(db: Session, user: SchemaUser):
-    if get_user_by_field(db, 'email', user.email):
+from configuration.services import get_configurations_service
+
+
+async def create_user_service(user: SchemaUser):
+    if get_user_by_field('email', user.email):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Nombre de la empresa ya registrado - company_name",
         )
-    if get_user_by_field(db, 'phone_number', user.phone_number):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Número de teléfono ya registrado - phone_number",
-        )
-    if get_user_by_field(db, 'username', user.username):
+    if get_user_by_field('username', user.username):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Nombre de usuario ya registrado - username",
@@ -34,80 +31,76 @@ def create_user_service(db: Session, user: SchemaUser):
 
     db_user = User(**user.dict())
     db_user.password = get_password_hash(db_user.password)
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    new_user = await db["user"].insert(db_user.dict())
+    user_created = await db["user"].find_one({"_id": new_user._id})
+
+    return user_created
 
 
-def get_user_by_field(db: Session, field: str, value: str):
-    return db.query(User).filter(getattr(User, field) == value).first()
+async def get_user_by_field(field: str, value: str):
+    game_db = await db["user"].find_one({field: value})
+    return game_db
 
 
-def get_list_user(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(User).offset(skip).limit(limit).all()
+# def get_list_user(skip: int = 0, limit: int = 100):
+#     return user_document.find()
 
 
-def update_user_service(db: Session, user_id: str, user_update: SchemaUpdateUser):
-    user_db = get_user_by_field(db, 'id', user_id)
-    if user_db:
-
-        user_db.username = user_update.username
-        user_db.email = user_update.email
-        db.commit()
-        db.refresh(user_db)
-        return user_db
-    else:
-        return None
-
-
-def partial_update_user_service(db: Session, user_id: str, user_update: SchemaPartialUpdateUser):
-    user_db = get_user_by_field(db, 'id', user_id)
-    for key, value in user_update.dict(exclude_unset=True).items():
-        setattr(user_db, key, value)
-    db.commit()
-    db.refresh(user_db)
-    return user_db
+# def update_user_service(user_id: str, user_update: SchemaUpdateUser):
+#     user_db = get_user_by_field('id', user_id)
+#     if user_db:
+#         user_db.username = user_update.username
+#         user_db.email = user_update.email
+#         db.commit()
+#         db.refresh(user_db)
+#         return user_db
+#     else:
+#         return None
 
 
-def get_current_user_service(db: Session, user: dict) -> User:
+# def partial_update_user_service(user_id: str, user_update: SchemaPartialUpdateUser):
+#     user_db = get_user_by_field('id', user_id)
+#     for key, value in user_update.dict(exclude_unset=True).items():
+#         setattr(user_db, key, value)
+#     db.commit()
+#     db.refresh(user_db)
+#     return user_db
+
+
+# async def get_current_user_service(user: dict):
+#     try:
+#         user: str | None = user.get("sub", None)
+#         print("user", user)
+#         if user is None:
+#             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username")
+#         user_db = await db["user"].find_one({"_id": ObjectId(user)})
+#         print("user_db", user_db)
+#         return user_db
+#     except Exception as ex:
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username"
+#         ) from ex
+
+
+# def update_password_service(change_password: SchemaUpdatePassword):
+#     user_db = get_user_by_field("token_change_password", change_password.token_change_password)
+#     if user_db:
+#         user_db.password = get_password_hash(change_password.password)
+#         db.commit()
+#         db.refresh(user_db)
+#         return user_db
+#     else:
+#         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+
+
+async def get_or_created_user_service(user: dict):
     try:
-        user: str | None = user.get("sub", None)
-        if user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username"
-            )
-        user_db = get_user_by_field(db, "id", user)
-        return user_db
-    except Exception as ex:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid username"
-        ) from ex
+        user_db = await db["user"].find_one({"email": user.email})
+        if user_db:
+            return user_db.get("_id"), user_db.get("password")
 
-
-def update_password_service(db: Session, change_password: SchemaUpdatePassword):
-    user_db = get_user_by_field(db, "token_change_password", change_password.token_change_password)
-    if user_db:
-        user_db.password = get_password_hash(change_password.password)
-        db.commit()
-        db.refresh(user_db)
-        return user_db
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
-        )
-
-
-def get_or_created_user_service(db: Session, user: dict):
-    user_db = get_user_by_field(db, "email", user.email)
-    if user_db:
-        return user_db
-    else:
-
-        configuration_db = get_configuration_service(db)
-
+        configuration_db = await get_configurations_service()
         username = user.display_name if user.display_name else user.email.split("@")[0]
-
         try:
             user_db_ = User(
                 email=user.email,
@@ -119,75 +112,89 @@ def get_or_created_user_service(db: Session, user: dict):
                 photo=user.photo_url if user.photo_url else None,
                 created_by=user.email,
                 updated_by=user.email,
-                stars=configuration_db.stars_news_users if configuration_db and configuration_db.stars_news_users else 10,
+                stars=configuration_db["stars_news_users"] if configuration_db else 20,
             )
-            db.add(user_db_)
-            db.commit()
-            db.refresh(user_db_)
-            return user_db_
+            new_user = await db["user"].insert_one(user_db_.dict())
+            user_created = await db["user"].find_one({"_id": new_user.inserted_id})
+            return user_created.get("_id"), user_created.get("password")
         except Exception as e:
+            print("Error in create user", e)
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST, detail=f"User not created {e}"
             )
+    except Exception as e:
+        print("Error in create user", e)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"User not created {e}"
+        )
 
 
-def deduct_stars_service(db: Session, user_id: str, stars: int):
+async def deduct_stars_service(user_id: str, stars: int):
     try:
-        user_db = get_user_by_field(db, 'id', user_id)
+        user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
         if user_db:
-            user_db.stars -= stars
-            register_daily_record_service(db, user_id, datetime.utcnow(),
-                                          balance=user_db.stars,
-                                          expenses=stars,
-                                          games_created=1,
-                                          sets_with_errors=0,
-                                          attempts_to_create_without_balance=0)
-            db.commit()
-            db.refresh(user_db)
-            return user_db
+            user_db["stars"] -= stars
+            await register_daily_record_service(
+                user_id=user_id,
+                created_at=datetime.utcnow(),
+                balance=user_db.stars,
+                expenses=stars,
+                games_created=1,
+                sets_with_errors=0,
+                attempts_to_create_without_balance=0,
+            )
+            await db["user"].update_one({"_id": ObjectId(user_id)}, {"$set": user_db})
+            return await db["user"].find_one({"_id": ObjectId(user_id)})
         else:
             return None
     except Exception as e:
+        print(f"Error in deduct stars {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error in deduct stars {e}"
-        ) from e
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error in deduct stars {e}"
+        )
 
 
-def update_photo_service(db: Session, user_id: str, photo: str):
+async def update_photo_service(user_id: str, photo: str):
     try:
-        user_db = get_user_by_field(db, 'id', user_id)
+        user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
         if user_db:
-            user_db.photo = photo
-            db.commit()
-            db.refresh(user_db)
-            return user_db
+            user_db['photo'] = photo
+            await db["user"].update_one({"_id": ObjectId(user_id)}, {"$set": user_db})
+            return await db["user"].find_one({"_id": ObjectId(user_id)})
         else:
             return None
     except Exception as e:
+        print(f"Error in update photo {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error in update photo {e}"
-        ) from e
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error in update photo {e}"
+        )
 
 
-def update_attempt_to_create_service(db: Session, user_id: str):
+async def update_attempt_to_create_service(user_id: str):
     try:
-        user_db = get_user_by_field(db, 'id', user_id)
+        user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
         if user_db:
-            user_db.attempt_to_create = True
-            if user_db.stars is None:
-                user_db.stars = 0
-            if user_db.number_of_creation_attempts is None:
-                user_db.number_of_creation_attempts = 0
-            user_db.number_of_creation_attempts += 1
-            register_daily_record_service(db, user_id, datetime.utcnow(),
-                                          balance=user_db.stars,
-                                          attempts_to_create_without_balance=1)
-            db.commit()
-            db.refresh(user_db)
-            return user_db
+            user_db['attempt_to_create'] = True
+            if user_db['stars'] is None:
+                user_db['stars'] = 0
+            if user_db['number_of_creation_attempts'] is None:
+                user_db['number_of_creation_attempts'] = 0
+            user_db['number_of_creation_attempts'] += 1
+            await register_daily_record_service(
+                user_id=user_id,
+                created_at=datetime.utcnow(),
+                balance=user_db['stars'],
+                attempts_to_create_without_balance=1,
+            )
+            await db["user"].update_one({"_id": ObjectId(user_id)}, {"$set": user_db})
+            return await db["user"].find_one({"_id": ObjectId(user_id)})
         else:
             return None
     except Exception as e:
+        print(f"Error in update attempt to create {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error in update attempt to create {e}"
-        ) from e
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error in update attempt to create {e}"
+        )

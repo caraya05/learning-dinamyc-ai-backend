@@ -1,4 +1,19 @@
+from bson import ObjectId
 from pydantic import BaseModel
+from pydantic import Field
+
+from core import PyObjectId
+
+
+class ResponseModel(BaseModel):
+    id: PyObjectId = Field(alias="_id")
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
+class ResponseModelStr(BaseModel):
+    id: str = Field(alias="_id")
 
 
 class SchemaCreateCustomize(BaseModel):
@@ -10,8 +25,7 @@ class SchemaCreateCustomize(BaseModel):
     type_character: str
 
 
-class SchemaRetrieveCustomize(BaseModel):
-    id: str
+class SchemaRetrieveCustomize(ResponseModel):
     reference_ui: str
 
     # genre: str
@@ -38,8 +52,7 @@ class SchemaListCustomize(BaseModel):
     count: int
 
 
-class SchemaRetrieveMiniCustomize(BaseModel):
-    id: str
+class SchemaRetrieveMiniCustomize(ResponseModelStr):
     reference_ui: str
     description: str
 

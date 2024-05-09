@@ -1,0 +1,10 @@
+id,reference_ui,gender,description,type_customize,created_at,created_by,updated_at,updated_by
+bdf5f6e4-6636-4f04-826f-c269b7c5e99c,Hair_Woman_V1,woman,Cabello liso y largo,hair,2024-02-27,system,2024-02-27,system
+931bd320-cdbd-47b9-a2b1-540ca3f8cde1,Hair_Woman_V2,woman,Cabello Crespo hasta los hombros,hair,2024-02-27,system,2024-02-27,system
+273d94c1-4d32-44fc-b758-f48fc0a9e7ea,Hair_Woman_V3,woman,cabello corto con peinado elegante,hair,2024-02-27,system,2024-02-27,system
+d6abc7fc-8fd2-438b-9416-f0f5d88987e8,Hair_Woman_V4,woman,Cabello con una moña atrás,hair,2024-02-27,system,2024-02-27,system
+d11ca7fa-cb28-4edb-a27b-c3b40b0326d5,Hair_Woman_V5,woman,Cabello con moñas a los lados,hair,2024-02-27,system,2024-02-27,system
+4bf9db90-0174-41cb-a9fa-5a0ae2f95655,Hair_Woman_V6,woman,Cabello crespo y largo,hair,2024-02-27,system,2024-02-27,system
+7852e241-3c4c-42fc-a1b4-a0a045ca77f2,hair_Man_V3,man,Cabello liso hasta los hombros,hair,2024-02-27,system,2024-02-27,system
+50f747b3-1c5c-48e6-a4ae-f920d31f4bfd,hair_Man_V4,man,Cabello corto ,hair,2024-02-27,system,2024-02-27,system
+ecd30680-8c85-4d7a-ad0e-73484d0d5cb1,hair_Man_V8,man,Cabello largo con peinado estilo cola de caballo,hair,2024-02-27,system,2024-02-27,system
