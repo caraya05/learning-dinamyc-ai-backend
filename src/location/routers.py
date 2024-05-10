@@ -125,6 +125,11 @@ async def partial_update_location(
     try:
         location_db = await partial_update_location_service(location_id=location_id, schema=schema,
                                                             user_id=str(user_db['_id']))
+        print(location_db)
+        if location_db["config"]:
+            for config in location_db["config"]:
+                if config["user"] == str(user_db['_id']):
+                    location_db["configuration"] = config["config"]
         return location_db
 
     except Exception as e:

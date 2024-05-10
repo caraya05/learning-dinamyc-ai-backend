@@ -36,17 +36,18 @@ async def get_places(
 
     try:
         places_db, places_count = await get_places_service(skip=skip - 1, limit=limit, user_id=str(user_db["_id"]))
-
         for place in places_db:
             place["_id"] = str(place["_id"])
+            # if not place["locations_id"]:
+            #     place["locations_id"] = None
 
         return SchemeListPlace(results=places_db, count=places_count, page=skip, total_pages=places_count // limit + 1)
 
     except Exception as e:
         print(f"Error in get places: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Places not found",
         )
 
 

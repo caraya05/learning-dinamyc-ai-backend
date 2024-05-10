@@ -64,6 +64,7 @@ class SchemaRetrieveLocation(ResponseModel):
     title: Optional[str]
     description: Optional[str]
     image: Optional[str]
+    prompt_user: Optional[str]
     attempts: Optional[int] = 3
     configuration: Optional[dict] = {}
     sound: Optional[str] = None

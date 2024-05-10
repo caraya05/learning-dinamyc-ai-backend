@@ -31,7 +31,7 @@ class SchemaRetrievePlaceStr(SchemaIdBaseStr):
     title: Optional[str]
     image: Optional[str]
     prompt_user: Optional[str]
-    locations_id: Optional[list[str]] = Field(None)
+    # locations_id: Optional[list] = []
 
 
 class SchemaCreatePlace(BaseModel):

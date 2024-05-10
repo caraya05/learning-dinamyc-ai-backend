@@ -126,6 +126,8 @@ async def partial_update_location_service(*, location_id: str, schema: SchemaPar
                     size=(812, 812),
                 )
             if schema.configuration:
+                if not location_db["config"]:
+                    location_db["config"] = []
                 json_config = {
                     "config": schema.configuration,
                     "user": user_id,
