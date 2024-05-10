@@ -37,7 +37,7 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await create_index()
+    # await create_index()
     yield
 
 
