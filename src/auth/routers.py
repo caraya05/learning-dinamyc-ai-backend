@@ -80,7 +80,7 @@ async def sign_in_with_apple(data: dict):
     responses={401: {"model": ExceptionModel}}
 )
 async def refresh(payload: Refresh):
-    if new_token := await auth_refresh(token=payload.refresh_token):
+    if new_token := await auth_refresh(token=payload.refresh):
         return new_token
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

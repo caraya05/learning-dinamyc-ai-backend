@@ -13,4 +13,4 @@ class Credentials(BaseModel):
 
 
 class Refresh(BaseModel):
-    refresh_token: str
+    refresh: str
