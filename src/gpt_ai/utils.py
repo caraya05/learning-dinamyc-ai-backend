@@ -1,17 +1,19 @@
-import openai
 from fastapi import HTTPException
 from openai import OpenAI
 from config import settings
 
-client = OpenAI(organization=settings.OPENAI_API_ORG_ID, api_key=settings.OPENAI_API_KEY)
+client = OpenAI(organization=settings.OPENAI_API_ORG_ID,
+                api_key=settings.OPENAI_API_KEY,
+                base_url="https://proxy.getprops.ai/",
+                default_headers={"x-api-key": "TFjTs7VL2N4XwPqizdNk"})
 
 
 def generate_image_dalle(
-    prompt: str,
-    model: str = "dall-e-3",
-    count: int = 1,
-    size: str = "1024x1792",
-    quality: str = "standard",
+        prompt: str,
+        model: str = "dall-e-3",
+        count: int = 1,
+        size: str = "1024x1792",
+        quality: str = "standard",
 ):
     try:
         response = client.images.generate(
@@ -30,12 +32,12 @@ def generate_image_dalle(
         raise HTTPException(
             status_code=400,
             detail="The image could not be generated, it probably does not comply with the content policy,"
-            " try to generate it again or contact Qwestar support.",
+                   " try to generate it again or contact Qwestar support.",
         )
 
 
 def generate_gpt4_vision_(
-    content_prompt: list[dict], max_tokens: int = 1000, model: str = "gpt-4-vision-preview"
+        content_prompt: list[dict], max_tokens: int = 1000, model: str = "gpt-4-vision-preview"
 ):
     try:
         response = client.chat.completions.create(
@@ -56,10 +58,10 @@ def generate_gpt4_vision_(
 
 
 def generate_gpt4_(
-    content_prompt: list[dict],
-    type_text: str = "",
-    max_tokens: int = 1000,
-    model: str = "gpt-4-1106-preview",
+        content_prompt: list[dict],
+        type_text: str = "",
+        max_tokens: int = 1000,
+        model: str = "gpt-4-1106-preview",
 ):
     try:
         response = client.chat.completions.create(
