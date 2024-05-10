@@ -80,10 +80,18 @@ async def sign_in_with_apple(data: dict):
     responses={401: {"model": ExceptionModel}}
 )
 async def refresh(payload: Refresh):
-    if new_token := await auth_refresh(token=payload.refresh):
-        return new_token
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid or expired token",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    try:
+        if new_token := await auth_refresh(token=payload.refresh):
+            return new_token
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as e:
+        print(f"Error in refresh: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+            headers={"WWW-Authenticate": "Bearer"},
+        )
