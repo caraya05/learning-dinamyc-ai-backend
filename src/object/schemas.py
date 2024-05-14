@@ -48,6 +48,9 @@ class SchemaCreateObject(BaseModel):
     name: str
     description: str
     image: Optional[str]
+    function: Optional[str | None] = None
+    script_id: Optional[str]
+    game_id: Optional[str | None] = None
 
 
 class SchemaPartialUpdateObject(SchemaCreateObject):
