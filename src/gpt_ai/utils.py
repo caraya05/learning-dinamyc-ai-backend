@@ -4,8 +4,9 @@ from config import settings
 
 client = OpenAI(organization=settings.OPENAI_API_ORG_ID,
                 api_key=settings.OPENAI_API_KEY,
-                base_url="https://proxy.getprops.ai/",
-                default_headers={"x-api-key": "TFjTs7VL2N4XwPqizdNk"})
+                # base_url="https://proxy.getprops.ai/",
+                # default_headers={"x-api-key": "TFjTs7VL2N4XwPqizdNk"}
+                )
 
 
 def generate_image_dalle(

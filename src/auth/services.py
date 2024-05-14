@@ -1,5 +1,4 @@
 from datetime import datetime, timedelta
-
 from fastapi import HTTPException
 from fastapi import status
 
@@ -64,9 +63,7 @@ async def generate_token(user_id: PyObjectId, password_ts: float) -> dict:
         }
     )
     access_token = jwt.encode(access, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
-    refresh_token = jwt.encode(
-        refresh, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM
-    )
+    refresh_token = jwt.encode(refresh, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
     return {
         "access": access_token,
         "refresh": refresh_token,
@@ -84,9 +81,7 @@ async def decode_token(token: str) -> dict | None:
 async def auth_access(token: str) -> dict | None:
     if payload := await decode_token(token):
         if payload.get("type") == TokenType.ACCESS.value:
-            if user := await authenticate_token(
-                    payload.get("user_id"), payload.get("password_ts")
-            ):
+            if user := await authenticate_token(payload.get("user_id"), payload.get("password_ts")):
                 if user.get("is_active"):
                     return user
 
@@ -94,13 +89,8 @@ async def auth_access(token: str) -> dict | None:
 async def auth_refresh(token: str) -> dict | None:
     if payload := await decode_token(token):
         if payload.get("type") == TokenType.REFRESH.value:
-            if user := await authenticate_token(
-                    payload.get("user_id"), payload.get("password_ts")
-            ):
-                return await generate_token(
-                    user_id=user.get("_id"),
-                    password_ts=user.get("password_ts"),
-                )
+            if user := await authenticate_token(payload.get("user_id"), payload.get("password_ts")):
+                return await generate_token(user_id=user.get("_id"), password_ts=user.get("password"))
 
 
 async def social_auth_firebase(data: dict):
