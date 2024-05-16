@@ -25,7 +25,13 @@ class PyObjectId(ObjectId):
         field_schema.update(type="string")
 
 
-async def create_index():
+async def create_indexes():
+
+    await db["user"].drop_indexes()
+    await db["game"].drop_indexes()
+    await db["category"].drop_indexes()
+    await db["prompt"].drop_indexes()
+
     await db["user"].create_index("username")
     await db["user"].create_index("email")
 
@@ -35,3 +41,4 @@ async def create_index():
     await db["category"].create_index("name")
 
     await db["prompt"].create_index("category")
+

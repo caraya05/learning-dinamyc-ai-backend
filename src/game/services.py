@@ -37,7 +37,8 @@ async def get_games_service(skip: int = 0, limit: int = 100, user_id: str = None
         games_query = {'_id': {'$in': games_id}}
     else:
         games_query = {}
-    games_db = await db['game'].find(games_query).skip(skip).limit(limit).to_list(None)
+    games_query['image'] = {'$ne': ""}
+    games_db = await db['game'].find(games_query).sort('created_at', -1).skip(skip).limit(limit).to_list(None)
     count_games = await db['game'].count_documents({})
     return games_db, count_games
 

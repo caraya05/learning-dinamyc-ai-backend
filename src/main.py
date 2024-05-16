@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import Request
 
-from core.database import create_index
+from core.database import create_indexes
 
 from user import routers as user_routers
 
@@ -40,7 +40,7 @@ from contextlib import asynccontextmanager
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # await create_index()
+    await create_indexes()
     yield
 
 
