@@ -30,7 +30,7 @@ async def get_game_service(game_id: str):
         )
 
 
-async def get_games_service(skip: int = 0, limit: int = 100, user_id: str = None, games_id: list[str] = None):
+async def get_games_service(*, skip: int = 0, limit: int = 100, user_id: str = None, games_id: list[str] = None):
     if user_id:
         games_query = {'created_by': user_id}
     elif games_id:
@@ -38,8 +38,10 @@ async def get_games_service(skip: int = 0, limit: int = 100, user_id: str = None
     else:
         games_query = {}
     games_query['image'] = {'$ne': ""}
-    games_db = await db['game'].find(games_query).sort('created_at', -1).skip(skip).limit(limit).to_list(None)
+    games_db = await db['game'].find(games_query).sort("created_at", -1).skip((skip - 1) * limit).limit(limit).to_list(
+        None)
     count_games = await db['game'].count_documents(games_query)
+    print("games_db", count_games, len(games_db), games_db)
     return games_db, count_games
 
 
