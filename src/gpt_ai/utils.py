@@ -29,7 +29,7 @@ def generate_image_dalle(
         return response.data[0].url
 
     except Exception as e:
-        print(e)
+        print(f"Error DALL-E: {str(e)}")
         raise HTTPException(
             status_code=400,
             detail="The image could not be generated, it probably does not comply with the content policy,"
@@ -51,7 +51,7 @@ def generate_gpt4_vision_(
         return response.choices[0].message.content
 
     except Exception as e:
-        print(e)
+        print(f"Error GPT4 Vision: {str(e)}")
         raise HTTPException(
             status_code=400,
             detail="Text could not be generated",
@@ -62,7 +62,7 @@ def generate_gpt4_(
         content_prompt: list[dict],
         type_text: str = "",
         max_tokens: int = 1000,
-        model: str = "gpt-4-1106-preview",
+        model: str = "gpt-4-turbo",
 ):
     try:
         response = client.chat.completions.create(
@@ -87,5 +87,30 @@ def generate_gpt4_(
         return response.choices[0].message.content
 
     except Exception as e:
-        print(e)
+        print(f"Error GPT4: {str(e)}")
+        raise Exception(f"Text not generated {type_text}")
+
+
+def generate_gpt4o(
+        content_prompt: list[dict],
+        type_text: str = "",
+        max_tokens: int = 1000,
+        model: str = "gpt-4o"
+):
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            response_format={"type": "json_object"},
+            messages=content_prompt,
+            max_tokens=max_tokens,
+            temperature=0.6,
+            top_p=0.8,
+            frequency_penalty=0.6,
+            presence_penalty=0.7
+        )
+
+        return response.choices[0].message.content
+
+    except Exception as e:
+        print(f"Error GPT4o: {str(e)}")
         raise Exception(f"Text not generated {type_text}")

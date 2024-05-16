@@ -1,6 +1,7 @@
 import json
 import time
 import random
+from gpt_ai.utils import generate_gpt4o
 from gpt_ai.utils import generate_gpt4_
 from gpt_ai.utils import generate_image_dalle
 
@@ -376,32 +377,8 @@ def get_script_locations_chapter_v2(
             location_scene = characters_locations_generated["locations"][i]["description_outdoor"]
             break
 
-    prompt_image_scene_cero = prompt_imagen_scene_cero.replace("x_location", location_scene)
-
-    prompt_text_scene_cero = prompt_text_introduction_scene_cero
-
-    json_content_scene_cero = {
-        "description_introduction": "string (description of the introduction)",
-    }
-
-    prompt_content = [
-        {
-            "role": "system",
-            "content": f"responde el prompt con la siguiente estructura JSON: {json_content_scene_cero}",
-        },
-        {"role": "user", "content": f"historia: {history}"},
-        {"role": "user", "content": [{"type": "text", "text": prompt_text_scene_cero}]},
-    ]
-
-    prompt_text_scene_cero = generate_gpt4_(
-        content_prompt=prompt_content, type_text="scene cero", max_tokens=4096
-    )
-
-    response_image_scene_cero = generate_image_dalle(
-        prompt=prompt_image_scene_cero, quality="hd", size="1024x1024"
-    )
-
-    prompt_text_scene_cero = json.loads(prompt_text_scene_cero)
+    prompt_text_scene_cero, response_image_scene_cero = generate_scene_cero(history, characters_locations_generated[
+        "characters"])
 
     scene_cero["start_content"] = prompt_text_scene_cero["description_introduction"]
     scene_cero["start_image"] = response_image_scene_cero
@@ -462,7 +439,7 @@ def get_script_locations_chapter_v2(
                 },
             ]
 
-            new_response_image_game_over = generate_gpt4_(
+            new_response_image_game_over = generate_gpt4o(
                 content_prompt=prompt_content, type_text="game over", max_tokens=4096
             )
 
@@ -472,87 +449,18 @@ def get_script_locations_chapter_v2(
                 prompt=json_new_response_image_game_over["description"]
                        + f", la imagen en arte voxel",
                 quality="hd",
-                size="1024x1024",
+                size="1024x1792",
             )
 
             i["game_over_image"] = image_game_over
 
-            break
+    print("game over", time.time() - star_time)
 
-    prompt_finish_chapter = prompt_finish_chapter.replace("x_interaction", scene_description)
+    print("history", history)
+    print("characters_locations_generated", characters_locations_generated)
 
-    prompt_finish_chapter = prompt_finish_chapter.replace(
-        "x_character",
-        f"personaje: {character1_description}, mini enemigo: {character2_description}",
-    )
-
-    json_finish_chapter = {"description": "string (description of the finish chapter)"}
-
-    prompt_content_finish_chapter = [
-        {
-            "role": "system",
-            "content": f"responde el prompt con la siguiente estructura JSON: {json_finish_chapter}",
-        },
-        {
-            "role": "system",
-            "content": f"No ir en contra de estas politicas al momento de generar el texto: \n"
-                       f"Sea responsable y ético al usar OpenAI. Siga las leyes, evite dañarse a sí mismo o a otros, y use los resultados para el bien. No comparta resultados para dañar a otros y respete las medidas de seguridad implementadas. De esta manera, podemos asegurarnos de que OpenAI se use para crear un impacto positivo en el mundo.",
-        },
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt_finish_chapter},
-                {
-                    "type": "text",
-                    "text": "con esta información, escribe un texto para generacion de una imagen que describa"
-                            " la escena de final de capitulo, donde el personaje principal continua su aventura."
-                            " despues de derrotar con el enemigo, en arte voxel. \n",
-                },
-            ],
-        },
-    ]
-
-    response_finish_chapter = generate_gpt4_(
-        content_prompt=prompt_content_finish_chapter, type_text="finish chapter", max_tokens=4096
-    )
-
-    response_finish_chapter = json.loads(response_finish_chapter)
-
-    image_finish_chapter = generate_image_dalle(
-        prompt=response_finish_chapter["description"] + f", la imagen en arte voxel",
-        quality="hd",
-        size="1024x1024",
-    )
-
-    prompt_text_finish_chapter = prompt_text_finish_chapter.replace(
-        "x_num_scene", str(scenes_generated[4]["number"])
-    )
-
-    schema_text_finish_chapter = {"description": "string (description of the finish chapter)"}
-
-    prompt_content = [
-        {
-            "role": "system",
-            "content": f"responde el prompt con la siguiente estructura JSON: {schema_text_finish_chapter}",
-        },
-        {
-            "role": "user",
-            "content": [
-                {"type": "text", "text": prompt_text_finish_chapter + f" en ingles"},
-                {
-                    "type": "text",
-                    "text": f"escena 4: {scenes_generated[4]['description']} \n"
-                            f"historia: {history} \n",
-                },
-            ],
-        },
-    ]
-
-    response_text_finish_chapter = generate_gpt4_(
-        content_prompt=prompt_content, type_text="finish chapter", max_tokens=4096
-    )
-
-    response_text_finish_chapter = json.loads(response_text_finish_chapter)
+    response_text_finish_chapter, image_finish_chapter = generate_scene_final(history, characters_locations_generated[
+        "characters"])
 
     scene_finish_chapter = scene_cero.copy()
     scene_finish_chapter["start_content"] = response_text_finish_chapter["description"]
@@ -590,3 +498,125 @@ def get_object_image(prompt_object: str, description: str):
     )
 
     return response_image_object
+
+
+def generate_scene_cero(history, character_one):
+    json_content_scene_cero = {
+        "description_introduction": "string (description of the introduction no more than 100 words)",
+    }
+
+    prompt_text_scene_cero = ("Genera una escena introductoria a esta historia, en la cual ocurra un evento que "
+                              "genere expectativa al jugador, en no más de 3 renglones. (En inglés)")
+
+    prompt_content = [
+        {
+            "role": "system",
+            "content": f"responde el prompt con la siguiente estructura JSON: {json_content_scene_cero}",
+        },
+        {"role": "user", "content": f"historia: {history}"},
+        {"role": "user", "content": [{"type": "text", "text": prompt_text_scene_cero}]},
+    ]
+
+    prompt_text_scene_cero = generate_gpt4_(
+        content_prompt=prompt_content, type_text="scene cero", max_tokens=4096
+    )
+
+    prompt_text_scene_cero = json.loads(prompt_text_scene_cero)
+
+    json_content_scene_cero = {
+        "description_image": "string (description of the image)",
+    }
+
+    prompt_content = [
+        {
+            "role": "system",
+            "content": f"responde el prompt con la siguiente estructura JSON: {json_content_scene_cero}",
+        },
+        {"role": "user", "content": f"Personajes: {character_one}"},
+        {"role": "user", "content": f"summary: {prompt_text_scene_cero}"},
+        {"role": "user", "content": [
+            {"type": "text",
+             "text": "con esta información, escribe un texto para generacion de una imagen de acción que describa"
+                     " la escena de preanbulo del capitulo donde inicia el juego, la imagen debe mostrar moviemiento en arte voxel. \n", }]},
+    ]
+
+    prompt_image_scene_cero = generate_gpt4_(
+        content_prompt=prompt_content, type_text="scene cero", max_tokens=4096
+    )
+
+    prompt_image_scene_cero = json.loads(prompt_image_scene_cero)
+
+    response_image_scene_cero = generate_image_dalle(
+        prompt=f"{prompt_image_scene_cero['description_image']} en arte voxel", quality="hd", size="1024x1792"
+    )
+
+    return prompt_text_scene_cero, response_image_scene_cero
+
+
+def generate_scene_final(history, characters):
+    prompt_finish_chapter = ("Genera una escena final del primer capitulo, en la cual ocurra un evento que "
+                             "genere expectativa  al jugador para comienzo del segundo capitulo, no menciona las palabras primer o segundo capitulo. (En inglés)")
+
+    schema_text_finish_chapter = {"description": "string (description of the finish chapter in no more than 50 words)"}
+
+    prompt_content = [
+        {
+            "role": "system",
+            "content": f"responde el prompt con la siguiente estructura JSON: {schema_text_finish_chapter}",
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt_finish_chapter},
+                {
+                    "type": "text",
+                    # "text": f"escena final: {scenes_db[4]['description']} \n"
+                    #         f"historia: {game_db['history']} \n",
+                    "text":
+                        f"historia: {history} \n",
+                },
+            ],
+        },
+    ]
+
+    response_text_finish_chapter = generate_gpt4_(
+        content_prompt=prompt_content, type_text="finish chapter", max_tokens=4096
+    )
+
+    response_text_finish_chapter = json.loads(response_text_finish_chapter)
+
+    json_finish_chapter = {"description_image": "string (description of the finish chapter with details)"}
+
+    prompt_content_finish_chapter = [
+        {
+            "role": "system",
+            "content": f"responde el prompt con la siguiente estructura JSON: {json_finish_chapter}",
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": f"Personajes: {characters}"},
+                {"type": "text", "text": f"historia: {history}"},
+                {"type": "text", "text": f"contexto final: {response_text_finish_chapter['description']}"},
+                {
+                    "type": "text",
+                    "text": "con esta información, escribe un texto para generacion de una imagen que describa"
+                            " la escena de final de juego. \n",
+                },
+            ],
+        },
+    ]
+
+    response_finish_chapter = generate_gpt4_(
+        content_prompt=prompt_content_finish_chapter, type_text="finish chapter", max_tokens=4096
+    )
+
+    response_finish_chapter = json.loads(response_finish_chapter)
+
+    image_finish_chapter = generate_image_dalle(
+        prompt=response_finish_chapter["description_image"] + ", en arte voxel",
+        quality="hd",
+        size="1024x1792",
+    )
+
+    return response_text_finish_chapter, image_finish_chapter

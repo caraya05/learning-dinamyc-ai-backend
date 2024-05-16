@@ -50,15 +50,15 @@ async def create_scene_service(schema: SchemaCreateScene, user_id: str):
         if scene_schema.start_image:
             scene_schema.start_image = upload_image(
                 url_image=schema.start_image,
-                file_name=f"scene/{uuid4()}_start.jpg",
-                size=(812, 812),
+                file_name=f"scene/{uuid4()}.jpg",
+                size=(512, 896),
             )
 
         if scene_schema.image_defeat:
             scene_schema.image_defeat = upload_image(
                 url_image=schema.image_defeat,
-                file_name=f"scene/{uuid4()}_defeat.jpg",
-                size=(812, 812),
+                file_name=f"scene/{uuid4()}.jpg",
+                size=(512, 896),
             )
 
         scene_schema.created_by = user_id

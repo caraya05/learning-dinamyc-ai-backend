@@ -134,10 +134,15 @@ async def create_game(
 
     try:
         if user_db.get("stars") <= 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="You don't have enough stars to create a game",
-            )
+            raise Exception("You don't have enough stars to create a game")
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You don't have enough stars to create a game",
+        )
+
+    try:
 
         game_db = await create_game_service(game=game, user_id=str(user_db.get("_id")))
 
@@ -289,11 +294,11 @@ async def background_generate(
 
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         character_leading_role = await db['character'].find_one({'game_id': game_id, 'type': 'leading role'})
-        script_db = await db['chapter'].find_one({'game_id': game_id})
-        scenes_db = await db['scene'].find({'script_id': str(script_db['_id'])}).sort('number', -1).to_list(None)
-        location_db = await db['location'].find_one({'_id': ObjectId(scenes_db[4]['location_id'])})
+        script_db = await db['chapter'].find({'game_id': game_id}).to_list(None)
+        scenes_db = await db['scene'].find({'script_id': str(script_db[0]['_id'])}).sort('number', -1).to_list(None)
+        location_db = await db['location'].find_one({'_id': ObjectId(scenes_db[3]['location_id'])})
         prompt_db_background = await db['prompt'].find_one({'category': 'image_background'})
-        prompt_content = prompt_db_background['description'].replace('x_escena', f" {scenes_db[4]['content']}")
+        prompt_content = prompt_db_background['description'].replace('x_escena', f" {scenes_db[3]['content']}")
         prompt_content = prompt_content.replace(
             'x_personaje', f"{character_leading_role['name']} {character_leading_role['description']}"
         )
@@ -301,15 +306,15 @@ async def background_generate(
         image_generated = generate_image_dalle(prompt=prompt_content, quality="hd", size="1792x1024")
         try:
             game_db["image_background"] = upload_image(
-                    url_image=image_generated,
-                    file_name=f"background/{uuid4()}.jpg",
-                    size=(1218, 686),
-                )
+                url_image=image_generated,
+                file_name=f"background/{uuid4()}.jpg",
+                size=(1218, 686),
+            )
             game_updated = await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': game_db})
             if game_updated.modified_count:
                 return await db['game'].find_one({'_id': ObjectId(game_id)})
         except Exception as e:
-            print(f"Error generating background: {str(e)}")
+            print(f"Error AI  generating background: {str(e)}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="not generated",
