@@ -125,3 +125,14 @@ async def delete_configuration(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid token",
         )
+
+
+@router.get("/get-current-images/", status_code=status.HTTP_200_OK)
+def get_current_images():
+    """
+    This endpoint retrieves the current images.
+    """
+    return {
+        "splash_screen": "https://qwestar.sfo3.cdn.digitaloceanspaces.com/backend/screen/b80b7060-40b0-47dc-a523-402292d1ef23.jpeg",
+        "login_screen": "https://qwestar.sfo3.cdn.digitaloceanspaces.com/backend/screen/f30c6340-2fd9-4f98-9ddc-ce484186f271.jpeg",
+    }
