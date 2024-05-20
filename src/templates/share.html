@@ -5,7 +5,6 @@
     <title>{{ name }}</title>
     <meta property="og:image" content="{{ image }}" />
     <meta property="og:description" content="{{ summary }}" />
-    <meta http-equiv="refresh" content="0; url={{ url_form }}" />
     <style>
         body {
             display: flex;
@@ -18,6 +17,11 @@
             width: 50%;
         }
     </style>
+    <script>
+        window.onload = function() {
+            window.location.href = "{{ url_form }}";
+        }
+    </script>
 </head>
 <body>
     <img src="https://qwestar.sfo3.cdn.digitaloceanspaces.com/backend/screen/9f11f70d-53cd-464c-b762-86a888573b10.png" alt="Image" class="center">
