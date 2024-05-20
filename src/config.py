@@ -19,5 +19,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str = os.environ["OPENAI_API_KEY"]
     OPENAI_API_ORG_ID: str = os.environ["OPENAI_API_ORG_ID"]
 
+    URL_API: str = os.environ["URL_API"]
+
 
 settings = Settings()

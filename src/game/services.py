@@ -214,3 +214,25 @@ async def update_error_message_game_service(game_id: str, error_message: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Game not found",
         )
+
+
+async def update_likes_game_service(game_id: str, user_id: str):
+    try:
+        game_db = await get_game_service(game_id=game_id)
+        if game_db.get('likes', None):
+            if user_id in game_db.get('likes'):
+                game_db['likes'].remove(user_id)
+            else:
+                game_db['likes'].append(user_id)
+        else:
+            game_db['likes'] = [user_id]
+
+        game_updated = await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': game_db})
+        if game_updated.modified_count:
+            return await db['game'].find_one({'_id': ObjectId(game_id)})
+    except Exception as e:
+        print(f"Error updating likes game service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )

@@ -42,7 +42,7 @@ async def token(credentials: Credentials):
     ):
         return await generate_token(
             user_id=user.get("_id"),
-            password_ts=user.get("password_ts"),
+            password_ts=user.get("password"),
         )
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

@@ -25,6 +25,7 @@ from game.services import create_game_service
 from game.services import subtract_attempts_game_service
 from game.services import update_partial_game_service
 from game.services import delete_game_service
+from game.services import update_likes_game_service
 
 from auth.auth import auth
 
@@ -472,4 +473,27 @@ async def categories_games(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Games not found",
+        )
+
+
+@router.get("/like/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
+async def like_game(
+        game_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint likes a game.
+
+    It returns the game's information.
+    """
+
+    try:
+        return await update_likes_game_service(game_id, str(user_db.get("_id")))
+
+    except Exception as e:
+        print(f"Error liking game: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Game not liked",
         )

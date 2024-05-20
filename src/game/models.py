@@ -23,3 +23,4 @@ class Game(BaseModel):
     created_by: str = Field(default="system", example="system")
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     updated_by: str = Field(default="system", example="system")
+    likes: list[str] = Field([], example=["123", "456"])

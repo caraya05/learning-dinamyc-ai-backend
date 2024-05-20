@@ -12,8 +12,6 @@ from scene.schemas import SchemaCreateScene
 
 from object.schemas import SchemaCreateObject
 
-from weapon.schemas import SchemaCreateForType
-
 from script.schemas import SchemaPartialUpdateScript
 from script.utils import get_script_locations_chapter_v2
 
@@ -21,12 +19,7 @@ celery = Celery(__name__)
 celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
 
-# URL_API = "https://backend-dev.qwestar.ai"  # dev
-URL_API = os.getenv("URL_API", "http://localhost:8000")  # local
-
-
-# URL_API = "http://10.215.61.62"  # wework usaquen
-# URL_API = "http://192.168.100.169" #telefono
+URL_API = os.getenv("URL_API", "http://localhost:8000")
 
 
 @celery.task(name="create_script_task")
@@ -128,7 +121,6 @@ def create_script_task(
             print("Type " + str(e_type))
             print("Traceback " + str(e_traceback))
 
-
     print("objects created")
 
     # Create the locations
@@ -199,7 +191,7 @@ def create_script_task(
 
             character_generate = SchemaCreateCharacter(
                 name=i["name"],
-                gender=i["gender"] if "gender" in i else None,
+                gender=i["gender"] if "gender" in i and i["gender"] in ["man", "woman"] else "animal",
                 type=i["type"],
                 description=i["description"],
                 game_id=game_id,

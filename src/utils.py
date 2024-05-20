@@ -26,19 +26,23 @@ def upload_image(
         image_content_type: any = None,
         url_image: str = None,
         name_bucket: str = 'backend',
+        img_byte_arr: any = None
 ):
     try:
-        if image_content_type and not url_image:
-            img = Image.open(BytesIO(image_content_type))
-        else:
-            image_url = requests.get(url_image)
-            img = Image.open(BytesIO(image_url.content))
-        img = img.resize(size)
+        if not img_byte_arr:
+            if image_content_type and not url_image:
+                img = Image.open(BytesIO(image_content_type))
+            else:
+                image_url = requests.get(url_image)
+                img = Image.open(BytesIO(image_url.content))
+            img = img.resize(size)
 
-        # Save the image to a BytesIO object
-        img_byte_arr = BytesIO()
-        img.save(img_byte_arr, format='JPEG')
-        img_byte_arr = img_byte_arr.getvalue()
+            # Save the image to a BytesIO object
+            img_byte_arr = BytesIO()
+            img.save(img_byte_arr, format='JPEG')
+            img_byte_arr = img_byte_arr.getvalue()
+        else:
+            img_byte_arr = img_byte_arr
 
         client = session.client(
             's3',
@@ -57,7 +61,7 @@ def upload_image(
         )
         return f"{settings.URL_DIGITAL_OCEAN}{file_name}"
     except Exception as e:
-        print(e)
+        print(f"Error uploading image: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error resizing image",

@@ -27,7 +27,7 @@ services:
     volumes:
       - ./nginx:/etc/nginx/conf.d/:ro
       - ./nginx/ssl:/etc/ssl/:ro
-      - ./src/statics:/code/statics
+      - ./src/static:/code/static
 
   redis:
     container_name: redis

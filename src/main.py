@@ -1,9 +1,11 @@
 import time
 
 from fastapi import FastAPI
+from fastapi import Request
 
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import Request
+
+from fastapi.staticfiles import StaticFiles
 
 from core.database import create_indexes
 
@@ -34,6 +36,8 @@ from customize import routers as customize_routers
 from weapon import routers as weapon_routers
 
 from place import routers as place_routers
+
+from shortener import routers as shortener_routers
 
 from contextlib import asynccontextmanager
 
@@ -74,6 +78,9 @@ origins = [
     "*",
 ]
 
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -82,6 +89,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     start_time = time.time()
@@ -89,6 +97,7 @@ async def add_process_time_header(request: Request, call_next):
     process_time = time.time() - start_time
     response.headers["X-Process-Time"] = str(process_time)
     return response
+
 
 app.include_router(token_routers.router, prefix="/v1/api")
 app.include_router(category_routers.router, prefix="/v1/api")
@@ -104,6 +113,8 @@ app.include_router(scene_routers.router, prefix="/v1/api")
 app.include_router(script_routers.router, prefix="/v1/api")
 app.include_router(user_routers.router, prefix="/v1/api")
 app.include_router(weapon_routers.router, prefix="/v1/api")
+app.include_router(shortener_routers.router, prefix="/v1/api")
+app.include_router(shortener_routers.routerAPP)
 
 
 @app.get("/health", tags=["Health Check"])

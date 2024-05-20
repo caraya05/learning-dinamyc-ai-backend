@@ -28,3 +28,4 @@ setuptools==67.6.1
 uvicorn==0.21.1
 wheel==0.40.0
 python-multipart==0.0.6
+jinja2

@@ -24,6 +24,7 @@ class SchemaRetrieveGame(ResponseModel):
     summary: Optional[str] = Field(..., example="summary of the game")
     created_at: datetime
     created_by: str
+    likes: list[str] = Field([], example=["123", "456"])
 
 
 class ResponseModelStr(BaseModel):
@@ -45,6 +46,7 @@ class SchemaRetrieveGameStr(ResponseModelStr):
     summary: Optional[str] = Field(..., example="summary of the game")
     created_at: datetime
     created_by: str
+    likes: list[str] = Field([], example=["123", "456"])
 
 
 class SchemaListGame(BaseModel):
