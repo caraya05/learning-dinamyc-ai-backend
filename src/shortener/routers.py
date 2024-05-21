@@ -153,7 +153,7 @@ async def share_app(game_id: str,
         context={"request": request,
                  "url": f"{settings.URL_API}/share/app/{game_id}",
                  "name": game_db["title"],
-                 "summary": game_db["summary"],
+                 "summary": game_db["summary"][0:100],
                  "image": game_db["image_share"],
                  "url_form": configuration_db["url_form"]},
     )
