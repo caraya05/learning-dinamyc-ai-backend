@@ -151,6 +151,7 @@ async def share_app(game_id: str,
     return templates.TemplateResponse(
         name="share.html",
         context={"request": request,
+                 "url": f"{settings.URL_API}/share/app/{game_id}",
                  "name": game_db["title"],
                  "summary": game_db["summary"],
                  "image": game_db["image_share"],
