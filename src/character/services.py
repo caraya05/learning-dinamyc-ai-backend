@@ -1,3 +1,5 @@
+import json
+
 from bson import ObjectId
 from fastapi import HTTPException
 from fastapi import status
@@ -13,12 +15,15 @@ from character.schemas import SchemaUpdatePhotoCharacter
 from character.utils import get_extra_data_character_ai
 from customize.services import get_customize_by_type_character_service
 from customize.utils import get_customize_by_character
+from gpt_ai.utils import generate_gpt4_
+from gpt_ai.utils import generate_gpt4o
+from gpt_ai.utils import generate_image_dalle
+from prompt.services import get_prompt_by_category_service
 from utils import upload_image
 
 
 async def get_character_service(character_id: str):
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
-    print()
     if not character_db:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -30,7 +35,8 @@ async def get_character_service(character_id: str):
 
 async def get_characters_service(skip: int = 0, limit: int = 100, game_id: str = None):
     try:
-        if characters_db := await db["character"].find({"game_id": game_id}).skip(skip).limit(limit).to_list(None):
+        if characters_db := await db["character"].find({"game_id": game_id}).skip((skip - 1) * limit).limit(
+                limit).to_list(None):
             return characters_db
     except Exception as e:
         print(f"Error in get characters service: {str(e)}")
@@ -154,3 +160,123 @@ async def delete_character_service(character_id: str):
         status_code=status.HTTP_404_NOT_FOUND,
         detail="Character not found",
     )
+
+
+async def create_character_by_collection_service(*,
+                                                 description_base: str,
+                                                 user_id: str,
+                                                 name_character: str,
+                                                 prompt_user: str,
+                                                 order: int = 0):
+    # prompt_create_character = await get_prompt_by_category_service("create_character")
+
+    json_response = {
+        "description": "string (basic description of the character in which describes the face, hair and aspects of the body that serves to generate other characters.)",
+        "gender": "string (gender of the character, the options are man or woman)",
+    }
+
+    response_collection = generate_gpt4o(
+        content_prompt=[
+            # {
+            #     "role": "system",
+            #     "content": f"{prompt_create_character.get('prompt_system')} "
+            #                f"responde con un JSON que contenga el esquema '{{{json_response}}}'",
+            # },
+            {
+                "role": "system",
+                "content": "Genera una descripcion para generar una imagen e identifica el genero del personaje "
+                           "entre hombre, mujer o ninguno, utilizando la descripción base del personaje."
+                           f"responde con un JSON que contenga el esquema {json_response}",
+            },
+            {
+                "role": "assistant",
+                "content": f"Descricción base del personaje: {description_base}",
+            },
+
+            {
+                "role": "user",
+                "content": [{"type": "text", "text": prompt_user}]
+            },
+        ],
+        type_text="collection",
+        model="gpt-4o",
+        max_tokens=4096
+    )
+
+    response = json.loads(response_collection)
+
+    character = SchemaCreateCharacter(
+        name=name_character,
+        created_by=user_id,
+        updated_by=user_id,
+        description=response.get("description"),
+        gender=response.get("gender"),
+        order=order,
+    )
+
+    character_db = Character(**character.dict())
+    character_created = await db["character"].insert_one(character_db.dict())
+    # print("character_created", character_created.inserted_id)
+    if character_db := await db["character"].find_one({"_id": character_created.inserted_id}):
+        return character_db
+
+
+async def get_characters_by_collection_service(skip: int = 0, limit: int = 100, collection_id: str = None):
+    collection_db = await db["characters_collection"].find_one({"_id": ObjectId(collection_id)})
+
+    try:
+        if characters_db := await db["character"].find(
+                {"_id": {"$in": [ObjectId(i) for i in collection_db.get("characters_id")]}}).skip(
+            (skip - 1) * limit).limit(limit).to_list(None):
+            return characters_db
+    except Exception as e:
+        print(f"Error in get characters service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Characters not found",
+        )
+
+
+async def get_images_character_body_service(character_id: str):
+    character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+    if not character_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found",
+        )
+    try:
+        image_body = generate_image_dalle(prompt="Genera una imagen en arte pixel de extraordinaria calidad de"
+                                                 f" {character_db['description']}, en vista frontal de cuerpo completo y pose T con los brazos"
+                                                 " totalmente extendidos, en fondo blanco.",
+                                          quality="hd",
+                                          size="1024x1792")
+        return image_body
+    except Exception as e:
+        print(f"Error in get images character service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Error in get images character service",
+        )
+
+
+async def get_images_character_face_service(character_id: str):
+    character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+    if not character_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found",
+        )
+    try:
+        image_face = generate_image_dalle(prompt=f"Genera una imagen en arte pixel de extraordinaria calidad, "
+                                                 f"de la cara vista closeup de frente de personaje en la imagen, con "
+                                                 f"fondo blanco, descripcción del personaje:"
+                                                 f" {character_db['description']}",
+                                          quality="hd",
+                                          size="1024x1024")
+        return image_face
+    except Exception as e:
+        print(f"Error in get images character service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Error in get images character service",
+        )

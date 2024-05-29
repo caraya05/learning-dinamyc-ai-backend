@@ -25,16 +25,15 @@ class ResponseModelStr(BaseModel):
 class SchemaCreateCharacter(BaseModel):
     name: str = Field(..., max_length=100, example="Jhon Doe")
     gender: str = Field("man", example=GenderCharacter.MAN)
-    type: str = Field("leading role", max_length=100, example="leading role")
+    type: Optional[str] = Field(None, max_length=100, example="leading role")
     description: str = Field(..., example="this is a description")
-
-    game_id: str = Field(..., max_length=100, example="game_id")
-
-    attempts: int = Field(..., example=0)
-
+    game_id: Optional[str] = Field(None, max_length=100, example="game_id")
+    attempts: Optional[int] = Field(None, example=0)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
-
     text_idle: Optional[dict] = Field(None, example={"key": "value"})
+    created_by: Optional[str] = Field(None, example="system")
+    updated_by: Optional[str] = Field(None, example="system")
+    order: Optional[int] = Field(None, example=0)
 
 
 class SchemaRetrieveCharacter(ResponseModel):

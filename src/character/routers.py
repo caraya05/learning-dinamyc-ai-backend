@@ -21,6 +21,9 @@ from character.services import (
 )
 from character.services import get_characters_service
 from character.services import update_partial_character_service
+from character.services import get_images_character_face_service
+from character.services import get_images_character_body_service
+from character.services import update_partial_character_service
 from gpt_ai.utils import generate_image_dalle
 from prompt.services import get_prompt_by_category_service
 
@@ -40,7 +43,7 @@ async def get_characters(
     """
 
     try:
-        characters_db = await get_characters_service(skip=0, limit=100, game_id=game_id)
+        characters_db = await get_characters_service(skip=1, limit=100, game_id=game_id)
 
         for i in characters_db:
             i["_id"] = str(i["_id"])
@@ -121,7 +124,8 @@ async def partial_update_character(
     """
 
     try:
-        character_db = await update_partial_character_service(character_id=character_id, character_update=character_update)
+        character_db = await update_partial_character_service(character_id=character_id,
+                                                              character_update=character_update)
         return character_db
 
     except Exception as e:
@@ -165,3 +169,84 @@ async def generate_image(
     await update_attempts_character_service(character_id=character_id)
 
     return image_generated
+
+
+router2 = APIRouter(prefix='/characters', tags=['Characters'])
+
+
+@router2.get("/", response_model=SchemaListCharacter)
+async def get_characters(
+        collection_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves all characters.
+
+    It returns a list of characters.
+    """
+
+    try:
+        characters_db = await get_characters_service(skip=0, limit=100, collection_id=collection_id)
+
+        for i in characters_db:
+            i["_id"] = str(i["_id"])
+
+        return SchemaListCharacter(results=characters_db, count=len(characters_db))
+
+    except Exception as e:
+        print(f"error in get characters: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Characters not found",
+        )
+
+
+@router2.get("/{character_id}/generate-face/")
+async def get_images_character_face(
+        character_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves all characters.
+
+    It returns a list of characters.
+    """
+
+    try:
+        character_db = await get_images_character_face_service(character_id=character_id)
+
+        return character_db
+
+    except Exception as e:
+        print(f"error in get characters: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Characters not found",
+        )
+
+
+@router2.get("/{character_id}/generate-body/")
+async def get_images_character_body(
+        character_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves all characters.
+
+    It returns a list of characters.
+    """
+
+    try:
+        character_db = await get_images_character_body_service(character_id=character_id)
+
+        return character_db
+
+    except Exception as e:
+        print(f"error in get characters: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Characters not found",
+        )
