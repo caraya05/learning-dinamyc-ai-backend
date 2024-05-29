@@ -67,7 +67,7 @@ class SchemaRetrieveLocation(ResponseModel):
     prompt_user: Optional[str]
     attempts: Optional[int] = 3
     configuration: Optional[dict] = {}
-    sound: Optional[str] = None
+    sound_id: Optional[str | dict] = Field(None)
 
     class Config:
         orm_mode = True
@@ -88,7 +88,7 @@ class SchemaRetrieveLocationStr(ResponseModelStr):
     image: Optional[str]
     attempts: Optional[int]
     configuration: Optional[dict]
-    sound: Optional[str]
+    sound_id: Optional[str | dict] = Field(None)
 
     class Config:
         orm_mode = True

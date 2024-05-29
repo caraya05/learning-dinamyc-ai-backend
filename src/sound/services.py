@@ -1,17 +1,15 @@
 from fastapi import HTTPException
-from sqlalchemy.orm import Session
-from starlette import status
+from fastapi import status
 
-from sound.models import Sound
+from core.database import db
 
 
-def get_sound_by_field(db: Session, field: str, value: str):
-    """
-    Get a sound by a field.
-    """
-    sound = db.query(Sound).filter(getattr(Sound, field) == value).first()
-    if not sound:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail=f"Sound with {field} {value} not found"
-        )
-    return sound
+async def get_sounds_service():
+    try:
+        sounds_db = await db['sound'].find().to_list(None)
+        return sounds_db
+    except Exception as e:
+        print(f"error in get_sounds_service: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Error in get sounds service")
+

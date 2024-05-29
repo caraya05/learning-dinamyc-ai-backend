@@ -11,6 +11,7 @@ from place.models import Place
 from prompt.services import get_prompt_by_category_service
 
 from gpt_ai.utils import generate_image_dalle
+from sound.utils import identify_by_location_service
 from utils import upload_image
 
 
@@ -36,6 +37,9 @@ async def get_place_service(place_id: str):
     """
     try:
         if place_db := await db['place'].find_one({"_id": ObjectId(place_id)}):
+            if place_db["sound_id"]:
+                place_db["sound_id"] = await db['sound'].find_one({"_id": ObjectId(place_db["sound_id"])})
+                # del place_db["sound_id"]
             return place_db
     except Exception as e:
         print(f"Error in get place service: {str(e)}")
@@ -68,10 +72,13 @@ async def generate_image_place_service(place_id: str):
             prompt_db_image_place = await get_prompt_by_category_service("place_image")
             prompt_db_image_place["description"] = prompt_db_image_place["description"].replace("{{place}}",
                                                                                                 place_db["prompt_user"])
-            print(prompt_db_image_place["description"])
             image = generate_image_dalle(prompt=prompt_db_image_place["description"],
                                          size="1792x1024",
                                          quality="hd")
+            sound_identification = await identify_by_location_service(description=place_db["prompt_user"],
+                                                                      image=image)
+            place_db["sound_id"] = sound_identification["id"]
+            await db['place'].update_one({"_id": ObjectId(place_id)}, {"$set": place_db})
             return image
     except Exception as e:
         print(f"Error in generate image place service: {str(e)}")
@@ -102,6 +109,8 @@ async def update_place_service(*, place_id: str, schema: SchemaPartialUpdatePlac
             place_db["updated_by"] = user_id
             if schema.title:
                 place_db["title"] = schema.title
+            if schema.prompt_user:
+                place_db["prompt_user"] = schema.prompt_user
             if schema.image:
                 place_db["image"] = upload_image(
                     url_image=schema.image,

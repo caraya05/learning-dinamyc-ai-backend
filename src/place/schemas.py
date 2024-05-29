@@ -23,6 +23,7 @@ class SchemaRetrievePlace(SchemaIdBase):
     title: Optional[str]
     description: Optional[str]
     image: Optional[str]
+    sound_id: Optional[str | dict] = Field(None)
     prompt_user: Optional[str]
     locations_id: Optional[list[str]] = Field(None)
 

@@ -65,8 +65,8 @@ async def get_location_service(*, location_id: str, user_id: str) -> dict:
     """
     try:
         if location_db := await db['location'].find_one({"_id": ObjectId(location_id)}):
-            # if location.sound_id:
-            #     location.sound = get_sound_by_field(db, "id", location.sound_id).sound
+            if location_db["sound_id"]:
+                location_db["sound_id"] = await db['sound'].find_one({"_id": ObjectId(location_db["sound_id"])})
             if location_db["config"]:
                 for config in location_db["config"]:
                     if config["user"] == user_id:

@@ -58,12 +58,12 @@ def generate_gpt4_vision_(
         )
 
 
-def generate_gpt4_(
-        content_prompt: list[dict],
-        type_text: str = "",
-        max_tokens: int = 1000,
-        model: str = "gpt-4-turbo",
-):
+def generate_gpt4_(*,
+                   content_prompt: list[dict],
+                   type_text: str = "",
+                   max_tokens: int = 1000,
+                   model: str = "gpt-4-turbo",
+                   ):
     try:
         response = client.chat.completions.create(
             model=model,
