@@ -30,10 +30,12 @@ async def get_game_service(game_id: str):
         )
 
 
-async def get_games_service(*, skip: int = 0, limit: int = 100, user_id: str = None, games_id: list[str] = None):
+async def get_games_service(*, skip: int = 1, limit: int = 100, user_id: str = None, games_id: list = None):
     if user_id:
         games_query = {'created_by': user_id}
     elif games_id:
+        for i in range(len(games_id)):
+            games_id[i] = ObjectId(games_id[i])
         games_query = {'_id': {'$in': games_id}}
     else:
         games_query = {}

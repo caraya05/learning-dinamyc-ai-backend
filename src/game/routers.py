@@ -375,7 +375,7 @@ async def features_games(
             return SchemaListGame(results=[], count=0, page=0, total_pages=0)
 
         games_db, count_pages = await get_games_service(
-            skip=0, limit=1000, games_id=(games_featured_db["featured_games"])
+            skip=1, limit=1000, games_id=(games_featured_db["featured_games"])
         )
 
         for game in games_db:
@@ -408,7 +408,7 @@ async def popular_games(
         if not games_featured_db["popular_games"]:
             return SchemaListGame(results=[], count=0, page=0, total_pages=0)
 
-        games_db, count_pages = await get_games_service(skip=0, limit=1000,
+        games_db, count_pages = await get_games_service(skip=1, limit=1000,
                                                         games_id=(games_featured_db["popular_games"]))
 
         for game in games_db:
