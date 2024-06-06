@@ -41,6 +41,8 @@ from shortener import routers as shortener_routers
 
 from contextlib import asynccontextmanager
 
+from user import router_admin as user_admin_routers
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -58,19 +60,6 @@ app = FastAPI(
     swagger_ui_parameters={
         "syntaxHighlight": False,
     },
-    # root_path="/admin",
-    # root_path_in_servers=False,
-    # debug=True,
-    # servers=[
-    #     {
-    #         "url": "http://localhost",
-    #         "description": "Localhost server",
-    #     },
-    #     {
-    #         "url": "https://backend-dev.qwestar.ai",
-    #         "description": "DO server",
-    #     },
-    # ],
     lifespan=lifespan
 )
 
@@ -79,7 +68,6 @@ origins = [
 ]
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -120,3 +108,45 @@ app.include_router(shortener_routers.routerAPP)
 @app.get("/health", tags=["Health Check"])
 async def root():
     return {"message": "Ok"}
+
+
+admin = FastAPI(
+    title="Qwestar AI Admin API",
+    description="Qwestar AI is a game that uses AI to generate stories, characters, and images.",
+    version="2.0",
+    # docs_url="/v1/admin/docs",
+    # redoc_url="/v1/admin/redocs",
+    openapi_url="/openapi/openapi.json",
+    swagger_ui_parameters={
+        "syntaxHighlight": False,
+    },
+    lifespan=lifespan
+)
+
+origins = [
+    "*",
+]
+
+admin.mount("/static", StaticFiles(directory="static"), name="static")
+
+admin.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@admin.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
+
+
+admin.include_router(user_admin_routers.router)
+
+app.mount("/v1/admin", admin)
