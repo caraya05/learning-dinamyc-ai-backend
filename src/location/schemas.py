@@ -49,6 +49,7 @@ class SchemaPartialUpdateLocation(BaseModel):
     prompt_user: Optional[str]
     image: Optional[str]
     configuration: Optional[dict]
+    connections: Optional[dict]
 
 
 class SchemaRetrieveLocation(ResponseModel):
@@ -67,6 +68,7 @@ class SchemaRetrieveLocation(ResponseModel):
     prompt_user: Optional[str]
     attempts: Optional[int] = 3
     configuration: Optional[dict] = {}
+    connections: Optional[dict] = {}
     sound_id: Optional[str | dict] = Field(None)
 
     class Config:
@@ -88,6 +90,7 @@ class SchemaRetrieveLocationStr(ResponseModelStr):
     image: Optional[str]
     attempts: Optional[int]
     configuration: Optional[dict]
+    connections: Optional[dict]
     sound_id: Optional[str | dict] = Field(None)
 
     class Config:

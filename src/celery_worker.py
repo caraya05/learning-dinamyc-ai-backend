@@ -22,6 +22,15 @@ celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6
 URL_API = os.getenv("URL_API", "http://localhost:8000")
 
 
+# @celery.task(name="customized_character")
+# def customized_character(
+#         game_id: str,
+#         token: str,
+#         character_id: str,
+#         character_name: str,
+#         character):
+
+
 @celery.task(name="create_script_task")
 def create_script_task(
         game_id: str,
@@ -68,6 +77,7 @@ def create_script_task(
     if object_:
         try:
             for i in object_:
+                print("object " + str(i))
                 object_generate = SchemaCreateObject(
                     name=i["name"],
                     description=i["description"],
@@ -84,6 +94,8 @@ def create_script_task(
                 )
 
                 object_json = object__.json()
+
+                print("object_json " + str(object_json))
 
                 objects_created.append(object_json)
 
@@ -128,6 +140,9 @@ def create_script_task(
     locations_ = response_script["characters_locations"]["locations"]
     try:
         for i in locations_:
+
+            print("location " + str(i))
+
             location_generate = SchemaCreateLocation(
                 title=i["name"],
                 description=i["description_indoor"],
@@ -143,6 +158,8 @@ def create_script_task(
             )
 
             location_json = locations__.json()
+
+            print("location_json " + str(location_json))
 
             locations_created.append(location_json)
 
@@ -189,6 +206,8 @@ def create_script_task(
                                 if l["title"] == k["name"]:
                                     j["location_id"] = l["_id"]
 
+            print("character " + str(i))
+
             character_generate = SchemaCreateCharacter(
                 name=i["name"],
                 gender=i["gender"] if "gender" in i and i["gender"] in ["man", "woman"] else "animal",
@@ -198,6 +217,7 @@ def create_script_task(
                 attempts=3,
                 extra_data=i["extra_data"] if "extra_data" in i else {},
                 text_idle=i["text_idle"] if "text_idle" in i else [],
+
             )
 
             character_response = requests.post(
@@ -226,6 +246,9 @@ def create_script_task(
             #             )
 
             character_json = character_response.json()
+
+            print("character_json " + str(character_json))
+
             characters_created.append(character_json)
 
         response_all += " Character created "
@@ -294,8 +317,8 @@ def create_script_task(
 
             for dialogues_start in i["start_dialogues"]:
                 for k in character_:
-                    print("dialogues_start ", dialogues_start["id_character"])
-                    print("k ", k["id"])
+                    # print("dialogues_start ", dialogues_start["id_character"])
+                    # print("k ", k["id"])
 
                     if str(dialogues_start["id_character"]) == str(k["id"]):
 
@@ -331,7 +354,7 @@ def create_script_task(
                         for l in objects_created:
                             if l["name"] == k["name"]:
                                 object_id = l["_id"]
-            print("scene_generate " + str(count) + str(i))
+            # print("scene_generate " + str(count) + str(i))
 
             if "questions" in i:
                 if i["questions"] == {
@@ -441,7 +464,7 @@ def create_script_task(
             headers={"Authorization": "Bearer " + token},
         )
 
-        print("res   " + str(response.json()))
+        # print("res   " + str(response.json()))
 
         script_ = response_script["script"]
 
@@ -459,7 +482,7 @@ def create_script_task(
 
         response_all += " Script created "
 
-        print("res   " + str(response.json()))
+        # print("res   " + str(response.json()))
 
     except Exception as e:
 

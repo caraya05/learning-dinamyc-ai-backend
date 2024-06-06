@@ -71,6 +71,10 @@ async def get_location_service(*, location_id: str, user_id: str) -> dict:
                 for config in location_db["config"]:
                     if config["user"] == user_id:
                         location_db["configuration"] = config["config"]
+            if location_db.get("connect", None):
+                for connect in location_db["connect"]:
+                    if connect["user"] == user_id:
+                        location_db["connections"] = connect["connect"]
             return location_db
     except Exception as e:
         print(f"Error in get location service: {e}")
@@ -99,7 +103,7 @@ async def create_location_service(schema: SchemaCreateLocation, user_id: str):
                 await db['place'].update_one({"_id": ObjectId(schema.place_id)}, {"$set": place_db})
                 if not location_schema.description:
                     await generate_description_location_service(location_id=str(location_created.inserted_id))
-            if location_db := await db['location'].find_one({"_id": location_created.inserted_id}):
+            if location_db := await get_location_service(location_id=str(location_created.inserted_id), user_id=user_id):
                 return location_db
     except Exception as e:
         print(f"Error in create location service: {e}")
@@ -128,11 +132,30 @@ async def partial_update_location_service(*, location_id: str, schema: SchemaPar
             if schema.configuration:
                 if not location_db["config"]:
                     location_db["config"] = []
-                json_config = {
-                    "config": schema.configuration,
-                    "user": user_id,
-                }
-                location_db["config"].append(json_config)
+                    json_config = {
+                        "config": schema.configuration,
+                        "user": user_id,
+                    }
+                    location_db["config"].append(json_config)
+                else:
+                    for i in range(len(location_db["config"])):
+                        if location_db["config"][i]["user"] == user_id:
+                            location_db["config"][i]["config"] = schema.configuration
+                    # location_db["config"].append(config)
+
+            if schema.connections:
+                if not location_db.get("connect", None):
+                    location_db["connect"] = []
+                    json_connect = {
+                        "connect": schema.connections,
+                        "user": user_id,
+                    }
+                    location_db["connect"].append(json_connect)
+                else:
+                    for i in range(len(location_db["connect"])):
+                        if location_db["connect"][i]["user"] == user_id:
+                            location_db["connect"][i]["connect"] = schema.connections
+                    # location_db["connect"].append(connect)
 
             await db['location'].update_one({"_id": ObjectId(location_id)}, {"$set": location_db})
             return await db['location'].find_one({"_id": ObjectId(location_id)})

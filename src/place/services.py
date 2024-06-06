@@ -115,7 +115,7 @@ async def update_place_service(*, place_id: str, schema: SchemaPartialUpdatePlac
                 place_db["image"] = upload_image(
                     url_image=schema.image,
                     file_name=f"location/{uuid4()}.jpg",
-                    size=(1218, 686),
+                    size=(1792,1024),
                 )
 
             await db['place'].update_one({"_id": ObjectId(place_id)}, {"$set": place_db})
