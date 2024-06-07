@@ -23,7 +23,6 @@ from location.services import create_location_service
 from location.services import partial_update_location_service
 from location.services import update_attempts_location_service
 from prompt.services import get_prompt_by_category_service
-from sound.utils import identify_by_location_service
 
 router = APIRouter(prefix="/location", tags=["Location"])
 
@@ -182,9 +181,6 @@ async def generate_image_location(
                                           quality="hd",
                                           size="1792x1024")
 
-    sound_identification = await identify_by_location_service(description=location_db["prompt_user"],
-                                                              image=image_generate)
-    location_db["sound_id"] = sound_identification["id"]
     await db['location'].update_one({"_id": ObjectId(location_id)}, {"$set": location_db})
 
     await update_attempts_location_service(location_id=location_id)

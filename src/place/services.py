@@ -75,9 +75,7 @@ async def generate_image_place_service(place_id: str):
             image = generate_image_dalle(prompt=prompt_db_image_place["description"],
                                          size="1792x1024",
                                          quality="hd")
-            sound_identification = await identify_by_location_service(description=place_db["prompt_user"],
-                                                                      image=image)
-            place_db["sound_id"] = sound_identification["id"]
+
             await db['place'].update_one({"_id": ObjectId(place_id)}, {"$set": place_db})
             return image
     except Exception as e:
@@ -111,6 +109,8 @@ async def update_place_service(*, place_id: str, schema: SchemaPartialUpdatePlac
                 place_db["title"] = schema.title
             if schema.prompt_user:
                 place_db["prompt_user"] = schema.prompt_user
+                sound_identification = await identify_by_location_service(description=place_db["prompt_user"])
+                place_db["sound_id"] = sound_identification["id"]
             if schema.image:
                 place_db["image"] = upload_image(
                     url_image=schema.image,

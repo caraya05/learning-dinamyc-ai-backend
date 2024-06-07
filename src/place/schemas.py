@@ -26,12 +26,14 @@ class SchemaRetrievePlace(SchemaIdBase):
     sound_id: Optional[str | dict] = Field(None)
     prompt_user: Optional[str]
     locations_id: Optional[list[str]] = Field(None)
+    location_count: Optional[int] = Field(0)
 
 
 class SchemaRetrievePlaceStr(SchemaIdBaseStr):
     title: Optional[str]
     image: Optional[str]
     prompt_user: Optional[str]
+    location_count: Optional[int] = Field(0)
     # locations_id: Optional[list] = []
 
 

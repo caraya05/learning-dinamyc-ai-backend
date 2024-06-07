@@ -38,6 +38,7 @@ async def get_places(
         places_db, places_count = await get_places_service(skip=skip - 1, limit=limit, user_id=str(user_db["_id"]))
         for place in places_db:
             place["_id"] = str(place["_id"])
+            place["location_count"] = len(place["locations_id"]) if place["locations_id"] else 0
             # if not place["locations_id"]:
             #     place["locations_id"] = None
 

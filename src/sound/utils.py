@@ -7,7 +7,7 @@ from gpt_ai.utils import generate_gpt4o
 from sound.services import get_sounds_service
 
 
-async def identify_by_location_service(description: str, image: str):
+async def identify_by_location_service(description: str,):
     try:
         sounds_db = await get_sounds_service()
 
@@ -33,12 +33,12 @@ async def identify_by_location_service(description: str, image: str):
                             "type": "text",
                             "text": f"descripcion de la locacion : {description}"
                         },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": image,
-                            },
-                        },
+                        # {
+                        #     "type": "image_url",
+                        #     "image_url": {
+                        #         "url": image,
+                        #     },
+                        # },
                     ],
                 }
             ],

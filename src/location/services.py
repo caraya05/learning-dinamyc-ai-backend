@@ -22,6 +22,7 @@ from script.services import get_script_by_game_id_service
 # from sound.services import get_sound_by_field
 
 from gpt_ai.utils import generate_gpt4_
+from sound.utils import identify_by_location_service
 
 from utils import upload_image
 
@@ -221,6 +222,10 @@ async def generate_description_location_service(location_id: str):
             )
             response_prompt = json.loads(prompt_description)
             location_db["description"] = response_prompt["description"]
+
+            sound_identification = await identify_by_location_service(description=response_prompt["description"])
+            location_db["sound_id"] = sound_identification["id"]
+
             await db['location'].update_one({"_id": ObjectId(location_id)}, {"$set": location_db})
     except Exception as e:
         print(f"Error in generate description location service: {e}")
