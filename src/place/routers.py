@@ -66,7 +66,7 @@ async def get_place(
 
     try:
         place_db = await get_place_service(place_id=place_id)
-
+        place_db["location_count"] = len(place_db["locations_id"]) if place_db["locations_id"] else 0
         return place_db
 
     except Exception as e:
