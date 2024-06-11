@@ -153,7 +153,7 @@ async def generate_image_location(
     It expects the location's id in the request path.
     If the location is successfully updated, it returns the location's information.
     """
-    location_db = await get_location_service(location_id=location_id, user_id=str(user_db['_id']))
+    location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
     if location_db["attempts"] == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
