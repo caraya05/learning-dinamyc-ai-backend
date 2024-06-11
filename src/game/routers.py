@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import uuid4
 
 from bson import ObjectId
@@ -496,4 +497,31 @@ async def like_game(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Game not liked",
+        )
+
+
+@router.get("/play/{game_id}", status_code=status.HTTP_200_OK)
+async def play_game(
+        game_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint plays a game.
+
+    It returns the game's information.
+    """
+
+    try:
+        record_game = await db['record_game'].create_one({
+            'game_id': game_id,
+            'user_id': str(user_db.get("_id")),
+            'created_at': datetime.utcnow()
+        })
+        return "Game played"
+    except Exception as e:
+        print(f"Error playing game: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Game not played",
         )
