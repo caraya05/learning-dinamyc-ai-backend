@@ -157,9 +157,9 @@ async def partial_update_location_service(*, location_id: str, schema: SchemaPar
                         if location_db["connect"][i]["user"] == user_id:
                             location_db["connect"][i]["connect"] = schema.connections
                     # location_db["connect"].append(connect)
-
+            print("location_db", location_db)
             await db['location'].update_one({"_id": ObjectId(location_id)}, {"$set": location_db})
-            return await db['location'].find_one({"_id": ObjectId(location_id)})
+            return await get_location_service(location_id=location_id, user_id=user_id)
     except Exception as e:
         print(f"Error in partial update location service: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
