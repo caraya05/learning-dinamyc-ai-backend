@@ -47,6 +47,11 @@ async def amount_of_created(
                 "_id": "$created_at",
                 "count": {"$sum": 1}
             }
+        },
+        {
+            "$sort": {
+                "_id": -1  # Ordenar por fecha en orden descendente
+            }
         }
     ]).to_list(None)
 
@@ -66,6 +71,11 @@ async def amount_of_created(
             "$group": {
                 "_id": "$created_at",
                 "count": {"$sum": 1}
+            }
+        },
+        {
+            "$sort": {
+                "_id": -1  # Ordenar por fecha en orden descendente
             }
         }
     ]).to_list(None)
@@ -87,6 +97,11 @@ async def amount_of_created(
                 "_id": "$created_at",
                 "count": {"$sum": 1}
             }
+        },
+        {
+            "$sort": {
+                "_id": -1  # Ordenar por fecha en orden descendente
+            }
         }
     ]).to_list(None)
 
@@ -106,6 +121,11 @@ async def amount_of_created(
             "$group": {
                 "_id": "$created_at",
                 "count": {"$sum": 1}
+            }
+        },
+        {
+            "$sort": {
+                "_id": -1  # Ordenar por fecha en orden descendente
             }
         }
     ]).to_list(None)
@@ -127,6 +147,36 @@ async def amount_of_created(
                 "_id": "$created_at",
                 "count": {"$sum": 1}
             }
+        },
+        {
+            "$sort": {
+                "_id": -1  # Ordenar por fecha en orden descendente
+            }
+        }
+    ]).to_list(None)
+
+    amount_games = len(await db["game"].find(query).to_list(None))
+    games_created_date = await db["game"].aggregate([
+        {
+            "$match": query
+        },
+        {
+            "$project": {
+                "created_at": {
+                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                }
+            }
+        },
+        {
+            "$group": {
+                "_id": "$created_at",
+                "count": {"$sum": 1}
+            }
+        },
+        {
+            "$sort": {
+                "_id": -1  # Ordenar por fecha en orden descendente
+            }
         }
     ]).to_list(None)
 
@@ -140,7 +190,9 @@ async def amount_of_created(
         "amount_weapons": amount_weapons,
         "weapons_created_date": weapons_created_date,
         "amount_places": amount_places,
-        "places_created_date": places_created_date
+        "places_created_date": places_created_date,
+        "amount_games": amount_games,
+        "games_created_date": games_created_date
     }
 
 
@@ -222,25 +274,25 @@ async def get_users(
 
         for user in users:
             user_id = str(user["_id"])
-
+            user["_id"] = user_id
             user["games"] = await db["game"].count_documents({"created_by": user_id, **query}) or 0
             user["places"] = await db["place"].count_documents({"created_by": user_id, **query}) or 0
             user["locations"] = await db["location"].count_documents({"created_by": user_id, **query}) or 0
             user["characters"] = await db["character"].count_documents({"created_by": user_id, **query}) or 0
 
-            games_played = await db["record_game"].aggregate([
-                {
-                    "$match": {"user_id": user_id, **query}
-                },
-                {
-                    "$group": {
-                        "_id": "$game_id",
-                        "count": {"$sum": 1}
-                    }
-                }
-            ]).to_list(None) or []
-
-            user["games_played"] = len(games_played)
-        return users
+            # games_played = await db["record_game"].aggregate([
+            #     {
+            #         "$match": {"user_id": user_id, **query}
+            #     },
+            #     {
+            #         "$group": {
+            #             "_id": "$game_id",
+            #             "count": {"$sum": 1}
+            #         }
+            #     }
+            # ]).to_list(None) or []
+            #
+            # user["games_played"] = len(games_played)
+        return {"stats": users}
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
