@@ -2,7 +2,7 @@ FROM nginx:latest
 
 RUN rm /etc/nginx/conf.d/*
 
-COPY ./default-develop.conf /etc/nginx/conf.d/
+COPY dev/default-develop.conf /etc/nginx/conf.d/
 
 EXPOSE 80
 

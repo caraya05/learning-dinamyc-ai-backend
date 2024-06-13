@@ -26,8 +26,8 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - ./nginx:/etc/nginx/conf.d/:ro
-      - ./nginx/ssl:/etc/ssl/:ro
+      - ./nginx/local/:/etc/nginx/conf.d/:ro
+#      - ./nginx/ssl:/etc/ssl/:ro
       - ./src/static:/code/static
 
   redis:
