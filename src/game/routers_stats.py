@@ -281,6 +281,7 @@ async def get_users(
             user["interiors"] = await db["location"].count_documents({"created_by": user_id, **query}) or 0
 
             del user["_id"]
+            del user["photo"]
             del user["password"]
             del user["created_at"]
             del user["updated_at"]
@@ -293,6 +294,8 @@ async def get_users(
             del user["provider"]
             del user["number_of_creation_attempts"]
             del user["attempt_to_create"]
+
+
 
 
             # games_played = await db["record_game"].aggregate([
