@@ -276,9 +276,24 @@ async def get_users(
             user_id = str(user["_id"])
             user["_id"] = user_id
             user["games"] = await db["game"].count_documents({"created_by": user_id, **query}) or 0
-            user["places"] = await db["place"].count_documents({"created_by": user_id, **query}) or 0
-            user["locations"] = await db["location"].count_documents({"created_by": user_id, **query}) or 0
             user["characters"] = await db["character"].count_documents({"created_by": user_id, **query}) or 0
+            user["outdoors"] = await db["place"].count_documents({"created_by": user_id, **query}) or 0
+            user["interiors"] = await db["location"].count_documents({"created_by": user_id, **query}) or 0
+
+            del user["_id"]
+            del user["password"]
+            del user["created_at"]
+            del user["updated_at"]
+            del user["created_by"]
+            del user["updated_by"]
+            del user["is_active"]
+            del user["is_superuser"]
+            del user["is_staff"]
+            del user["uid"]
+            del user["provider"]
+            del user["number_of_creation_attempts"]
+            del user["attempt_to_create"]
+
 
             # games_played = await db["record_game"].aggregate([
             #     {
