@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   fastapi:
-    container_name: fastapi-stage
+    container_name: fastapi-dev
     build:
       context: .
       dockerfile: .docker/Dockerfile
@@ -15,7 +15,7 @@ services:
       - "9000:9000"
 
   nginx:
-    container_name: nginx-stage
+    container_name: nginx-dev
     build:
       context: ./nginx
       dockerfile: DockerfileDevelop
@@ -30,7 +30,7 @@ services:
       - ./src/static:/code/static
 
   redis:
-    container_name: redis-stage
+    container_name: redis-dev
     image: redis:6.2-alpine
 
   celery_worker:
@@ -48,7 +48,7 @@ services:
       - redis
 
   flower:
-    container_name: flower-stage
+    container_name: flower-dev
     build:
       context: .
       dockerfile: .docker/Dockerfile
