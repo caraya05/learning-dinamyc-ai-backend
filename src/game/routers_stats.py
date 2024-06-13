@@ -270,7 +270,7 @@ async def get_users(
             date_filter["$lte"] = end_date
         query = {"created_at": date_filter} if date_filter else {}
 
-        users = await db["user"].find(query).to_list(None)
+        users = await db["user"].find().to_list(None)
 
         for user in users:
             user_id = str(user["_id"])
