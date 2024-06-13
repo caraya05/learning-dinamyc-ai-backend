@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  fastapi:
+    container_name: fastapi-stage
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+    command: ./fastapi-entrypoint-loc.sh
+    env_file:
+      - .env
+    volumes:
+      - ./src/:/code
+    ports:
+      - "9000:9000"
+
+  nginx:
+    container_name: nginx-stage
+    build:
+      context: ./nginx
+      dockerfile: DockerfileDevelop
+    depends_on:
+      - fastapi
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx:/etc/nginx/conf.d/:ro
+      - ./nginx/ssl:/etc/ssl/:ro
+      - ./src/static:/code/static
+
+  redis:
+    container_name: redis-stage
+    image: redis:6.2-alpine
+
+  celery_worker:
+    container_name: celery_worker
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+    command: celery -A celery_worker.celery worker --loglevel=info
+    volumes:
+      - ./src/:/code
+    env_file:
+      - .env
+    depends_on:
+      - fastapi
+      - redis
+
+  flower:
+    container_name: flower-stage
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+    command: celery -A celery_worker.celery flower --port=5555
+    ports:
+      - "5556:5555"
+    env_file:
+      - .env
+    depends_on:
+      - fastapi
+      - redis
+      - celery_worker
