@@ -45,6 +45,7 @@ from contextlib import asynccontextmanager
 
 from user import router_admin as user_admin_routers
 
+from config import settings
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -53,7 +54,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Qwestar AI API",
+    title=f"Qwestar AI API {settings.NAME_ENV}",
     description="Qwestar AI is a game that uses AI to generate stories, characters, and images.",
     version="2.0",
     docs_url="/v1/api/docs",

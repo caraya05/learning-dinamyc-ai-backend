@@ -21,5 +21,7 @@ class Settings(BaseSettings):
 
     URL_API: str = os.environ["URL_API"]
 
+    NAME_ENV: str = os.environ["NAME_ENV"]
+
 
 settings = Settings()
