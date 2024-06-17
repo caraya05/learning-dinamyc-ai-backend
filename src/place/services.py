@@ -124,3 +124,17 @@ async def update_place_service(*, place_id: str, schema: SchemaPartialUpdatePlac
         print(f"Error in update place service: {str(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="Place not updated")
+
+
+async def delete_place_service(place_id: str):
+    """
+    Delete a place.
+    """
+    try:
+        if place_db := await db['place'].find_one({"_id": ObjectId(place_id)}):
+            await db['place'].delete_one({"_id": ObjectId(place_id)})
+            return True
+    except Exception as e:
+        print(f"Error in delete place service: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                            detail="Place not deleted")

@@ -7,7 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from auth.auth import auth
 from auth.utils import auth_schema
 
-from place.services import create_place_service
+from place.services import create_place_service, delete_place_service
 from place.services import get_place_service
 from place.services import get_places_service
 from place.services import generate_image_place_service
@@ -144,3 +144,24 @@ async def update_place(
     except Exception as e:
         print(f"Error in update place: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Place not updated")
+
+
+@router.delete("/{place_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_place(
+        place_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint deletes a place.
+
+    If the place is successfully deleted, it returns True.
+    """
+
+    try:
+        await delete_place_service(place_id=place_id)
+        return True
+
+    except Exception as e:
+        print(f"Error in delete place: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Place not deleted")
