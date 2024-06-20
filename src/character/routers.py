@@ -9,7 +9,8 @@ from fastapi.security import HTTPAuthorizationCredentials
 from auth.auth import auth
 from auth.utils import auth_schema
 
-from character.schemas import SchemaUpdatePhotoCharacter
+from character.schemas import SchemaUpdatePhotoCharacter, SchemaCreateCharacterCollection, \
+    SchemaUpdateCharacterCollection
 from character.schemas import SchemaCreateCharacter
 from character.schemas import SchemaRetrieveCharacter
 from character.schemas import SchemaListCharacter
@@ -17,10 +18,14 @@ from character.schemas import SchemaListCharacter
 from character.services import (
     get_character_service,
     update_attempts_character_service,
-    create_character_service,
+    create_character_service, create_character_by_collection_service, get_characters_by_collection_service,
+    update_character_service, delete_character_service,
 )
 from character.services import get_characters_service
 from character.services import update_partial_character_service
+from character.services import get_images_character_face_service
+from character.services import update_partial_character_service
+from characters_collection.services import add_character_to_collection_service, get_count_characters_collection_service
 from gpt_ai.utils import generate_image_dalle
 from prompt.services import get_prompt_by_category_service
 
@@ -40,7 +45,7 @@ async def get_characters(
     """
 
     try:
-        characters_db = await get_characters_service(skip=0, limit=100, game_id=game_id)
+        characters_db = await get_characters_service(skip=1, limit=100, game_id=game_id)
 
         for i in characters_db:
             i["_id"] = str(i["_id"])
@@ -121,7 +126,8 @@ async def partial_update_character(
     """
 
     try:
-        character_db = await update_partial_character_service(character_id=character_id, character_update=character_update)
+        character_db = await update_partial_character_service(character_id=character_id,
+                                                              character_update=character_update)
         return character_db
 
     except Exception as e:
@@ -165,3 +171,149 @@ async def generate_image(
     await update_attempts_character_service(character_id=character_id)
 
     return image_generated
+
+
+@router.delete("/{character_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_character(
+        character_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint deletes a character.
+
+    It expects the character's id in the request path.
+    If the character is successfully deleted, it returns status code 204.
+    """
+
+    try:
+        await delete_character_service(character_id=character_id)
+        return status.HTTP_204_NO_CONTENT
+
+    except Exception as e:
+        print(f"error in delete character: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not deleted",
+        )
+
+
+router2 = APIRouter(prefix='/characters', tags=['Characters'])
+
+
+@router2.get("/", response_model=SchemaListCharacter)
+async def get_characters(
+        collection_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves all characters.
+
+    It returns a list of characters.
+    """
+
+    try:
+        characters_db = await get_characters_by_collection_service(skip=0, limit=100, collection_id=collection_id)
+
+        for i in characters_db:
+            i["_id"] = str(i["_id"])
+
+        return SchemaListCharacter(results=characters_db, count=len(characters_db))
+
+    except Exception as e:
+        print(f"error in get characters: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Characters not found",
+        )
+
+
+@router2.get("/{character_id}/generate-face/", response_model=SchemaRetrieveCharacter)
+async def get_images_character_face(
+        character_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves all characters.
+
+    It returns a list of characters.
+    """
+
+    try:
+        character_db = await get_images_character_face_service(character_id=character_id)
+
+
+        return character_db
+
+    except Exception as e:
+        print(f"error in get characters: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Characters not found",
+        )
+
+
+@router2.post("/", response_model=SchemaRetrieveCharacter)
+async def create_character(
+        character: SchemaCreateCharacterCollection,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint creates a character.
+
+    It expects the character's information in the request body.
+    If the character is successfully created, it returns the character's information.
+    """
+
+    try:
+        order = await get_count_characters_collection_service(collection_id=character.collection_id)
+
+        if character_db := await create_character_by_collection_service(user_id=str(user_db.get("_id")),
+                                                                        name=character.name,
+                                                                        body_type=character.body_type,
+                                                                        prompt_user=character.prompt_user,
+                                                                        order=(order + 1)):
+            await add_character_to_collection_service(collection_id=character.collection_id,
+                                                      character_id=str(character_db["_id"]))
+
+            return character_db
+
+    except Exception as e:
+        print(f"error in create character: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not created",
+        )
+
+
+@router2.patch("/{character_id}", response_model=SchemaRetrieveCharacter)
+async def partial_update_character(
+        character_id: str,
+        character_update: SchemaUpdateCharacterCollection,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint partially updates a character.
+
+    It expects the character's id in the request path and the character's information in the request body.
+    If the character is successfully updated, it returns the character's information.
+    """
+
+    try:
+        character_db = await update_character_service(character_id=character_id,
+                                                      name=character_update.name,
+                                                      body_type=character_update.body_type,
+                                                      prompt_user=character_update.prompt_user)
+        return character_db
+
+    except Exception as e:
+        print(f"error in partial update character: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not updated",
+
+        )

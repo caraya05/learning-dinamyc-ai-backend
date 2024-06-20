@@ -87,3 +87,27 @@ def resize_image(image: UploadFile, size: tuple[int, int]) -> UploadFile:
     img.save(img_byte_arr, format='JPEG')
     img_byte_arr.seek(0)  # Reset the file pointer to the beginning
     return UploadFile(file=img_byte_arr, filename=image.filename)
+
+
+def delete_image(file_name: str, name_bucket: str = 'backend'):
+    try:
+        client = session.client(
+            's3',
+            region_name='qwestar',
+            endpoint_url='https://qwestar.sfo3.digitaloceanspaces.com',
+            aws_access_key_id=settings.ACCESS_ID_DIGITAL_OCEAN,
+            aws_secret_access_key=settings.SECRET_KEY_DIGITAL_OCEAN,
+        )
+
+        response = client.delete_object(
+            Bucket=name_bucket,
+            Key=file_name.split(f'{name_bucket}/')[-1],
+        )
+        print("delete_image", response)
+        return True
+    except Exception as e:
+        print(f"Error deleting image: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error deleting image",
+        )

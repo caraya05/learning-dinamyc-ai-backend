@@ -33,6 +33,8 @@ from location import routers as location_routers
 
 from character import routers as character_routers
 
+from characters_collection import routers as characters_collection_routers
+
 from customize import routers as customize_routers
 
 from weapon import routers as weapon_routers
@@ -93,6 +95,8 @@ async def add_process_time_header(request: Request, call_next):
 app.include_router(token_routers.router, prefix="/v1/api")
 app.include_router(category_routers.router, prefix="/v1/api")
 app.include_router(character_routers.router, prefix="/v1/api")
+app.include_router(character_routers.router2, prefix="/v2/api")
+app.include_router(characters_collection_routers.router, prefix="/v1/api")
 app.include_router(configuration_routers.router, prefix="/v1/api")
 app.include_router(customize_routers.router, prefix="/v1/api")
 app.include_router(game_routers.router, prefix="/v1/api")
@@ -104,6 +108,7 @@ app.include_router(scene_routers.router, prefix="/v1/api")
 app.include_router(script_routers.router, prefix="/v1/api")
 app.include_router(user_routers.router, prefix="/v1/api")
 app.include_router(weapon_routers.router, prefix="/v1/api")
+app.include_router(weapon_routers.router2, prefix="/v2/api")
 app.include_router(shortener_routers.router, prefix="/v1/api")
 app.include_router(shortener_routers.routerAPP)
 
