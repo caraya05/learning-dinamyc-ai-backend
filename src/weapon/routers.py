@@ -9,19 +9,21 @@ from fastapi.security import HTTPAuthorizationCredentials
 from auth.auth import auth
 from auth.utils import auth_schema
 from character.services import get_character_service
+from characters_collection.services import get_count_weapons_collection_service, add_weapon_to_collection_service
 from core.database import db
 from game.services import get_game_service
 from gpt_ai.utils import generate_image_dalle
 from gpt_ai.utils import generate_gpt4_
 from prompt.services import get_prompt_by_category_service
-from utils import upload_image
+from utils import upload_image, delete_image
 
-from weapon.schemas import SchemaListWeapon
+from weapon.schemas import SchemaListWeapon, SchemaCreateWeaponCollection, SchemaPartialUpdateWeaponCollection
 from weapon.schemas import SchemaRetrieveWeapon
 from weapon.schemas import SchemaCreateWeapon
 from weapon.schemas import SchemaPartialUpdateWeapon
 
-from weapon.services import get_weapons_service
+from weapon.services import get_weapons_service, get_weapons_by_collection_service, create_weapon_collection_service, \
+    update_weapon_collection_service
 from weapon.services import retrieve_weapon_service
 from weapon.services import create_weapon_service
 from weapon.services import partial_update_weapon_service
@@ -194,6 +196,119 @@ async def generate_image(
     prompt_db_image_weapon = description_prompt_db_image_weapon + f" descripción: {weapon_db['description']}"
 
     image_generated = generate_image_dalle(prompt_db_image_weapon, quality="hd", size="1024x1792")
+
+    weapon_db['image'] = upload_image(
+        url_image=image_generated,
+        file_name=f"weapon/{uuid4()}.jpg",
+        size=(512, 512),
+    )
+
+    await db["weapon"].update_one({"_id": weapon_db['_id']}, {"$set": weapon_db})
+
+    return await db["weapon"].find_one({"_id": weapon_db['_id']})
+
+
+router2 = APIRouter(prefix="/weapon", tags=["Weapon"])
+
+
+@router2.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListWeapon)
+async def get_weapons(
+        collection_id: str,
+        character_id: str = None,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves all weapons.
+
+    It returns a list of weapons.
+    """
+
+    weapons_db, counts_weapon = await get_weapons_by_collection_service(collection_id=collection_id)
+
+    for weapon in weapons_db:
+        weapon['_id'] = str(weapon['_id'])
+
+    return SchemaListWeapon(results=weapons_db, count=counts_weapon)
+
+
+@router2.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveWeapon)
+async def create_weapon(
+        weapon: SchemaCreateWeaponCollection,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint creates a weapon.
+
+    It expects a weapon in the request body.
+    If the weapon is successfully created, it returns the weapon's information.
+    """
+
+    order = await get_count_weapons_collection_service(collection_id=weapon.collection_id)
+
+    weapon_db = await create_weapon_collection_service(
+        user_id=str(user_db['_id']),
+        name=weapon.name,
+        prompt_user=weapon.prompt_user,
+        weapon_type=weapon.type,
+        order=order
+    )
+
+    await add_weapon_to_collection_service(
+        weapon.collection_id,
+        str(weapon_db['_id'])
+    )
+
+    return weapon_db
+
+
+@router2.patch("/{weapon_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveWeapon)
+async def partial_update_weapon(
+        weapon_id: str,
+        weapon: SchemaPartialUpdateWeaponCollection,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint updates a weapon.
+
+    It expects the weapon's id in the request path and the new information in the request body.
+    If the weapon is successfully updated, it returns the weapon's information.
+    """
+
+    weapon_db = await update_weapon_collection_service(
+        weapon_id=weapon_id,
+        prompt_user=weapon.prompt_user,
+        name=weapon.name,
+        weapon_type=weapon.type,
+    )
+    return weapon_db
+
+
+@router2.get("/generate-image/{weapon_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveWeapon)
+async def generate_image(
+        weapon_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint generates an image for a weapon.
+
+    It expects the weapon's id in the request path.
+    If the image is successfully generated, it returns a 200 status code.
+    """
+
+    weapon_db = await retrieve_weapon_service(weapon_id)
+
+    prompt_db_image_weapon = (f"Genera una imagen en arte pixel de extraordinaria calidad, de un arma de "
+                              f"{weapon_db['type']} con la siguiente descripción: {weapon_db['description']} "
+                              f"Con fondo blanco")
+
+    image_generated = generate_image_dalle(prompt_db_image_weapon, quality="hd", size="1024x1792")
+
+    if weapon_db.get('image'):
+        delete_image(weapon_db['image'])
 
     weapon_db['image'] = upload_image(
         url_image=image_generated,

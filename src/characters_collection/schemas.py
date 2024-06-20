@@ -20,9 +20,8 @@ class ResponseModelStr(BaseModel):
 
 
 class SchemaCreateCharactersCollection(BaseModel):
-    name: str = Field(..., example="Collection Name")
-    description_base: str = Field(..., example="This is a character collection")
-    characters_id: list = Field(..., example=["character_id"])
+    characters_id: list = Field([], example=["character_id"])
+    weapons_id: list = Field([], example=["weapon_id"])
     created_by: str = Field(..., example="system")
     updated_by: str = Field(..., example="system")
     created_at: datetime = Field(default=datetime.utcnow())
@@ -30,19 +29,19 @@ class SchemaCreateCharactersCollection(BaseModel):
 
 
 class SchemaRetrieveCharactersCollection(ResponseModel):
-    name: str
-    description_base: str = Field(..., example="This is a character collection")
+    name: Optional[str] = Field(None, example="collection_name")
     characters_id: Optional[list] = Field([], example=["character_id"])
     weapons_id: Optional[list] = Field([], example=["weapon_id"])
+    image: Optional[str] = Field(None, example="image_url")
 
 
 class SchemaRetrieveCharactersCollectionStr(ResponseModelStr):
-    name: str
-    description_base: str = Field(..., example="This is a character collection")
+    name: str = Field(None, example="collection_name")
     characters_id: Optional[list] = Field(..., example=["character_id"])
     weapons_id: Optional[list] = Field(..., example=["weapon_id"])
+    image: str = Field(None, example="image_url")
 
 
 class SchemaListCharactersCollection(BaseModel):
     count: int
-    results: list[SchemaRetrieveCharactersCollection]
+    results: list[SchemaRetrieveCharactersCollectionStr]

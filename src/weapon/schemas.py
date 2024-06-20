@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from bson import ObjectId
 from pydantic import BaseModel, Field
 from typing import Optional
@@ -50,6 +52,20 @@ class SchemaPartialUpdateWeapon(BaseModel):
     description: Optional[str]
 
     image: Optional[str]
+    type: Optional[str]
+
+class SchemaPartialUpdateWeaponCollection(BaseModel):
+    """
+    Schema for partially updating a weapon.
+
+    Attributes:
+    name (Optional[str]): The name of the weapon.
+    description (Optional[str]): The description of the weapon.
+    image (Optional[str]): The image of the weapon.
+    """
+
+    name: Optional[str]
+    prompt_user: Optional[str]
     type: Optional[str]
 
 
@@ -122,3 +138,43 @@ class SchemaCreateForType(BaseModel):
     script_id: str
     game_id: str
     character_id: Optional[str]
+
+
+class SchemaCreateWeaponCollectionBD(BaseModel):
+    """
+    Schema for creating a new weapon collection.
+
+    Attributes:
+    prompt_user (str): The prompt for the weapon collection.
+    name (str): The name of the weapon collection.
+    body_type (str): The body type of the weapon collection.
+    collection_id (str): The id of the weapon collection.
+    """
+
+    name: str
+    type: str
+    prompt_user: str
+    description: Optional[str]
+    order: int
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: str = Field(default="system", example="system")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: str = Field(default="system", example="system")
+
+
+class SchemaCreateWeaponCollection(BaseModel):
+    """
+    Schema for creating a new weapon collection.
+
+    Attributes:
+    prompt_user (str): The prompt for the weapon collection.
+    name (str): The name of the weapon collection.
+    body_type (str): The body type of the weapon collection.
+    collection_id (str): The id of the weapon collection.
+    """
+
+    name: str
+    type: str
+    prompt_user: str
+    collection_id: str
+

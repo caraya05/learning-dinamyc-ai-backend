@@ -19,7 +19,7 @@ from gpt_ai.utils import generate_gpt4_
 from gpt_ai.utils import generate_gpt4o
 from gpt_ai.utils import generate_image_dalle
 from prompt.services import get_prompt_by_category_service
-from utils import upload_image
+from utils import upload_image, delete_image
 
 
 async def get_character_service(character_id: str):
@@ -163,13 +163,11 @@ async def delete_character_service(character_id: str):
 
 
 async def create_character_by_collection_service(*,
-                                                 description_base: str,
                                                  user_id: str,
-                                                 name_character: str,
+                                                 name: str,
                                                  prompt_user: str,
-                                                 order: int = 0):
-    # prompt_create_character = await get_prompt_by_category_service("create_character")
-
+                                                 order: int = 0,
+                                                 body_type: str, ):
     json_response = {
         "description": "string (basic description of the character in which describes the face, hair and aspects of the body that serves to generate other characters.)",
         "gender": "string (gender of the character, the options are man or woman)",
@@ -177,22 +175,12 @@ async def create_character_by_collection_service(*,
 
     response_collection = generate_gpt4o(
         content_prompt=[
-            # {
-            #     "role": "system",
-            #     "content": f"{prompt_create_character.get('prompt_system')} "
-            #                f"responde con un JSON que contenga el esquema '{{{json_response}}}'",
-            # },
             {
                 "role": "system",
-                "content": "Genera una descripcion para generar una imagen e identifica el genero del personaje "
-                           "entre hombre, mujer o ninguno, utilizando la descripción base del personaje."
-                           f"responde con un JSON que contenga el esquema {json_response}",
+                "content": "crear una descripcion en 300 palabras para generar una imagen utilizando la descripció del personaje."
+                           "que da el usuario,"
+                           f" responde con un JSON que contenga el esquema {json_response}",
             },
-            {
-                "role": "assistant",
-                "content": f"Descricción base del personaje: {description_base}",
-            },
-
             {
                 "role": "user",
                 "content": [{"type": "text", "text": prompt_user}]
@@ -206,17 +194,17 @@ async def create_character_by_collection_service(*,
     response = json.loads(response_collection)
 
     character = SchemaCreateCharacter(
-        name=name_character,
+        name=name,
         created_by=user_id,
         updated_by=user_id,
         description=response.get("description"),
-        gender=response.get("gender"),
         order=order,
+        body_type=body_type,
+        prompt_user=prompt_user,
     )
 
     character_db = Character(**character.dict())
     character_created = await db["character"].insert_one(character_db.dict())
-    # print("character_created", character_created.inserted_id)
     if character_db := await db["character"].find_one({"_id": character_created.inserted_id}):
         return character_db
 
@@ -237,28 +225,6 @@ async def get_characters_by_collection_service(skip: int = 0, limit: int = 100, 
         )
 
 
-async def get_images_character_body_service(character_id: str):
-    character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
-    if not character_db:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Character not found",
-        )
-    try:
-        image_body = generate_image_dalle(prompt="Genera una imagen en arte pixel de extraordinaria calidad de"
-                                                 f" {character_db['description']}, en vista frontal de cuerpo completo y pose T con los brazos"
-                                                 " totalmente extendidos, en fondo blanco.",
-                                          quality="hd",
-                                          size="1024x1792")
-        return image_body
-    except Exception as e:
-        print(f"Error in get images character service: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Error in get images character service",
-        )
-
-
 async def get_images_character_face_service(character_id: str):
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
     if not character_db:
@@ -273,10 +239,95 @@ async def get_images_character_face_service(character_id: str):
                                                  f" {character_db['description']}",
                                           quality="hd",
                                           size="1024x1024")
-        return image_face
+
+        if character_db['image']:
+            delete_image(character_db['image'])
+
+        character_db['image'] = upload_image(
+            url_image=image_face,
+            file_name=f"characters/{uuid4()}.jpg",
+            size=(512, 512),
+        )
+
+        prompt_content_extra_data = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "Describe a detalle el personaje con la siquiente imagen y la descrpccion del personaje,"
+                                " extrae los colores de la piel, cabello, ojos, labios, zapatos, pantalones y camisa."
+                                "en dado caso que una prenda no este visible colocar un color adorde a los demas colores,"
+                                "en dado caso de que la imagen no tenga colores colocar colores que se asemejen a la imagen."
+                                "en dado caso no se puedan de terminar los colores colocar colores asocidos a la descripcion.",
+                    },
+                    {
+                        "type": "text",
+                        "text": f"Descripcion del personaje: {character_db['description']}",
+                    },
+                    {"type": "image_url", "image_url": {"url": character_db["image"]}},
+                ],
+            }
+        ]
+
+        extra_data = get_extra_data_character_ai(prompt_content_extra_data)
+
+        character_db['extra_data'] = extra_data["extra_data"]
+
+        await db["character"].update_one({"_id": ObjectId(character_id)}, {"$set": character_db})
+
+        return await db["character"].find_one({"_id": ObjectId(character_id)})
     except Exception as e:
         print(f"Error in get images character service: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Error in get images character service",
+        )
+
+
+async def update_character_service(character_id: str, name: str, prompt_user: str, body_type: str):
+    try:
+        if character_db := await db["character"].find_one({"_id": ObjectId(character_id)}):
+            if name:
+                character_db["name"] = name
+            if prompt_user:
+                character_db["prompt_user"] = prompt_user
+                json_response = {
+                    "description": "string (basic description of the character in which describes the face, hair and aspects of the body that serves to generate other characters.)",
+                    "gender": "string (gender of the character, the options are man or woman)",
+                }
+
+                response_collection = generate_gpt4o(
+                    content_prompt=[
+                        {
+                            "role": "system",
+                            "content": "Genera una descripcion para generar una imagen e identifica el genero del personaje "
+                                       "entre hombre, mujer o ninguno, utilizando la descripción base del personaje."
+                                       f"responde con un JSON que contenga el esquema {json_response}",
+                        },
+                        {
+                            "role": "user",
+                            "content": [{"type": "text", "text": prompt_user}]
+                        },
+                    ],
+                    type_text="collection",
+                    model="gpt-4o",
+                    max_tokens=4096
+                )
+
+                response = json.loads(response_collection)
+                character_db["description"] = response.get("description")
+
+            if body_type:
+                character_db["body_type"] = body_type
+
+            await db["character"].update_one({"_id": ObjectId(character_id)}, {"$set": character_db})
+            character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+            return character_db
+
+    except Exception as e:
+        print(f"Error in update character service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not updated",
         )

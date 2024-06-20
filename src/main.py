@@ -108,6 +108,7 @@ app.include_router(scene_routers.router, prefix="/v1/api")
 app.include_router(script_routers.router, prefix="/v1/api")
 app.include_router(user_routers.router, prefix="/v1/api")
 app.include_router(weapon_routers.router, prefix="/v1/api")
+app.include_router(weapon_routers.router2, prefix="/v2/api")
 app.include_router(shortener_routers.router, prefix="/v1/api")
 app.include_router(shortener_routers.routerAPP)
 
