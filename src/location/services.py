@@ -226,7 +226,6 @@ async def generate_description_location_service(location_id: str):
 
             sound_identification = await identify_by_location_service(description=response_prompt["description"])
             location_db["sound_id"] = sound_identification["id"]
-            print("location_db sound_id", location_db)
 
             await db['location'].update_one({"_id": ObjectId(location_id)}, {"$set": location_db})
     except Exception as e:

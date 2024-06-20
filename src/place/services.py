@@ -12,7 +12,7 @@ from prompt.services import get_prompt_by_category_service
 
 from gpt_ai.utils import generate_image_dalle
 from sound.utils import identify_by_location_service
-from utils import upload_image
+from utils import upload_image, delete_image
 
 
 async def create_place_service(*, schema: SchemaCreatePlace, user_id):
@@ -132,6 +132,14 @@ async def delete_place_service(place_id: str):
     """
     try:
         if place_db := await db['place'].find_one({"_id": ObjectId(place_id)}):
+            delete_image(file_name=place_db["image"])
+            if place_db["locations_id"]:
+                for location_id in place_db["locations_id"]:
+                    location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
+                    delete_image(
+                        file_name=location_db["image"]
+                    )
+                    await db['location'].delete_one({"_id": ObjectId(location_id)})
             await db['place'].delete_one({"_id": ObjectId(place_id)})
             return True
     except Exception as e:
