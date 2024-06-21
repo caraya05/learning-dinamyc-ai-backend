@@ -104,7 +104,8 @@ async def create_location_service(schema: SchemaCreateLocation, user_id: str):
                 await db['place'].update_one({"_id": ObjectId(schema.place_id)}, {"$set": place_db})
                 if not location_schema.description:
                     await generate_description_location_service(location_id=str(location_created.inserted_id))
-            if location_db := await get_location_service(location_id=str(location_created.inserted_id), user_id=user_id):
+            if location_db := await get_location_service(location_id=str(location_created.inserted_id),
+                                                         user_id=user_id):
                 return location_db
     except Exception as e:
         print(f"Error in create location service: {e}")
@@ -207,12 +208,13 @@ async def generate_description_location_service(location_id: str):
             place_db = await get_place_by_location_service(location_id)
             prompt_db_location_place = await get_prompt_by_category_service("location_place")
             prompt_db_location_place["description"] = prompt_db_location_place["description"].replace(
-                "{{PromptUserLocation}}",
-                location_db["prompt_user"])
+                "{{PromptUserLocation}}", location_db["prompt_user"])
             prompt_db_location_place["description"] = prompt_db_location_place["description"].replace(
-                "{{PromptUserPlace}}",
-                place_db["prompt_user"])
-            json_description = {"description": "string (description of the location)", }
+                "{{PromptUserPlace}}", place_db["prompt_user"])
+            json_description = {"description": "string (description of the location describing the appearance of the walls and the floor)",
+                                "description_floor": "string (description of the floor of the location that should be "
+                                                     "only the type of floor that is appropriate to the location,"
+                                                     " clear of objects or structures in plain view.)"}
             prompt_content = [
                 {"role": "system",
                  "content": f"responde el prompt con la siguiente estructura JSON: {json_description}", },
@@ -222,7 +224,7 @@ async def generate_description_location_service(location_id: str):
                 content_prompt=prompt_content, type_text="scene cero", max_tokens=4096
             )
             response_prompt = json.loads(prompt_description)
-            location_db["description"] = response_prompt["description"]
+            location_db["description"] = f"{response_prompt['description']} // {response_prompt['description_floor']}"
 
             sound_identification = await identify_by_location_service(description=response_prompt["description"])
             location_db["sound_id"] = sound_identification["id"]

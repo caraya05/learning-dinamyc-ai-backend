@@ -95,12 +95,13 @@ def generate_gpt4o(
         content_prompt: list[dict],
         type_text: str = "",
         max_tokens: int = 1000,
-        model: str = "gpt-4o"
+        model: str = "gpt-4o",
+        type_: str = "json_object"
 ):
     try:
         response = client.chat.completions.create(
             model=model,
-            response_format={"type": "json_object"},
+            response_format={"type": type_},
             messages=content_prompt,
             max_tokens=max_tokens,
             temperature=0.6,

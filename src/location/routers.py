@@ -10,6 +10,7 @@ from auth.auth import auth
 from auth.utils import auth_schema
 from core import db
 from gpt_ai.utils import generate_image_dalle
+from gpt_ai.utils import generate_gpt4o
 
 from location.schemas import SchemaListLocation
 from location.schemas import SchemaRetrieveLocation
@@ -154,34 +155,41 @@ async def generate_image_location(
     If the location is successfully updated, it returns the location's information.
     """
     location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
-    if location_db["attempts"] == 0:
+    place_db = await get_place_by_location_service(location_id=location_id)
+
+    if location_db["attempts"] == 0 and not place_db:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Character attempts exhausted",
         )
 
-    place_db = await get_place_by_location_service(location_id=location_id)
 
     if place_db:
         prompt_db_image_location = await get_prompt_by_category_service("location_place_image")
         prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
-            "{{PromptUserLocation}}", location_db["prompt_user"])
+            "{{PromptUserLocation}}", location_db["description"].split("//")[0])
         prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
-            "{{PromptUserPlace}}", place_db["prompt_user"])
+            "{{promptUserPlaceName}}", place_db["title"])
         prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
-            "{{descriptionPlace}}", place_db["prompt_user"])
+            "{{descriptionLocationFloor}}", location_db["description"].split("//")[-1])
         content_prompt = prompt_db_image_location["description"]
     else:
         prompt_db_image_location = await get_prompt_by_category_service("location_image")
 
         content_prompt = f'{prompt_db_image_location["description"]}, {location_db["description"]}'
 
-    image_generate = generate_image_dalle(prompt=content_prompt,
+    new_prompt = generate_gpt4o(content_prompt=[
+        {"role": "system", "content": "reestructure el prompt para generar la imagen con estilo 3D volumétrico en vista isométrica para un videojuego RPG, con fondo de color solido."},
+        {"role": "user", "content": content_prompt},
+    ],type_="text", type_text="text")
+
+    image_generate = generate_image_dalle(prompt=new_prompt,
                                           quality="hd",
                                           size="1792x1024")
 
     await db['location'].update_one({"_id": ObjectId(location_id)}, {"$set": location_db})
 
-    await update_attempts_location_service(location_id=location_id)
+    if place_db:
+        await update_attempts_location_service(location_id=location_id)
 
     return image_generate
