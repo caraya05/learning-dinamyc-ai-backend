@@ -33,7 +33,7 @@ async def get_character_service(character_id: str):
     return character_db
 
 
-async def get_characters_service(skip: int = 0, limit: int = 100, game_id: str = None):
+async def get_characters_service(skip: int = 1, limit: int = 100, game_id: str = None):
     try:
         if characters_db := await db["character"].find({"game_id": game_id}).skip((skip - 1) * limit).limit(
                 limit).to_list(None):
