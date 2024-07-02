@@ -9,7 +9,6 @@ from fastapi.security import HTTPAuthorizationCredentials
 from auth.auth import auth
 from auth.utils import auth_schema
 from character.services import get_character_service
-from characters_collection.services import get_count_weapons_collection_service, add_weapon_to_collection_service
 from core.database import db
 from game.services import get_game_service
 from gpt_ai.utils import generate_image_dalle
@@ -245,20 +244,15 @@ async def create_weapon(
     If the weapon is successfully created, it returns the weapon's information.
     """
 
-    order = await get_count_weapons_collection_service(collection_id=weapon.collection_id)
 
     weapon_db = await create_weapon_collection_service(
         user_id=str(user_db['_id']),
         name=weapon.name,
         prompt_user=weapon.prompt_user,
-        weapon_type=weapon.type,
-        order=order
+        weapon_type=weapon.type
     )
 
-    await add_weapon_to_collection_service(
-        weapon.collection_id,
-        str(weapon_db['_id'])
-    )
+
 
     return weapon_db
 

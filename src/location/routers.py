@@ -179,7 +179,8 @@ async def generate_image_location(
         content_prompt = f'{prompt_db_image_location["description"]}, {location_db["description"]}'
 
     new_prompt = generate_gpt4o(content_prompt=[
-        {"role": "system", "content": "reestructure el prompt para generar la imagen con estilo 3D volumétrico en vista isométrica para un videojuego RPG, con fondo de color solido."},
+        {"role": "system", "content": "reestructure el prompt para generar la imagen con estilo 3D volumétrico en vista"
+                                      " isométrica para un videojuego RPG, con fondo de color solido."},
         {"role": "user", "content": content_prompt},
     ],type_="text", type_text="text")
 

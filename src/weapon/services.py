@@ -77,8 +77,7 @@ async def create_weapon_collection_service(*,
                                            user_id: str,
                                            name: str,
                                            prompt_user: str,
-                                           weapon_type: str,
-                                           order: int):
+                                           weapon_type: str):
     """
     Create a weapon collection.
     """
@@ -112,8 +111,7 @@ async def create_weapon_collection_service(*,
         type=weapon_type,
         description=response['description'],
         created_by=user_id,
-        updated_by=user_id,
-        order=order
+        updated_by=user_id
     )
 
     weapon_collection_db = await db["weapon"].insert_one(weapon_collection.dict())
@@ -134,12 +132,13 @@ async def get_weapons_by_collection_service(collection_id: str):
     """
     collection_db = await db["collection_character"].find_one({"_id": ObjectId(collection_id)})
 
-    weapons_db = await db["weapon"].find({"_id": {"$in": [ObjectId(weapon_id) for weapon_id in collection_db['weapons']]} }).to_list(None)
+    weapons_db = await db["weapon"].find(
+        {"_id": {"$in": [ObjectId(weapon_id) for weapon_id in collection_db['weapons']]}}).to_list(None)
 
     return weapons_db
 
 
-async def update_weapon_collection_service(weapon_id: str,name: str, prompt_user: str, weapon_type: str):
+async def update_weapon_collection_service(weapon_id: str, name: str, prompt_user: str, weapon_type: str):
     """
     Update a weapon collection.
     """

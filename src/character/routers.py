@@ -10,7 +10,7 @@ from auth.auth import auth
 from auth.utils import auth_schema
 
 from character.schemas import SchemaUpdatePhotoCharacter, SchemaCreateCharacterCollection, \
-    SchemaUpdateCharacterCollection
+    SchemaUpdateCharacterCollection, SchemaAddCharacterLocation, SchemaUpdatedCharacterLocation
 from character.schemas import SchemaCreateCharacter
 from character.schemas import SchemaRetrieveCharacter
 from character.schemas import SchemaListCharacter
@@ -18,14 +18,14 @@ from character.schemas import SchemaListCharacter
 from character.services import (
     get_character_service,
     update_attempts_character_service,
-    create_character_service, create_character_by_collection_service, get_characters_by_collection_service,
-    update_character_service, delete_character_service,
+    create_character_service, create_character_by_collection_service,
+    update_character_service, delete_character_service, add_character_to_location_service,
+    get_characters_by_location_service, add_or_edit_character_location,
 )
 from character.services import get_characters_service
 from character.services import update_partial_character_service
 from character.services import get_images_character_face_service
 from character.services import update_partial_character_service
-from characters_collection.services import add_character_to_collection_service, get_count_characters_collection_service
 from gpt_ai.utils import generate_image_dalle
 from prompt.services import get_prompt_by_category_service
 
@@ -203,7 +203,7 @@ router2 = APIRouter(prefix='/characters', tags=['Characters'])
 
 @router2.get("/", response_model=SchemaListCharacter)
 async def get_characters(
-        collection_id: str,
+        location_id: str,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
@@ -214,7 +214,7 @@ async def get_characters(
     """
 
     try:
-        characters_db = await get_characters_by_collection_service(skip=0, limit=100, collection_id=collection_id)
+        characters_db = await get_characters_by_location_service(skip=0, limit=100, location_id=location_id)
 
         for i in characters_db:
             i["_id"] = str(i["_id"])
@@ -244,7 +244,6 @@ async def get_images_character_face(
     try:
         character_db = await get_images_character_face_service(character_id=character_id)
 
-
         return character_db
 
     except Exception as e:
@@ -269,16 +268,38 @@ async def create_character(
     """
 
     try:
-        order = await get_count_characters_collection_service(collection_id=character.collection_id)
 
         if character_db := await create_character_by_collection_service(user_id=str(user_db.get("_id")),
                                                                         name=character.name,
                                                                         body_type=character.body_type,
-                                                                        prompt_user=character.prompt_user,
-                                                                        order=(order + 1)):
-            await add_character_to_collection_service(collection_id=character.collection_id,
-                                                      character_id=str(character_db["_id"]))
+                                                                        prompt_user=character.prompt_user):
+            return character_db
 
+    except Exception as e:
+        print(f"error in create character: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not created",
+        )
+
+
+@router2.post("/add-character-location/")
+async def add_character_location(
+        character_location: SchemaAddCharacterLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint creates a character.
+
+    It expects the character's information in the request body.
+    If the character is successfully created, it returns the character's information.
+    """
+
+    try:
+
+        if character_db := await add_character_to_location_service(character_id=character_location.character_id,
+                                                                   location_id=character_location.location_id):
             return character_db
 
     except Exception as e:
@@ -316,4 +337,58 @@ async def partial_update_character(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Character not updated",
 
+        )
+
+
+@router2.delete("/{character_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_character(
+        character_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint deletes a character.
+
+    It expects the character's id in the request path.
+    If the character is successfully deleted, it returns status code 204.
+    """
+
+    try:
+        await delete_character_service(character_id=character_id)
+        return status.HTTP_204_NO_CONTENT
+
+    except Exception as e:
+        print(f"error in delete character: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not deleted",
+        )
+
+
+@router2.post("/add-edit-characteristic/")
+async def add_edit_characteristic(
+        character: SchemaUpdatedCharacterLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint creates a character.
+
+    It expects the character's information in the request body.
+    If the character is successfully created, it returns the character's information.
+    """
+
+    try:
+
+        if character_db := await add_or_edit_character_location(character_id=character.character_id,
+                                                                location_id=character.location_id,
+                                                                characteristics=character.characteristics,
+                                                                user_id=str(user_db.get("_id"))):
+            return character_db
+
+    except Exception as e:
+        print(f"error in create character: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not created",
         )

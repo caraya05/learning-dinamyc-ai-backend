@@ -10,7 +10,7 @@ from core.database import db
 
 from character.models import Character
 
-from character.schemas import SchemaCreateCharacter
+from character.schemas import SchemaCreateCharacter, CharacterLocationModel
 from character.schemas import SchemaUpdatePhotoCharacter
 from character.utils import get_extra_data_character_ai
 from customize.services import get_customize_by_type_character_service
@@ -38,6 +38,7 @@ async def get_characters_service(skip: int = 0, limit: int = 100, game_id: str =
         if characters_db := await db["character"].find({"game_id": game_id}).skip((skip - 1) * limit).limit(
                 limit).to_list(None):
             return characters_db
+        return None
     except Exception as e:
         print(f"Error in get characters service: {str(e)}")
         raise HTTPException(
@@ -153,6 +154,9 @@ async def get_character_leading_role_service(game_id: str):
 
 
 async def delete_character_service(character_id: str):
+    character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+    if character_db['image']:
+        delete_image(character_db['image'])
     delete_character = await db["character"].delete_one({"_id": character_id})
     if delete_character.deleted_count:
         return True
@@ -166,19 +170,17 @@ async def create_character_by_collection_service(*,
                                                  user_id: str,
                                                  name: str,
                                                  prompt_user: str,
-                                                 order: int = 0,
                                                  body_type: str, ):
     json_response = {
-        "description": "string (basic description of the character in which describes the face, hair and aspects of the body that serves to generate other characters.)",
-        "gender": "string (gender of the character, the options are man or woman)",
+        "description": "string (description to identify the colors that the character has, it is necessary to know the"
+                       " colors of clothes, shoes, hair, skin, eyes and lips.)"
     }
 
     response_collection = generate_gpt4o(
         content_prompt=[
             {
                 "role": "system",
-                "content": "crear una descripcion en 300 palabras para generar una imagen utilizando la descripció del personaje."
-                           "que da el usuario,"
+                "content": "crear una descripcion en 300 palabras para indentificar aspectos visuales del personaje"
                            f" responde con un JSON que contenga el esquema {json_response}",
             },
             {
@@ -198,7 +200,6 @@ async def create_character_by_collection_service(*,
         created_by=user_id,
         updated_by=user_id,
         description=response.get("description"),
-        order=order,
         body_type=body_type,
         prompt_user=prompt_user,
     )
@@ -209,13 +210,19 @@ async def create_character_by_collection_service(*,
         return character_db
 
 
-async def get_characters_by_collection_service(skip: int = 0, limit: int = 100, collection_id: str = None):
-    collection_db = await db["characters_collection"].find_one({"_id": ObjectId(collection_id)})
+async def get_characters_by_location_service(skip: int = 0, limit: int = 100, location_id: str = None):
+    location_db = await db["location"].find_one({"_id": ObjectId(location_id)})
 
     try:
-        if characters_db := await db["character"].find(
-                {"_id": {"$in": [ObjectId(i) for i in collection_db.get("characters_id")]}}).skip(
-            (skip - 1) * limit).limit(limit).to_list(None):
+        if characters_db := await (db["character"].find(
+                {"_id": {"$in": [ObjectId(i) for i in location_db.get("characters_id")]}})
+                .skip((skip - 1) * limit).limit(limit).to_list(None)):
+
+            for i in range(len(characters_db)):
+                if character_location_db := await db["character_location"].find_one(
+                        {"character_id": characters_db[i]["_id"], "location_id": ObjectId(location_id)}):
+                    characters_db[i]["characteristics"] = character_location_db["characteristics"]
+
             return characters_db
     except Exception as e:
         print(f"Error in get characters service: {str(e)}")
@@ -236,7 +243,7 @@ async def get_images_character_face_service(character_id: str):
         image_face = generate_image_dalle(prompt=f"Genera una imagen en arte pixel de extraordinaria calidad, "
                                                  f"de la cara vista closeup de frente de personaje en la imagen, con "
                                                  f"fondo blanco, descripcción del personaje:"
-                                                 f" {character_db['description']}",
+                                                 f" {character_db['prompt_user']}",
                                           quality="hd",
                                           size="1024x1024")
 
@@ -331,3 +338,50 @@ async def update_character_service(character_id: str, name: str, prompt_user: st
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Character not updated",
         )
+
+
+async def add_character_to_location_service(character_id: str, location_id: str):
+    character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+    location_db = await db["location"].find_one({"_id": ObjectId(location_id)})
+
+    if not character_db or not location_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character or Location not found",
+        )
+    try:
+        if character_id not in location_db.get("characters_id"):
+            location_db["characters_id"].append(character_id)
+            await db["location"].update_one({"_id": ObjectId(location_id)}, {"$set": location_db})
+    except Exception as e:
+        print(f"Error in add character to location service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not added to location",
+        )
+
+    return "character added to location"
+
+
+async def add_or_edit_character_location(character_id: str, location_id: str, characteristics: dict, user_id: str):
+    existing_entry = await db["character_location"].find_one({"character_id": ObjectId(character_id), "location_id": ObjectId(location_id)})
+
+    if existing_entry:
+        await db["character_location"].update_one(
+            {"_id": existing_entry["_id"]},
+            {"$set": {
+                "characteristics": characteristics,
+                "updated_by": ObjectId(user_id)
+            }}
+        )
+        return "Character location updated successfully"
+    else:
+        character_location_data = CharacterLocationModel(
+            character_id=ObjectId(character_id),
+            location_id=ObjectId(location_id),
+            characteristics=characteristics,
+            created_by=ObjectId(user_id),
+            updated_by=ObjectId(user_id)
+        )
+        await db["character_location"].insert_one(character_location_data.dict())
+        return "Character location added successfully"

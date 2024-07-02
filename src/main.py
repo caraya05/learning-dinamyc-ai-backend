@@ -33,8 +33,6 @@ from location import routers as location_routers
 
 from character import routers as character_routers
 
-from characters_collection import routers as characters_collection_routers
-
 from customize import routers as customize_routers
 
 from weapon import routers as weapon_routers
@@ -49,6 +47,7 @@ from user import router_admin as user_admin_routers
 
 from config import settings
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_indexes()
@@ -56,9 +55,9 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title=f"Qwestar AI API {settings.NAME_ENV}",
+    title=f"Qwestar AI API V1 {settings.NAME_ENV} ",
     description="Qwestar AI is a game that uses AI to generate stories, characters, and images.",
-    version="2.0",
+    version="1.0",
     docs_url="/v1/api/docs",
     redoc_url="/v1/api/redocs",
     openapi_url="/openapi/openapi.json",
@@ -95,8 +94,6 @@ async def add_process_time_header(request: Request, call_next):
 app.include_router(token_routers.router, prefix="/v1/api")
 app.include_router(category_routers.router, prefix="/v1/api")
 app.include_router(character_routers.router, prefix="/v1/api")
-app.include_router(character_routers.router2, prefix="/v2/api")
-app.include_router(characters_collection_routers.router, prefix="/v1/api")
 app.include_router(configuration_routers.router, prefix="/v1/api")
 app.include_router(customize_routers.router, prefix="/v1/api")
 app.include_router(game_routers.router, prefix="/v1/api")
@@ -108,7 +105,7 @@ app.include_router(scene_routers.router, prefix="/v1/api")
 app.include_router(script_routers.router, prefix="/v1/api")
 app.include_router(user_routers.router, prefix="/v1/api")
 app.include_router(weapon_routers.router, prefix="/v1/api")
-app.include_router(weapon_routers.router2, prefix="/v2/api")
+# app.include_router(weapon_routers.router2, prefix="/v2/api")
 app.include_router(shortener_routers.router, prefix="/v1/api")
 app.include_router(shortener_routers.routerAPP)
 
@@ -119,9 +116,9 @@ async def root():
 
 
 admin = FastAPI(
-    title="Qwestar AI Admin API",
+    title=f"Qwestar AI Admin API {settings.NAME_ENV}",
     description="Qwestar AI is a game that uses AI to generate stories, characters, and images.",
-    version="2.0",
+    version="0.0",
     # docs_url="/v1/admin/docs",
     # redoc_url="/v1/admin/redocs",
     openapi_url="/openapi/openapi.json",
@@ -130,12 +127,6 @@ admin = FastAPI(
     },
     lifespan=lifespan
 )
-
-origins = [
-    "*",
-]
-
-admin.mount("/static", StaticFiles(directory="static"), name="static")
 
 admin.add_middleware(
     CORSMiddleware,
@@ -159,3 +150,39 @@ admin.include_router(user_admin_routers.router)
 admin.include_router(stats_routers.router)
 
 app.mount("/v1/admin", admin)
+
+appv2 = FastAPI(
+    title=f"Qwestar AI API V2 {settings.NAME_ENV}",
+    description="Qwestar AI is a game that uses AI to generate stories, characters, and images.",
+    version="2.0",
+    # docs_url="/v2/api/docs",
+    # redoc_url="/v2/api/redocs",
+    openapi_url="/openapi/openapi.json",
+    swagger_ui_parameters={
+        "syntaxHighlight": False,
+    },
+    lifespan=lifespan
+)
+
+appv2.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@appv2.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
+
+
+appv2.include_router(character_routers.router2)
+# appv2.include_router(weapon_routers.router2)
+
+app.mount("/v2/api", appv2)

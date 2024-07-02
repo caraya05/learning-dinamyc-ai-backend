@@ -22,6 +22,8 @@ class Character(BaseModel):
     extra_data: Optional[dict] = Field(None, example="Extra data")
     text_idle: Optional[dict] = Field(None, example="Text idle")
     type: Optional[str] = Field(..., example=TypeCharacter.LEADING_ROLE)
+    characteristics: Optional[dict] = Field(None, example={"key": "value"})
+    audio: Optional[str] = Field(None, example="audio")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str = Field(default="system", example="system")
     updated_at: datetime = Field(default_factory=datetime.utcnow)

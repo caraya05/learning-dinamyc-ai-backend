@@ -1,4 +1,5 @@
-from typing import Optional
+from datetime import datetime
+from typing import Optional, Dict
 
 from bson import ObjectId
 from pydantic import BaseModel
@@ -34,8 +35,9 @@ class SchemaCreateCharacter(BaseModel):
     text_idle: Optional[dict] = Field(None, example={"key": "value"})
     created_by: Optional[str] = Field(None, example="system")
     updated_by: Optional[str] = Field(None, example="system")
-    order: Optional[int] = Field(None, example=0)
     prompt_user: Optional[str] = Field(None, example="prompt_user")
+    characteristics: Optional[dict] = Field(None, example={"key": "value"})
+    audio: Optional[str] = Field(None, example="audio")
 
 
 class SchemaRetrieveCharacter(ResponseModel):
@@ -46,10 +48,11 @@ class SchemaRetrieveCharacter(ResponseModel):
     gender: Optional[str] = Field(..., example=GenderCharacter.MAN)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
     text_idle: Optional[dict] = Field(None, example={"key": "value"})
-    game_id: Optional[str]  = Field(..., example="game_id")
+    game_id: Optional[str] = Field(..., example="game_id")
     body_type: Optional[str] = Field(None, example="body_type")
     prompt_user: Optional[str] = Field(None, example="prompt_user")
-    # weapon: Optional[SchemaRetrieveWeapon] = Field(None, example="weapon")
+    characteristics: Optional[dict] = Field(None, example={"key": "value"})
+    audio: Optional[str] = Field(None, example="audio")
 
 
 class SchemaRetrieveCharacterStr(ResponseModelStr):
@@ -68,7 +71,6 @@ class SchemaCreateCharacterCollection(BaseModel):
     prompt_user: str = Field(..., example="prompt_user")
     name: str = Field(..., example="name")
     body_type: str = Field(..., example="body_type")
-    collection_id: str = Field(..., example="collection_id")
 
 
 class SchemaUpdateCharacterCollection(BaseModel):
@@ -91,3 +93,27 @@ class SchemaListCharacter(BaseModel):
 
 class SchemaUpdatePhotoCharacter(BaseModel):
     image: str = Field(..., example="image")
+
+
+class SchemaAddCharacterLocation(BaseModel):
+    location_id: str = Field(..., example="location_id")
+    character_id: str = Field(..., example="character_id")
+
+
+class CharacterLocationModel(BaseModel):
+    character_id: str = Field(...)
+    location_id: str = Field(...)
+    characteristics: Dict[str, str] = Field(...)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: str = Field(...)
+    updated_by: str = Field(...)
+
+    class Config:
+        json_encoders = {ObjectId: str}
+
+
+class SchemaUpdatedCharacterLocation(ResponseModel):
+    character_id: str = Field(...)
+    location_id: str = Field(...)
+    characteristics: Dict[str, str] = Field(...)
