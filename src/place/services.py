@@ -52,10 +52,10 @@ async def get_places_service(*, skip: int = 0, limit: int = 10, user_id: str = N
     """
     try:
         if user_id:
-            places_db = await db['place'].find({"created_by": user_id}).skip(skip).limit(limit).to_list(None)
+            places_db = await db['place'].find({"created_by": user_id}).sort("created_at", -1).skip(skip).limit(limit).to_list(None)
             places_count = await db['place'].count_documents({"created_by": user_id})
         else:
-            places_db = await db['place'].find().skip(skip).limit(limit).to_list(None)
+            places_db = await db['place'].find().sort("created_at", -1).skip(skip).limit(limit).to_list(None)
             places_count = await db['place'].count_documents({})
         return places_db, places_count
     except Exception as e:
