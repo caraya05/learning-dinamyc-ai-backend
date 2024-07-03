@@ -213,8 +213,8 @@ async def generate_description_location_service(location_id: str):
             prompt_db_location_place["description"] = prompt_db_location_place["description"].replace(
                 "{{PromptUserPlace}}", place_db["prompt_user"])
             json_description = {
-                "description": "string (general description of the location, excluding the floor and walls, max 50 words)",
-                "description_floor": "string (detailed description of the floor of the location, min 80 words and max 100 words)",
+                "description": "string (general description of the place, theme, appearance, max 50 words)",
+                "description_floor": "string (detailed description of the apartment next to a wall, min 80 words and max 100 words)",
             }
             prompt_content = [
                 {"role": "system",
