@@ -42,10 +42,10 @@ class SchemaCreateCharacter(BaseModel):
 
 class SchemaRetrieveCharacter(ResponseModel):
     name: str = Field(..., min_length=3, max_length=100, example="Jhon Doe")
-    type: Optional[str] = Field(..., example=TypeCharacter.LEADING_ROLE)
+    type: Optional[str] = Field(None, example=TypeCharacter.LEADING_ROLE)
     image: Optional[str] = Field(..., example="image", default_factory=None)
     description: str = Field(..., min_length=8, example="this is a description")
-    gender: Optional[str] = Field(..., example=GenderCharacter.MAN)
+    gender: Optional[str] = Field(None, example=GenderCharacter.MAN)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
     text_idle: Optional[dict] = Field(None, example={"key": "value"})
     game_id: Optional[str] = Field(..., example="game_id")
@@ -57,12 +57,16 @@ class SchemaRetrieveCharacter(ResponseModel):
 
 class SchemaRetrieveCharacterStr(ResponseModelStr):
     name: str = Field(..., min_length=3, max_length=100, example="Jhon Doe")
-    type: str = Field(..., example=TypeCharacter.LEADING_ROLE)
+    type: str = Field(None, example=TypeCharacter.LEADING_ROLE)
     image: Optional[str] = Field(..., example="image", default_factory=None)
     description: str = Field(..., min_length=8, example="this is a description")
-    gender: str = Field(..., example=GenderCharacter.MAN)
+    gender: str = Field(None, example=GenderCharacter.MAN)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
     text_idle: Optional[dict] = Field(None, example={"key": "value"})
+    body_type: Optional[str] = Field(None, example="body_type")
+    prompt_user: Optional[str] = Field(None, example="prompt_user")
+    audio: Optional[str] = Field(None, example="audio")
+    characteristics: Optional[dict] = Field(None, example={"key": "value"})
 
     # weapon: Optional[SchemaRetrieveWeapon] = Field(None, example="weapon")
 
@@ -113,7 +117,7 @@ class CharacterLocationModel(BaseModel):
         json_encoders = {ObjectId: str}
 
 
-class SchemaUpdatedCharacterLocation(ResponseModel):
+class SchemaUpdatedCharacterLocation(BaseModel):
     character_id: str = Field(...)
     location_id: str = Field(...)
     characteristics: Dict[str, str] = Field(...)

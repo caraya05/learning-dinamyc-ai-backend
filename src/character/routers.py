@@ -214,7 +214,7 @@ async def get_characters(
     """
 
     try:
-        characters_db = await get_characters_by_location_service(skip=0, limit=100, location_id=location_id)
+        characters_db = await get_characters_by_location_service(skip=1, limit=100, location_id=location_id)
 
         for i in characters_db:
             i["_id"] = str(i["_id"])
@@ -353,16 +353,8 @@ async def delete_character(
     If the character is successfully deleted, it returns status code 204.
     """
 
-    try:
-        await delete_character_service(character_id=character_id)
-        return status.HTTP_204_NO_CONTENT
-
-    except Exception as e:
-        print(f"error in delete character: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Character not deleted",
-        )
+    await delete_character_service(character_id=character_id)
+    return status.HTTP_204_NO_CONTENT
 
 
 @router2.post("/add-edit-characteristic/")

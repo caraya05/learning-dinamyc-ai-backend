@@ -5,6 +5,7 @@ from bson import ObjectId
 from fastapi import HTTPException
 from starlette import status
 
+from character.services import get_characters_by_location_service
 from core.database import db
 from location.models import Location
 
@@ -53,7 +54,6 @@ async def get_locations_service(*, game_id: str, place_id: str = None, skip: int
             for location in locations:
                 if location not in locations_order:
                     locations_order.append(location)
-            print(locations_order, count_locations)
             return locations_order, count_locations
     except Exception as e:
         print(f"Error in get locations service: {e}")
@@ -76,6 +76,8 @@ async def get_location_service(*, location_id: str, user_id: str) -> dict:
                 for connect in location_db["connect"]:
                     if connect["user"] == user_id:
                         location_db["connections"] = connect["connect"]
+            if characters_db := await get_characters_by_location_service(skip=1, limit=100, location_id=location_id):
+                location_db["characters"] = characters_db
             return location_db
     except Exception as e:
         print(f"Error in get location service: {e}")
@@ -158,7 +160,6 @@ async def partial_update_location_service(*, location_id: str, schema: SchemaPar
                         if location_db["connect"][i]["user"] == user_id:
                             location_db["connect"][i]["connect"] = schema.connections
                     # location_db["connect"].append(connect)
-            print("location_db", location_db)
             del location_db["sound_id"]
             await db['location'].update_one({"_id": ObjectId(location_id)}, {"$set": location_db})
             return await get_location_service(location_id=location_id, user_id=user_id)

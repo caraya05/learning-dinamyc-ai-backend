@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 
 from bson import ObjectId
 from fastapi import HTTPException
@@ -53,7 +54,6 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
         character_db.created_by = user_id
         character_db.updated_by = user_id
         character_created = await db["character"].insert_one(character_db.dict())
-        print("character_created", character_created.inserted_id)
         if character_db := await db["character"].find_one({"_id": character_created.inserted_id}):
             return character_db
     except Exception as e:
@@ -155,10 +155,19 @@ async def get_character_leading_role_service(game_id: str):
 
 async def delete_character_service(character_id: str):
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+    if not character_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found",
+        )
+    print("character_db", character_db)
     if character_db['image']:
         delete_image(character_db['image'])
-    delete_character = await db["character"].delete_one({"_id": character_id})
-    if delete_character.deleted_count:
+    if character_location_db := await db["character_location"].find({"character_id": character_id}).to_list(None):
+        for character_location in character_location_db:
+            await db["character_location"].delete_one({"_id": character_location["_id"]})
+    delete_character = await db["character"].delete_one({"_id": ObjectId(character_id)})
+    if delete_character:
         return True
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
@@ -210,18 +219,23 @@ async def create_character_by_collection_service(*,
         return character_db
 
 
-async def get_characters_by_location_service(skip: int = 0, limit: int = 100, location_id: str = None):
+async def get_characters_by_location_service(skip: int = 1, limit: int = 100, location_id: str = None):
     location_db = await db["location"].find_one({"_id": ObjectId(location_id)})
+    if not location_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location not found",
+        )
 
     try:
-        if characters_db := await (db["character"].find(
-                {"_id": {"$in": [ObjectId(i) for i in location_db.get("characters_id")]}})
-                .skip((skip - 1) * limit).limit(limit).to_list(None)):
-
-            for i in range(len(characters_db)):
-                if character_location_db := await db["character_location"].find_one(
-                        {"character_id": characters_db[i]["_id"], "location_id": ObjectId(location_id)}):
-                    characters_db[i]["characteristics"] = character_location_db["characteristics"]
+        if characters_locations_db := await db["character_location"].find(
+                {"location_id": location_id}).skip((skip - 1) * limit).limit(limit).to_list(None):
+            characters_db = []
+            for character_location in characters_locations_db:
+                character_db = await db["character"].find_one({"_id": ObjectId(character_location["character_id"])})
+                character_db["characteristics"] = character_location["characteristics"]
+                character_db["_id"] = str(character_db["_id"])
+                characters_db.append(character_db)
 
             return characters_db
     except Exception as e:
@@ -350,9 +364,24 @@ async def add_character_to_location_service(character_id: str, location_id: str)
             detail="Character or Location not found",
         )
     try:
-        if character_id not in location_db.get("characters_id"):
-            location_db["characters_id"].append(character_id)
-            await db["location"].update_one({"_id": ObjectId(location_id)}, {"$set": location_db})
+        existing_entry = await db["character_location"].find_one(
+            {"character_id": character_id, "location_id": location_id})
+
+        if existing_entry:
+            raise HTTPException(
+                status_code=status.HTTP_200_OK,
+                detail="Character already added to location",
+            )
+
+        character_location_data = CharacterLocationModel(
+            character_id=character_id,
+            location_id=location_id,
+            characteristics={},
+            created_by=character_db["created_by"],
+            updated_by=character_db["updated_by"]
+        )
+        await db["character_location"].insert_one(character_location_data.dict())
+
     except Exception as e:
         print(f"Error in add character to location service: {str(e)}")
         raise HTTPException(
@@ -364,24 +393,25 @@ async def add_character_to_location_service(character_id: str, location_id: str)
 
 
 async def add_or_edit_character_location(character_id: str, location_id: str, characteristics: dict, user_id: str):
-    existing_entry = await db["character_location"].find_one({"character_id": ObjectId(character_id), "location_id": ObjectId(location_id)})
+    existing_entry = await db["character_location"].find_one({"character_id": character_id, "location_id": location_id})
 
     if existing_entry:
         await db["character_location"].update_one(
             {"_id": existing_entry["_id"]},
             {"$set": {
                 "characteristics": characteristics,
-                "updated_by": ObjectId(user_id)
+                "updated_by": user_id,
+                "updated_at": datetime.utcnow()
             }}
         )
         return "Character location updated successfully"
     else:
         character_location_data = CharacterLocationModel(
-            character_id=ObjectId(character_id),
-            location_id=ObjectId(location_id),
+            character_id=character_id,
+            location_id=location_id,
             characteristics=characteristics,
-            created_by=ObjectId(user_id),
-            updated_by=ObjectId(user_id)
+            created_by=user_id,
+            updated_by=user_id
         )
         await db["character_location"].insert_one(character_location_data.dict())
         return "Character location added successfully"
