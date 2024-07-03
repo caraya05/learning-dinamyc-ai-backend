@@ -18,6 +18,7 @@ async def get_customize_by_id_service(customize_id: str):
 
 
 async def get_customize_by_type_character_service(gender: str, type_customize: str):
+    gender = gender.lower()
     try:
         customize_all = await db["customize"].find({"gender": gender, "type_customize": type_customize}).to_list(None)
         count_customize = await db["customize"].count_documents({})

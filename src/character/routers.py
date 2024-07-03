@@ -254,7 +254,7 @@ async def get_images_character_face(
         )
 
 
-@router2.post("/", response_model=SchemaRetrieveCharacter)
+@router2.post("/", response_model=SchemaRetrieveCharacter, status_code=status.HTTP_201_CREATED)
 async def create_character(
         character: SchemaCreateCharacterCollection,
         user_db: dict = Depends(auth),

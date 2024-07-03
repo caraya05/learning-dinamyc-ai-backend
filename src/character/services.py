@@ -99,7 +99,6 @@ async def update_partial_character_service(character_id: str, character_update: 
             character_db['extra_data'] = extra_data["extra_data"]
 
             if character_db['gender'] in ["woman", "man"]:
-                print("character")
                 customizes_db, count_customize = await get_customize_by_type_character_service(character_db['gender'],
                                                                                                "hair")
 
@@ -294,6 +293,16 @@ async def get_images_character_face_service(character_id: str):
         extra_data = get_extra_data_character_ai(prompt_content_extra_data)
 
         character_db['extra_data'] = extra_data["extra_data"]
+
+        if character_db['body_type'] in ["woman", "man","MAN", "WOMAN"]:
+            customizes_db, count_customize = await get_customize_by_type_character_service(character_db['body_type'],
+                                                                                           "hair")
+
+            customize_character = get_customize_by_character(
+                customizes_db, character_db['description']
+            )
+
+            character_db['extra_data']["type_combing"] = customize_character["reference_ui"]
 
         await db["character"].update_one({"_id": ObjectId(character_id)}, {"$set": character_db})
 
