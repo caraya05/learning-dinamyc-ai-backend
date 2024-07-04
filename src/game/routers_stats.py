@@ -340,12 +340,14 @@ async def amount_of_created(
 
     # Convertir el diccionario a la estructura deseada
     result_final = list(user_actives.values())
-    amount_users_active = 0
+    amount_users_active = []
     for item in result_final:
         item["unique_created_by"] = list(item["unique_created_by"])
         item["count"] = len(item["unique_created_by"])
-        amount_users_active += item["count"]
+        amount_users_active = list(set(amount_users_active + item["unique_created_by"]))
         del item["unique_created_by"]
+
+    result_final = sorted(result_final, key=lambda x: x["_id"])
 
     return {
         "amount_users": amount_users,
@@ -362,7 +364,7 @@ async def amount_of_created(
         "games_created_date": games_created_date,
         "amount_objects": amount_objects,
         "objects_created_date": objects_created_date,
-        "amount_users_active": amount_users_active,
+        "amount_users_active": len(amount_users_active),
         "users_active_date": result_final
     }
 
