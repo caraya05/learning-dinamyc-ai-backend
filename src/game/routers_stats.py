@@ -13,6 +13,18 @@ from typing import Optional
 router = APIRouter(prefix="/stats", tags=["Stats"])
 
 
+def sum_arrays(*arrays):
+    # Asumiendo que todos los arrays tienen la misma longitud
+    long = len(arrays[0])
+    result = [0] * long
+
+    for array in arrays:
+        for i in range(long):
+            result[i] += array[i]
+
+    return result
+
+
 @router.get("/amount-created/", status_code=status.HTTP_200_OK)
 async def amount_of_created(
         start_date: Optional[datetime] = None,
@@ -50,7 +62,7 @@ async def amount_of_created(
         },
         {
             "$sort": {
-                "_id": -1  # Ordenar por fecha en orden descendente
+                "_id": 1  # Ordenar por fecha en orden descendente
             }
         }
     ]).to_list(None)
@@ -75,8 +87,30 @@ async def amount_of_created(
         },
         {
             "$sort": {
-                "_id": -1  # Ordenar por fecha en orden descendente
+                "_id": 1  # Ordenar por fecha en orden descendente
             }
+        }
+    ]).to_list(None)
+    locations_unique_created_by = await db["location"].aggregate([
+        {
+            "$match": query  # Asegúrate de que 'query' contenga tus criterios de filtrado específicos
+        },
+        {
+            "$project": {
+                "date": {
+                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                },
+                "created_by": 1
+            }
+        },
+        {
+            "$group": {
+                "_id": "$date",
+                "unique_created_by": {"$addToSet": "$created_by"}
+            }
+        },
+        {
+            "$sort": {"_id": 1}  # Ordena por fecha en orden ascendente
         }
     ]).to_list(None)
 
@@ -100,8 +134,30 @@ async def amount_of_created(
         },
         {
             "$sort": {
-                "_id": -1  # Ordenar por fecha en orden descendente
+                "_id": 1  # Ordenar por fecha en orden descendente
             }
+        }
+    ]).to_list(None)
+    characters_unique_created_by = await db["character"].aggregate([
+        {
+            "$match": query  # Asegúrate de que 'query' contenga tus criterios de filtrado específicos
+        },
+        {
+            "$project": {
+                "date": {
+                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                },
+                "created_by": 1
+            }
+        },
+        {
+            "$group": {
+                "_id": "$date",
+                "unique_created_by": {"$addToSet": "$created_by"}
+            }
+        },
+        {
+            "$sort": {"_id": 1}  # Ordena por fecha en orden ascendente
         }
     ]).to_list(None)
 
@@ -125,7 +181,7 @@ async def amount_of_created(
         },
         {
             "$sort": {
-                "_id": -1  # Ordenar por fecha en orden descendente
+                "_id": 1  # Ordenar por fecha en orden descendente
             }
         }
     ]).to_list(None)
@@ -150,8 +206,30 @@ async def amount_of_created(
         },
         {
             "$sort": {
-                "_id": -1  # Ordenar por fecha en orden descendente
+                "_id": 1  # Ordenar por fecha en orden descendente
             }
+        }
+    ]).to_list(None)
+    places_unique_created_by = await db["place"].aggregate([
+        {
+            "$match": query  # Asegúrate de que 'query' contenga tus criterios de filtrado específicos
+        },
+        {
+            "$project": {
+                "date": {
+                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                },
+                "created_by": 1
+            }
+        },
+        {
+            "$group": {
+                "_id": "$date",
+                "unique_created_by": {"$addToSet": "$created_by"}
+            }
+        },
+        {
+            "$sort": {"_id": 1}  # Ordena por fecha en orden ascendente
         }
     ]).to_list(None)
 
@@ -175,10 +253,99 @@ async def amount_of_created(
         },
         {
             "$sort": {
-                "_id": -1  # Ordenar por fecha en orden descendente
+                "_id": 1  # Ordenar por fecha en orden descendente
             }
         }
     ]).to_list(None)
+    games_unique_created_by = await db["game"].aggregate([
+        {
+            "$match": query  # Asegúrate de que 'query' contenga tus criterios de filtrado específicos
+        },
+        {
+            "$project": {
+                "date": {
+                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                },
+                "created_by": 1
+            }
+        },
+        {
+            "$group": {
+                "_id": "$date",
+                "unique_created_by": {"$addToSet": "$created_by"}
+            }
+        },
+        {
+            "$sort": {"_id": 1}  # Ordena por fecha en orden ascendente
+        }
+    ]).to_list(None)
+
+    amount_objects = len(await db["object"].find(query).to_list(None))
+    objects_created_date = await db["object"].aggregate([
+        {
+            "$match": query
+        },
+        {
+            "$project": {
+                "created_at": {
+                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                }
+            }
+        },
+        {
+            "$group": {
+                "_id": "$created_at",
+                "count": {"$sum": 1}
+            }
+        },
+        {
+            "$sort": {
+                "_id": 1  # Ordenar por fecha en orden descendente
+            }
+        }
+    ]).to_list(None)
+    objects_unique_created_by = await db["object"].aggregate([
+        {
+            "$match": query  # Asegúrate de que 'query' contenga tus criterios de filtrado específicos
+        },
+        {
+            "$project": {
+                "date": {
+                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                },
+                "created_by": 1
+            }
+        },
+        {
+            "$group": {
+                "_id": "$date",
+                "unique_created_by": {"$addToSet": "$created_by"}
+            }
+        },
+        {
+            "$sort": {"_id": 1}  # Ordena por fecha en orden ascendente
+        }
+    ]).to_list(None)
+
+    total_data = locations_unique_created_by + characters_unique_created_by + places_unique_created_by + games_unique_created_by + objects_unique_created_by
+
+    user_actives = {}
+    for data in total_data:
+        _id = data["_id"]
+        unique_created_by = data["unique_created_by"]
+        if _id not in user_actives:
+            user_actives[_id] = {"_id": _id, "unique_created_by": set(unique_created_by)}
+        else:
+            user_actives[_id]["unique_created_by"].update(unique_created_by)
+
+    # Convertir el diccionario a la estructura deseada
+    result_final = list(user_actives.values())
+    amount_users_active = 0
+    for item in result_final:
+        item["unique_created_by"] = list(item["unique_created_by"])
+        item["count"] = len(item["unique_created_by"])
+        amount_users_active += item["count"]
+        del item["unique_created_by"]
 
     return {
         "amount_users": amount_users,
@@ -192,7 +359,11 @@ async def amount_of_created(
         "amount_places": amount_places,
         "places_created_date": places_created_date,
         "amount_games": amount_games,
-        "games_created_date": games_created_date
+        "games_created_date": games_created_date,
+        "amount_objects": amount_objects,
+        "objects_created_date": objects_created_date,
+        "amount_users_active": amount_users_active,
+        "users_active_date": result_final
     }
 
 
@@ -294,9 +465,6 @@ async def get_users(
             del user["provider"]
             del user["number_of_creation_attempts"]
             del user["attempt_to_create"]
-
-
-
 
             # games_played = await db["record_game"].aggregate([
             #     {
