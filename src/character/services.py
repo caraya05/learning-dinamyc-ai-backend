@@ -159,7 +159,6 @@ async def delete_character_service(character_id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Character not found",
         )
-    print("character_db", character_db)
     if character_db['image']:
         delete_image(character_db['image'])
     if character_location_db := await db["character_location"].find({"character_id": character_id}).to_list(None):

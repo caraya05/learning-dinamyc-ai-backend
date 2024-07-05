@@ -10,11 +10,13 @@ from fastapi.security import HTTPAuthorizationCredentials
 
 from auth.auth import auth
 from auth.utils import auth_schema
-from object.schemas import SchemaListObject
+from object.schemas import SchemaListObject, SchemaCreateItem, SchemaUpdatedObjectLocation, SchemaAddItemLocation
 from object.schemas import SchemaRetrieveObject
 from object.schemas import SchemaCreateObject
 
-from object.services import get_objects_service, update_image_object_service
+from object.services import get_objects_service, update_image_object_service, create_item_service, update_item_service, \
+    delete_object_service, add_item_location_service, add_or_edit_item_characteristic_service, \
+    get_item_by_location_service
 from object.services import retrieve_object_service
 from object.services import create_object_service
 # from object.services import partial_update_object_service
@@ -26,8 +28,6 @@ from utils import upload_image
 
 router = APIRouter(prefix="/object", tags=["Object"])
 
-
-# TODO - arreglar el get_objects y el update
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListObject)
 async def get_objects(
@@ -150,3 +150,174 @@ async def generate_image(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Image not generated",
         )
+
+
+router2 = APIRouter(prefix="/item", tags=["Item"])
+
+
+@router2.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveObject)
+async def create_object(
+        object_: SchemaCreateItem,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint creates a new object.
+
+    It returns the created object.
+    """
+
+    try:
+        object_db = await create_item_service(object_, str(user_db.get("_id")))
+        return object_db
+
+    except Exception as e:
+        print(f"Error in create object: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Object not created",
+        )
+
+
+@router2.get("/{item-id}/generate-image/", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveObject)
+async def generate_image(
+        item_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint generates a image for a object.
+
+    It returns the image.
+    """
+
+    try:
+
+        object_db = await retrieve_object_service(object_id=item_id)
+        prompt_db_image_object = await get_prompt_by_category_service('image_object')
+        prompt_object = prompt_db_image_object.get("description").replace("x_object", object_db.get("prompt_user"))
+        image_generated = generate_image_dalle(prompt_object, quality="hd", size="1024x1024")
+
+        image_object = upload_image(
+            url_image=image_generated,
+            file_name=f"object/{uuid4()}.jpg",
+            size=(512, 512),
+        )
+
+        object_db = await update_image_object_service(item_id, image_object)
+        return object_db
+
+    except Exception as e:
+        print(f"Error in generate image: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Image not generated",
+        )
+
+
+@router2.patch("/{item_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveObject)
+async def update_item(
+        item_id: str,
+        object_: SchemaCreateItem,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint updates a object.
+
+    It returns the updated object.
+    """
+
+    try:
+        object_db = await update_item_service(item_id, object_)
+        return object_db
+
+    except Exception as e:
+        print(f"Error in create object: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Object not created",
+        )
+
+
+@router2.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_item(
+        item_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint deletes a object.
+
+    It returns the deleted object.
+    """
+
+    try:
+        object_db = await delete_object_service(item_id)
+        return object_db
+
+    except Exception as e:
+        print(f"Error in create object: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Object not created",
+        )
+
+
+@router2.post("/add-item-location/", status_code=status.HTTP_200_OK)
+async def add_item_location(
+        item: SchemaAddItemLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint adds a object to a location.
+
+    It returns the added object.
+    """
+
+    object_db = await add_item_location_service(item.item_id, item.location_id)
+    return object_db
+
+
+@router2.post("/add-edit-characteristic/")
+async def add_edit_characteristic(
+        item: SchemaUpdatedObjectLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint adds or edits a characteristic to a object in a location.
+
+    It returns the added or edited object.
+    """
+
+    try:
+        object_db = await add_or_edit_item_characteristic_service(item.item_id, item.location_id,
+                                                                  item.characteristics, str(user_db.get("_id")))
+        return object_db
+
+    except Exception as e:
+        print(f"Error in create object: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Object not created",
+        )
+
+
+@router2.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListObject)
+async def get_objects(
+        location_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves all objects.
+
+    It returns a list of objects.
+    """
+
+    objects_db = await get_item_by_location_service(location_id)
+    print(objects_db)
+
+    return SchemaListObject(results=objects_db, count=len(objects_db))
