@@ -131,7 +131,7 @@ async def partial_update_location_service(*, location_id: str, schema: SchemaPar
                 location_db["image"] = upload_image(
                     url_image=schema.image,
                     file_name=f"locations/{uuid4()}.jpg",
-                    size=(1218, 686),
+                    size=(2436, 1372),
                 )
             if schema.configuration:
                 if not location_db["config"]:
