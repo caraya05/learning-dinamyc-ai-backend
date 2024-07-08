@@ -179,7 +179,7 @@ async def create_object(
         )
 
 
-@router2.get("/{item-id}/generate-image/", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveObject)
+@router2.get("/{item_id}/generate-image/", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveObject)
 async def generate_image(
         item_id: str,
         user_db: dict = Depends(auth),

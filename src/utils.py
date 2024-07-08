@@ -35,7 +35,7 @@ def upload_image(
             else:
                 image_url = requests.get(url_image)
                 img = Image.open(BytesIO(image_url.content))
-            img = img.resize(size)
+            img = img.resize(size=size, reducing_gap=2.0)
 
             # Save the image to a BytesIO object
             img_byte_arr = BytesIO()
