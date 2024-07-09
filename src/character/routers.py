@@ -387,7 +387,7 @@ async def add_edit_characteristic(
 
 
 @router2.get("/all/", response_model=SchemaListCharacter)
-async def get_characters(
+async def get_all_characters(
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
         page: int = 1,

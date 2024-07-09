@@ -324,7 +324,7 @@ async def get_objects(
 
 
 @router2.get("/all/", status_code=status.HTTP_200_OK, response_model=SchemaListObject)
-async def get_objects(
+async def get_all_objects(
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
         page: int = 1,
