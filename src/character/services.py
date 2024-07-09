@@ -293,7 +293,7 @@ async def get_images_character_face_service(character_id: str):
 
         character_db['extra_data'] = extra_data["extra_data"]
 
-        if character_db['body_type'] in ["woman", "man","MAN", "WOMAN"]:
+        if character_db['body_type'] in ["woman", "man", "MAN", "WOMAN"]:
             customizes_db, count_customize = await get_customize_by_type_character_service(character_db['body_type'],
                                                                                            "hair")
 
@@ -423,3 +423,20 @@ async def add_or_edit_character_location(character_id: str, location_id: str, ch
         )
         await db["character_location"].insert_one(character_location_data.dict())
         return "Character location added successfully"
+
+
+async def get_all_character_service(user_id: str, skip: int = 1, limit: int = 10):
+    try:
+        characters_db = await (db["character"]
+                               .find({"created_by": user_id})
+                               .sort("created_at", -1)
+                               .skip((skip - 1) * limit)
+                               .limit(limit)
+                               .to_list(None))
+        return characters_db
+    except Exception as e:
+        print(f"Error in get all character service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Characters not found",
+        )

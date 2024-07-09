@@ -16,7 +16,7 @@ from object.schemas import SchemaCreateObject
 
 from object.services import get_objects_service, update_image_object_service, create_item_service, update_item_service, \
     delete_object_service, add_item_location_service, add_or_edit_item_characteristic_service, \
-    get_item_by_location_service
+    get_item_by_location_service, get_all_object_service
 from object.services import retrieve_object_service
 from object.services import create_object_service
 # from object.services import partial_update_object_service
@@ -319,5 +319,25 @@ async def get_objects(
 
     objects_db = await get_item_by_location_service(location_id)
     print(objects_db)
+
+    return SchemaListObject(results=objects_db, count=len(objects_db))
+
+
+@router2.get("/all/", status_code=status.HTTP_200_OK, response_model=SchemaListObject)
+async def get_objects(
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        page: int = 1,
+        count: int = 10,
+):
+    """
+    This endpoint retrieves all objects.
+
+    It returns a list of objects.
+    """
+
+    objects_db = await get_all_object_service(user_id=str(user_db.get("_id")), skip=page, limit=count)
+    for object_db in objects_db:
+        object_db["_id"] = str(object_db["_id"])
 
     return SchemaListObject(results=objects_db, count=len(objects_db))

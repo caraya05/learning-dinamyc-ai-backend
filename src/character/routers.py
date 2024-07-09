@@ -20,7 +20,7 @@ from character.services import (
     update_attempts_character_service,
     create_character_service, create_character_by_collection_service,
     update_character_service, delete_character_service, add_character_to_location_service,
-    get_characters_by_location_service, add_or_edit_character_location,
+    get_characters_by_location_service, add_or_edit_character_location, get_all_character_service,
 )
 from character.services import get_characters_service
 from character.services import update_partial_character_service
@@ -383,4 +383,33 @@ async def add_edit_characteristic(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Character not created",
+        )
+
+
+@router2.get("/all/", response_model=SchemaListCharacter)
+async def get_characters(
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        page: int = 1,
+        count: int = 10,
+):
+    """
+    This endpoint retrieves all characters.
+
+    It returns a list of characters.
+    """
+
+    try:
+        characters_db = await get_all_character_service(user_id=str(user_db.get("_id")), skip=page, limit=count)
+
+        for i in characters_db:
+            i["_id"] = str(i["_id"])
+
+        return SchemaListCharacter(results=characters_db, count=len(characters_db))
+
+    except Exception as e:
+        print(f"error in get characters: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Characters not found",
         )

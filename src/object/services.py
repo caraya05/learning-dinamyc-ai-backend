@@ -263,3 +263,23 @@ async def get_item_by_location_service(location_id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Objects not found",
         )
+
+
+async def get_all_object_service(user_id: str, skip: int = 1, limit: int = 10):
+    """
+    Get all objects.
+    """
+    try:
+        objects_db = await (db["object"]
+                            .find({"created_by": user_id})
+                            .sort("created_at", -1)
+                            .skip((skip - 1) * limit)
+                            .limit(limit)
+                            .to_list(None))
+        return objects_db
+    except Exception as e:
+        print(f"Error in get all object service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Objects not found",
+        )
