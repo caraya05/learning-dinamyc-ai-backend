@@ -252,12 +252,20 @@ async def get_images_character_face_service(character_id: str):
             detail="Character not found",
         )
     try:
-        image_face = generate_image_dalle(prompt=f"Genera una imagen en arte pixel de extraordinaria calidad, "
-                                                 f"de la cara vista closeup de frente de personaje en la imagen, con "
-                                                 f"fondo blanco, descripcción del personaje:"
-                                                 f" {character_db['prompt_user']}",
-                                          quality="hd",
-                                          size="1024x1024")
+        # image_face = generate_image_dalle(prompt=f"Genera una imagen en arte pixel de extraordinaria calidad, "
+        #                                          f"de la cara vista closeup de frente de personaje en la imagen, con "
+        #                                          f"fondo blanco, descripcción del personaje:"
+        #                                          f" {character_db['prompt_user']}",
+        #                                   quality="hd",
+        #                                   size="1024x1024")
+
+        image_face = generate_image_dalle(prompt=f"Genera una imagen cuadrada en vista frontal de {character_db['prompt_user']},"
+                                                 " de ojos vivos, rasgos faciales exagerados y expresivos, de la "
+                                                 "cintura para arriba, en estilo 3D Cel-shaded que Imita el aspecto "
+                                                 "de los dibujos animados 2D, utilizando colores planos pero vivos y "
+                                                 "contornos marcados. Con fondo Blanco.",
+                                            quality="hd",
+                                            size="1024x1024")
 
         if character_db['image']:
             delete_image(character_db['image'])
