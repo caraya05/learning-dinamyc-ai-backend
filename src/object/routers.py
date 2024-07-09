@@ -323,7 +323,7 @@ async def get_objects(
     return SchemaListObject(results=objects_db, count=len(objects_db))
 
 
-@router2.get("/all/", status_code=status.HTTP_200_OK, response_model=SchemaListObject)
+@router2.get("/all-objects", status_code=status.HTTP_200_OK, response_model=SchemaListObject)
 async def get_all_objects(
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
