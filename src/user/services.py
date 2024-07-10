@@ -13,7 +13,6 @@ from core.database import db
 
 from user.models import User
 
-
 from configuration.services import get_configurations_service
 
 
@@ -209,4 +208,41 @@ async def get_user_by_id_service(user_id: str):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error in get user by id {e}"
+        )
+
+
+async def disable_user_service(user_id: str, section: str):
+    try:
+        user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
+        stars_disabled = 0
+        if section == "character":
+            stars_disabled = 1
+        elif section == "place":
+            stars_disabled = 1
+        elif section == "location":
+            stars_disabled = 1
+        elif section == "item":
+            stars_disabled = 1
+        if user_db:
+
+            await register_daily_record_service(
+                user_id=user_id,
+                created_at=datetime.utcnow(),
+                balance=user_db["stars"],
+                expenses=stars_disabled,
+                games_created=0,
+                sets_with_errors=0,
+                attempts_to_create_without_balance=0,
+                assets_created={"section": section, "stars": stars_disabled}
+            )
+
+            user_db['stars'] = user_db['stars'] - stars_disabled
+            await db["user"].update_one({"_id": ObjectId(user_id)}, {"$set": user_db})
+        else:
+            return None
+    except Exception as e:
+        print(f"Error in disable user {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error in disable user {e}"
         )

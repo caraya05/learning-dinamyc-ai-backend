@@ -17,6 +17,7 @@ async def get_or_create_daily_record_service(*,
                                              games_created: int = 0,
                                              sets_with_errors: int = 0,
                                              attempts_to_create_without_balance: int = 0,
+                                             assets_created: dict = None,
                                              ):
     """
     Get or create a daily record.
@@ -40,6 +41,7 @@ async def get_or_create_daily_record_service(*,
                 games_created=games_created,
                 sets_with_errors=sets_with_errors,
                 attempts_to_create_without_balance=attempts_to_create_without_balance,
+                assets_created=[assets_created],
             )
             daily_record = await db['daily_record'].insert_one(daily_record.dict())
             if daily_record:
@@ -61,6 +63,7 @@ async def register_daily_record_service(*,
                                         games_created: int = 0,
                                         sets_with_errors: int = 0,
                                         attempts_to_create_without_balance: int = 0,
+                                        assets_created: dict = None,
                                         ):
     """
     Update a daily record.
@@ -75,12 +78,14 @@ async def register_daily_record_service(*,
             games_created=games_created,
             sets_with_errors=sets_with_errors,
             attempts_to_create_without_balance=attempts_to_create_without_balance,
+            assets_created=assets_created,
         )
         if daily_record_db:
             daily_record_db['balance'] = balance
             daily_record_db['expenses'] += expenses
             daily_record_db['games_created'] += games_created
             daily_record_db['sets_with_errors'] += sets_with_errors
+            daily_record_db['assets_created'] += [assets_created]
             daily_record_db['attempts_to_create_without_balance'] += attempts_to_create_without_balance
             await db['daily_record'].update_one({"_id": ObjectId(daily_record_db['_id'])}, {"$set": daily_record_db})
         return await db['daily_record'].find_one({"_id": ObjectId(daily_record_db['_id'])})

@@ -26,6 +26,8 @@ def generate_image_dalle(
             style="vivid",
         )
 
+        print("DALL-E Token: ", response)
+
         return response.data[0].url
 
     except Exception as e:
@@ -47,6 +49,8 @@ def generate_gpt4_vision_(
             messages=content_prompt,
             max_tokens=max_tokens,
         )
+
+        print("GPT4 Vision Token: ", response.usage)
 
         return response.choices[0].message.content
 
@@ -84,6 +88,8 @@ def generate_gpt4_(*,
         # )
         # print(response.__dict__)
 
+        print("GPT4 Token: ", response.usage)
+
         return response.choices[0].message.content
 
     except Exception as e:
@@ -109,6 +115,8 @@ def generate_gpt4o(
             frequency_penalty=0.6,
             presence_penalty=0.7
         )
+
+        print("GPT4o Token: ", response.usage)
 
         return response.choices[0].message.content
 

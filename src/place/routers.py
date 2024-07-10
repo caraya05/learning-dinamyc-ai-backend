@@ -17,6 +17,7 @@ from place.schemas import SchemaCreatePlace
 from place.schemas import SchemaRetrievePlace
 from place.schemas import SchemaPartialUpdatePlace
 from place.schemas import SchemeListPlace
+from user.services import disable_user_service
 
 router = APIRouter(prefix="/place", tags=["Place"])
 
@@ -91,6 +92,8 @@ async def generate_image_place(
 
     try:
         image = await generate_image_place_service(place_id=place_id)
+
+        await disable_user_service(user_id=str(user_db["_id"]), section="place")
 
         return image
 

@@ -24,6 +24,7 @@ from object.services import create_object_service
 from prompt.services import get_prompt_by_category_service
 
 from gpt_ai.utils import generate_image_dalle
+from user.services import disable_user_service
 from utils import upload_image
 
 router = APIRouter(prefix="/object", tags=["Object"])
@@ -203,6 +204,8 @@ async def generate_image(
             file_name=f"object/{uuid4()}.jpg",
             size=(512, 512),
         )
+
+        await disable_user_service(user_id=str(user_db["_id"]), section="item")
 
         object_db = await update_image_object_service(item_id, image_object)
         return object_db
