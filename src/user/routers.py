@@ -142,7 +142,7 @@ async def update_photo_user(
     photo_content = await photo.read()
 
     url_photo = upload_image(
-        name_bucket="users",
+        # name_bucket="users",
         image_content_type=photo_content,
         file_name=f"user/{uuid4()}.jpg",
         size=(512, 512),
