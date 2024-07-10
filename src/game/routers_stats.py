@@ -14,7 +14,6 @@ router = APIRouter(prefix="/stats", tags=["Stats"])
 
 
 def sum_arrays(*arrays):
-    # Asumiendo que todos los arrays tienen la misma longitud
     long = len(arrays[0])
     result = [0] * long
 
@@ -32,14 +31,12 @@ async def amount_of_created(
         user_db: dict = Depends(auth_admin),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema)
 ):
-    # Crear el filtro de fechas si las fechas de inicio y fin están presentes
     date_filter = {}
     if start_date is not None:
         date_filter["$gte"] = start_date
     if end_date is not None:
         date_filter["$lte"] = end_date
 
-    # Aplicar el filtro de fechas a la consulta si está presente
     query = {"created_at": date_filter} if date_filter else {}
 
     amount_users = len(await db["user"].find(query).to_list(None))
@@ -62,7 +59,7 @@ async def amount_of_created(
         },
         {
             "$sort": {
-                "_id": 1  # Ordenar por fecha en orden descendente
+                "_id": 1
             }
         }
     ]).to_list(None)
@@ -87,13 +84,13 @@ async def amount_of_created(
         },
         {
             "$sort": {
-                "_id": 1  # Ordenar por fecha en orden descendente
+                "_id": 1
             }
         }
     ]).to_list(None)
     locations_unique_created_by = await db["location"].aggregate([
         {
-            "$match": query  # Asegúrate de que 'query' contenga tus criterios de filtrado específicos
+            "$match": query
         },
         {
             "$project": {
@@ -110,7 +107,7 @@ async def amount_of_created(
             }
         },
         {
-            "$sort": {"_id": 1}  # Ordena por fecha en orden ascendente
+            "$sort": {"_id": 1}
         }
     ]).to_list(None)
 
@@ -134,7 +131,7 @@ async def amount_of_created(
         },
         {
             "$sort": {
-                "_id": 1  # Ordenar por fecha en orden descendente
+                "_id": 1
             }
         }
     ]).to_list(None)
@@ -157,7 +154,7 @@ async def amount_of_created(
             }
         },
         {
-            "$sort": {"_id": 1}  # Ordena por fecha en orden ascendente
+            "$sort": {"_id": 1}
         }
     ]).to_list(None)
 
@@ -181,7 +178,7 @@ async def amount_of_created(
         },
         {
             "$sort": {
-                "_id": 1  # Ordenar por fecha en orden descendente
+                "_id": 1
             }
         }
     ]).to_list(None)
@@ -206,13 +203,13 @@ async def amount_of_created(
         },
         {
             "$sort": {
-                "_id": 1  # Ordenar por fecha en orden descendente
+                "_id": 1
             }
         }
     ]).to_list(None)
     places_unique_created_by = await db["place"].aggregate([
         {
-            "$match": query  # Asegúrate de que 'query' contenga tus criterios de filtrado específicos
+            "$match": query
         },
         {
             "$project": {
@@ -229,7 +226,7 @@ async def amount_of_created(
             }
         },
         {
-            "$sort": {"_id": 1}  # Ordena por fecha en orden ascendente
+            "$sort": {"_id": 1}
         }
     ]).to_list(None)
 
@@ -253,13 +250,13 @@ async def amount_of_created(
         },
         {
             "$sort": {
-                "_id": 1  # Ordenar por fecha en orden descendente
+                "_id": 1
             }
         }
     ]).to_list(None)
     games_unique_created_by = await db["game"].aggregate([
         {
-            "$match": query  # Asegúrate de que 'query' contenga tus criterios de filtrado específicos
+            "$match": query
         },
         {
             "$project": {
@@ -276,7 +273,7 @@ async def amount_of_created(
             }
         },
         {
-            "$sort": {"_id": 1}  # Ordena por fecha en orden ascendente
+            "$sort": {"_id": 1}
         }
     ]).to_list(None)
 
@@ -300,13 +297,13 @@ async def amount_of_created(
         },
         {
             "$sort": {
-                "_id": 1  # Ordenar por fecha en orden descendente
+                "_id": 1
             }
         }
     ]).to_list(None)
     objects_unique_created_by = await db["object"].aggregate([
         {
-            "$match": query  # Asegúrate de que 'query' contenga tus criterios de filtrado específicos
+            "$match": query
         },
         {
             "$project": {
@@ -323,7 +320,7 @@ async def amount_of_created(
             }
         },
         {
-            "$sort": {"_id": 1}  # Ordena por fecha en orden ascendente
+            "$sort": {"_id": 1}
         }
     ]).to_list(None)
 
@@ -338,7 +335,6 @@ async def amount_of_created(
         else:
             user_actives[_id]["unique_created_by"].update(unique_created_by)
 
-    # Convertir el diccionario a la estructura deseada
     result_final = list(user_actives.values())
     amount_users_active = []
     for item in result_final:
@@ -348,6 +344,24 @@ async def amount_of_created(
         del item["unique_created_by"]
 
     result_final = sorted(result_final, key=lambda x: x["_id"])
+
+    def multiply_and_sum_counts(data, factor):
+        return sum(item["count"] * factor for item in data)
+
+    total_expenses = sum([
+        multiply_and_sum_counts(locations_created_date, 1),
+        multiply_and_sum_counts(characters_created_date, 1),
+        multiply_and_sum_counts(places_created_date, 1),
+        multiply_and_sum_counts(games_created_date, 10),
+        multiply_and_sum_counts(objects_created_date, 1)
+    ])
+
+    array_expenses = locations_created_date + characters_created_date + places_created_date + games_created_date + objects_created_date
+    expenses_by_id = {}
+    for data in array_expenses:
+        expenses_by_id[data["_id"]] = expenses_by_id.get(data["_id"], 0) + data["count"]
+
+    result_expenses = [{"_id": _id, "count": count} for _id, count in sorted(expenses_by_id.items())]
 
     return {
         "amount_users": amount_users,
@@ -365,7 +379,9 @@ async def amount_of_created(
         "amount_objects": amount_objects,
         "objects_created_date": objects_created_date,
         "amount_users_active": len(amount_users_active),
-        "users_active_date": result_final
+        "users_active_date": result_final,
+        "amount_expenses": total_expenses,
+        "expenses_created_date": result_expenses
     }
 
 
@@ -377,14 +393,12 @@ async def amount_of_played(
         Token: HTTPAuthorizationCredentials = Depends(auth_schema)
 ):
     try:
-        # Crear el filtro de fechas si las fechas de inicio y fin están presentes
         date_filter = {}
         if start_date is not None:
             date_filter["$gte"] = start_date
         if end_date is not None:
             date_filter["$lte"] = end_date
 
-        # Aplicar el filtro de fechas a la consulta si está presente
         query = {"created_at": date_filter} if date_filter else {}
 
         amount_played = len(await db["record_game"].find(query).to_list(None))
@@ -452,7 +466,9 @@ async def get_users(
             user["characters"] = await db["character"].count_documents({"created_by": user_id, **query}) or 0
             user["outdoors"] = await db["place"].count_documents({"created_by": user_id, **query}) or 0
             user["interiors"] = await db["location"].count_documents({"created_by": user_id, **query}) or 0
-
+            user["objects"] = await db["object"].count_documents({"created_by": user_id, **query}) or 0
+            user["expenses"] = (user["games"] * 10 + user["characters"] + user["outdoors"] + user["interiors"] +
+                                user["objects"])
             del user["_id"]
             del user["photo"]
             del user["password"]
