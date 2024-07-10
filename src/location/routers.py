@@ -24,6 +24,7 @@ from location.services import create_location_service
 from location.services import partial_update_location_service
 from location.services import update_attempts_location_service
 from prompt.services import get_prompt_by_category_service
+from user.services import disable_user_service
 
 router = APIRouter(prefix="/location", tags=["Location"])
 
@@ -192,5 +193,7 @@ async def generate_image_location(
 
     if place_db:
         await update_attempts_location_service(location_id=location_id)
+
+    await disable_user_service(user_id=str(user_db["_id"]), section="location")
 
     return image_generate
