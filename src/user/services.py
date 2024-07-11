@@ -111,7 +111,7 @@ async def get_or_created_user_service(user: dict):
                 photo=user.photo_url if user.photo_url else None,
                 created_by=user.email,
                 updated_by=user.email,
-                stars=configuration_db["stars_news_users"] if configuration_db else 20,
+                stars=configuration_db["stars_news_users"] if configuration_db.get("stars_news_users", None) else 20,
             )
             new_user = await db["user"].insert_one(user_db_.dict())
             user_created = await db["user"].find_one({"_id": new_user.inserted_id})
