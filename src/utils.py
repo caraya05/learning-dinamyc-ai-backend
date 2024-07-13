@@ -68,6 +68,38 @@ def upload_image(
         )
 
 
+def upload_audio(*,
+                 file_name: str,
+                 name_bucket: str = 'backend',
+                 audio_byte_arr: any = None
+                 ):
+    try:
+        audio = audio_byte_arr
+
+        client = session.client(
+            's3',
+            region_name='qwestar',
+            endpoint_url='https://qwestar.sfo3.digitaloceanspaces.com',
+            aws_access_key_id=settings.ACCESS_ID_DIGITAL_OCEAN,
+            aws_secret_access_key=settings.SECRET_KEY_DIGITAL_OCEAN,
+        )
+
+        response = client.put_object(
+            Bucket=name_bucket,
+            Key=file_name,
+            Body=audio,
+            ACL='public-read',
+            ContentType='audio/mpeg',
+        )
+        return f"{settings.URL_DIGITAL_OCEAN}{file_name}"
+    except Exception as e:
+        print(f"Error uploading audio: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error uploading audio",
+        )
+
+
 def get_sub_token(token: str):
     try:
         return jwt.decode(token, settings.authjwt_secret_key, algorithms="HS512")["sub"]

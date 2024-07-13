@@ -23,5 +23,7 @@ class Settings(BaseSettings):
 
     NAME_ENV: str = os.environ["NAME_ENV"]
 
+    ELEVENLABS_API_KEY: str = os.environ["ELEVENLABS_API_KEY"]
+
 
 settings = Settings()

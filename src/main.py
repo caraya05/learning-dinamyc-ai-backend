@@ -39,6 +39,8 @@ from weapon import routers as weapon_routers
 
 from place import routers as place_routers
 
+from voice import routers as voice_routers
+
 from shortener import routers as shortener_routers
 
 from contextlib import asynccontextmanager
@@ -107,6 +109,7 @@ app.include_router(user_routers.router, prefix="/v1/api")
 app.include_router(weapon_routers.router, prefix="/v1/api")
 # app.include_router(weapon_routers.router2, prefix="/v2/api")
 app.include_router(shortener_routers.router, prefix="/v1/api")
+app.include_router(voice_routers.router, prefix="/v1/api")
 app.include_router(shortener_routers.routerAPP)
 
 

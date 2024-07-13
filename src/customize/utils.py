@@ -1,6 +1,6 @@
 import json
 
-from gpt_ai.utils import generate_gpt4_
+from gpt_ai.utils import generate_gpt4_, generate_gpt4o
 
 
 def get_customize_by_character(
@@ -9,8 +9,8 @@ def get_customize_by_character(
     try:
         prompt_customize = (
             "according to the description of this character, choose from the list "
-            "a hair type that corresponds best to him/her,"
-            "if you don't find the right one, if male enter the following 'hair_Man_V4', if female enter the following 'Hair_Woman_V1'. ."
+            "a type of hair that corresponds best to him/her,"
+            "if you don't find the right one enter 'hair_Man_V4' if the character is male and 'Hair_Woman_V1' if the character is female "
         )
 
         schema_customize = {
@@ -21,19 +21,23 @@ def get_customize_by_character(
         content = [
             {
                 "role": "system",
+                "content": f"'{prompt_customize}'",
+            },
+            {
+                "role": "system",
                 "content": f"responde con un JSON que contenga el esquema '{schema_customize}'",
             },
             {
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": f"{prompt_customize}"},
-                    {"type": "text", "text": f"> character: {character_description}"},
-                    {"type": "text", "text": f"> list of customizes: {list_customizes}"},
+                    # {"type": "text", "text": f"{prompt_customize}"},
+                    {"type": "text", "text": f"Descripcion del personaje: {character_description}"},
+                    {"type": "text", "text": f"Listado de peinados : {list_customizes}"},
                 ],
             },
         ]
 
-        customize_generated = generate_gpt4_(
+        customize_generated = generate_gpt4o(
             content_prompt=content,
             type_text="customize",
             max_tokens=4096,

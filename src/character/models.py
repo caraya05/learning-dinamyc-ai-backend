@@ -10,6 +10,7 @@ from character.enums import GenderCharacter
 
 class Character(BaseModel):
     description: str = Field(..., example="This is a character")
+    description_shoulder_up: Optional[str] = Field(None, example="This is a character")
     name: str = Field(..., example="Character Name")
     is_active: bool = Field(default=True, example=True)
     order: int = Field(default=0, example=0)

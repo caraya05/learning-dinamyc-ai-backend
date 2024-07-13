@@ -39,6 +39,7 @@ async def get_locations_service(*, game_id: str, place_id: str = None, skip: int
             for location_id in place_db["locations_id"]:
                 location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
                 locations_db.append(location_db)
+            locations_db = sorted(locations_db, key=lambda x: x["created_at"], reverse=True)
             count_locations = len(place_db["locations_id"])
             return locations_db, count_locations
         else:

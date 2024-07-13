@@ -43,7 +43,6 @@ async def get_games_service(*, skip: int = 1, limit: int = 100, user_id: str = N
     games_db = await db['game'].find(games_query).sort("created_at", -1).skip((skip - 1) * limit).limit(limit).to_list(
         None)
     count_games = await db['game'].count_documents(games_query)
-    print("games_db", count_games, len(games_db), games_db)
     return games_db, count_games
 
 
