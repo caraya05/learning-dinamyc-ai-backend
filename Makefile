@@ -1,5 +1,5 @@
 build:
-	docker-compose  build
+	docker-compose  build --no-cache
 
 up:
 	docker-compose  up
@@ -42,7 +42,7 @@ pylint:
 	docker-compose run --rm fastapi pylint code
 
 dev-build:
-	docker-compose -f docker-compose-develop.yml build
+	docker-compose -f docker-compose-develop.yml build --no-cache
 
 dev-up:
 	docker-compose -f docker-compose-develop.yml up
@@ -73,7 +73,7 @@ dev-pylint:
 	docker-compose -f docker-compose-develop.yml run --rm fastapi pylint code
 
 stage-build:
-	docker-compose -f docker-compose-stage.yml build
+	docker-compose -f docker-compose-stage.yml build --no-cache
 
 stage-up:
 	docker-compose -f docker-compose-stage.yml up
@@ -104,7 +104,7 @@ stage-pylint:
 	docker-compose -f docker-compose-stage.yml run --rm fastapi pylint code
 
 arm-build:
-	docker-compose -f docker-compose-arm.yml build
+	docker-compose -f docker-compose-arm.yml build --no-cache
 
 arm-up:
 	docker-compose -f docker-compose-arm.yml up

@@ -1,7 +1,7 @@
 FROM arm64v8/python:3.10-alpine
 ENV PYTHONUNBUFFERED 1
 ENV C_FORCE_ROOT=1
-RUN apk add --no-cache gdal libpq-dev git cmake gettext libffi-dev gcc g++ musl-dev linux-headers figlet
+RUN apk add --no-cache gdal libpq-dev git cmake gettext libffi-dev gcc g++ musl-dev linux-headers figlet ffmpeg
 WORKDIR /code
 COPY ./src/requirements.txt /code/requirements.txt
 RUN pip install "Cython<3.0" pyyaml --no-build-isolation

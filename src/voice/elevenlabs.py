@@ -1,11 +1,13 @@
 from uuid import uuid4
-from io import BytesIO
 
 import requests
+
+from io import BytesIO
+from pydub import AudioSegment
+
 from config import settings
 from utils import upload_audio
 
-# An API key is defined here. You'd normally get this from the service you're accessing. It's a form of authentication.
 XI_API_KEY = settings.ELEVENLABS_API_KEY
 
 
@@ -51,8 +53,14 @@ def generate_audio(text: str,
         for chunk in response.iter_content(chunk_size=chunk_size):
             audio_in_memory.write(chunk)
         audio_in_memory.seek(0)
-        url_audio = upload_audio(file_name=f"voice/{uuid4()}.mp3",
-                                 audio_byte_arr=audio_in_memory)
+
+        audio_segment = AudioSegment.from_file(audio_in_memory, format="mp3")
+        ogg_audio_in_memory = BytesIO()
+        audio_segment.export(ogg_audio_in_memory, format="ogg")
+        ogg_audio_in_memory.seek(0)
+
+        url_audio = upload_audio(file_name=f"voice/{uuid4()}.ogg",
+                                 audio_byte_arr=ogg_audio_in_memory)
         return url_audio
     else:
         print("error generate voice", response.text)

@@ -7,6 +7,7 @@ from fastapi import status
 
 from core import db
 from gpt_ai.utils import generate_gpt4o
+from utils import delete_image
 from voice.elevenlabs import generate_audio
 
 
@@ -135,6 +136,9 @@ async def generate_voice_service(character: dict):
         criteria_voice = await identify_voice_service(text_description=character["description"])
 
         voice = await get_voice_by_criteria_service(criteria=criteria_voice)
+
+        if character["audio"]:
+            delete_image(character["audio"])
 
         text_generated = generate_gpt4o(content_prompt=[
             {"role": "user",

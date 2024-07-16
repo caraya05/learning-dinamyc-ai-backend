@@ -53,6 +53,8 @@ class SchemaRetrieveCharacter(ResponseModel):
     prompt_user: Optional[str] = Field(None, example="prompt_user")
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
     audio: Optional[str] = Field(None, example="audio")
+    presentation: Optional[str] = Field(None, example="presentation")
+
 
 
 class SchemaRetrieveCharacterStr(ResponseModelStr):
@@ -66,6 +68,7 @@ class SchemaRetrieveCharacterStr(ResponseModelStr):
     body_type: Optional[str] = Field(None, example="body_type")
     prompt_user: Optional[str] = Field(None, example="prompt_user")
     audio: Optional[str] = Field(None, example="audio")
+    presentation: Optional[str] = Field(None, example="presentation")
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
 
     # weapon: Optional[SchemaRetrieveWeapon] = Field(None, example="weapon")
