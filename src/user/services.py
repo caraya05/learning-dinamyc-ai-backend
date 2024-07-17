@@ -214,6 +214,11 @@ async def get_user_by_id_service(user_id: str):
 async def disable_user_service(user_id: str, section: str):
     try:
         user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
+        if user_db['stars'] <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User without stars"
+            )
         stars_disabled = 0
         if section == "character":
             stars_disabled = 1
