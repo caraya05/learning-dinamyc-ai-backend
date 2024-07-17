@@ -24,7 +24,7 @@ from object.services import create_object_service
 from prompt.services import get_prompt_by_category_service
 
 from gpt_ai.utils import generate_image_dalle
-from user.services import disable_user_service
+from user.services import disable_user_service, validate_star_user_service
 from utils import upload_image
 
 router = APIRouter(prefix="/object", tags=["Object"])
@@ -167,6 +167,7 @@ async def create_object(
 
     It returns the created object.
     """
+    await validate_star_user_service(user_id=str(user_db.get("_id")))
 
     try:
         object_db = await create_item_service(object_, str(user_db.get("_id")))

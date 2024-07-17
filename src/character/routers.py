@@ -28,7 +28,7 @@ from character.services import get_images_character_face_service
 from character.services import update_partial_character_service
 from gpt_ai.utils import generate_image_dalle
 from prompt.services import get_prompt_by_category_service
-from user.services import disable_user_service
+from user.services import disable_user_service, validate_star_user_service
 
 router = APIRouter(prefix='/characters', tags=['Characters'])
 
@@ -269,6 +269,8 @@ async def create_character(
     It expects the character's information in the request body.
     If the character is successfully created, it returns the character's information.
     """
+
+    await validate_star_user_service(user_id=str(user_db.get("_id")))
 
     try:
 

@@ -251,3 +251,20 @@ async def disable_user_service(user_id: str, section: str):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error in disable user {e}"
         )
+
+
+async def validate_star_user_service(user_id: str):
+    try:
+        user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
+        if user_db['stars'] <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User without stars"
+            )
+        return user_db
+    except Exception as e:
+        print(f"Error in validate star user {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error in validate star user {e}"
+        )

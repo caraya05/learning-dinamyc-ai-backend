@@ -17,7 +17,7 @@ from place.schemas import SchemaCreatePlace
 from place.schemas import SchemaRetrievePlace
 from place.schemas import SchemaPartialUpdatePlace
 from place.schemas import SchemeListPlace
-from user.services import disable_user_service
+from user.services import disable_user_service, validate_star_user_service
 
 router = APIRouter(prefix="/place", tags=["Place"])
 
@@ -114,6 +114,7 @@ async def create_place(
     It expects the place's information in the request body.
     If the place is successfully created, it returns the place's information.
     """
+    await validate_star_user_service(user_id=str(user_db.get("_id")))
 
     try:
         place_db = await create_place_service(schema=schema, user_id=str(user_db["_id"]))
