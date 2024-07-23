@@ -15,7 +15,7 @@ from character.services import get_character_leading_role_service
 from configuration.services import get_configurations_service
 from core.database import db
 
-from game.schemas import SchemaRetrieveGame, SchemaChangeCharacter
+from game.schemas import SchemaRetrieveGame, SchemaChangeCharacter, SchemaUpdateGameV2
 from game.schemas import SchemaListGame
 from game.schemas import SchemaCreateGame
 from game.schemas import SchemaPartialUpdateGame
@@ -24,7 +24,7 @@ from game.schemas import SchemaAddCharacter
 from game.schemas import SchemaAddLocation
 
 from game.services import get_game_service, create_game_v2_service, change_character_principal_game_service, \
-    get_game_v2_service
+    get_game_v2_service, update_game_v2_service
 from game.services import get_games_service
 from game.services import create_game_service
 from game.services import subtract_attempts_game_service
@@ -853,4 +853,41 @@ async def get_game(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Game not found",
+        )
+
+
+@router2.post("/update/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
+async def update_game(
+        game_id: str,
+        data: SchemaUpdateGameV2,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint updates a game.
+
+    It expects the game's information in the request body. If the game is successfully updated, it returns the game's information.
+    If the game does not exist, it raises an HTTPException with status code 404.
+
+    Parameters:
+    game_id (str): The game's id to be updated.
+    game (SchemaRetrieveGame): The game's information to be updated.
+    db (Session): Database session for executing queries.
+
+    Returns:
+    SchemaRetrieveGame: The updated game's information.∫
+
+    Raises:
+    HTTPException: If the game does not exist, an HTTPException is raised with status code 404.
+    """
+
+    try:
+        game_db = await update_game_v2_service(game_id, data, str(user_db.get("_id")))
+        return game_db
+
+    except Exception as e:
+        print(f"Error updating game: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Game not updated",
         )

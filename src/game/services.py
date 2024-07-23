@@ -6,7 +6,7 @@ from uuid import uuid4
 from category.services import get_categories_service
 from character.services import get_characters_by_location_service
 
-from game.schemas import SchemaCreateGame
+from game.schemas import SchemaCreateGame, SchemaUpdateGameV2
 from game.schemas import SchemaPartialUpdateGame
 
 from game.models import Game
@@ -391,6 +391,24 @@ async def get_game_v2_service(game_id: str):
             return game_db
     except Exception as e:
         print(f"Error getting game service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+
+
+async def update_game_v2_service(game_id: str, game_update: SchemaUpdateGameV2, user_id: str):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if game_db:
+            if game_update.title:
+                game_db["title"] = game_update.title
+            game_db["updated_by"] = user_id
+            game_updated = await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': game_db})
+            if game_updated.modified_count:
+                return await db['game'].find_one({'_id': ObjectId(game_id)})
+    except Exception as e:
+        print(f"Error updating game service: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Game not found",

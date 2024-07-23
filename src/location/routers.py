@@ -17,7 +17,7 @@ from location.schemas import SchemaRetrieveLocation
 from location.schemas import SchemaCreateLocation
 from location.schemas import SchemaPartialUpdateLocation
 
-from location.services import get_locations_service
+from location.services import get_locations_service, get_locations_v2_service
 # from location.services import get_place_by_location_service
 from location.services import get_location_service
 from location.services import create_location_service
@@ -164,7 +164,6 @@ async def generate_image_location(
     #         detail="Character attempts exhausted",
     #     )
 
-
     # if place_db:
     prompt_db_image_location = await get_prompt_by_category_service("location_place_image")
     #     prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
@@ -183,7 +182,7 @@ async def generate_image_location(
         {"role": "system", "content": "reestructure el prompt para generar la imagen con estilo 3D volumétrico en vista"
                                       " isométrica para un videojuego RPG, con fondo de color solido."},
         {"role": "user", "content": content_prompt},
-    ],type_="text", type_text="text")
+    ], type_="text", type_text="text")
 
     image_generate = generate_image_dalle(prompt=new_prompt,
                                           quality="hd",
@@ -199,31 +198,32 @@ async def generate_image_location(
     return image_generate
 
 
-# router2 = APIRouter(prefix="/location", tags=["Location"])
-#
-#
-# @router2.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveLocation)
-# async def created_location(
-#         schema: SchemaCreateLocation,
-#         user_db: dict = Depends(auth),
-#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-# ):
-#     """
-#     This endpoint creates a location.
-#
-#     It expects the location's information in the request body.
-#     If the location is successfully created, it returns the location's information.
-#     """
-#     await validate_star_user_service(user_id=str(user_db.get("_id")))
-#
-#     try:
-#         location_db = await create_location_service(schema, str(user_db['_id']))
-#         return location_db
-#
-#     except Exception as e:
-#         print(f"Error in create location: {e}")
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Location not created",
-#         )
+router2 = APIRouter(prefix="/location", tags=["Location"])
 
+
+@router2.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
+async def get_locations(
+        game_id: str = None,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves all locations.
+
+    It returns a list of locations.
+    """
+
+    try:
+        locations_db, count_locations = await get_locations_v2_service(skip=0, limit=100, game_id=game_id)
+
+        for location in locations_db:
+            location["_id"] = str(location["_id"])
+
+        return SchemaListLocation(results=locations_db, count=count_locations)
+
+    except Exception as e:
+        print(f"Error in get locations: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Locations not found",
+        )

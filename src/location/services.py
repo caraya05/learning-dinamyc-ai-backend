@@ -104,9 +104,9 @@ async def create_location_service(schema: SchemaCreateLocation, user_id: str):
 
         if location_created := await db['location'].insert_one(location_schema.dict()):
             # if schema.place_id:
-                # place_db = await db['place'].find_one({"_id": ObjectId(schema.place_id)})
-                # place_db["locations_id"].append(str(location_created.inserted_id))
-                # await db['place'].update_one({"_id": ObjectId(schema.place_id)}, {"$set": place_db})
+            # place_db = await db['place'].find_one({"_id": ObjectId(schema.place_id)})
+            # place_db["locations_id"].append(str(location_created.inserted_id))
+            # await db['place'].update_one({"_id": ObjectId(schema.place_id)}, {"$set": place_db})
             if not location_schema.description:
                 await generate_description_location_service(location_id=str(location_created.inserted_id))
             if location_db := await get_location_service(location_id=str(location_created.inserted_id),
@@ -251,3 +251,38 @@ async def get_place_by_location_service(location_id: str):
         print(f"Error in get place by location service: {e}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail="Place not found.")
+
+
+async def get_locations_v2_service(*, game_id: str, skip: int = 0, limit: int = 100):
+    """
+    Get a list of locations.
+    """
+    try:
+        # if place_id:
+        #     place_db = await get_place_service(place_id)
+        #     locations_db = []
+        #     for location_id in place_db["locations_id"]:
+        #         location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
+        #         locations_db.append(location_db)
+        #     locations_db = sorted(locations_db, key=lambda x: x["created_at"], reverse=True)
+        #     count_locations = len(place_db["locations_id"])
+        #     return locations_db, count_locations
+        # else:
+        game_db = await db['game'].find_one({"_id": ObjectId(game_id)})
+        locations = await (db['location'].find({"_id": {"$in": [ObjectId(i) for i in game_db["locations_id"]]}})
+                           .sort("created_at", -1).skip(skip).limit(limit).to_list(None))
+        count_locations = await db['location'].count_documents({"_id": {"$in": [ObjectId(i) for i in game_db["locations_id"]]}})
+        # script_db = await get_script_by_game_id_service(game_id)
+        # scenes_db, count_scene = await get_scenes_service(script_id=script_db["_id"])
+        # locations_order = []
+        # for scene in scenes_db:
+        #     for location in locations:
+        #         if location.id == scene.location_id and location not in locations_order:
+        #             locations_order.append(location)
+        # for location in locations:
+        #     if location not in locations_order:
+        #         locations_order.append(location)
+        return locations, count_locations
+    except Exception as e:
+        print(f"Error in get locations service: {e}")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Locations not found.")

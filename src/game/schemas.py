@@ -80,3 +80,7 @@ class SchemaAddCharacter(BaseModel):
 class SchemaChangeCharacter(BaseModel):
     character_id: str
     game_id: str
+
+
+class SchemaUpdateGameV2(BaseModel):
+    title: Optional[str] = Field(..., min_length=3, max_length=100, example="Call of suty")
