@@ -420,15 +420,18 @@ async def update_game_v2_service(game_id: str, game_update: SchemaUpdateGameV2, 
 
 async def get_my_games_v2_service(user_id: str, skip: int = 0, limit: int = 100):
     try:
-        start_date = datetime(2024, 7, 23)
+        # print(f"Getting my games v2 service", user_id)
+        # start_date = datetime(2024, 7, 23).replace(hour=0, minute=0, second=0, microsecond=0)
         games_db = await db['game'].find({
             'created_by': user_id,
-            'created_at': {'$gte': start_date}
-        }).sort("created_at", -1).skip(skip).limit(limit).to_list(None)
+            'version': 2
+        }).skip((skip - 1) * limit).limit(limit).to_list(None)
+
+        print(games_db)
 
         count_games = await db['game'].count_documents({
             'created_by': user_id,
-            'created_at': {'$gte': start_date}
+            'version': 2
         })
         return games_db, count_games
     except Exception as e:

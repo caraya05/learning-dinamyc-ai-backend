@@ -36,10 +36,10 @@ class ResponseModelStr(BaseModel):
 
 
 class SchemaRetrieveGameStr(ResponseModelStr):
-    title: str = Field(..., min_length=3, max_length=100, example="Call of suty")
-    history: dict = Field(..., example="history of the game")
-    category_id: str | None = Field(None, example="category of the game")
-    synopsis: str = Field(..., example="synopsis og the game")
+    title: Optional[str] = Field(..., min_length=3, max_length=100, example="Call of suty")
+    history: Optional[dict] = Field(..., example="history of the game")
+    category_id: Optional[str] | None = Field(None, example="category of the game")
+    synopsis: Optional[str] = Field(..., example="synopsis og the game")
     image: Optional[str] = Field(..., example="photo", decimal_places=None)
     image_background: Optional[str] = Field(..., example="photo background", decimal_places=None)
     story_line: Optional[str] = Field(..., example="story_line")
