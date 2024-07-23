@@ -159,8 +159,8 @@ async def delete_character_service(character_id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Character not found",
         )
-    if character_db['image']:
-        delete_image(character_db['image'])
+    # if character_db['image']:
+    #     delete_image(character_db['image'])
     if character_location_db := await db["character_location"].find({"character_id": character_id}).to_list(None):
         for character_location in character_location_db:
             await db["character_location"].delete_one({"_id": character_location["_id"]})
@@ -287,8 +287,8 @@ async def get_images_character_face_service(character_id: str):
             quality="hd",
             size="1024x1024")
 
-        if character_db['image']:
-            delete_image(character_db['image'])
+        # if character_db['image']:
+        #     delete_image(character_db['image'])
 
         character_db['image'] = upload_image(
             url_image=image_face,

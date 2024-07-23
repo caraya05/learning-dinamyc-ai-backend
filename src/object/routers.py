@@ -297,8 +297,10 @@ async def add_edit_characteristic(
     """
 
     try:
-        object_db = await add_or_edit_item_characteristic_service(item.item_id, item.location_id,
-                                                                  item.characteristics, str(user_db.get("_id")))
+        object_db = await add_or_edit_item_characteristic_service(item.item_id,
+                                                                  item.location_id,
+                                                                  item.characteristics,
+                                                                  str(user_db.get("_id")))
         return object_db
 
     except Exception as e:
@@ -322,7 +324,6 @@ async def get_objects(
     """
 
     objects_db = await get_item_by_location_service(location_id)
-    print(objects_db)
 
     return SchemaListObject(results=objects_db, count=len(objects_db))
 

@@ -31,7 +31,7 @@ class SchemaCreateLocation(BaseModel):
     description: Optional[str]
     image: Optional[str]
     prompt_user: Optional[str]
-    place_id: Optional[str]
+    # place_id: Optional[str]
     game_id: Optional[str]
 
 

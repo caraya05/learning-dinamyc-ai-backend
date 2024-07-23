@@ -90,8 +90,8 @@ async def delete_object_service(object_id: str):
     """
     try:
         item_db = await db["object"].find_one({"_id": ObjectId(object_id)})
-        if item_db['image']:
-            delete_image(item_db['image'])
+        # if item_db['image']:
+        #     delete_image(item_db['image'])
         object_deleted = await db["object"].delete_one({"_id": ObjectId(object_id)})
         if object_deleted.deleted_count:
             return True
@@ -109,8 +109,8 @@ async def update_image_object_service(object_id: str, image: str):
     """
     try:
         object_db = await db["object"].find_one({"_id": ObjectId(object_id)})
-        if object_db['image']:
-            delete_image(object_db['image'])
+        # if object_db['image']:
+        #     delete_image(object_db['image'])
         object_db["image"] = image
         await db["object"].update_one({"_id": ObjectId(object_id)}, {"$set": object_db})
         return await db["object"].find_one({"_id": ObjectId(object_id)})

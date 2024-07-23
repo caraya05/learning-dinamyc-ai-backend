@@ -28,34 +28,34 @@ from sound.utils import identify_by_location_service
 from utils import upload_image
 
 
-async def get_locations_service(*, game_id: str, place_id: str = None, skip: int = 0, limit: int = 100):
+async def get_locations_service(*, game_id: str, skip: int = 0, limit: int = 100):
     """
     Get a list of locations.
     """
     try:
-        if place_id:
-            place_db = await get_place_service(place_id)
-            locations_db = []
-            for location_id in place_db["locations_id"]:
-                location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
-                locations_db.append(location_db)
-            locations_db = sorted(locations_db, key=lambda x: x["created_at"], reverse=True)
-            count_locations = len(place_db["locations_id"])
-            return locations_db, count_locations
-        else:
-            locations = await db['location'].find({"game_id": game_id}).skip(skip).limit(limit).to_list(None)
-            count_locations = await db['location'].count_documents({"game_id": game_id})
-            script_db = await get_script_by_game_id_service(game_id)
-            scenes_db, count_scene = await get_scenes_service(script_id=script_db["_id"])
-            locations_order = []
-            for scene in scenes_db:
-                for location in locations:
-                    if location.id == scene.location_id and location not in locations_order:
-                        locations_order.append(location)
+        # if place_id:
+        #     place_db = await get_place_service(place_id)
+        #     locations_db = []
+        #     for location_id in place_db["locations_id"]:
+        #         location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
+        #         locations_db.append(location_db)
+        #     locations_db = sorted(locations_db, key=lambda x: x["created_at"], reverse=True)
+        #     count_locations = len(place_db["locations_id"])
+        #     return locations_db, count_locations
+        # else:
+        locations = await db['location'].find({"game_id": game_id}).skip(skip).limit(limit).to_list(None)
+        count_locations = await db['location'].count_documents({"game_id": game_id})
+        script_db = await get_script_by_game_id_service(game_id)
+        scenes_db, count_scene = await get_scenes_service(script_id=script_db["_id"])
+        locations_order = []
+        for scene in scenes_db:
             for location in locations:
-                if location not in locations_order:
+                if location.id == scene.location_id and location not in locations_order:
                     locations_order.append(location)
-            return locations_order, count_locations
+        for location in locations:
+            if location not in locations_order:
+                locations_order.append(location)
+        return locations_order, count_locations
     except Exception as e:
         print(f"Error in get locations service: {e}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Locations not found.")
@@ -100,13 +100,15 @@ async def create_location_service(schema: SchemaCreateLocation, user_id: str):
                                    created_by=user_id,
                                    updated_by=user_id)
 
+        print(location_schema)
+
         if location_created := await db['location'].insert_one(location_schema.dict()):
-            if schema.place_id:
-                place_db = await db['place'].find_one({"_id": ObjectId(schema.place_id)})
-                place_db["locations_id"].append(str(location_created.inserted_id))
-                await db['place'].update_one({"_id": ObjectId(schema.place_id)}, {"$set": place_db})
-                if not location_schema.description:
-                    await generate_description_location_service(location_id=str(location_created.inserted_id))
+            # if schema.place_id:
+                # place_db = await db['place'].find_one({"_id": ObjectId(schema.place_id)})
+                # place_db["locations_id"].append(str(location_created.inserted_id))
+                # await db['place'].update_one({"_id": ObjectId(schema.place_id)}, {"$set": place_db})
+            if not location_schema.description:
+                await generate_description_location_service(location_id=str(location_created.inserted_id))
             if location_db := await get_location_service(location_id=str(location_created.inserted_id),
                                                          user_id=user_id):
                 return location_db
@@ -207,12 +209,12 @@ async def generate_description_location_service(location_id: str):
     """
     try:
         if location_db := await db['location'].find_one({"_id": ObjectId(location_id)}):
-            place_db = await get_place_by_location_service(location_id)
+            # place_db = await get_place_by_location_service(location_id)
             prompt_db_location_place = await get_prompt_by_category_service("location_place")
             prompt_db_location_place["description"] = prompt_db_location_place["description"].replace(
                 "{{PromptUserLocation}}", location_db["prompt_user"])
-            prompt_db_location_place["description"] = prompt_db_location_place["description"].replace(
-                "{{PromptUserPlace}}", place_db["prompt_user"])
+            # prompt_db_location_place["description"] = prompt_db_location_place["description"].replace(
+            #     "{{PromptUserPlace}}", place_db["prompt_user"])
             json_description = {
                 "description": "string (general description of the place, theme, appearance, max 50 words)",
                 "description_floor": "string (detailed description of the apartment next to a wall, min 80 words and max 100 words)",

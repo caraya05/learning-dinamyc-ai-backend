@@ -4,6 +4,7 @@ from starlette import status
 
 from uuid import uuid4
 from category.services import get_categories_service
+from character.services import get_characters_by_location_service
 
 from game.schemas import SchemaCreateGame
 from game.schemas import SchemaPartialUpdateGame
@@ -12,6 +13,7 @@ from game.models import Game
 from game.utils import get_history
 from game.utils import get_category_game_ai
 from game.utils import get_synopsis
+from object.services import get_item_by_location_service
 
 from utils import upload_image
 
@@ -21,6 +23,30 @@ from core.database import db
 async def get_game_service(game_id: str):
     try:
         if game_db := await db['game'].find_one({'_id': ObjectId(game_id)}):
+
+            if game_db.get('locations_id'):
+                game_db['locations'] = await db['location'].find(
+                    {'_id': {'$in': [ObjectId(location_id) for location_id in game_db['locations_id']]}}).to_list(None)
+            else:
+                game_db['locations'] = []
+
+            if game_db.get('characters_id'):
+                game_db['characters'] = await db['character'].find(
+                    {'_id': {'$in': [ObjectId(character_id) for character_id in game_db['characters_id']]}}).to_list(
+                    None)
+            else:
+                game_db['characters'] = []
+
+            if game_db.get('items_id'):
+                game_db['items'] = await db['item'].find(
+                    {'_id': {'$in': [ObjectId(item_id) for item_id in game_db['items_id']]}}).to_list(None)
+            else:
+                game_db['items'] = []
+
+            del game_db['locations_id']
+            del game_db['characters_id']
+            del game_db['items_id']
+
             return game_db
     except Exception as e:
         print(f"Error getting game service: {str(e)}")
@@ -233,6 +259,138 @@ async def update_likes_game_service(game_id: str, user_id: str):
             return await db['game'].find_one({'_id': ObjectId(game_id)})
     except Exception as e:
         print(f"Error updating likes game service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+
+
+async def create_game_v2_service(user_id: str):
+    try:
+        game_db = Game(
+            updated_by=user_id,
+            created_by=user_id,
+        )
+        if game_created := await db['game'].insert_one(game_db.dict()):
+            return await db['game'].find_one({'_id': game_created.inserted_id})
+    except Exception as e:
+        print(f"Error creating game service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Game not created",
+        )
+
+
+async def add_characters_game_service(game_id: str, characters_id: str):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if game_db:
+            if game_db.get('characters_id'):
+                game_db["characters_id"].append(characters_id)
+            else:
+                game_db["characters_id"] = [characters_id]
+            game_updated = await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': game_db})
+            if game_updated.modified_count:
+                return await db['game'].find_one({'_id': ObjectId(game_id)})
+    except Exception as e:
+        print(f"Error adding characters game service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+
+
+async def add_locations_game_service(game_id: str, locations_id: str):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if game_db:
+            if game_db.get('locations_id'):
+                game_db["locations_id"].append(locations_id)
+            else:
+                game_db["locations_id"] = [locations_id]
+            game_updated = await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': game_db})
+            if game_updated.modified_count:
+                return await db['game'].find_one({'_id': ObjectId(game_id)})
+    except Exception as e:
+        print(f"Error adding locations game service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+
+
+async def add_items_game_service(game_id: str, items_id: str):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if game_db:
+            if game_db.get('items_id'):
+                game_db["items_id"].append(items_id)
+            else:
+                game_db["items_id"] = [items_id]
+            game_updated = await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': game_db})
+            if game_updated.modified_count:
+                return await db['game'].find_one({'_id': ObjectId(game_id)})
+    except Exception as e:
+        print(f"Error adding items game service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+
+
+async def change_character_principal_game_service(game_id: str, character_principal: str):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if game_db:
+            game_db["character_principal"] = character_principal
+            game_updated = await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': game_db})
+            return await db['game'].find_one({'_id': ObjectId(game_id)})
+    except Exception as e:
+        print(f"Error changing character principal game service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+
+
+async def get_game_v2_service(game_id: str):
+    try:
+        if game_db := await db['game'].find_one({'_id': ObjectId(game_id)}):
+            if game_db.get('characters_id'):
+                game_db['characters'] = await db['character'].find(
+                    {'_id': {'$in': [ObjectId(character_id) for character_id in game_db['characters_id']]}}).to_list(
+                    None)
+                for character in game_db['characters']:
+                    character["_id"] = str(character["_id"])
+            else:
+                game_db['characters'] = []
+
+            if game_db.get('items_id'):
+                game_db['items'] = await db['item'].find(
+                    {'_id': {'$in': [ObjectId(item_id) for item_id in game_db['items_id']]}}).to_list(None)
+                for item in game_db['items']:
+                    item["_id"] = str(item["_id"])
+            else:
+                game_db['items'] = []
+
+            if game_db.get('locations_id'):
+                game_db['locations'] = await db['location'].find(
+                    {'_id': {'$in': [ObjectId(location_id) for location_id in game_db['locations_id']]}}).to_list(None)
+                for location in game_db['locations']:
+                    location["_id"] = str(location["_id"])
+                    if location_characters := await get_characters_by_location_service(
+                            location_id=str(location['_id'])):
+                        location['characters'] = location_characters
+                    if location_items := await get_item_by_location_service(location_id=str(location['_id'])):
+                        location['items'] = location_items
+            else:
+                game_db['locations'] = []
+            del game_db['locations_id']
+            del game_db['characters_id']
+            del game_db['items_id']
+            return game_db
+    except Exception as e:
+        print(f"Error getting game service: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Game not found",

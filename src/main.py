@@ -101,7 +101,7 @@ app.include_router(customize_routers.router, prefix="/v1/api")
 app.include_router(game_routers.router, prefix="/v1/api")
 app.include_router(location_routers.router, prefix="/v1/api")
 app.include_router(object_routers.router, prefix="/v1/api")
-app.include_router(place_routers.router, prefix="/v1/api")
+# app.include_router(place_routers.router, prefix="/v1/api")
 app.include_router(prompt_routers.router, prefix="/v1/api")
 app.include_router(scene_routers.router, prefix="/v1/api")
 app.include_router(script_routers.router, prefix="/v1/api")
@@ -187,6 +187,7 @@ async def add_process_time_header(request: Request, call_next):
 
 appv2.include_router(character_routers.router2)
 appv2.include_router(object_routers.router2)
+appv2.include_router(game_routers.router2)
 # appv2.include_router(weapon_routers.router2)
 
 app.mount("/v2/api", appv2)

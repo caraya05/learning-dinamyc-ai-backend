@@ -18,7 +18,7 @@ from location.schemas import SchemaCreateLocation
 from location.schemas import SchemaPartialUpdateLocation
 
 from location.services import get_locations_service
-from location.services import get_place_by_location_service
+# from location.services import get_place_by_location_service
 from location.services import get_location_service
 from location.services import create_location_service
 from location.services import partial_update_location_service
@@ -32,7 +32,7 @@ router = APIRouter(prefix="/location", tags=["Location"])
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
 async def get_locations(
         game_id: str = None,
-        place_id: str = None,
+        # place_id: str = None,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
@@ -43,8 +43,7 @@ async def get_locations(
     """
 
     try:
-        locations_db, count_locations = await get_locations_service(skip=0, limit=100, game_id=game_id,
-                                                                    place_id=place_id)
+        locations_db, count_locations = await get_locations_service(skip=0, limit=100, game_id=game_id)
 
         for location in locations_db:
             location["_id"] = str(location["_id"])
@@ -157,28 +156,28 @@ async def generate_image_location(
     If the location is successfully updated, it returns the location's information.
     """
     location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
-    place_db = await get_place_by_location_service(location_id=location_id)
+    # place_db = await get_place_by_location_service(location_id=location_id)
 
-    if location_db["attempts"] == 0 and not place_db:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Character attempts exhausted",
-        )
+    # if location_db["attempts"] == 0 and not place_db:
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail="Character attempts exhausted",
+    #     )
 
 
-    if place_db:
-        prompt_db_image_location = await get_prompt_by_category_service("location_place_image")
-        prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
-            "{{PromptUserLocation}}", location_db["description"].split("//")[0])
-        prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
-            "{{promptUserPlaceName}}", place_db["title"])
-        prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
-            "{{descriptionLocationFloor}}", location_db["description"].split("//")[-1])
-        content_prompt = prompt_db_image_location["description"]
-    else:
-        prompt_db_image_location = await get_prompt_by_category_service("location_image")
+    # if place_db:
+    prompt_db_image_location = await get_prompt_by_category_service("location_place_image")
+    #     prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
+    #         "{{PromptUserLocation}}", location_db["description"].split("//")[0])
+    #     prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
+    #         "{{promptUserPlaceName}}", place_db["title"])
+    #     prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
+    #         "{{descriptionLocationFloor}}", location_db["description"].split("//")[-1])
+    #     content_prompt = prompt_db_image_location["description"]
+    # else:
+    prompt_db_image_location = await get_prompt_by_category_service("location_image")
 
-        content_prompt = f'{prompt_db_image_location["description"]}, {location_db["description"]}'
+    content_prompt = f'{prompt_db_image_location["description"]}, {location_db["description"]}'
 
     new_prompt = generate_gpt4o(content_prompt=[
         {"role": "system", "content": "reestructure el prompt para generar la imagen con estilo 3D volumétrico en vista"
@@ -192,9 +191,39 @@ async def generate_image_location(
 
     await db['location'].update_one({"_id": ObjectId(location_id)}, {"$set": location_db})
 
-    if place_db:
-        await update_attempts_location_service(location_id=location_id)
+    # if place_db:
+    #     await update_attempts_location_service(location_id=location_id)
 
     await disable_user_service(user_id=str(user_db["_id"]), section="location")
 
     return image_generate
+
+
+# router2 = APIRouter(prefix="/location", tags=["Location"])
+#
+#
+# @router2.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveLocation)
+# async def created_location(
+#         schema: SchemaCreateLocation,
+#         user_db: dict = Depends(auth),
+#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+# ):
+#     """
+#     This endpoint creates a location.
+#
+#     It expects the location's information in the request body.
+#     If the location is successfully created, it returns the location's information.
+#     """
+#     await validate_star_user_service(user_id=str(user_db.get("_id")))
+#
+#     try:
+#         location_db = await create_location_service(schema, str(user_db['_id']))
+#         return location_db
+#
+#     except Exception as e:
+#         print(f"Error in create location: {e}")
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Location not created",
+#         )
+
