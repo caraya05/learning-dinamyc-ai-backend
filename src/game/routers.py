@@ -24,7 +24,7 @@ from game.schemas import SchemaAddCharacter
 from game.schemas import SchemaAddLocation
 
 from game.services import get_game_service, create_game_v2_service, change_character_principal_game_service, \
-    get_game_v2_service, update_game_v2_service
+    get_game_v2_service, update_game_v2_service, get_my_games_v2_service
 from game.services import get_games_service
 from game.services import create_game_service
 from game.services import subtract_attempts_game_service
@@ -890,4 +890,33 @@ async def update_game(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Game not updated",
+        )
+
+
+@router2.get("/my-games/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
+async def my_games(
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        page: int = 1,
+        count: int = 10,
+):
+    """
+    This endpoint retrieves all games created by the user.
+
+    It returns a list of games.
+    """
+
+    try:
+        games_db, count_pages = await get_my_games_v2_service(skip=page, limit=count, user_id=str(user.get("_id")))
+
+        for game in games_db:
+            game["_id"] = str(game["_id"])
+
+        return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages)
+
+    except Exception as e:
+        print(f"Error getting my games: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Games not found",
         )

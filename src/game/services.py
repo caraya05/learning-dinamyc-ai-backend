@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from bson import ObjectId
 from fastapi import HTTPException
 from starlette import status
@@ -270,6 +272,7 @@ async def create_game_v2_service(user_id: str):
         game_db = Game(
             updated_by=user_id,
             created_by=user_id,
+            version=2,
         )
         if game_created := await db['game'].insert_one(game_db.dict()):
             return await db['game'].find_one({'_id': game_created.inserted_id})
@@ -412,4 +415,25 @@ async def update_game_v2_service(game_id: str, game_update: SchemaUpdateGameV2, 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Game not found",
+        )
+
+
+async def get_my_games_v2_service(user_id: str, skip: int = 0, limit: int = 100):
+    try:
+        start_date = datetime(2024, 7, 23)
+        games_db = await db['game'].find({
+            'created_by': user_id,
+            'created_at': {'$gte': start_date}
+        }).sort("created_at", -1).skip(skip).limit(limit).to_list(None)
+
+        count_games = await db['game'].count_documents({
+            'created_by': user_id,
+            'created_at': {'$gte': start_date}
+        })
+        return games_db, count_games
+    except Exception as e:
+        print(f"Error getting my games service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Games not found",
         )

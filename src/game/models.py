@@ -26,3 +26,4 @@ class Game(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     updated_by: str = Field(default="system", example="system")
     likes: Optional[list[str]] = Field([], example=["123", "456"])
+    version: Optional[int] = Field(2, example=1)
