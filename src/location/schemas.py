@@ -70,7 +70,7 @@ class SchemaRetrieveLocation(ResponseModel):
     configuration: Optional[dict] = {}
     connections: Optional[dict] = {}
     sound_id: Optional[str | dict] = Field(None)
-    characters: Optional[list[str]] = []
+    characters: Optional[list] = []
 
     class Config:
         orm_mode = True
