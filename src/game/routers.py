@@ -682,7 +682,7 @@ async def publish_game(
 
             del game_db["published"]
             del game_db["published_version"]
-            del game_db["is_published"]
+            # del game_db["is_published"]
             del game_db["published_at"]
 
             published_game = {
@@ -913,6 +913,43 @@ async def my_games(
             game["_id"] = str(game["_id"])
 
         return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages)
+
+    except Exception as e:
+        print(f"Error getting my games: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Games not found",
+        )
+
+
+@router2.get("/my-games-in-progress/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
+async def my_games_in_progress(
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        page: int = 1,
+        count: int = 10,
+):
+    """
+    This endpoint retrieves all games created by the user.
+
+    It returns a list of games.
+    """
+
+    try:
+        games_db = await (db['game'].find({'published': {'$exists': False}})
+                          .sort({'created_at': -1})
+                          .skip((page - 1) * count)
+                          .limit(count)
+                          .to_list(None))
+        count_games = await db['game'].count_documents({
+            'created_by': str(user.get("_id")),
+            'published': {'$exists': False}
+        })
+
+        for game in games_db:
+            game["_id"] = str(game["_id"])
+
+        return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_games)
 
     except Exception as e:
         print(f"Error getting my games: {str(e)}")

@@ -427,8 +427,6 @@ async def get_my_games_v2_service(user_id: str, skip: int = 0, limit: int = 100)
             'version': 2
         }).skip((skip - 1) * limit).limit(limit).to_list(None)
 
-        print(games_db)
-
         count_games = await db['game'].count_documents({
             'created_by': user_id,
             'version': 2
@@ -439,4 +437,64 @@ async def get_my_games_v2_service(user_id: str, skip: int = 0, limit: int = 100)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Games not found",
+        )
+
+
+async def get_characters_game_publish_service(game_id: str):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if game_db and game_db.get('published'):
+            if games_published_db := await db['published_game'].find_one({'_id': ObjectId(game_db['published'])}):
+                return games_published_db['game']['characters']
+    except Exception as e:
+        print(f"Error getting character game publish service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+
+
+async def get_character_game_publish_service(game_id: str, character_id: str):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if game_db and game_db.get('published'):
+            if games_published_db := await db['published_game'].find_one({'_id': ObjectId(game_db['published'])}):
+                for character in games_published_db['game']['characters']:
+                    if character['_id'] == character_id:
+                        return character
+    except Exception as e:
+        print(f"Error getting character game publish service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+
+
+async def get_locations_game_publish_service(game_id: str):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if game_db and game_db.get('published'):
+            if games_published_db := await db['published_game'].find_one({'_id': ObjectId(game_db['published'])}):
+                return games_published_db['game']['locations']
+    except Exception as e:
+        print(f"Error getting locations game publish service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+
+
+async def get_location_game_publish_service(game_id: str, location_id: str):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if game_db and game_db.get('published'):
+            if games_published_db := await db['published_game'].find_one({'_id': ObjectId(game_db['published'])}):
+                for location in games_published_db['game']['locations']:
+                    if location['_id'] == location_id:
+                        return location
+    except Exception as e:
+        print(f"Error getting location game publish service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
         )

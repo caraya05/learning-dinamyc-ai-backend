@@ -26,6 +26,8 @@ from character.services import get_characters_service
 from character.services import update_partial_character_service
 from character.services import get_images_character_face_service
 from character.services import update_partial_character_service
+from game.services import get_game_v2_service, get_characters_game_publish_service, get_character_game_publish_service, \
+    get_location_game_publish_service
 from gpt_ai.utils import generate_image_dalle
 from prompt.services import get_prompt_by_category_service
 from user.services import disable_user_service, validate_star_user_service
@@ -36,6 +38,7 @@ router = APIRouter(prefix='/characters', tags=['Characters'])
 @router.get("/", response_model=SchemaListCharacter)
 async def get_characters(
         game_id: str,
+        publish: bool = False,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
@@ -45,25 +48,39 @@ async def get_characters(
     It returns a list of characters.
     """
 
-    try:
-        characters_db = await get_characters_service(skip=1, limit=100, game_id=game_id)
+    if publish:
+        try:
+            if game_db := await get_characters_game_publish_service(game_id):
+                for i in game_db:
+                    i["_id"] = f'{i["_id"]}_{game_id}'
+                return SchemaListCharacter(results=game_db, count=len(game_db))
+        except Exception as e:
+            print(f"error in get characters: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Characters publish not found",
+            )
+    else:
+        try:
+            characters_db = await get_characters_service(skip=1, limit=100, game_id=game_id)
 
-        for i in characters_db:
-            i["_id"] = str(i["_id"])
+            for i in characters_db:
+                i["_id"] = str(i["_id"])
 
-        return SchemaListCharacter(results=characters_db, count=len(characters_db))
+            return SchemaListCharacter(results=characters_db, count=len(characters_db))
 
-    except Exception as e:
-        print(f"error in get characters: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Characters not found",
-        )
+        except Exception as e:
+            print(f"error in get characters: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Characters not found",
+            )
 
 
 @router.get("/{character_id}", response_model=SchemaRetrieveCharacter)
 async def get_character(
         character_id: str,
+        publish: bool = False,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
@@ -74,17 +91,32 @@ async def get_character(
     If the character is successfully retrieved, it returns the character's information.
     """
 
-    try:
-        character_db = await get_character_service(character_id=character_id)
+    if publish:
+        game_id = character_id.split('_')[1]
+        character_id = character_id.split('_')[0]
+        try:
+            character_db = await get_character_game_publish_service(character_id=character_id, game_id=game_id)
 
-        return character_db
+            return character_db
 
-    except Exception as e:
-        print(f"error in get character: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Character not found",
-        )
+        except Exception as e:
+            print(f"error in get character: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Character not found",
+            )
+    else:
+        try:
+            character_db = await get_character_service(character_id=character_id)
+
+            return character_db
+
+        except Exception as e:
+            print(f"error in get character: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Character not found",
+            )
 
 
 @router.post("/", response_model=SchemaRetrieveCharacter)
@@ -205,6 +237,7 @@ router2 = APIRouter(prefix='/characters', tags=['Characters'])
 @router2.get("/", response_model=SchemaListCharacter)
 async def get_characters(
         location_id: str,
+        publish: bool = False,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
@@ -214,20 +247,34 @@ async def get_characters(
     It returns a list of characters.
     """
 
-    try:
-        characters_db = await get_characters_by_location_service(skip=1, limit=100, location_id=location_id)
+    if publish:
+        try:
+            game_id = location_id.split("_")[-1]
+            location_id = location_id.split("_")[0]
+            locations_db = await get_location_game_publish_service(game_id=game_id, location_id=location_id)
+            return SchemaListCharacter(results=locations_db["characters"], count=len(locations_db["characters"]))
+        except Exception as e:
+            print(f"error in get characters: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Characters publish not found",
+            )
 
-        for i in characters_db:
-            i["_id"] = str(i["_id"])
+    else:
+        try:
+            characters_db = await get_characters_by_location_service(skip=1, limit=100, location_id=location_id)
 
-        return SchemaListCharacter(results=characters_db, count=len(characters_db))
+            for i in characters_db:
+                i["_id"] = str(i["_id"])
 
-    except Exception as e:
-        print(f"error in get characters: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Characters not found",
-        )
+            return SchemaListCharacter(results=characters_db, count=len(characters_db))
+
+        except Exception as e:
+            print(f"error in get characters: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Characters not found",
+            )
 
 
 @router2.get("/{character_id}/generate-face/", response_model=SchemaRetrieveCharacter)
