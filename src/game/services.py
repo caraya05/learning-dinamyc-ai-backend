@@ -513,6 +513,8 @@ async def generate_cover_image_game_v2_service(game_id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Game not found",
         )
+    if game_db['image']:
+        return True
     # Get the first location and first character
     first_location = None
     first_character = None
