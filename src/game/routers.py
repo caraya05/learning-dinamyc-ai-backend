@@ -24,7 +24,7 @@ from game.schemas import SchemaAddCharacter
 from game.schemas import SchemaAddLocation
 
 from game.services import get_game_service, create_game_v2_service, change_character_principal_game_service, \
-    get_game_v2_service, update_game_v2_service, get_my_games_v2_service
+    get_game_v2_service, update_game_v2_service, get_my_games_v2_service, generate_cover_image_game_v2_service
 from game.services import get_games_service
 from game.services import create_game_service
 from game.services import subtract_attempts_game_service
@@ -812,6 +812,7 @@ async def change_character(
 
     try:
         if game_db := await change_character_principal_game_service(data.game_id, data.character_id):
+            await generate_cover_image_game_v2_service(data.game_id)
             return "Character changed"
 
     except Exception as e:

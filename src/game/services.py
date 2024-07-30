@@ -15,6 +15,7 @@ from game.models import Game
 from game.utils import get_history
 from game.utils import get_category_game_ai
 from game.utils import get_synopsis
+from gpt_ai.utils import generate_image_dalle
 from object.services import get_item_by_location_service
 
 from utils import upload_image
@@ -498,3 +499,52 @@ async def get_location_game_publish_service(game_id: str, location_id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Game not found",
         )
+
+
+async def generate_cover_image_game_v2_service(game_id: str):
+    """
+    This method will generate the cover image for the game using the characters and locations of the game.
+    """
+    # try:
+    # Retrieve the game information
+    game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+    if not game_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+    # Get the first location and first character
+    first_location = None
+    first_character = None
+    if game_db.get('locations_id'):
+        first_location = await db['location'].find_one({'_id': ObjectId(game_db['locations_id'][0])})
+    if game_db.get('characters_id'):
+        first_character = await db['character'].find_one({'_id': ObjectId(game_db['characters_id'][0])})
+    if not first_location or not first_character:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Location or Character not found",
+        )
+    # Generate the prompt for the cover image
+    prompt = (f"Generate a cover image in 3D animation style of extraordinary quality for the game "
+              f"'{game_db['title']}' featuring the character {first_character['prompt_user']}'"
+              f" in the location '{first_location['prompt_user']}'. The scene should depict an "
+              f"action-packed moment that captures the essence of the game.")
+    image = generate_image_dalle(prompt=prompt,
+                                 quality="hd",
+                                 size="1024x1792")
+
+    image = upload_image(
+        url_image=image,
+        file_name=f"covers/{uuid4()}.jpg",
+        size=(512, 896)
+    )
+
+    await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'image': image}})
+    return True
+    # except Exception as e:
+    #     print(f"Error generating cover image prompt: {str(e)}")
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail="Error generating cover image prompt",
+    #     )
