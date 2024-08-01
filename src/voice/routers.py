@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from fastapi.security import HTTPAuthorizationCredentials
 
-from auth.auth import auth_admin
+from auth.auth import auth_admin, auth
 from auth.utils import auth_schema
 from character.services import get_character_service
 from voice.elevenlabs import get_voices
@@ -22,7 +22,7 @@ async def add_voice(
 @router.get("/generate-voice/{character_id}")
 async def generate_voice(
         character_id: str,
-        user_db: dict = Depends(auth_admin),
+        user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     character_db = await get_character_service(character_id=character_id)
