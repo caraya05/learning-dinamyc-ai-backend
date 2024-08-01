@@ -69,14 +69,27 @@ async def get_location_service(*, location_id: str, user_id: str) -> dict:
         if location_db := await db['location'].find_one({"_id": ObjectId(location_id)}):
             if location_db["sound_id"]:
                 location_db["sound_id"] = await db['sound'].find_one({"_id": ObjectId(location_db["sound_id"])})
+
             if location_db["config"]:
+                user_config_found = False
                 for config in location_db["config"]:
                     if config["user"] == user_id:
                         location_db["configuration"] = config["config"]
+                        user_config_found = True
+                        break
+                if not user_config_found and location_db["config"]:
+                    location_db["configuration"] = location_db["config"][0]["config"]
+
             if location_db.get("connect", None):
+                user_connect_found = False
                 for connect in location_db["connect"]:
                     if connect["user"] == user_id:
                         location_db["connections"] = connect["connect"]
+                        user_connect_found = True
+                        break
+                if not user_connect_found and location_db["connect"]:
+                    location_db["connections"] = location_db["connect"][0]["connect"]
+
             if characters_db := await get_characters_by_location_service(skip=1, limit=100, location_id=location_id):
                 location_db["characters"] = characters_db
             return location_db
