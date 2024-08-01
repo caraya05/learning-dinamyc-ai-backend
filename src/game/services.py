@@ -17,6 +17,7 @@ from game.utils import get_category_game_ai
 from game.utils import get_synopsis
 from gpt_ai.utils import generate_image_dalle
 from object.services import get_item_by_location_service
+from gpt_ai.utils import generate_gpt4o
 
 from utils import upload_image
 
@@ -550,3 +551,65 @@ async def generate_cover_image_game_v2_service(game_id: str):
     #         status_code=status.HTTP_400_BAD_REQUEST,
     #         detail="Error generating cover image prompt",
     #     )
+
+
+async def generate_story_game_service(game_id: str):
+    try:
+        # Retrieve the game information
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if not game_db:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Game not found",
+            )
+
+        # Get the game's name and location description
+        game_name = game_db.get('title')
+        if not game_name:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Game title not found",
+            )
+
+        if not game_db.get('locations_id'):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Locations not found",
+            )
+
+        first_location = await db['location'].find_one({'_id': ObjectId(game_db['locations_id'][0])})
+        if not first_location:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="First location not found",
+            )
+
+        location_description = first_location.get('prompt_user')
+        if not location_description:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Location description not found",
+            )
+
+        # Generate the story using GPT-4o
+        content_prompt = [
+            {"role": "system", "content": "You are a creative story generator."},
+            {"role": "user", "content": f"Generate the story init for the game '{game_name}' set in the location '{first_location['title']}'. The location is described as: {location_description}"}
+        ]
+
+        story = generate_gpt4o(
+            content_prompt=content_prompt,
+            type_text="story init",
+            type_='text',
+            max_tokens=1000,
+            model="gpt-4o-mini"
+        )
+
+        return {"story": story}
+
+    except Exception as e:
+        print(f"Error generating story: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error generating story",
+        )

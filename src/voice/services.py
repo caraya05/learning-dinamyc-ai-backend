@@ -140,13 +140,18 @@ async def generate_voice_service(character: dict):
         if character["audio"]:
             delete_image(character["audio"])
 
-        text_generated = generate_gpt4o(content_prompt=[
-            {"role": "user",
-             "content": f"Generate a first-person introduction in English about the life and story of the character described as: {character['description']}, named {character['name']}. The introduction should be a maximum of 25 words."
-},
-        ],
-            type_text="Generate Voice",
-            type_="text")
+        if not character.get("presentation"):
+            text_generated = generate_gpt4o(content_prompt=[
+                {"role": "user",
+                 "content": f"Generate a first-person introduction in English about the life and story of the "
+                            f"character described as: {character['description']}, named {character['name']}."
+                            f" The introduction should be a maximum of 25 words."
+                 },
+            ],
+                type_text="Generate Voice",
+                type_="text")
+        else:
+            text_generated = character["presentation"]
 
         voice_url = generate_audio(text=text_generated,
                                    voice_id=voice["voice_id"])

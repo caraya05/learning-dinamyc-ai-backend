@@ -123,3 +123,5 @@ def generate_gpt4o(
     except Exception as e:
         print(f"Error GPT4o: {str(e)}")
         raise Exception(f"Text not generated {type_text}")
+
+

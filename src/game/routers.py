@@ -24,7 +24,8 @@ from game.schemas import SchemaAddCharacter
 from game.schemas import SchemaAddLocation
 
 from game.services import get_game_service, create_game_v2_service, change_character_principal_game_service, \
-    get_game_v2_service, update_game_v2_service, get_my_games_v2_service, generate_cover_image_game_v2_service
+    get_game_v2_service, update_game_v2_service, get_my_games_v2_service, generate_cover_image_game_v2_service, \
+    generate_story_game_service
 from game.services import get_games_service
 from game.services import create_game_service
 from game.services import subtract_attempts_game_service
@@ -51,6 +52,9 @@ from prompt.services import get_prompt_by_category_service
 
 from gpt_ai.utils import generate_image_dalle
 from utils import upload_image
+
+from celery_worker import create_cover_image_task, generate_context_init_game_task, generate_context_new_location, \
+    generate_context_new_character
 
 router = APIRouter(prefix="/game", tags=["Game"])
 
@@ -619,7 +623,15 @@ async def add_character_game(
     """
 
     try:
+        location_db = await db['character_location'].find_one({'character_id': data.character_id})
+        print("location db", location_db)
+        if not location_db:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Location not found",
+            )
         if character_game := await add_characters_game_service(data.game_id, data.character_id):
+            generate_context_new_character.delay(data.game_id, data.character_id,location_db.get('location_id'))
             return "Character added"
 
     except Exception as e:
@@ -644,6 +656,7 @@ async def add_location_game(
 
     try:
         if location_game := await add_locations_game_service(data.game_id, data.location_id):
+            generate_context_new_location.delay(data.game_id, data.location_id)
             return "Location added"
 
     except Exception as e:
@@ -812,7 +825,13 @@ async def change_character(
 
     try:
         if game_db := await change_character_principal_game_service(data.game_id, data.character_id):
-            await generate_cover_image_game_v2_service(data.game_id)
+            create_cover_image_task.delay(data.game_id)
+            generate_context_init_game_task.delay(data.game_id)
+
+
+            # await generate_cover_image_game_v2_service(data.game_id)
+            # story = await generate_story_game_service(data.game_id)
+            # print(story)
             return "Character changed"
 
     except Exception as e:
