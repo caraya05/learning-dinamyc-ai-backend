@@ -14,7 +14,7 @@ class SchemaCreateGame(BaseModel):
 
 class SchemaRetrieveGame(ResponseModel):
     title: Optional[str] = Field(None, min_length=3, max_length=100, example="Call of suty")
-    history: Optional[dict] = Field(None, example="history of the game")
+    history: Optional[str] = Field(None, example="history of the game")
     category_id: Optional[str] = Field(None, example="category of the game")
     synopsis: Optional[str] = Field(None, example="synopsis og the game")
     image: Optional[str] = Field(None, example="photo", decimal_places=None)
@@ -37,11 +37,11 @@ class ResponseModelStr(BaseModel):
 
 class SchemaRetrieveGameStr(ResponseModelStr):
     title: Optional[str] = Field(..., min_length=3, max_length=100, example="Call of suty")
-    history: Optional[dict] = Field(..., example="history of the game")
+    history: Optional[str] = Field(..., example="history of the game")
     category_id: Optional[str] | None = Field(None, example="category of the game")
     synopsis: Optional[str] = Field(..., example="synopsis og the game")
     image: Optional[str] = Field(..., example="photo", decimal_places=None)
-    image_background: Optional[str] = Field(..., example="photo background", decimal_places=None)
+    image_backfground: Optional[str] = Field(..., example="photo background", decimal_places=None)
     story_line: Optional[str] = Field(..., example="story_line")
     attempts: Optional[int] = Field(..., example=3)
     summary: Optional[str] = Field(..., example="summary of the game")
