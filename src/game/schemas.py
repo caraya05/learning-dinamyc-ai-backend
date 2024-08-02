@@ -41,7 +41,7 @@ class SchemaRetrieveGameStr(ResponseModelStr):
     category_id: Optional[str] | None = Field(None, example="category of the game")
     synopsis: Optional[str] = Field(..., example="synopsis og the game")
     image: Optional[str] = Field(..., example="photo", decimal_places=None)
-    image_backfground: Optional[str] = Field(..., example="photo background", decimal_places=None)
+    image_background: Optional[str] = Field(..., example="photo background", decimal_places=None)
     story_line: Optional[str] = Field(..., example="story_line")
     attempts: Optional[int] = Field(..., example=3)
     summary: Optional[str] = Field(..., example="summary of the game")
