@@ -424,10 +424,11 @@ async def get_my_games_v2_service(user_id: str, skip: int = 0, limit: int = 100)
     try:
         # print(f"Getting my games v2 service", user_id)
         # start_date = datetime(2024, 7, 23).replace(hour=0, minute=0, second=0, microsecond=0)
-        games_db = await db['game'].find({
-            'created_by': user_id,
-            'version': 2
-        }).skip((skip - 1) * limit).limit(limit).to_list(None)
+        games_db = await (db['game'].find({'created_by': user_id, 'version': 2})
+                          .sort('created_at', -1)
+                          .skip((skip - 1) * limit)
+                          .limit(limit)
+                          .to_list(None))
 
         count_games = await db['game'].count_documents({
             'created_by': user_id,
@@ -594,7 +595,8 @@ async def generate_story_game_service(game_id: str):
         # Generate the story using GPT-4o
         content_prompt = [
             {"role": "system", "content": "You are a creative story generator."},
-            {"role": "user", "content": f"Generate the story init for the game '{game_name}' set in the location '{first_location['title']}'. The location is described as: {location_description}"}
+            {"role": "user",
+             "content": f"Generate the story init for the game '{game_name}' set in the location '{first_location['title']}'. The location is described as: {location_description}"}
         ]
 
         story = generate_gpt4o(

@@ -637,7 +637,7 @@ async def async_generate_context_new_location(game_id: str, location_id: str):
             {"role": "system", "content": "You are a creative story generator."},
             {"role": "user",
              "content": f"Continue the story for the game '{game_name}' set in the new location '{location_db['title']}'. "
-                        f"The current story is: {game_story}. The location is described as: {location_description}, should be a maximum of 120 words. "
+                        f"The current story is: {game_story}. The location is described as: {location_description}, should be a maximum of 300 words. "
                         f"Respond only with the text of the story in JSON format: {{'story': '<story_text>'}}"}
         ]
         story = generate_gpt4o(
@@ -663,7 +663,7 @@ async def async_generate_context_new_location(game_id: str, location_id: str):
             {"role": "user",
              "content": f"Continue the history for the game '{game_name}' using the new location story: {new_location_story}. "
                         f"The current game story is: {game_story}."
-                        f"should be a maximum of 300 words. "
+                        f"should be a maximum of 1000 words. "
                         f"Respond only with the text of the story in JSON format: {{'story': '<story_text>'}}"}
         ]
         new_story = generate_gpt4o(
@@ -731,7 +731,7 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
         content_prompt = [
             {"role": "system", "content": "You are a creative dialogue generator."},
             {"role": "user",
-             "content": f"Generate a first-person dialogue of presentation for the character '{character_db['name']}' in the game '{game_name}'. "
+             "content": f"Generate a first-person dialogue for the character '{character_db['name']}' in the game '{game_name}'. "
                         f"The current story is: {game_story}. The character is described as: {character_description}. "
                         # f"The location is described as: {location_description['prompt_user']}. "
                         f"The location's current story is: {location_history} should be a maximum of 25 words. "

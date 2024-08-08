@@ -109,8 +109,8 @@ async def identify_voice_service(text_description: str) -> dict:
     content_prompt = [
         {
             "role": "system",
-            "content": "Utilizando la siquiente descripción, identificar la voz que mejor se ajuste a la descripción."
-                       f"respondiendo con la edad, acento y genero de la voz, con el siquitente formato JSON {json_response}"
+            "content": "Utilizando la siguiente descripción, identificar la voz que mejor se ajuste a la descripción. "
+                       f"Respondiendo con la edad, acento y género de la voz, con el siguiente formato JSON: {json_response}"
         },
         {
             "role": "assistant",
@@ -118,17 +118,17 @@ async def identify_voice_service(text_description: str) -> dict:
         },
         {
             "role": "user",
-            "content": f"descripcion del personaje: {text_description}"
+            "content": f"Descripción del personaje: {text_description}"
         }
     ]
 
-    response_generated = generate_gpt4o(content_prompt=content_prompt,
-                                        type_text="Identify Voice",
-                                        type_="json_object")
+    response_generated = generate_gpt4o(
+        content_prompt=content_prompt,
+        type_text="Identify Voice",
+        type_="json_object"
+    )
 
-    response_generated = json.loads(response_generated)
-
-    return response_generated
+    return json.loads(response_generated)
 
 
 async def generate_voice_service(character: dict):
