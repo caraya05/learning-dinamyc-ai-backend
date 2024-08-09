@@ -1,4 +1,4 @@
-from asyncio import sleep
+import time
 
 from fastapi import APIRouter, Depends
 from fastapi.security import HTTPAuthorizationCredentials
@@ -29,5 +29,5 @@ async def generate_voice(
 ):
     character_db = await get_character_service(character_id=character_id)
     if voice_generation := await generate_voice_service(character_db):
-        await sleep(5)  # Añadir un retraso de 5 segundos antes del return
+        time.sleep(2)
         return "Voice generated successfully"
