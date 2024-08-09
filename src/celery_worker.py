@@ -22,6 +22,8 @@ from script.schemas import SchemaPartialUpdateScript
 from script.utils import get_script_locations_chapter_v2
 from utils import upload_image
 
+import asyncio
+
 celery = Celery(__name__)
 celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
 celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
@@ -500,9 +502,6 @@ def create_script_task(
     return response_all
 
 
-import asyncio
-
-
 async def async_create_cover_image_task(game_id: str):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
@@ -614,7 +613,6 @@ def generate_context_init_game_task(game_id: str):
 
 async def async_generate_context_new_location(game_id: str, location_id: str):
     try:
-
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if not game_db:
             return False
@@ -637,7 +635,7 @@ async def async_generate_context_new_location(game_id: str, location_id: str):
             {"role": "system", "content": "You are a creative story generator."},
             {"role": "user",
              "content": f"Continue the story for the game '{game_name}' set in the new location '{location_db['title']}'. "
-                        f"The current story is: {game_story}. The location is described as: {location_description}, should be a maximum of 300 words. "
+                        f"The current story is: {game_story}. The location is described as: {location_description}."
                         f"Respond only with the text of the story in JSON format: {{'story': '<story_text>'}}"}
         ]
         story = generate_gpt4o(
@@ -727,15 +725,13 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
         if not location_history:
             location_history = location_description.get('prompt_user', '')
 
-
         content_prompt = [
             {"role": "system", "content": "You are a creative dialogue generator."},
             {"role": "user",
-             "content": f"Generate a first-person dialogue for the character '{character_db['name']}' in the game '{game_name}'. "
+             "content": f"Generate a first-person text about the role of the character '{character_db['name']}' in the game '{game_name}'. "
                         f"The current story is: {game_story}. The character is described as: {character_description}. "
-                        # f"The location is described as: {location_description['prompt_user']}. "
-                        f"The location's current story is: {location_history} should be a maximum of 25 words. "
-                        f"Respond only with the text of the dialogue in JSON format: {{'dialogue': '<dialogue_text>'}}"}
+                        f"The location's current story is: {location_history}. "
+                        f"Respond only with the text about the character's role in JSON format: {{'role': '<role_text>'}}"}
         ]
         story = generate_gpt4o(
             content_prompt=content_prompt,
