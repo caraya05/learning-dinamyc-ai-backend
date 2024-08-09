@@ -8,45 +8,25 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from core.database import create_indexes
-
 from user import routers as user_routers
-
 from auth import routers as token_routers
-
 from prompt import routers as prompt_routers
-
 from category import routers as category_routers
-
 from configuration import routers as configuration_routers
-
 from game import routers as game_routers
-
 from game import routers_stats as stats_routers
-
 from script import routers as script_routers
-
 from object import routers as object_routers
-
 from scene import routers as scene_routers
-
 from location import routers as location_routers
-
 from character import routers as character_routers
-
 from customize import routers as customize_routers
-
 from weapon import routers as weapon_routers
-
 from place import routers as place_routers
-
 from voice import routers as voice_routers
-
 from shortener import routers as shortener_routers
-
 from contextlib import asynccontextmanager
-
 from user import router_admin as user_admin_routers
-
 from config import settings
 
 

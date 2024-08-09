@@ -28,6 +28,7 @@ async def generate_voice(
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     character_db = await get_character_service(character_id=character_id)
-    if voice_generation := await generate_voice_service(character_db):
-        time.sleep(2)
-        return "Voice generated successfully"
+    return "'Voice generated successfully'"  # await generate_voice_service(character_db)
+    # if voice_generation := await generate_voice_service(character_db):
+    #     time.sleep(2)
+    #     return "Voice generated successfully"
