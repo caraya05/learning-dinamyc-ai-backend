@@ -1,7 +1,9 @@
 import time
+from fastapi import HTTPException
 
 from fastapi import APIRouter, Depends
 from fastapi.security import HTTPAuthorizationCredentials
+from fastapi import status
 
 from auth.auth import auth_admin, auth
 from auth.utils import auth_schema
@@ -28,7 +30,10 @@ async def generate_voice(
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     character_db = await get_character_service(character_id=character_id)
-    return "'Voice generated successfully'"  # await generate_voice_service(character_db)
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Error in generate voice service",
+    )
     # if voice_generation := await generate_voice_service(character_db):
     #     time.sleep(2)
     #     return "Voice generated successfully"
