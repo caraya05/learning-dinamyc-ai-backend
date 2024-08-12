@@ -295,7 +295,7 @@ async def add_characters_game_service(game_id: str, characters_id: str):
             else:
                 game_db["characters_id"] = [characters_id]
             game_updated = await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': game_db})
-            if game_updated.modified_count:
+            if game_updated:
                 return await db['game'].find_one({'_id': ObjectId(game_id)})
     except Exception as e:
         print(f"Error adding characters game service: {str(e)}")

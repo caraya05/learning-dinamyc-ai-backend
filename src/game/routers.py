@@ -634,10 +634,10 @@ async def add_character_game(
             return "Character added"
 
     except HTTPException as e:
-        print(f"Error adding character game: {str(e)}")
+        print(f"Error adding character game: {e.detail}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Character not added",
+            status_code=e.status_code,
+            detail=e.status_code,
         )
 
 

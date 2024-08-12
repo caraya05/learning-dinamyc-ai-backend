@@ -759,4 +759,6 @@ def generate_context_new_character(game_id: str, character_id: str, location_id:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
+    print("task generate_context_new_character")
+
     return loop.run_until_complete(async_generate_context_new_character(game_id, character_id, location_id))
