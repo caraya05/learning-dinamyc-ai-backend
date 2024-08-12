@@ -354,11 +354,11 @@ async def add_character_location(
                                                                    location_id=character_location.location_id):
             return character_db
 
-    except Exception as e:
+    except HTTPException as e:
         print(f"error in create character: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Character not created",
+            status_code=e.status_code,
+            detail=e.detail,
         )
 
 

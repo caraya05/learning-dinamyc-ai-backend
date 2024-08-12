@@ -416,6 +416,7 @@ async def add_character_to_location_service(character_id: str, location_id: str)
     location_db = await db["location"].find_one({"_id": ObjectId(location_id)})
 
     if not character_db or not location_db:
+        print(f"Character { '(yes)' if character_db else  '(no)'} or Location {'(yes)' if location_db else  '(no)'} not found")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Character or Location not found",

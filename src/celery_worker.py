@@ -728,10 +728,11 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
         content_prompt = [
             {"role": "system", "content": "You are a creative dialogue generator."},
             {"role": "user",
-             "content": f"Generate a first-person text about the role of the character '{character_db['name']}' in the game '{game_name}'. "
+             "content": f"Generate a first-person text in english about the role of the character '{character_db['name']}' in the game '{game_name}'. "
                         f"The current story is: {game_story}. The character is described as: {character_description}. "
-                        f"The location's current story is: {location_history}. "
-                        f"Respond only with the text about the character's role in JSON format: {{'role': '<role_text>'}}"}
+                        f"The location's current story is: {location_history},"
+                        f"should be a maximum of 25 words. "
+                        f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text>'}}"}
         ]
         story = generate_gpt4o(
             content_prompt=content_prompt,

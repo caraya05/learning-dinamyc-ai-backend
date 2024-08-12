@@ -624,7 +624,6 @@ async def add_character_game(
 
     try:
         location_db = await db['character_location'].find_one({'character_id': data.character_id})
-        print("location db", location_db)
         if not location_db:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -634,7 +633,7 @@ async def add_character_game(
             generate_context_new_character.delay(data.game_id, data.character_id,location_db.get('location_id'))
             return "Character added"
 
-    except Exception as e:
+    except HTTPException as e:
         print(f"Error adding character game: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
