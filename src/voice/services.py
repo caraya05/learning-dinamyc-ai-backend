@@ -49,18 +49,18 @@ async def get_variants_service():
     try:
         variants = await get_voices_service()
         ages = []
-        accents = []
+        # accents = []
         genders = []
         for variant in variants:
             if variant["age"] not in ages:
                 ages.append(variant["age"])
-            if variant["accent"] not in accents:
-                accents.append(variant["accent"])
+            # if variant["accent"] not in accents:
+            #     accents.append(variant["accent"])
             if variant["gender"] not in genders:
                 genders.append(variant["gender"])
         return {
             "ages": ages,
-            "accents": accents,
+            # "accents": accents,
             "genders": genders
         }
     except Exception as e:
@@ -78,7 +78,6 @@ async def get_voice_by_criteria_service(criteria: dict):
                 "$match": {
                     "$or": [
                         {"age": criteria["age"]},
-                        {"accent": criteria["accent"]},
                         {"gender": criteria["gender"]}
                     ]
                 }
@@ -97,12 +96,11 @@ async def get_voice_by_criteria_service(criteria: dict):
         )
 
 
-async def identify_voice_service(text_description: str) -> dict:
+async def identify_voice_service(text_description: str, gender: str) -> dict:
     variants_voices = await get_variants_service()
 
     json_response = {
         "age": "edad de la voz segun la descripcion",
-        "accent": "acento de la voz segun la descripcion",
         "gender": "genero de la voz segun la descripcion"
     }
 
@@ -110,7 +108,7 @@ async def identify_voice_service(text_description: str) -> dict:
         {
             "role": "system",
             "content": "Utilizando la siguiente descripción, identificar la voz que mejor se ajuste a la descripción. "
-                       f"Respondiendo con la edad, acento y género de la voz, con el siguiente formato JSON: {json_response}"
+                       f"Respondiendo con la edad y género de la voz, con el siguiente formato JSON: {json_response}"
         },
         {
             "role": "assistant",
@@ -119,6 +117,7 @@ async def identify_voice_service(text_description: str) -> dict:
         {
             "role": "user",
             "content": f"Descripción del personaje: {text_description}"
+                       f"Genero del personaje: {gender}"
         }
     ]
 
@@ -133,7 +132,8 @@ async def identify_voice_service(text_description: str) -> dict:
 
 async def generate_voice_service(character: dict):
     try:
-        criteria_voice = await identify_voice_service(text_description=character["description"])
+        criteria_voice = await identify_voice_service(text_description=character["description"],
+                                                      gender=character["body_type"])
 
         voice = await get_voice_by_criteria_service(criteria=criteria_voice)
 
