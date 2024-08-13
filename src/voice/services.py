@@ -1,5 +1,6 @@
 import json
 from datetime import datetime
+from random import random
 
 from bson import ObjectId
 from fastapi import HTTPException
@@ -73,20 +74,20 @@ async def get_variants_service():
 
 async def get_voice_by_criteria_service(criteria: dict):
     try:
-        voice = await db["voice"].aggregate([
-            {
-                "$match": {
-                    "$or": [
-                        {"age": criteria["age"]},
-                        {"gender": criteria["gender"]}
-                    ]
-                }
-            },
-            {"$sample": {"size": 1}}
-        ]).to_list(1)
+        voice_by_gender = await db["voice"].find({"gender": criteria["gender"]}).to_list(None)
 
-        if voice:
-            voice = voice[0]
+        if not voice_by_gender:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="No voice found matching the specified gender"
+            )
+
+        voice_by_age = [voice for voice in voice_by_gender if voice["age"] == criteria["age"]]
+
+        if voice_by_age:
+            voice = voice_by_age[0]
+        else:
+            voice = random.choice(voice_by_gender)
         return voice
     except Exception as e:
         print(f"Error in get voice by criteria service: {str(e)}")
