@@ -1,6 +1,6 @@
 import json
 from datetime import datetime
-from random import random
+import random
 
 from bson import ObjectId
 from fastapi import HTTPException
@@ -13,15 +13,16 @@ from voice.elevenlabs import generate_audio
 
 
 async def add_voice_service(voices: list):
+    await db["voice"].delete_many({})
     for voice in voices:
         try:
             await db["voice"].insert_one({
                 "voice_id": voice["voice_id"],
                 "name": voice["name"],
-                "age": voice["labels"]["age"],
-                "accent": voice["labels"]["accent"],
-                "gender": voice["labels"]["gender"],
-                "language": voice["fine_tuning"]["language"],
+                "age": voice["age"],
+                "accent": voice["accent"],
+                "gender": voice["gender"],
+                "language": voice["language"],
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow(),
             })
