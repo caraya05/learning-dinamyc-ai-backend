@@ -765,7 +765,7 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
 
         location_history = story['story']
 
-        print("location history: ", location_history)
+        # print("location history: ", location_history)
 
         # update history of the game - new character
 
@@ -788,7 +788,7 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
 
         await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'history': new_story['story']}})
 
-        print("game history: ", new_story['story'])
+        # print("game history: ", new_story['story'])
 
         #  generate character presentation - new character
 
