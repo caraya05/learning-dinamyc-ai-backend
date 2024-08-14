@@ -735,10 +735,12 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
 
         location_db = await db['location'].find_one({'_id': ObjectId(location_id)})
         if not location_db:
+            print("location not found")
             return False
 
         location_description = location_db.get('prompt_user')
         if not location_description:
+            print("location description not found")
             return False
 
         # update history of the location - new character
@@ -754,7 +756,7 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
         story = generate_gpt4o(
             content_prompt=content_prompt,
             type_text="story location",
-            max_tokens=1000,
+            max_tokens=2000,
             model="gpt-4o-mini"
         )
 
@@ -762,6 +764,8 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
         await db['location'].update_one({'_id': ObjectId(location_id)}, {'$set': {'history': story['story']}})
 
         location_history = story['story']
+
+        print("location history: ", location_history)
 
         # update history of the game - new character
 
@@ -776,13 +780,15 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
         new_story = generate_gpt4o(
             content_prompt=content_prompt,
             type_text="story continuation",
-            max_tokens=1000,
+            max_tokens=2000,
             model="gpt-4o-mini"
         )
 
         new_story = json.loads(new_story)
 
         await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'history': new_story['story']}})
+
+        print("game history: ", new_story['story'])
 
         #  generate character presentation - new character
 
@@ -805,6 +811,8 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
 
         story = json.loads(story)
         await db['character'].update_one({'_id': ObjectId(character_id)}, {'$set': {'presentation': story['dialogue']}})
+
+        print("character presentation: ", story['dialogue'])
 
         return True
 
