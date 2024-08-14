@@ -19,10 +19,10 @@ async def add_voice_service(voices: list):
             await db["voice"].insert_one({
                 "voice_id": voice["voice_id"],
                 "name": voice["name"],
-                "age": voice["age"],
-                "accent": voice["accent"],
-                "gender": voice["gender"],
-                "language": voice["language"],
+                "age": voice["labels"]["age"],
+                # "accent": voice["labels"]["accent"],
+                "gender": voice["labels"]["gender"],
+                # "language": voice["labels"]["language"],
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow(),
             })

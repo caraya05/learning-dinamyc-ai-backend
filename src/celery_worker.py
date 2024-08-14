@@ -519,7 +519,9 @@ async def async_create_cover_image_task(game_id: str):
             first_character = await db['character'].find_one({'_id': ObjectId(game_db['characters_id'][0])})
         if not first_location or not first_character:
             return False
+
         # Generate the prompt for the cover image
+
         prompt = (f"Generate a image in 3D animation style of extraordinary quality for the game "
                   f"'{game_db['title']}' featuring the character {first_character['prompt_user']}'"
                   f" in the location '{first_location['prompt_user']}'. The scene should depict an "
@@ -578,6 +580,8 @@ async def async_generate_context_init_game_task(game_id: str):
         if not location_description:
             return False
 
+        # generate the story for the game
+
         content_prompt = [
             {"role": "system", "content": "You are a creative story generator."},
             {"role": "user",
@@ -631,6 +635,8 @@ async def async_generate_context_new_location(game_id: str, location_id: str):
         if not location_description:
             return False
 
+        # update history of the location - new location
+
         content_prompt = [
             {"role": "system", "content": "You are a creative story generator."},
             {"role": "user",
@@ -655,6 +661,8 @@ async def async_generate_context_new_location(game_id: str, location_id: str):
         new_location_story = location_db.get('history')
         if not new_location_story:
             return False
+
+        # update history of the game - new location
 
         content_prompt = [
             {"role": "system", "content": "You are a creative story generator,"},
@@ -724,6 +732,59 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
 
         if not location_history:
             location_history = location_description.get('prompt_user', '')
+
+        location_db = await db['location'].find_one({'_id': ObjectId(location_id)})
+        if not location_db:
+            return False
+
+        location_description = location_db.get('prompt_user')
+        if not location_description:
+            return False
+
+        # update history of the location - new character
+
+        content_prompt = [
+            {"role": "system", "content": "You are a creative story generator."},
+            {"role": "user",
+             "content": f"Continue the story for the game '{game_name}' set in the new location '{location_db['title']}'. "
+                        f"The current story is: {game_story}. the location history is like this: {location_history}."
+                        f"New character '{character_db['name']}' is introduced. The character is described as: {character_description}."
+                        f"Respond only with the text of the story in JSON format: {{'story': '<story_text>'}}"}
+        ]
+        story = generate_gpt4o(
+            content_prompt=content_prompt,
+            type_text="story location",
+            max_tokens=1000,
+            model="gpt-4o-mini"
+        )
+
+        story = json.loads(story)
+        await db['location'].update_one({'_id': ObjectId(location_id)}, {'$set': {'history': story['story']}})
+
+        location_history = story['story']
+
+        # update history of the game - new character
+
+        content_prompt = [
+            {"role": "system", "content": "You are a creative story generator,"},
+            {"role": "user",
+             "content": f"Continue the history for the game '{game_name}' using the new story of location : {location_history}. "
+                        f"The current game story is: {game_story}."
+                        f"should be a maximum of 1000 words. "
+                        f"Respond only with the text of the story in JSON format: {{'story': '<story_text>'}}"}
+        ]
+        new_story = generate_gpt4o(
+            content_prompt=content_prompt,
+            type_text="story continuation",
+            max_tokens=1000,
+            model="gpt-4o-mini"
+        )
+
+        new_story = json.loads(new_story)
+
+        await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'history': new_story['story']}})
+
+        #  generate character presentation - new character
 
         content_prompt = [
             {"role": "system", "content": "You are a creative dialogue generator."},

@@ -12,8 +12,9 @@ XI_API_KEY = settings.ELEVENLABS_API_KEY
 
 
 def get_voices() -> list:
+    querystring = {"show_legacy": "true"}
     querystring = {"language": "en", "page_size": "100", "page": "1"}
-    url = "https://api.elevenlabs.io/v1/shared-voices"
+    url = "https://api.elevenlabs.io/v1/voices"
     headers = {
         "Accept": "application/json",
         "xi-api-key": XI_API_KEY,
