@@ -743,52 +743,52 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
             print("location description not found")
             return False
 
-        # update history of the location - new character
-
-        content_prompt = [
-            {"role": "system", "content": "You are a creative story generator."},
-            {"role": "user",
-             "content": f"Continue the story for the game '{game_name}' set in the new location '{location_db['title']}'. "
-                        f"The current story is: {game_story}. the location history is like this: {location_history}."
-                        f"New character '{character_db['name']}' is introduced. The character is described as: {character_description}."
-                        f"Respond only with the text of the story in JSON format: {{'story': '<story_text>'}}"}
-        ]
-        story = generate_gpt4o(
-            content_prompt=content_prompt,
-            type_text="story location",
-            max_tokens=2000,
-            model="gpt-4o-mini"
-        )
-
-        story = json.loads(story)
-        await db['location'].update_one({'_id': ObjectId(location_id)}, {'$set': {'history': story['story']}})
-
-        location_history = story['story']
+        # # update history of the location - new character
+        #
+        # content_prompt = [
+        #     {"role": "system", "content": "You are a creative story generator."},
+        #     {"role": "user",
+        #      "content": f"Continue the story for the game '{game_name}' set in the new location '{location_db['title']}'. "
+        #                 f"The current story is: {game_story}. the location history is like this: {location_history}."
+        #                 f"New character '{character_db['name']}' is introduced. The character is described as: {character_description}."
+        #                 f"Respond only with the text of the story in JSON format: {{'story': '<story_text>'}}"}
+        # ]
+        # story = generate_gpt4o(
+        #     content_prompt=content_prompt,
+        #     type_text="story location",
+        #     max_tokens=2000,
+        #     model="gpt-4o-mini"
+        # )
+        #
+        # story = json.loads(story)
+        # await db['location'].update_one({'_id': ObjectId(location_id)}, {'$set': {'history': story['story']}})
+        #
+        # location_history = story['story']
 
         # print("location history: ", location_history)
 
         # update history of the game - new character
 
-        # content_prompt = [
-        #     {"role": "system", "content": "You are a creative story generator,"},
-        #     {"role": "user",
-        #      "content": f"Continue the history for the game '{game_name}' using the new story of location : {location_history}. "
-        #                 f"The current game story is: {game_story}."
-        #                 f"should be a maximum of 1000 words. "
-        #                 f"Respond only with the text of the story in JSON format: {{'story': '<story_text>'}}"}
-        # ]
-        # new_story = generate_gpt4o(
-        #     content_prompt=content_prompt,
-        #     type_text="story continuation",
-        #     max_tokens=2000,
-        #     model="gpt-4o-mini"
-        # )
+        content_prompt = [
+            {"role": "system", "content": "You are a creative story generator,"},
+            {"role": "user",
+             "content": f"Continue the history for the game '{game_name}' "
+                        f"The current game story is: {game_story}."
+                        f"New character '{character_db['name']}' is introduced. The character is described as: {character_description} "
+                        f"in the location '{location_db['title']}' that is described as {location_description} ."
+                        f"should be a maximum of 1000 words. "
+                        f"Respond only with the text of the story in JSON format: {{'story': '<story_text>'}}"}
+        ]
+        new_story = generate_gpt4o(
+            content_prompt=content_prompt,
+            type_text="story continuation",
+            max_tokens=2000,
+            model="gpt-4o-mini"
+        )
 
-        # new_story = json.loads(new_story)
-        #
-        # await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'history': new_story['story']}})
+        new_story = json.loads(new_story)
 
-        # print("game history: ", new_story['story'])
+        await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'history': new_story['story']}})
 
         #  generate character presentation - new character
 
@@ -796,8 +796,8 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
             {"role": "system", "content": "You are a creative dialogue generator."},
             {"role": "user",
              "content": f"Generate a first-person text in english about the role of the character '{character_db['name']}' in the game '{game_name}'. "
-                        f"The current story is: {game_story}. The character is described as: {character_description}. "
-                        # f"The location's current story is: {location_history},"
+                        f"The current story is: {new_story}. The character is described as: {character_description}. "
+             # f"The location's current story is: {location_history},"
                         f"The text should describe the character's role and actions in the game, "
                         f"should be a maximum of 25 words. "
                         f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text>'}}"}
