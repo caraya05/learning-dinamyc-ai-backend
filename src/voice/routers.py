@@ -29,7 +29,7 @@ async def generate_voice(
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
-    time.sleep(5)
+    time.sleep(6)
     character_db = await get_character_service(character_id=character_id)
     # raise HTTPException(
     #     status_code=status.HTTP_400_BAD_REQUEST,

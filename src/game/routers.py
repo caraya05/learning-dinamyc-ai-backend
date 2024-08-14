@@ -632,7 +632,7 @@ async def add_character_game(
             )
         if character_game := await add_characters_game_service(data.game_id, data.character_id):
             generate_context_new_character.delay(data.game_id, data.character_id,location_db.get('location_id'))
-            time.sleep(5)
+            time.sleep(8)
             return "Character added"
 
     except HTTPException as e:
