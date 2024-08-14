@@ -793,6 +793,7 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
                         f"The current story is: {game_story}. The character is described as: {character_description}. "
                         f"The location's current story is: {location_history},"
                         f"should be a maximum of 25 words. "
+                        "example: 'I will help my hero fight the forces of evil.'"
                         f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text>'}}"}
         ]
         story = generate_gpt4o(
