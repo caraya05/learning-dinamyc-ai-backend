@@ -29,11 +29,11 @@ async def generate_voice(
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
+    time.sleep(5)
     character_db = await get_character_service(character_id=character_id)
     # raise HTTPException(
     #     status_code=status.HTTP_400_BAD_REQUEST,
     #     detail="Error in generate voice service",
     # )
     if voice_generation := await generate_voice_service(character_db):
-        time.sleep(2)
         return "Voice generated successfully"
