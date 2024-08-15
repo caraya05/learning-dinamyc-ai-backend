@@ -34,7 +34,7 @@ async def generate_voice(
         if "presentation" in character_db:
             break
         else:
-            time.sleep(3)
+            time.sleep(1)
             character_db = await get_character_service(character_id=character_id)
 
     # raise HTTPException(

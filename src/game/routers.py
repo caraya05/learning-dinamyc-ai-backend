@@ -642,7 +642,7 @@ async def add_character_game(
             for _ in range(3):
                 if result_task.ready():
                     break
-                await time.sleep(2)
+                time.sleep(2)
         return "Character added"
 
     except HTTPException as e:
