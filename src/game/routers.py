@@ -639,10 +639,10 @@ async def add_character_game(
                                                           location_db.get('location_id'))
             result_task = AsyncResult(id=result.id, app=celery)
 
-            for _ in range(3):
+            for _ in range(5):
                 if result_task.ready():
                     break
-                time.sleep(2)
+                time.sleep(3)
         return "Character added"
 
     except HTTPException as e:
