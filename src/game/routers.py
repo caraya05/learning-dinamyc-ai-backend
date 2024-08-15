@@ -57,6 +57,9 @@ from utils import upload_image
 from celery_worker import create_cover_image_task, generate_context_init_game_task, generate_context_new_location, \
     generate_context_new_character
 
+from celery.result import AsyncResult
+from celery_worker import celery
+
 router = APIRouter(prefix="/game", tags=["Game"])
 
 
@@ -631,9 +634,16 @@ async def add_character_game(
                 detail="Location not found",
             )
         if character_game := await add_characters_game_service(data.game_id, data.character_id):
-            generate_context_new_character.delay(data.game_id, data.character_id,location_db.get('location_id'))
-            time.sleep(10)
-            return "Character added"
+
+            result = generate_context_new_character.delay(data.game_id, data.character_id,
+                                                          location_db.get('location_id'))
+            result_task = AsyncResult(id=result.id, app=celery)
+
+            for _ in range(3):
+                if result_task.ready():
+                    break
+                await time.sleep(2)
+        return "Character added"
 
     except HTTPException as e:
         print(f"Error adding character game: {e.detail}")
@@ -828,7 +838,6 @@ async def change_character(
         if game_db := await change_character_principal_game_service(data.game_id, data.character_id):
             create_cover_image_task.delay(data.game_id)
             generate_context_init_game_task.delay(data.game_id)
-
 
             # await generate_cover_image_game_v2_service(data.game_id)
             # story = await generate_story_game_service(data.game_id)
