@@ -31,7 +31,7 @@ async def generate_voice(
 ):
     character_db = await get_character_service(character_id=character_id)
     for _ in range(3):
-        if character_db['presentation']:
+        if "presentation" in character_db:
             break
         else:
             time.sleep(3)
