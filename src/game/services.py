@@ -62,13 +62,13 @@ async def get_game_service(game_id: str):
 
 async def get_games_service(*, skip: int = 1, limit: int = 100, user_id: str = None, games_id: list = None):
     if user_id:
-        games_query = {'created_by': user_id}
+        games_query = {'created_by': user_id, 'version': 2}
     elif games_id:
         for i in range(len(games_id)):
             games_id[i] = ObjectId(games_id[i])
-        games_query = {'_id': {'$in': games_id}}
+        games_query = {'_id': {'$in': games_id}, 'version': 2}
     else:
-        games_query = {}
+        games_query = {'version': 2}
     games_query['image'] = {'$ne': ""}
     games_db = await db['game'].find(games_query).sort("created_at", -1).skip((skip - 1) * limit).limit(limit).to_list(
         None)
