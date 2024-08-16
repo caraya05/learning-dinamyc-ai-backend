@@ -10,7 +10,7 @@ def get_customize_by_character(
         prompt_customize = (
             "according to the description of this character, choose from the list "
             "a type of hair that corresponds best to him/her,"
-            "if you don't find the right one enter 'hair_V4' if the character is male and 'Hair_Woman_V1' if the character is female "
+            "if you don't find the right one enter 'hair_MAN_V4' if the character is male and 'hair_WOMAN_V1' if the character is female "
         )
 
         schema_customize = {

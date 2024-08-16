@@ -10,7 +10,7 @@ from celery import Celery
 
 from character.schemas import SchemaCreateCharacter
 from core import db
-from gpt_ai.utils import generate_image_dalle, generate_gpt4o
+from gpt_ai.utils import generate_image_dalle, generate_gpt4o, generate_gpt4_vision_
 
 from location.schemas import SchemaCreateLocation
 
@@ -501,6 +501,29 @@ def create_script_task(
 
     return response_all
 
+def image_is_vertical(image_url: str) -> bool:
+    prompt = [
+        {
+            "role": "system",
+            "content": "Eres un verificador de imagenes, que puede verficar si una imagen es vertical u horizontal."
+                       "response con la palabra 'vertical' si la imagen es vertical o 'horizontal' si la imagen es horizontal.",
+        },
+        {
+            "role": "user",
+            "content": [
+                {"type": "image_url", "image_url": {"url": image_url}},
+            ],
+        }
+    ]
+
+    response_identify = generate_gpt4_vision_(content_prompt=prompt, max_tokens=4096)
+
+    if "vertical" in response_identify.lower() or "Vertical" in response_identify.lower():
+        return True
+    else:
+        return False
+
+
 
 async def async_create_cover_image_task(game_id: str):
     try:
@@ -521,23 +544,24 @@ async def async_create_cover_image_task(game_id: str):
             return False
 
         # Generate the prompt for the cover image
-
         prompt = (f"Generate a image in 3D animation style of extraordinary quality for the game "
                   f"'{game_db['title']}' featuring the character {first_character['prompt_user']}'"
                   f" in the location '{first_location['prompt_user']}'. The scene should depict an "
                   f"action-packed moment that captures the essence of the game.")
-        image = generate_image_dalle(prompt=prompt,
-                                     quality="hd",
-                                     size="1024x1792")
 
-        image = upload_image(
-            url_image=image,
-            file_name=f"covers/{uuid4()}.jpg",
-            size=(512, 896)
-        )
+        for attempt in range(3):
+            try:
+                image = generate_image_dalle(prompt=prompt, quality="hd", size="1024x1792")
 
-        await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'image': image}})
-        return True
+                # Check if the image is vertical
+                if image_is_vertical(image):
+                    image = upload_image(url_image=image, file_name=f"covers/{uuid4()}.jpg", size=(512, 896))
+                    await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'image': image}})
+                    return True
+            except Exception as e:
+                print(f"Attempt {attempt + 1} failed: {str(e)}")
+
+        return False
 
     except Exception as e:
         print(f"Error Cover Image: {str(e)}")
