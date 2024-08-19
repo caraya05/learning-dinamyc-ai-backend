@@ -153,7 +153,7 @@ async def generate_voice_service(character: dict):
                             f"don't use the “as a”, just say what it does and that's all, use the “I do, I am, I ...” or something similar,"
                             f"do not physically describe the character,"
                             f"you are the main character, introduce yourself."
-                            f"should be a maximum of 25 words. "
+                            f"should be a maximum of 15 words. "
                             f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text>'}}"}
             ]
             story = generate_gpt4o(
@@ -173,10 +173,11 @@ async def generate_voice_service(character: dict):
                 {"role": "user",
                  "content": f"Generate a first-person text in english about of the character '{character['name']}' in the game '{game_db['title']}'. "
                             f"The current story is: {game_db['history']}. The character is described as: {character['prompt_user']}. "
-                            f"don't use the “as a”, just say what it does and that's all, use the “I do, I am, I ...” or something similar,"
+                            f"the dialogue should be the response of the interaction between that character and the main character."
+                            # f"don't use the “as a”, just say what it does and that's all, use the “I do, I am, I ...” or something similar,"
                             f"do not physically describe the character,"
                             f" the dialogue can be a sentence, a question, a statement in the interaction you have with the character"
-                            f"should be a maximum of 25 words. "
+                            f"should be a maximum of 15 words. "
                             f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text>'}}"}
             ]
             story = generate_gpt4o(
