@@ -772,8 +772,8 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
             {"role": "user",
              "content": f"Continue the history for the game '{game_name}' "
                         f"The current game story is: {game_story}."
-                        f"New character '{character_db['name']}' is introduced. The character is described as: {character_description} "
-                        f"in the location '{location_db['title']}' that is described as {location_description} ."
+                        f"New character '{character_db['name']}' is introduced. The character is described as: {character_description}"
+                        f"in the location '{location_db['title']}' that is described as {location_description}."
                         f"should be a maximum of 1000 words. "
                         f"Respond only with the text of the story in JSON format: {{'story': '<story_text>'}}"}
         ]
