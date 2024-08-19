@@ -142,35 +142,59 @@ async def generate_voice_service(character: dict):
         if character["audio"]:
             delete_image(character["audio"])
 
-        if not character.get("presentation"):
-            text_generated = generate_gpt4o(content_prompt=[
-                {"role": "user",
-                 "content": f"Generate a first-person introduction in English about the life and story of the "
-                            f"character described as: {character['description']}, named {character['name']}."
-                            f" The introduction should be a maximum of 25 words."
-                 },
-            ],
-                type_text="Generate Voice",
-                type_="text")
-        else:
-            text_generated = character["presentation"]
+        game_db = await db["game"].find_one({'characters_id': {'$in': [str(character['_id'])]}})
 
-        voice_url = generate_audio(text=text_generated,
+        content_prompt = [
+            {"role": "system", "content": "You are a creative dialogue generator."},
+            {"role": "user",
+             "content": f"Generate a first-person text in english about of the character '{character['name']}' in the game '{game_db['title']}'. "
+                        f"The current story is: {game_db['history']}. The character is described as: {character['prompt_user']}. "
+                        f"don't use the “as a”, just say what it does and that's all, use the “I do, I am, I ...” or something similar,"
+                        f" the dialogue can be a sentence, a question, a statement in the interaction you have with the character"
+                        f"should be a maximum of 25 words. "
+                        f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text>'}}"}
+        ]
+        story = generate_gpt4o(
+            content_prompt=content_prompt,
+            type_text="character dialogue",
+            max_tokens=2000,
+            model="gpt-4o-mini"
+        )
+
+        story = json.loads(story)
+        await db['character'].update_one({'_id': ObjectId(character['_id'])},
+                                         {'$set': {'presentation': story['dialogue']}})
+
+        # if not character.get("presentation"):
+        #     text_generated = generate_gpt4o(content_prompt=[
+        #         {"role": "user",
+        #          "content": f"Generate a first-person introduction in English about the life and story of the "
+        #                     f"character described as: {character['description']}, named {character['name']}."
+        #                     f" The introduction should be a maximum of 25 words."
+        #          },
+        #     ],
+        #         type_text="Generate Voice",
+        #         type_="text")
+        # else:
+        #     text_generated = character["presentation"]
+        #
+        voice_url = generate_audio(text=story['dialogue'],
                                    voice_id=voice["voice_id"])
 
         character["audio"] = voice_url
-        character["presentation"] = text_generated
+        # character["presentation"] = character
 
-        character_update = await db["character"].update_one({"_id": ObjectId(character["_id"])},
+        await db["character"].update_one({"_id": ObjectId(character["_id"])},
                                                             {"$set": character})
-        if character_update.modified_count:
+        # if character_update.modified_count:
 
-            return character
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Character not found"
-            )
+
+        return character
+#     else:
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="Character not found"
+#         )
     except Exception as e:
         print(f"Error in generate voice service: {str(e)}")
         raise HTTPException(
