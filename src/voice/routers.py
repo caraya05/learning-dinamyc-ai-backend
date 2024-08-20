@@ -43,4 +43,5 @@ async def generate_voice(
     # )
     if voice_generation := await generate_voice_service(character_db):
         time.sleep(2)
+
         return "Voice generated successfully"

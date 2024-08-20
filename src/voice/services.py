@@ -144,16 +144,17 @@ async def generate_voice_service(character: dict):
 
         game_db = await db["game"].find_one({'characters_id': {'$in': [str(character['_id'])]}})
 
-        if character["_id"] == game_db["character_principal"]:
+        if str(character["_id"]) == game_db["character_principal"]:
             content_prompt = [
-                {"role": "system", "content": "You are a creative dialogue generator."},
+                {"role": "system", "content": "You are a creative dialogue generator in english."},
                 {"role": "user",
                  "content": f"Generate a first-person text in english about of the character '{character['name']}' in the game '{game_db['title']}'. "
                             f"The current story is: {game_db['history']}. The character is described as: {character['prompt_user']}. "
-                            f"don't use the “as a”, just say what it does and that's all, use the “I do, I am, I ...” or something similar,"
+                            f"don't use the “as a”, just say what it does and that's all, use the “I am” or “I will do”. "
                             f"do not physically describe the character,"
-                            f"you are the main character, introduce yourself."
-                            f"should be a maximum of 15 words. "
+                            f"the dialogue can be a sentence, a question or statement in the interaction."
+                            f"you are the protagonist, introduce yourself, what are you going to do?"
+                            f"should be a maximum of 20 words. "
                             f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text>'}}"}
             ]
             story = generate_gpt4o(
@@ -167,18 +168,17 @@ async def generate_voice_service(character: dict):
             await db['character'].update_one({'_id': ObjectId(character['_id'])},
                                              {'$set': {'presentation': story['dialogue']}})
         else:
-
             content_prompt = [
-                {"role": "system", "content": "You are a creative dialogue generator."},
+                {"role": "system", "content": "You are a creative dialogue generator in english."},
                 {"role": "user",
                  "content": f"Generate a first-person text in english about of the character '{character['name']}' in the game '{game_db['title']}'. "
                             f"The current story is: {game_db['history']}. The character is described as: {character['prompt_user']}. "
                             f"the dialogue should be the response of the interaction between that character and the main character."
-                            # f"don't use the “as a”, just say what it does and that's all, use the “I do, I am, I ...” or something similar,"
+                            # f"don't use the “as a”, just say what it does and that's all, imagine it is the continuation of a conversation with the main character"
                             f"do not physically describe the character,"
-                            f" the dialogue can be a sentence, a question, a statement in the interaction you have with the character"
-                            f"should be a maximum of 15 words. "
-                            f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text>'}}"}
+                            f" the dialogue can be a sentence, a question or statement in the interaction you have with the character"
+                            f"should be a maximum of 20 words. "
+                            f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text_english>'}}"}
             ]
             story = generate_gpt4o(
                 content_prompt=content_prompt,
@@ -188,6 +188,7 @@ async def generate_voice_service(character: dict):
             )
 
             story = json.loads(story)
+
             await db['character'].update_one({'_id': ObjectId(character['_id'])},
                                              {'$set': {'presentation': story['dialogue']}})
 
@@ -203,7 +204,7 @@ async def generate_voice_service(character: dict):
         #         type_="text")
         # else:
         #     text_generated = character["presentation"]
-        #
+        character["presentation"] = story["dialogue"]
         voice_url = generate_audio(text=story['dialogue'],
                                    voice_id=voice["voice_id"])
 
