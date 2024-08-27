@@ -123,18 +123,9 @@ async def get_category_game_ai(
         {"_id": str(category.get("_id")), "name": category.get("name"), "description": category.get("description")} for
         category in categories]
 
-    print("all_categories", all_categories)
-
     prompt_category = await get_prompt_by_category_service('category_game')
-
-    print("prompt_category", prompt_category)
-
     schema_category = {"category_selected": "string (name of the category selected)"}
-
     text_prompt = prompt_category.get("description").replace('x_history', history)
-
-    print("text_prompt", text_prompt)
-
     content_prompt = [
         {
             "role": "system",

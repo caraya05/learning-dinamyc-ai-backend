@@ -54,7 +54,7 @@ from gpt_ai.utils import generate_image_dalle
 from utils import upload_image
 
 from celery_worker import create_cover_image_task, generate_context_init_game_task, generate_context_new_location, \
-    generate_context_new_character, get_category_game_task , generate_game_summary_task
+    generate_context_new_character, get_category_game_task, generate_game_summary_task
 
 from celery.result import AsyncResult
 from celery_worker import celery
@@ -753,6 +753,45 @@ async def publish_games(
         for game in published_games:
             if games_published_db := await db['published_game'].find_one({'_id': ObjectId(game['published'])}):
                 # print(games_published_db)
+                games_published.append(games_published_db["game"])
+        return games_published
+
+    except Exception as e:
+        print(f"Error publishing games: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Games not published",
+        )
+
+
+@router2.get("/publish/categories/", status_code=status.HTTP_200_OK)
+async def publish_games(
+        category: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        page: int = 1,
+        count: int = 10,
+):
+    """
+    This endpoint publishes all games.
+
+    It returns a message.
+    """
+    categories_active_db, counts_categories = await get_categories_active_service(0, 100)
+
+    if category not in [category_active["name"] for category_active in categories_active_db]:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
+
+    try:
+        if category == 'Other':
+            query = {'published': {'$exists': True}, 'category': None}
+        else:
+            query = {'published': {'$exists': True}, 'category_id': category}
+
+        published_games = await db['game'].find(query).skip((page - 1) * count).limit(count).to_list(None)
+        games_published = []
+        for game in published_games:
+            if games_published_db := await db['published_game'].find_one({'_id': ObjectId(game['published'])}):
                 games_published.append(games_published_db["game"])
         return games_published
 
