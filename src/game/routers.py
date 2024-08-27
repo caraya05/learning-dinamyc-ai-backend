@@ -703,10 +703,12 @@ async def publish_game(
 
             game_db["version"] = version
 
-            del game_db["published"]
-            del game_db["published_version"]
-            # del game_db["is_published"]
-            del game_db["published_at"]
+            if "published" in game_db:
+                del game_db["published"]
+            if "published_version" in game_db:
+                del game_db["published_version"]
+            if "published_at" in game_db:
+                del game_db["published_at"]
 
             published_game = {
                 "published": True,
