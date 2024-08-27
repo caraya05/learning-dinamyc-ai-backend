@@ -1,28 +1,24 @@
 import json
 import os
 import sys
-from uuid import uuid4
-
+import asyncio
 import requests
-from bson import ObjectId
 
+from uuid import uuid4
+from bson import ObjectId
 from celery import Celery
 
-from character.schemas import SchemaCreateCharacter
 from core import db
+
 from gpt_ai.utils import generate_image_dalle, generate_gpt4o, generate_gpt4_vision_
-
 from location.schemas import SchemaCreateLocation
-
+from character.schemas import SchemaCreateCharacter
 from scene.schemas import SchemaCreateScene
-
 from object.schemas import SchemaCreateObject
-
 from script.schemas import SchemaPartialUpdateScript
 from script.utils import get_script_locations_chapter_v2
-from utils import upload_image
 
-import asyncio
+from utils import upload_image
 
 celery = Celery(__name__)
 celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
@@ -501,12 +497,13 @@ def create_script_task(
 
     return response_all
 
+
 def image_is_vertical(image_url: str) -> bool:
     prompt = [
         {
             "role": "system",
-            "content": "Eres un verificador de imagenes, que puede verficar si una imagen es vertical u horizontal."
-                       "response con la palabra 'vertical' si la imagen es vertical o 'horizontal' si la imagen es horizontal.",
+            "content": "Eres un verificador de imagenes, que puede detectar si contenido de una imagen esta en vertical u horizontal."
+                       "response con la palabra 'vertical' si el contenido es vertical o 'horizontal' si es horizontal.",
         },
         {
             "role": "user",
@@ -524,7 +521,6 @@ def image_is_vertical(image_url: str) -> bool:
         return False
 
 
-
 async def async_create_cover_image_task(game_id: str):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
@@ -533,7 +529,6 @@ async def async_create_cover_image_task(game_id: str):
 
         if game_db.get('image', None):
             return True
-
         first_location = None
         first_character = None
         if game_db.get('locations_id'):
@@ -552,12 +547,13 @@ async def async_create_cover_image_task(game_id: str):
         for attempt in range(3):
             try:
                 image = generate_image_dalle(prompt=prompt, quality="hd", size="1024x1792")
-
                 # Check if the image is vertical
                 if image_is_vertical(image):
                     image = upload_image(url_image=image, file_name=f"covers/{uuid4()}.jpg", size=(512, 896))
                     await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'image': image}})
                     return True
+                else:
+                    prompt += ", el contenido en vertical"
             except Exception as e:
                 print(f"Attempt {attempt + 1} failed: {str(e)}")
 
@@ -622,6 +618,8 @@ async def async_generate_context_init_game_task(game_id: str):
 
         story = json.loads(story)
         await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'history': story['story']}})
+
+        return True
 
     except Exception as e:
         print(f"Error generating story: {str(e)}")
@@ -729,24 +727,20 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
         if not game_db:
             print("game not found")
             return False
-
         game_name = game_db.get('title')
         if not game_name:
             print("game name not found")
             return False
-
         game_story = game_db.get('history', '')
 
         character_db = await db['character'].find_one({'_id': ObjectId(character_id)})
         if not character_db:
             print("character not found")
             return False
-
         character_description = character_db.get('prompt_user')
         if not character_description:
             print("character description not found")
             return False
-
         location_description = await db['location'].find_one({'_id': ObjectId(location_id)})
         if not location_description:
             print("location not found")
@@ -788,30 +782,6 @@ async def async_generate_context_new_character(game_id: str, character_id: str, 
 
         await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'history': new_story['story']}})
 
-        #  generate character presentation - new character
-
-        # content_prompt = [
-        #     {"role": "system", "content": "You are a creative dialogue generator."},
-        #     {"role": "user",
-        #      "content": f"Generat e a first-person text in english about the role of the character '{character_db['name']}' in the game '{game_name}'. "
-        #                 f"The current story is: {new_story}. The character is described as: {character_description}. "
-        #      # f"The location's current story is: {location_history},"
-        #                 f"The text should describe the character's role and actions in the game, "
-        #                 f"should be a maximum of 25 words. "
-        #                 f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text>'}}"}
-        # ]
-        # story = generate_gpt4o(
-        #     content_prompt=content_prompt,
-        #     type_text="character dialogue",
-        #     max_tokens=2000,
-        #     model="gpt-4o-mini"
-        # )
-        #
-        # story = json.loads(story)
-        # await db['character'].update_one({'_id': ObjectId(character_id)}, {'$set': {'presentation': story['dialogue']}})
-
-        # print("character presentation: ", story['dialogue'])
-
         return True
 
     except Exception as e:
@@ -827,3 +797,87 @@ def generate_context_new_character(game_id: str, character_id: str, location_id:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
     return loop.run_until_complete(async_generate_context_new_character(game_id, character_id, location_id))
+
+
+async def async_generate_game_summary(game_id: str):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if not game_db:
+            return False
+        game_history = game_db.get('history')
+        if not game_history:
+            return False
+        content_prompt = [
+            {"role": "system", "content": "You are a summarizer."},
+            {"role": "user",
+             "content": f"Generate a summary for the following game history: {game_history},"
+                        f"should be a maximum of 200 words. "
+                        f"Respond only with the text of the summary in JSON format: {{'summary': '<summary_text>'}}"}
+        ]
+        summary = generate_gpt4o(
+            content_prompt=content_prompt,
+            type_text="summary",
+            max_tokens=500,
+            model="gpt-4o-mini"
+        )
+
+        summary = json.loads(summary)
+        await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'summary': summary['summary']}})
+
+        return True
+
+    except Exception as e:
+        print(f"Error generating summary: {str(e)}")
+        return False
+
+
+@celery.task(name="generate_game_summary_task")
+def generate_game_summary_task(game_id: str):
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    return loop.run_until_complete(async_generate_game_summary(game_id))
+
+
+async def async_get_category_game_task(game_id: str):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        categories_db = await db['category'].find().to_list(None)
+        all_categories = [
+            {"_id": str(category.get("_id")), "name": category.get("name"), "description": category.get("description")}
+            for category in categories_db
+        ]
+        prompt_category = (
+            f"Based on the following RPG game history {game_db.get('history')}, classify it into one of the following "
+            "game categories according to the meaning of each.")
+        schema_category = {"category_selected": "string (name of the category selected)"}
+        content_prompt = [
+            {
+                "role": "system",
+                "content": f"You are a game category classifier, capable of detecting the category of a game based on its history. "
+                           f"Respond with a JSON containing the schema '{schema_category}'",
+            },
+            {"role": "assistant", "content": f"categories :{all_categories}"},
+            {"role": "user", "content": [{"type": "text", "text": prompt_category}]},
+        ]
+        category_generated = generate_gpt4o(content_prompt=content_prompt, type_text="category", max_tokens=1000,model="gpt-4o-mini")
+        category_id = json.loads(category_generated)["category_selected"]
+        await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'category_id': category_id}})
+        return True
+    except Exception as e:
+        print(f"Error generating category: {str(e)}")
+        return False
+
+
+@celery.task(name="get_category_game_task")
+def get_category_game_task(game_id: str):
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    return loop.run_until_complete(async_get_category_game_task(game_id))

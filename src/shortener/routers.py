@@ -54,72 +54,37 @@ async def share_game(game_id: str,
         url = game_db["image"]
         response = requests.get(url)
         image = Image.open(BytesIO(response.content))
-
-        # Calculate the dimensions of the 3x4 crop
         width = min(image.width, image.height * 3.7 / 4)
         height = width * 4 / 3.7
-
-        # Calculate the coordinates of the center of the original image
         center_x = image.width / 2
         center_y = image.height / 2
-
-        # Calculate the coordinates of the crop centered in the middle of the image
         left = center_x - width / 2
         top = center_y - height / 2
         right = center_x + width / 2
         bottom = center_y + height / 2
-
-        # Crop the original image using the calculated coordinates
         cropped_image = image.crop((left, top, right, bottom))
-
-        # Create a new image with the same width and a height of 100 pixels for the gradient
         gradient = Image.new('L', (cropped_image.width, 350))
-
-        # Create a vertical gradient
         for x in range(cropped_image.width):
             for y in range(350):
-                gradient.putpixel((x, y), int(255 * (y / 350)))  # Modify the multiplier to adjust the gradient
-
-        # Convert the gradient to RGB and add an alpha channel
+                gradient.putpixel((x, y), int(255 * (y / 350)))
         gradient = gradient.convert('RGBA')
         datas = gradient.getdata()
-
         newData = []
         for item in datas:
-            newData.append((0, 0, 0, item[0]))  # you can adjust the last parameter to set the transparency
-
+            newData.append((0, 0, 0, item[0]))
         gradient.putdata(newData)
-
-        # Paste the gradient at the bottom of the original image
         cropped_image.paste(gradient, (0, cropped_image.height - gradient.height), gradient)
-
-        # Load the image you want to paste on top
         url_overlay = "https://qwestar.sfo3.cdn.digitaloceanspaces.com/backend/screen/9f11f70d-53cd-464c-b762-86a888573b10.png"
         response_overlay = requests.get(url_overlay)
         image_overlay = Image.open(BytesIO(response_overlay.content))
-
-        # Make sure the overlay image has an alpha channel (for transparency)
         image_overlay = image_overlay.convert("RGBA")
-
-        # Resize the second image to 100x100
         image_overlay = image_overlay.resize((450, 150))
-
-        # Calculate the coordinates of the bottom left corner of the main image
         x = int((cropped_image.width - image_overlay.width) / 2)
         y = cropped_image.height - image_overlay.height
-
-        # Paste the second image onto the main image
         cropped_image.paste(image_overlay, (x, y), image_overlay)
-
-        #
         img_byte_arr = BytesIO()
-
-        # Save the image
         cropped_image.save(img_byte_arr, "JPEG")
-
         img_byte_arr.seek(0)  # Reset the file pointer to the beginning
-
-        # Upload the image to the server
         image_url = upload_image(
             size=(430, 464),
             image_content_type=img_byte_arr.getvalue(),

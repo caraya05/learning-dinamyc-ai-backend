@@ -25,8 +25,7 @@ from game.schemas import SchemaAddCharacter
 from game.schemas import SchemaAddLocation
 
 from game.services import get_game_service, create_game_v2_service, change_character_principal_game_service, \
-    get_game_v2_service, update_game_v2_service, get_my_games_v2_service, generate_cover_image_game_v2_service, \
-    generate_story_game_service
+    get_game_v2_service, update_game_v2_service, get_my_games_v2_service
 from game.services import get_games_service
 from game.services import create_game_service
 from game.services import subtract_attempts_game_service
@@ -55,7 +54,7 @@ from gpt_ai.utils import generate_image_dalle
 from utils import upload_image
 
 from celery_worker import create_cover_image_task, generate_context_init_game_task, generate_context_new_location, \
-    generate_context_new_character
+    generate_context_new_character, get_category_game_task , generate_game_summary_task
 
 from celery.result import AsyncResult
 from celery_worker import celery
@@ -838,6 +837,9 @@ async def change_character(
         if game_db := await change_character_principal_game_service(data.game_id, data.character_id):
             create_cover_image_task.delay(data.game_id)
             generate_context_init_game_task.delay(data.game_id)
+            time.sleep(3)
+            get_category_game_task.delay(data.game_id)
+            generate_game_summary_task.delay(data.game_id)
 
             # await generate_cover_image_game_v2_service(data.game_id)
             # story = await generate_story_game_service(data.game_id)
