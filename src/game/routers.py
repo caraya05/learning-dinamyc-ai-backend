@@ -789,6 +789,12 @@ async def publish_games(
             query = {'published': {'$exists': True}, 'category_id': category}
 
         published_games = await db['game'].find(query).skip((page - 1) * count).limit(count).to_list(None)
+
+        if not published_games:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Games not published",
+            )
         games_published = []
         for game in published_games:
             if games_published_db := await db['published_game'].find_one({'_id': ObjectId(game['published'])}):
