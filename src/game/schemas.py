@@ -26,6 +26,7 @@ class SchemaRetrieveGame(ResponseModel):
     created_at: datetime
     created_by: str
     likes: list[str] = Field([], example=["123", "456"])
+    plays: int = Field(0, example=0)
 
 
 class ResponseModelStr(BaseModel):
@@ -48,6 +49,7 @@ class SchemaRetrieveGameStr(ResponseModelStr):
     created_at: datetime
     created_by: str
     likes: list[str] = Field([], example=["123", "456"])
+    plays: int = Field(0, example=0)
 
 
 class SchemaListGame(BaseModel):

@@ -39,6 +39,7 @@ from game.services import add_characters_game_service
 from auth.auth import auth
 
 from auth.utils import auth_schema
+from game.utils import number_players_have_played_game_util
 from prompt.services import get_prompt_by_category_service
 
 # from script.services import get_scripts_service
@@ -80,6 +81,7 @@ async def get_games(
 
         for game in games_db:
             game["_id"] = str(game["_id"])
+            game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
 
         return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages // count + 1)
 
@@ -116,7 +118,9 @@ async def get_game(
     """
 
     try:
-        return await get_game_service(game_id)
+        game_db = await get_game_service(game_id)
+        game_db["plays"] = await number_players_have_played_game_util(game_id)
+        return game_db
     except Exception as e:
         print(f"Error getting game: {str(e)}")
         raise HTTPException(
@@ -361,6 +365,7 @@ async def my_games(
 
         for game in games_db:
             game["_id"] = str(game["_id"])
+            game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
 
         return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages)
 
@@ -527,12 +532,12 @@ async def play_game(
     """
 
     try:
-        record_game = await db['record_game'].create_one({
+        record_game = await db['record_game'].insert_one({
             'game_id': game_id,
             'user_id': str(user_db.get("_id")),
             'created_at': datetime.utcnow()
         })
-        return "Game played"
+        return {'detail': 'Game played'}
     except Exception as e:
         print(f"Error playing game: {str(e)}")
         raise HTTPException(
@@ -688,7 +693,9 @@ async def publish_game(
 
     It returns the game's information.
     """
-
+    get_category_game_task.delay(game_id)
+    generate_game_summary_task.delay(game_id)
+    time.sleep(4)
     try:
         if game_db := await get_game_v2_service(game_id):
 
@@ -884,9 +891,6 @@ async def change_character(
         if game_db := await change_character_principal_game_service(data.game_id, data.character_id):
             create_cover_image_task.delay(data.game_id)
             generate_context_init_game_task.delay(data.game_id)
-            time.sleep(3)
-            get_category_game_task.delay(data.game_id)
-            generate_game_summary_task.delay(data.game_id)
 
             # await generate_cover_image_game_v2_service(data.game_id)
             # story = await generate_story_game_service(data.game_id)
