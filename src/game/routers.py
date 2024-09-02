@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 from uuid import uuid4
 
+import pytz
 from bson import ObjectId
 from fastapi import APIRouter
 from fastapi import Depends
@@ -717,13 +718,26 @@ async def publish_game(
             if "published_at" in game_db:
                 del game_db["published_at"]
 
+            # Current time in UTC
+            now_utc = datetime.now(pytz.timezone('UTC'))
+            now_bog = now_utc.astimezone(pytz.timezone('America/Bogota'))
+            now_bog_minus_5 = now_bog - timedelta(hours=5)
+
             published_game = {
                 "published": True,
-                "updated_at": datetime.utcnow(),
+                "created_at": now_bog_minus_5,
+                "created_by": str(user_db.get("_id")),
+                "updated_at": now_bog_minus_5,
                 "updated_by": str(user_db.get("_id")),
+                "status": 1,
                 "game_id": game_id,
-                "game": game_db,
-                "version": version
+                "game": None,
+                "version": version,
+                "return_note": None,
+                "reviewed": False,
+                "reviewer": None,
+                "reviewed_at": None,
+                "reviewed_by": None,
             }
 
             if published_game_db := await db['published_game'].insert_one(published_game):

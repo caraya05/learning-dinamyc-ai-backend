@@ -14,6 +14,7 @@ from category import routers as category_routers
 from configuration import routers as configuration_routers
 from game import routers as game_routers
 from game import routers_stats as stats_routers
+from game import routers_admin as game_admin_routers
 from script import routers as script_routers
 from object import routers as object_routers
 from scene import routers as scene_routers
@@ -129,6 +130,7 @@ async def add_process_time_header(request: Request, call_next):
 
 admin.include_router(user_admin_routers.router)
 admin.include_router(stats_routers.router)
+admin.include_router(game_admin_routers.router)
 
 app.mount("/v1/admin", admin)
 
