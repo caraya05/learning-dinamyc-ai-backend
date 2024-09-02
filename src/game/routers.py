@@ -785,7 +785,7 @@ async def publish_games(
         )
 
 
-@router2.get("/publish/categories/", status_code=status.HTTP_200_OK)
+@router2.get("/publish/categories/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
 async def publish_games(
         category: str,
         user_db: dict = Depends(auth),
@@ -810,6 +810,7 @@ async def publish_games(
             query = {'published': {'$exists': True}, 'category_id': category}
 
         published_games = await db['game'].find(query).skip((page - 1) * count).limit(count).to_list(None)
+        count_published_games = await db['game'].count_documents(query)
 
         if not published_games:
             raise HTTPException(
@@ -820,7 +821,8 @@ async def publish_games(
         for game in published_games:
             if games_published_db := await db['published_game'].find_one({'_id': ObjectId(game['published'])}):
                 games_published.append(games_published_db["game"])
-        return games_published
+        return SchemaListGame(results=games_published, count=len(games_published), page=page,
+                              total_pages=count_published_games // count + 1)
 
     except Exception as e:
         print(f"Error publishing games: {str(e)}")
@@ -1008,6 +1010,13 @@ async def my_games(
 
         for game in games_db:
             game["_id"] = str(game["_id"])
+            game_published = await db['published_game'].find_one({'game_id': str(game["_id"])})
+            if (game_published):
+                game["status"] = 0
+                game["reject_note"] = None
+            else:
+                game["status"] = game_published["status"]
+                game["reject_note"] = game_published["return_note"]
 
         return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages)
 
