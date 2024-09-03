@@ -696,7 +696,6 @@ async def publish_game(
     """
     get_category_game_task.delay(game_id)
     generate_game_summary_task.delay(game_id)
-    time.sleep(4)
     try:
         if game_db := await get_game_v2_service(game_id):
 
@@ -805,7 +804,7 @@ async def publish_games(
 
     try:
         if category == 'Other':
-            query = {'published': {'$exists': True}, 'category': None}
+            query = {'published': {'$exists': True}, 'category_id': None}
         else:
             query = {'published': {'$exists': True}, 'category_id': category}
 
@@ -819,8 +818,11 @@ async def publish_games(
             )
         games_published = []
         for game in published_games:
-            if games_published_db := await db['published_game'].find_one({'_id': ObjectId(game['published'])}):
-                games_published.append(games_published_db["game"])
+            if games_published_db := await db['published_game'].find_one(
+                    {'_id': ObjectId(game['published']), 'status': 1}):
+                game["_id"] = str(game["_id"])
+                game["status"] = games_published_db["status"]
+                games_published.append(game)
         return SchemaListGame(results=games_published, count=len(games_published), page=page,
                               total_pages=count_published_games // count + 1)
 
@@ -1011,14 +1013,14 @@ async def my_games(
         for game in games_db:
             game["_id"] = str(game["_id"])
             game_published = await db['published_game'].find_one({'game_id': str(game["_id"])})
-            if (game_published):
+            if not game_published:
                 game["status"] = 0
                 game["reject_note"] = None
             else:
                 game["status"] = game_published["status"]
                 game["reject_note"] = game_published["return_note"]
 
-        return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages)
+        return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages // count + 1)
 
     except Exception as e:
         print(f"Error getting my games: {str(e)}")
