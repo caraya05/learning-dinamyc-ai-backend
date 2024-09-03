@@ -960,6 +960,9 @@ async def get_game(
         if game_pending:
             game_db["status"] = game_pending["status"]
             game_db["reject_note"] = game_pending["return_note"]
+        else:
+            game_db["status"] = 0
+            game_db["reject_note"] = None
 
         return game_db
 
