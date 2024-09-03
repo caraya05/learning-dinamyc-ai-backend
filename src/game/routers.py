@@ -961,6 +961,8 @@ async def get_game(
             game_db["status"] = game_pending["status"]
             game_db["reject_note"] = game_pending["return_note"]
 
+        return game_db
+
     except Exception as e:
         print(f"Error getting game: {str(e)}")
         raise HTTPException(
@@ -1026,7 +1028,7 @@ async def my_games(
             game["_id"] = str(game["_id"])
             game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
             game_published = await db['published_game'].find_one({'game_id': str(game["_id"])})
-            if not game_published:
+            if  game_published:
                 game["status"] = 0
                 game["reject_note"] = None
             else:
