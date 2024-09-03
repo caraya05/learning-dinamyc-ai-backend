@@ -50,8 +50,8 @@ class SchemaRetrieveGameStr(ResponseModelStr):
     created_by: str
     likes: list[str] = Field([], example=["123", "456"])
     plays: int = Field(0, example=0)
-    status: Optional[int] = Field(..., example="status")
-    reject_note: Optional[str] = Field(..., example="reject_note")
+    status: Optional[int] = Field(0, example="status")
+    reject_note: Optional[str] = Field(None, example="reject_note")
 
 
 class SchemaListGame(BaseModel):
