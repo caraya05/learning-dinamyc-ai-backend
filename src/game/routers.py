@@ -367,6 +367,13 @@ async def my_games(
         for game in games_db:
             game["_id"] = str(game["_id"])
             game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
+            game_published = await db['published_game'].find_one({'game_id': str(game["_id"])})
+            if not game_published:
+                game["status"] = 0
+                game["reject_note"] = None
+            else:
+                game["status"] = game_published["status"]
+                game["reject_note"] = game_published["return_note"]
 
         return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages)
 
@@ -948,7 +955,12 @@ async def get_game(
     """
 
     try:
-        return await get_game_service(game_id)
+        game_db= await get_game_service(game_id)
+        game_pending = await db['published_game'].find_one({'game_id': game_id})
+        if game_pending:
+            game_db["status"] = game_pending["status"]
+            game_db["reject_note"] = game_pending["return_note"]
+
     except Exception as e:
         print(f"Error getting game: {str(e)}")
         raise HTTPException(
@@ -1012,6 +1024,7 @@ async def my_games(
 
         for game in games_db:
             game["_id"] = str(game["_id"])
+            game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
             game_published = await db['published_game'].find_one({'game_id': str(game["_id"])})
             if not game_published:
                 game["status"] = 0
