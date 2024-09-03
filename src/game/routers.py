@@ -1031,7 +1031,7 @@ async def my_games(
             game["_id"] = str(game["_id"])
             game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
             game_published = await db['published_game'].find_one({'game_id': str(game["_id"])})
-            if  game_published:
+            if  not game_published:
                 game["status"] = 0
                 game["reject_note"] = None
             else:
