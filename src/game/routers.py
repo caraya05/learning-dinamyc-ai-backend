@@ -864,6 +864,7 @@ async def unpublish_game(
                     'published_at': ""
                 }}
             )
+            await db['published_game'].find_one_and_delete({'game_id': game_id})
             return "Game unpublished"
 
     except Exception as e:
