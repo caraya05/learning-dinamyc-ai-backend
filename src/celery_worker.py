@@ -577,27 +577,32 @@ def create_cover_image_task(game_id: str):
 
 async def async_generate_context_init_game_task(game_id: str):
     try:
-
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if not game_db:
+            print("game not found")
             return False
 
-        if game_db.get('history'):
-            return True
+        if not game_db.get('history'):
+            print("game history not found")
+            return False
 
         game_name = game_db.get('title')
         if not game_name:
+            print("game name not found")
             return False
 
         if not game_db.get('locations_id'):
+            print("locations not found")
             return False
 
         first_location = await db['location'].find_one({'_id': ObjectId(game_db['locations_id'][0])})
         if not first_location:
+            print("location not found")
             return False
 
         location_description = first_location.get('prompt_user')
         if not location_description:
+            print("location description not found")
             return False
 
         # generate the story for the game
@@ -865,6 +870,9 @@ async def async_get_category_game_task(game_id: str):
         ]
         category_generated = generate_gpt4o(content_prompt=content_prompt, type_text="category", max_tokens=1000,model="gpt-4o-mini")
         category_id = json.loads(category_generated)["category_selected"]
+        print(f"Category selected: {category_id}")
+        print(f"Game id: {game_id}")
+        print(f"Game db: {game_db}")
         await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'category_id': category_id}})
         return True
     except Exception as e:
