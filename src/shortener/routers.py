@@ -103,9 +103,9 @@ async def share_game(game_id: str,
 
         await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {"image_share": image_url}})
 
-        message_share = f"{message_completed} {settings.URL_API}/share/app/{game_id}"
+    message_share = f"{message_completed} {settings.URL_API}/share/app/{game_id}"
 
-        message_share = message_share.replace("\n", "")
+    message_share = message_share.replace("\n", "")
 
     return message_share
 
