@@ -14,6 +14,8 @@ from fastapi.templating import Jinja2Templates
 from PIL import Image
 from io import BytesIO
 
+from google.auth import message
+
 from config import settings
 
 from core.database import db
@@ -55,6 +57,8 @@ async def share_game(game_id: str,
     message_completed = message_completed.replace("{{name_game}}", game_db["title"])
     message_completed = message_completed.replace("{{summary_game}}", game_db["summary"])
     message_completed = message_completed.replace("{{category_game}}", game_db["category_id"])
+
+    message_share = "Error when sharing a game"
 
     if not game_db.get("image_share", None):
         url = game_db["image"]
@@ -100,7 +104,11 @@ async def share_game(game_id: str,
 
         await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {"image_share": image_url}})
 
-    return {"detail": f"{message_completed} {settings.URL_API}/share/app/{game_id}"}
+        message_share = f"{message_completed} {settings.URL_API}/share/app/{game_id}"
+
+        message_share = message_share.replace("\n", "")
+
+    return message_share
 
 
 @routerAPP.get("/app/{game_id}", response_class=HTMLResponse)
