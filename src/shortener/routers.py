@@ -14,7 +14,6 @@ from fastapi.templating import Jinja2Templates
 from PIL import Image
 from io import BytesIO
 
-from google.auth import message
 
 from config import settings
 
