@@ -582,14 +582,14 @@ async def async_generate_context_init_game_task(game_id: str):
             print("game not found")
             return False
 
-        if not game_db.get('history'):
-            print("game history not found")
-            return False
+        # if not game_db.get('history'):
+        #     print("game history not found")
+        #     return False
 
-        game_name = game_db.get('title')
-        if not game_name:
-            print("game name not found")
-            return False
+        # game_name = game_db.get('title')
+        # if not game_name:
+        #     print("game name not found")
+        #     return False
 
         if not game_db.get('locations_id'):
             print("locations not found")
@@ -610,7 +610,7 @@ async def async_generate_context_init_game_task(game_id: str):
         content_prompt = [
             {"role": "system", "content": "You are a creative story generator."},
             {"role": "user",
-             "content": f"Generate the story init for the game '{game_name}' set in the location "
+             "content": f"Generate the story init for the game, set in the location "
                         f"'{first_location['title']}'. The location is described as: {location_description}. "
                         f"Respond only with the text of the story in JSON format: {{'story': '<story_text>'}}"}
         ]
