@@ -33,6 +33,9 @@ async def get_pending_games(
         user_game = game.get("created_by") if "created_by" in game else game.get("updated_by")
         user_db = await db["user"].find_one({"_id": ObjectId(user_game)})
         game["user"] = user_db["email"]
+        if game.get("reviewer"):
+            user_db = await db["user"].find_one({"_id": ObjectId(game["reviewer"])})
+            game["reviewer"] = user_db["email"]
     return games_db
 
 
@@ -113,7 +116,7 @@ async def reject_game(
 
 
 @router.patch("/review/{game_id}", status_code=status.HTTP_200_OK)
-async def review_game(
+async def reviewer_game(
         game_id: str,
         data: SchemaUpdateGamePublish,
         user_db: dict = Depends(auth_admin),
@@ -121,7 +124,7 @@ async def review_game(
 ):
     published_game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     published_game_db["reviewed_at"] = datetime.utcnow()
-    published_game_db["reviewed_by"] = str(user_db["_id"])
+    published_game_db["reviewed_by"] = data.reviewer
     # published_game_db["status"] = "reviewed"
     published_game_db["reviewer"] = data.reviewer
     try:

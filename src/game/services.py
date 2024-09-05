@@ -29,8 +29,10 @@ async def get_game_service(game_id: str):
         if game_db := await db['game'].find_one({'_id': ObjectId(game_id)}):
 
             if game_db.get('locations_id'):
+                print(f"Locations: {game_db['locations_id']}")
                 game_db['locations'] = await db['location'].find(
                     {'_id': {'$in': [ObjectId(location_id) for location_id in game_db['locations_id']]}}).to_list(None)
+                print(f"Locations: {game_db['locations']}")
             else:
                 game_db['locations'] = []
 
@@ -424,6 +426,7 @@ async def get_my_games_v2_service(user_id: str, skip: int = 0, limit: int = 100)
     try:
         # print(f"Getting my games v2 service", user_id)
         # start_date = datetime(2024, 7, 23).replace(hour=0, minute=0, second=0, microsecond=0)
+
         games_db = await (db['game'].find({'created_by': user_id, 'version': 2})
                           .sort('created_at', -1)
                           .skip((skip - 1) * limit)
@@ -434,6 +437,16 @@ async def get_my_games_v2_service(user_id: str, skip: int = 0, limit: int = 100)
             'created_by': user_id,
             'version': 2
         })
+
+        if games_to_review := await get_games_of_reviewer(user_id):
+            print(f"Games to review: {games_to_review}")
+            games_db_2 = await db['game'].find({'_id': {'$in': games_to_review}}).to_list(None)
+            for game in games_db_2:
+                game['created_at'] = datetime.utcnow()
+            games_db += games_db_2
+            games_db = sorted(games_db, key=lambda x: x['created_at'], reverse=True)
+            count_games += len(games_to_review)
+
         return games_db, count_games
     except Exception as e:
         print(f"Error getting my games service: {str(e)}")
@@ -614,4 +627,20 @@ async def generate_story_game_service(game_id: str):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error generating story",
+        )
+
+
+async def get_games_of_reviewer(user_id: str):
+    try:
+        print(f"Getting games of reviewer: {user_id}")
+        if games_pending_db := await db['published_game'].find({'reviewer': user_id, 'status': 1}).to_list(None):
+            print(f"Games pending: {games_pending_db}")
+            return [ObjectId(game['game_id']) for game in games_pending_db]
+        else:
+            return []
+    except Exception as e:
+        print(f"Error getting games of reviewer: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Games not found",
         )
