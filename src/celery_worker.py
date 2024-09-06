@@ -1,23 +1,21 @@
+import asyncio
 import json
 import os
 import sys
-import asyncio
-import requests
-
 from uuid import uuid4
+
+import requests
 from bson import ObjectId
 from celery import Celery
 
-from core import db
-
-from gpt_ai.utils import generate_image_dalle, generate_gpt4o, generate_gpt4_vision_
-from location.schemas import SchemaCreateLocation
 from character.schemas import SchemaCreateCharacter
-from scene.schemas import SchemaCreateScene
+from core import db
+from gpt_ai.utils import generate_gpt4o, generate_image_dalle
+from location.schemas import SchemaCreateLocation
 from object.schemas import SchemaCreateObject
+from scene.schemas import SchemaCreateScene
 from script.schemas import SchemaPartialUpdateScript
 from script.utils import get_script_locations_chapter_v2
-
 from utils import upload_image
 
 celery = Celery(__name__)
@@ -513,7 +511,7 @@ def image_is_vertical(image_url: str) -> bool:
         }
     ]
 
-    response_identify = generate_gpt4_vision_(content_prompt=prompt, max_tokens=4096)
+    response_identify = generate_gpt4o(content_prompt=prompt, max_tokens=4096)
 
     if "vertical" in response_identify.lower() or "Vertical" in response_identify.lower():
         return True

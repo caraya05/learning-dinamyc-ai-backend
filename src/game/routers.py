@@ -826,7 +826,7 @@ async def publish_games(
         games_published = []
         for game in published_games:
             if games_published_db := await db['published_game'].find_one(
-                    {'_id': ObjectId(game['published']), 'status': 1}):
+                    {'_id': ObjectId(game['published']), 'status': 2}):
                 game["_id"] = str(game["_id"])
                 game["status"] = games_published_db["status"]
                 games_published.append(game)
