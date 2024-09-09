@@ -511,7 +511,7 @@ def image_is_vertical(image_url: str) -> bool:
         }
     ]
 
-    response_identify = generate_gpt4o(content_prompt=prompt, max_tokens=4096)
+    response_identify = generate_gpt4o(content_prompt=prompt, max_tokens=4096, type_="text")
 
     if "vertical" in response_identify.lower() or "Vertical" in response_identify.lower():
         return True

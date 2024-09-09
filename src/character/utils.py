@@ -4,7 +4,7 @@ from gpt_ai.utils import generate_gpt4o
 
 
 def get_extra_data_character_ai(prompt: list):
-    extra_data_text = generate_gpt4o(content_prompt=prompt, max_tokens=4096)
+    extra_data_text = generate_gpt4o(content_prompt=prompt, max_tokens=4096, type_="text")
     json_schema = {
         "extra_data": {
             "skin_color": "string (skin color of the character in format hexadecimal)",
