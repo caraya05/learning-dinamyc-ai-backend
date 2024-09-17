@@ -37,3 +37,5 @@ def get_extra_data_character_ai(prompt: list):
     extra_data_generated = generate_gpt4o(content_prompt=prompt_content_json, max_tokens=4096)
 
     return json.loads(extra_data_generated)
+
+

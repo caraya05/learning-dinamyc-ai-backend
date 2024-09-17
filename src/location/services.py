@@ -317,3 +317,20 @@ async def get_locations_v2_service(*, game_id: str, skip: int = 0, limit: int = 
     except Exception as e:
         print(f"Error in get locations service: {e}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Locations not found.")
+
+
+async def get_all_location_service(user_id: str, skip: int = 1, limit: int = 10):
+    try:
+        characters_db = await (db["character"]
+                               .find({"created_by": user_id})
+                               .sort("created_at", -1)
+                               .skip((skip - 1) * limit)
+                               .limit(limit)
+                               .to_list(None))
+        return characters_db
+    except Exception as e:
+        print(f"Error in get all character service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Characters not found",
+        )

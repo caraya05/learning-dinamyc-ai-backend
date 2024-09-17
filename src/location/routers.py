@@ -18,7 +18,7 @@ from location.schemas import SchemaRetrieveLocation
 from location.schemas import SchemaCreateLocation
 from location.schemas import SchemaPartialUpdateLocation
 
-from location.services import get_locations_service, get_locations_v2_service
+from location.services import get_locations_service, get_locations_v2_service, get_all_location_service
 # from location.services import get_place_by_location_service
 from location.services import get_location_service
 from location.services import create_location_service
@@ -250,3 +250,30 @@ async def get_locations(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Locations not found",
             )
+
+
+@router2.get("/all/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
+async def get_locations_all(
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves all locations.
+
+    It returns a list of locations.
+    """
+
+    try:
+        locations_db, count_locations = await get_all_location_service(skip=0, limit=100, user_id=str(user_db['_id']))
+
+        for location in locations_db:
+            location["_id"] = str(location["_id"])
+
+        return SchemaListLocation(results=locations_db, count=count_locations)
+
+    except Exception as e:
+        print(f"Error in get locations: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Locations not found",
+        )
