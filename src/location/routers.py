@@ -199,3 +199,4 @@ async def generate_image_location(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Location not updated",
         )
+        
