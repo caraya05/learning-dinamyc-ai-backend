@@ -26,7 +26,7 @@ class ResponseModelStr(BaseModel):
 class SchemaCreateCharacter(BaseModel):
     name: str = Field(..., max_length=100, example="Jhon Doe")
     body_type: Optional[str] = Field(None, example="body_type")
-    gender: Optional[str] = Field(None, example=GenderCharacter.MAN)
+    genre: Optional[str] = Field(None, example=GenderCharacter.MAN)
     type: Optional[str] = Field(None, max_length=100, example="leading role")
     description: str = Field(..., example="this is a description")
     game_id: Optional[str] = Field(None, max_length=100, example="game_id")
@@ -38,6 +38,7 @@ class SchemaCreateCharacter(BaseModel):
     prompt_user: Optional[str] = Field(None, example="prompt_user")
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
     audio: Optional[str] = Field(None, example="audio")
+    character_type: Optional[str] = Field(None, example="character_type")
 
 
 class SchemaRetrieveCharacter(ResponseModel):
@@ -45,7 +46,7 @@ class SchemaRetrieveCharacter(ResponseModel):
     type: Optional[str] = Field(None, example=TypeCharacter.LEADING_ROLE)
     image: Optional[str] = Field(..., example="image", default_factory=None)
     description: str = Field(..., min_length=8, example="this is a description")
-    gender: Optional[str] = Field(None, example=GenderCharacter.MAN)
+    genre: Optional[str] = Field(None, example=GenderCharacter.MAN)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
     text_idle: Optional[dict] = Field(None, example={"key": "value"})
     game_id: Optional[str] = Field(..., example="game_id")
@@ -54,6 +55,7 @@ class SchemaRetrieveCharacter(ResponseModel):
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
     audio: Optional[str] = Field(None, example="audio")
     presentation: Optional[str] = Field(None, example="presentation")
+    character_type: Optional[str] = Field(None, example="character_type")
 
 
 
@@ -62,7 +64,7 @@ class SchemaRetrieveCharacterStr(ResponseModelStr):
     type: str = Field(None, example=TypeCharacter.LEADING_ROLE)
     image: Optional[str] = Field(..., example="image", default_factory=None)
     description: str = Field(..., min_length=8, example="this is a description")
-    gender: str = Field(None, example=GenderCharacter.MAN)
+    genre: str = Field(None, example=GenderCharacter.MAN)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
     text_idle: Optional[dict] = Field(None, example={"key": "value"})
     body_type: Optional[str] = Field(None, example="body_type")
@@ -77,13 +79,11 @@ class SchemaRetrieveCharacterStr(ResponseModelStr):
 class SchemaCreateCharacterCollection(BaseModel):
     prompt_user: str = Field(..., example="prompt_user")
     name: str = Field(..., example="name")
-    body_type: str = Field(..., example="body_type")
 
 
 class SchemaUpdateCharacterCollection(BaseModel):
     name: Optional[str] = Field(None, max_length=100, example="Jhon Doe")
     prompt_user: Optional[str] = Field(None, example="prompt_user")
-    body_type: Optional[str] = Field(None, example="body_type")
 
 
 class SchemaPartialUpdateCharacter(BaseModel):
