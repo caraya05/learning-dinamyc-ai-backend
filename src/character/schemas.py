@@ -25,20 +25,7 @@ class ResponseModelStr(BaseModel):
 
 class SchemaCreateCharacter(BaseModel):
     name: str = Field(..., max_length=100, example="Jhon Doe")
-    body_type: Optional[str] = Field(None, example="body_type")
-    genre: Optional[str] = Field(None, example=GenderCharacter.MAN)
-    type: Optional[str] = Field(None, max_length=100, example="leading role")
-    description: Optional[str] = Field(..., example="this is a description")
-    game_id: Optional[str] = Field(None, max_length=100, example="game_id")
-    attempts: Optional[int] = Field(None, example=0)
-    extra_data: Optional[dict] = Field(None, example={"key": "value"})
-    text_idle: Optional[dict] = Field(None, example={"key": "value"})
-    created_by: Optional[str] = Field(None, example="system")
-    updated_by: Optional[str] = Field(None, example="system")
     prompt_user: Optional[str] = Field(None, example="prompt_user")
-    characteristics: Optional[dict] = Field(None, example={"key": "value"})
-    audio: Optional[str] = Field(None, example="audio")
-    character_type: Optional[str] = Field(None, example="character_type")
 
 
 class SchemaRetrieveCharacter(ResponseModel):
@@ -55,7 +42,7 @@ class SchemaRetrieveCharacter(ResponseModel):
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
     audio: Optional[str] = Field(None, example="audio")
     presentation: Optional[str] = Field(None, example="presentation")
-    character_type: Optional[str] = Field(None, example="character_type")
+    task_id: Optional[str] = Field(None, example="task_db")
 
 
 

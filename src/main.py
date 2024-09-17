@@ -1,12 +1,15 @@
 import time
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi import Request
 
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.websockets import WebSocket
 
 from core.database import create_indexes
 from user import routers as user_routers
+from user import router_admin as user_admin_routers
+from user import router_ws as user_ws_routers
 from auth import routers as token_routers
 from prompt import routers as prompt_routers
 from category import routers as category_routers
@@ -28,7 +31,6 @@ from weapon import routers as weapon_routers
 from voice import routers as voice_routers
 from shortener import routers as shortener_routers
 from contextlib import asynccontextmanager
-from user import router_admin as user_admin_routers
 from config import settings
 
 
@@ -92,12 +94,25 @@ app.include_router(weapon_routers.router, prefix="/v1/api")
 # app.include_router(weapon_routers.router2, prefix="/v2/api")
 app.include_router(shortener_routers.router, prefix="/v1/api")
 app.include_router(voice_routers.router, prefix="/v1/api")
+app.include_router(user_ws_routers.router, prefix="")
 app.include_router(shortener_routers.routerAPP)
 
 
 @app.get("/health", tags=["Health Check"])
 async def root():
     return {"message": "Ok"}
+
+
+@app.websocket("/ws/echo")
+async def websocket_echo(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await websocket.send_text(f"Message text was: {data}")
+    except Exception as e:
+        await websocket.close()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
 admin = FastAPI(

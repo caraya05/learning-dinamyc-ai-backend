@@ -5,10 +5,7 @@ from gpt_ai.utils import generate_gpt4o
 from gpt_ai.utils import generate_gpt4_
 from gpt_ai.utils import generate_image_dalle
 
-
-# import jsonschema
-# from jsonschema import validate
-
+# TODO: revisar codigo y extraer funciones que se neseciten y eliminar lo que no se nesecite
 
 def get_script_locations_chapter_v2(
         history: str,
