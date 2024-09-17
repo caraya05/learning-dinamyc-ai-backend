@@ -31,8 +31,6 @@ from game.services import update_error_message_game_service
 
 from prompt.services import get_prompt_by_category_service
 
-from celery_worker import create_script_task
-
 from configuration.services import get_configurations_service
 
 from user.services import deduct_stars_service
@@ -167,23 +165,7 @@ async def create_script(
                 detail="Script not created",
             )
 
-        create_script_task.delay(
-            game_id=game_id,
-            token=Token.credentials,
-            game_history=str(game_db.get("history")),
-            prompt_script=prompt_script.get("description"),
-            prompt_script_system=prompt_script.get("prompt_system"),
-            prompt_scene=prompt_scene.get("description"),
-            prompt_scene_system=prompt_scene.get("prompt_system"),
-            script_id=str(chapter_db.get("_id")),
-            prompt_imagen_scene_cero=prompt_imagen_scene_cero.get("description"),
-            prompt_text_introduction_scene_cero=prompt_text_introduction_scene_cero.get("description"),
-            prompt_character_locations=prompt_character_locations.get("description"),
-            prompt_character_locations_system=prompt_character_locations.get("prompt_system"),
-            prompt_finish_chapter=prompt_finish_chapter.get("description"),
-            prompt_text_finish_chapter=prompt_text_finish_chapter.get("description"),
-            prompt_image_game_over=prompt_image_game_over.get("description"),
-        )
+        # TODO: eliminar endpoint
 
         return chapter_db
     except Exception as e:

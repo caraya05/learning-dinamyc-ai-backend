@@ -5,9 +5,9 @@ from jose import ExpiredSignatureError, JWTError, jwt
 from jose.exceptions import JWTClaimsError
 
 from jwt_auth.enums import TokenType
-from source.app.auth.utils import verify_password
-from source.core.database import PyObjectId, db
-from source.core.settings import settings
+from auth.utils import verify_password
+from database import PyObjectId, db
+from settings import settings
 
 
 async def authenticate_user(username: str, password: str) -> dict | None:

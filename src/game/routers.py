@@ -177,56 +177,56 @@ async def create_game(
         )
 
 
-@router.get("/generate-cover/{game_id}", status_code=status.HTTP_200_OK)
-async def cover_generate(
-        game_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-):
-    """
-    This endpoint generates a cover for a game.
-    """
-    try:
-
-        game_db = await get_game_service(game_id)
-
-        if game_db.get("attempts") == 0:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Attempts exhausted",
-            )
-
-        prompt_db_cover = await get_prompt_by_category_service('cover')
-
-        character_leading_role = await get_character_leading_role_service(game_id)
-
-        if not character_leading_role:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="characters have not been created",
-            )
-
-        prompt_content = prompt_db_cover.get("description").replace('x_history', game_db.get("synopsis"))
-
-        prompt_content = prompt_content.replace('x_character', f"{character_leading_role.get('description')}")
-
-        image_generated = generate_image_dalle(prompt=prompt_content, quality="hd", size="1024x1792")
-
-        try:
-            await subtract_attempts_game_service(game_id)
-        except Exception as e:
-            print(f"Error subtracting attempts: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Image not generated or attempts exhausted",
-            )
-        return {"images": image_generated}
-    except Exception as e:
-        print(f"Error generating cover: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cover not generated",
-        )
+# @router.get("/generate-cover/{game_id}", status_code=status.HTTP_200_OK)
+# async def cover_generate(
+#         game_id: str,
+#         user_db: dict = Depends(auth),
+#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+# ):
+#     """
+#     This endpoint generates a cover for a game.
+#     """
+#     try:
+#
+#         game_db = await get_game_service(game_id)
+#
+#         if game_db.get("attempts") == 0:
+#             raise HTTPException(
+#                 status_code=status.HTTP_400_BAD_REQUEST,
+#                 detail="Attempts exhausted",
+#             )
+#
+#         prompt_db_cover = await get_prompt_by_category_service('cover')
+#
+#         character_leading_role = await get_character_leading_role_service(game_id)
+#
+#         if not character_leading_role:
+#             raise HTTPException(
+#                 status_code=status.HTTP_400_BAD_REQUEST,
+#                 detail="characters have not been created",
+#             )
+#
+#         prompt_content = prompt_db_cover.get("description").replace('x_history', game_db.get("synopsis"))
+#
+#         prompt_content = prompt_content.replace('x_character', f"{character_leading_role.get('description')}")
+#
+#         image_generated = generate_image_dalle(prompt=prompt_content, quality="hd", size="1024x1792")
+#
+#         try:
+#             await subtract_attempts_game_service(game_id)
+#         except Exception as e:
+#             print(f"Error subtracting attempts: {str(e)}")
+#             raise HTTPException(
+#                 status_code=status.HTTP_400_BAD_REQUEST,
+#                 detail="Image not generated or attempts exhausted",
+#             )
+#         return {"images": image_generated}
+#     except Exception as e:
+#         print(f"Error generating cover: {str(e)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Cover not generated",
+#         )
 
 
 @router.patch("/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
