@@ -432,7 +432,7 @@ async def get_images_character_face_service(character_id: str):
         )
 
 
-async def update_character_service(character_id: str, name: str, prompt_user: str, body_type: str):
+async def update_character_service(character_id: str, name: str, prompt_user: str):
     try:
         if character_db := await db["character"].find_one({"_id": ObjectId(character_id)}):
             if name:
@@ -465,8 +465,73 @@ async def update_character_service(character_id: str, name: str, prompt_user: st
                 response = json.loads(response_collection)
                 character_db["description"] = response.get("description")
 
-            if body_type:
-                character_db["body_type"] = body_type
+            json_response_1 = {
+                "body_type": "string (are the types of body types that are available for the character the options are adult, child, animal)",
+                "genre": "string (are the types of genres that are available for the character the options are man, woman if the character is adult or child, if animal it is null)",
+            }
+
+            response_1 = generate_gpt4o(
+                content_prompt=[
+                    {
+                        "role": "system",
+                        "content": "Eres un identificador de genero y tipo de cuerpo de un personaje, "
+                                   f" responde con un JSON que contenga el esquema {json_response_1}",
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"nombre del personaje: {name} y descripción del personaje por parte del usuario: {prompt_user}",
+                            },
+                        ],
+                    },
+                ],
+                type_text="collection",
+                model="gpt-4o",
+                max_tokens=4096
+            )
+
+            response_1 = json.loads(response_1)
+
+            json_response_2 = {
+                "character_type": "string (are the types of characters that are available for the character)",
+            }
+
+            character_type_db = await db["character_type"].find(
+                {"body_type": response_1["body_type"], "genre": response_1["genre"]}).to_list(None)
+
+            response_2 = generate_gpt4o(
+                content_prompt=[
+                    {
+                        "role": "system",
+                        "content": "Eres un identificador de tipo de personaje, "
+                                   f" responde con un JSON que contenga el esquema {json_response_2}",
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"nombre del personaje: {name} y descripción del personaje por parte del usuario: {prompt_user}",
+                            },
+                            {
+                                "type": "text",
+                                "text": f"escoge uno de los siquientes tipos de personajes: {character_type_db}",
+                            }
+                        ],
+                    },
+                ],
+                type_text="collection",
+                model="gpt-4o",
+                max_tokens=4096
+            )
+
+            response_2 = json.loads(response_2)
+
+            character_db["body_type"] = response_1["body_type"]
+            character_db["genre"] = response_1["genre"]
+            character_db["character_type"] = response_2["character_type"]
 
             await db["character"].update_one({"_id": ObjectId(character_id)}, {"$set": character_db})
             character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
