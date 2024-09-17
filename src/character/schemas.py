@@ -30,8 +30,8 @@ class SchemaRetrieveCharacter(ResponseModel):
     name: str = Field(..., min_length=3, max_length=100, example="Jhon Doe")
     type: Optional[str] = Field(None, example=TypeCharacter.LEADING_ROLE)
     image: Optional[str] = Field(..., example="image", default_factory=None)
-    description: Optional[str] = Field(None, min_length=8, example="this is a description")
-    gender: Optional[str] = Field(None, example=GenderCharacter.MAN)
+    description: str = Field(..., min_length=8, example="this is a description")
+    genre: Optional[str] = Field(None, example=GenderCharacter.MAN)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
     text_idle: Optional[dict] = Field(None, example={"key": "value"})
     game_id: Optional[str] = Field(..., example="game_id")
@@ -42,6 +42,7 @@ class SchemaRetrieveCharacter(ResponseModel):
     presentation: Optional[str] = Field(None, example="presentation")
     task_id: Optional[str] = Field(None, example="task_db")
     status: Optional[str] = Field(1, example="status")
+    character_type: Optional[str] = Field(None, example="character_type")
 
 
 
@@ -49,8 +50,9 @@ class SchemaRetrieveCharacterStr(ResponseModelStr):
     name: str = Field(..., min_length=3, max_length=100, example="Jhon Doe")
     type: str = Field(None, example=TypeCharacter.LEADING_ROLE)
     image: Optional[str] = Field(..., example="image", default_factory=None)
-    description: Optional[str] = Field(None, min_length=8, example="this is a description")
-    gender: str = Field(None, example=GenderCharacter.MAN)
+    description: str = Field(..., min_length=8, example="this is a description")
+    description: str = Field(..., min_length=8, example="this is a description")
+    genre: str = Field(None, example=GenderCharacter.MAN)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
     text_idle: Optional[dict] = Field(None, example={"key": "value"})
     body_type: Optional[str] = Field(None, example="body_type")
