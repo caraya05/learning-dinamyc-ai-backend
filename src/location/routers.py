@@ -255,6 +255,8 @@ async def get_locations(
 @router2.get("/all/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
 async def get_locations_all(
         user_db: dict = Depends(auth),
+        page: int = 1,
+        count: int = 10,
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
@@ -264,7 +266,7 @@ async def get_locations_all(
     """
 
     try:
-        locations_db, count_locations = await get_all_location_service(skip=0, limit=100, user_id=str(user_db['_id']))
+        locations_db, count_locations = await get_all_location_service(skip=page, limit=count, user_id=str(user_db['_id']))
 
         for location in locations_db:
             location["_id"] = str(location["_id"])
