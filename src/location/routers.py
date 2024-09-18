@@ -270,6 +270,7 @@ async def get_locations_all(
 
         for location in locations_db:
             location["_id"] = str(location["_id"])
+            location["attempts"] = 0
 
         return SchemaListLocation(results=locations_db, count=count_locations)
 
