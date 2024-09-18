@@ -8,8 +8,8 @@ openai
 openpyxl
 pillow
 pylint
-motor[srv]
 pymongo
+motor[srv]
 Pyrebase
 pytest
 python-multipart
