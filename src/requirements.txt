@@ -9,6 +9,7 @@ openpyxl
 pillow
 pylint
 motor[srv]
+pymongo[srv]
 Pyrebase
 pytest
 python-multipart
