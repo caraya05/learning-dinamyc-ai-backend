@@ -10,7 +10,8 @@ from celery import Celery
 from core import db
 from utils import upload_image
 
-from character.tasks import async_create_character_task, async_update_character_task, async_generate_character_task
+from character.tasks import async_create_character_task, async_update_character_task, async_generate_character_task, \
+    async_generate_image_character_task
 
 celery = Celery(__name__)
 celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
@@ -446,9 +447,9 @@ def background_task(task_id: str):
 
 @celery.task(name="generate_character_task", queue="generate_character_task", retry=True, max_retries=1)
 def generate_character_task(_character_id: str,
-                          _body_type: list[str],
-                          _user_id: str,
-                          _task_id: str):
+                            _body_type: list[str],
+                            _user_id: str,
+                            _task_id: str):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
@@ -456,6 +457,20 @@ def generate_character_task(_character_id: str,
         asyncio.set_event_loop(loop)
 
     return loop.run_until_complete(async_generate_character_task(_character_id=_character_id,
-                                                               _user_id=_user_id,
-                                                               _task_id=_task_id))
+                                                                 _user_id=_user_id,
+                                                                 _task_id=_task_id))
 
+
+@celery.task(name="generate_image_character_task", queue="generate_image_character_task", retry=True, max_retries=1)
+def generate_image_character_task(_character_id: str,
+                                  _user_id: str,
+                                  _task_id: str):
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    return loop.run_until_complete(async_generate_image_character_task(_character_id=_character_id,
+                                                                       _user_id=_user_id,
+                                                                       _task_id=_task_id))
