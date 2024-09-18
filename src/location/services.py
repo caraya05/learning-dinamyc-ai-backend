@@ -327,7 +327,8 @@ async def get_all_location_service(user_id: str, skip: int = 1, limit: int = 10)
                                .skip((skip - 1) * limit)
                                .limit(limit)
                                .to_list(None))
-        return characters_db
+        count_characters = await db["character"].count_documents({"created_by": user_id})
+        return characters_db, count_characters
     except Exception as e:
         print(f"Error in get all character service: {str(e)}")
         raise HTTPException(
