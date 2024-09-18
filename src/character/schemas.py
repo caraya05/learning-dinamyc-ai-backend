@@ -61,6 +61,7 @@ class SchemaRetrieveCharacterStr(ResponseModelStr):
     status: Optional[str] = Field(1, example="status")
     presentation: Optional[str] = Field(None, example="presentation")
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
+    character_type: Optional[str] = Field(None, example="character_type")
 
     # weapon: Optional[SchemaRetrieveWeapon] = Field(None, example="weapon")
 
