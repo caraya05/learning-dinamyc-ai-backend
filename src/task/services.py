@@ -33,9 +33,13 @@ async def create_task_service(_task_id: str,
 
 async def update_task_service(_id: str,
                               _task_id: str,
-                              _status: str):
+                              _status: str = None):
     try:
-        await db["task"].update_one({"_id": ObjectId(_id)}, {"$set": {"status": status, "task_id": _task_id}})
+        if _status:
+            await db["task"].update_one({"_id": ObjectId(_id)}, {"$set": {"status": status, "task_id": _task_id}})
+        else:
+            await db["task"].update_one({"_id": ObjectId(_id)}, {"$set": {"task_id": _task_id}})
+
         return await db["task"].find_one({"_id": ObjectId(_id)})
     except Exception as e:
         print("Error in update task", e)
