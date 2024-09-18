@@ -164,9 +164,9 @@ async def generate_character_description(_character_db,
 
 
 async def async_generate_character_task(_character_id,
-                                      _body_type,
-                                      _user_id,
-                                      _task_id):
+                                        _body_type,
+                                        _user_id,
+                                        _task_id):
     await update_task_service(
         _id=_task_id,
         _status="pending"
@@ -204,3 +204,35 @@ async def async_generate_character_task(_character_id,
 
     return "Character generate successfully"
 
+
+async def async_generate_image_character_task(_character_id,
+                                              _user_id,
+                                              _task_id):
+    await update_task_service(
+        _id=_task_id,
+        _status="pending"
+    )
+
+    character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
+
+    if not character_db:
+        await db["task"].update_one({"task_id": _task_id},
+                                    {"$set": {"status": "error",
+                                              "message": f"Can't find character with id {_character_id}"}})
+        return f"Can't find character with id {_character_id}"
+    message_response = ""
+    response_image = await generate_image_character_face(_character_db=character_db,
+                                                         _user_id=_user_id)
+    if not response_image:
+        message_response += " Error in generate image character face service "
+    if message_response != "":
+        await db["task"].update_one({"task_id": _task_id},
+                                    {"$set": {"status": "error",
+                                              "message": message_response}})
+        return message_response
+
+    await db["task"].update_one({"task_id": _task_id},
+                                {"$set": {"status": "completed",
+                                          "message": "Character created successfully"}})
+
+    return "Character generate successfully"
