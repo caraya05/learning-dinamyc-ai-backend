@@ -2,7 +2,6 @@ from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import status
-from fastapi import Request
 
 from fastapi.security import HTTPAuthorizationCredentials
 
@@ -17,6 +16,7 @@ from character.schemas import SchemaRetrieveCharacter
 from character.schemas import SchemaListCharacter
 
 from character.services import get_character_service
+from character.services import generate_image_character_service
 from character.services import create_character_service
 from character.services import delete_character_service
 from character.services import add_character_to_location_service
@@ -24,17 +24,11 @@ from character.services import get_characters_by_location_service
 from character.services import add_or_edit_character_location
 from character.services import get_all_character_service
 from character.services import update_character_service
-from character.services import get_characters_service
 
-from game.services import get_game_v2_service
-from game.services import get_characters_game_publish_service
 from game.services import get_character_game_publish_service
 from game.services import get_location_game_publish_service
 
-from prompt.services import get_prompt_by_category_service
-
 from user.services import disable_user_service
-from user.services import validate_star_user_service
 
 router = APIRouter(prefix='/characters', tags=['Characters'])
 
@@ -153,7 +147,7 @@ async def get_all_characters(
         )
 
 
-@router2.get("/{character_id}/generate-face/", response_model=SchemaRetrieveCharacter)
+@router.get("/{character_id}/generate-face/", response_model=SchemaRetrieveCharacter)
 async def get_images_character_face(
         character_id: str,
         user_db: dict = Depends(auth),
@@ -166,7 +160,7 @@ async def get_images_character_face(
     """
 
     try:
-        character_db = await get_images_character_face_service(character_id=character_id)
+        character_db = await generate_image_character_service(character_id=character_id)
 
         await disable_user_service(user_id=str(user_db.get("_id")), section="character")
 
@@ -178,6 +172,7 @@ async def get_images_character_face(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Characters not found",
         )
+
 
 @router.post("/", response_model=SchemaRetrieveCharacter)
 async def create_character(

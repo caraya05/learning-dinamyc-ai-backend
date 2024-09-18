@@ -6,10 +6,13 @@ from fastapi import status
 
 from celery_worker import generate_character_task
 from celery_worker import generate_image_character_task
+
 from character.models import Character
 from character.schemas import SchemaCreateCharacter
 from character.schemas import CharacterLocationModel
+
 from core.database import db
+
 from task.services import create_task_service
 from task.services import update_task_service
 
@@ -122,21 +125,21 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
         )
 
 
-# async def get_character_leading_role_service(game_id: str):
-#     try:
-#         character_db = await db['character'].find_one({'game_id': game_id, 'type': 'leading role'})
-#         if not character_db:
-#             raise HTTPException(
-#                 status_code=status.HTTP_404_NOT_FOUND,
-#                 detail="Character not found",
-#             )
-#         return character_db
-#     except Exception as e:
-#         print(f"Error in get character leading role service: {str(e)}")
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Character not found",
-#         )
+async def get_character_leading_role_service(game_id: str):
+    try:
+        character_db = await db['character'].find_one({'game_id': game_id, 'type': 'leading role'})
+        if not character_db:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Character not found",
+            )
+        return character_db
+    except Exception as e:
+        print(f"Error in get character leading role service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not found",
+        )
 
 async def update_character_service(character_id: str,
                                    user_id: str,

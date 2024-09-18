@@ -179,7 +179,6 @@ async def add_process_time_header(request: Request, call_next):
     return response
 
 
-appv2.include_router(character_routers.router2)
 appv2.include_router(object_routers.router2)
 appv2.include_router(game_routers.router2)
 appv2.include_router(location_routers.router2)
