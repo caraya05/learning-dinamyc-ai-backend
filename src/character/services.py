@@ -6,7 +6,7 @@ from fastapi import status
 
 from uuid import uuid4
 
-from celery_worker import create_character_task
+from celery_worker import generate_character_task
 from core.database import db
 
 from character.models import Character
@@ -52,8 +52,6 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
         character_db.updated_by = user_id
         character_created = await db["character"].insert_one(character_db.dict())
 
-        body_types = ["MAN", "WOMAN"]
-
         task_db = await create_task_service(
             _task_id="",
             _user_id=user_id,
@@ -63,9 +61,8 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
             _process="create_character"
         )
 
-        task_celery = create_character_task.delay(_character_id=str(character_created.inserted_id),
+        task_celery = generate_character_task.delay(_character_id=str(character_created.inserted_id),
                                                   _user_id=user_id,
-                                                  _body_type=body_types,
                                                   _task_id=str(task_db["_id"]))
 
         await update_task_service(

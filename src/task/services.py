@@ -32,7 +32,7 @@ async def create_task_service(_task_id: str,
 
 
 async def update_task_service(_id: str,
-                              _task_id: str,
+                              _task_id: str = None,
                               _status: str = None):
     try:
         if _status:
