@@ -2,6 +2,7 @@ from typing import Optional
 
 from pydantic import BaseModel
 from pydantic import Field
+
 from datetime import datetime
 
 
@@ -12,9 +13,11 @@ class Location(BaseModel):
     image: str = Field(None, example="image.jpg")
     config: list[dict] = Field(None, example="")
     connections: Optional[dict] = Field(None, example="")
-    sound_id: str = Field(None, example="123")
-    game_id: str = Field(None, example="123")
-    attempts: int = Field(3, example=0)
+    sound_id: Optional[str] = Field(None, example="123")
+    game_id: Optional[str] = Field(None, example="123")
+    status: Optional[int] = Field(0, example=200)
+    tasks_request: Optional[list[str]] = Field([], example=["task1", "task2"])
+    tasks_notified: Optional[list[str]] = Field([], example=["task1", "task2"])
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str = Field(default="system", example="system")
     updated_at: datetime = Field(default_factory=datetime.utcnow)
