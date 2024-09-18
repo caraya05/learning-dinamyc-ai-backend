@@ -321,13 +321,13 @@ async def get_locations_v2_service(*, game_id: str, skip: int = 0, limit: int = 
 
 async def get_all_location_service(user_id: str, skip: int = 1, limit: int = 10):
     try:
-        characters_db = await (db["character"]
+        characters_db = await (db["location"]
                                .find({"created_by": user_id})
                                .sort("created_at", -1)
                                .skip((skip - 1) * limit)
                                .limit(limit)
                                .to_list(None))
-        count_characters = await db["character"].count_documents({"created_by": user_id})
+        count_characters = await db["location"].count_documents({"created_by": user_id})
         return characters_db, count_characters
     except Exception as e:
         print(f"Error in get all character service: {str(e)}")
