@@ -1,11 +1,14 @@
 from uuid import uuid4
 
 from bson import ObjectId
-from pydantic import BaseModel, Field
+
+from pydantic import BaseModel
+from pydantic import Field
 
 from core.database import db
 
 from gpt_ai.utils import openai_generator
+
 from task.services import update_task_service
 
 from utils import upload_image
@@ -49,10 +52,11 @@ class SchemaSelectBodyType(BaseModel):
 
 class SchemaCharacterCreate(BaseModel):
     description: str = Field(..., example="description",
-                             description="description to identify the colors that the character has, it is necessary to know the"
-                                         " colors of clothes, shoes, hair, skin, eyes and lips")
+                             description="description to identify the colors that the character has, it is necessary "
+                                         "to know the colors of clothes, shoes, hair, skin, eyes and lips")
     description_shoulder_up: str = Field(..., example="description_shoulder_up",
-                                         description="string (15-word description cut from the head to the waist of the character, to generate an image of the character")
+                                         description="string (15-word description cut from the head to the waist of"
+                                                     " the character, to generate an image of the character")
 
     description_game: str = Field(..., example="description_game",
                                   description="description of the character for the game")
@@ -78,7 +82,8 @@ async def generate_character_body_type(_character_db, _user_id):
                     "content": [
                         {
                             "type": "text",
-                            "text": f"nombre del personaje: {_character_db['name']} y descripción del personaje por parte del usuario: {_character_db['prompt_user']}",
+                            "text": f"nombre del personaje: {_character_db['name']} y descripción del personaje por "
+                                    f"parte del usuario: {_character_db['prompt_user']}",
                         },
                     ],
                 },
@@ -103,7 +108,8 @@ async def generate_character_body_type(_character_db, _user_id):
                     "content": [
                         {
                             "type": "text",
-                            "text": f"nombre del personaje: {_character_db['name']} y descripción del personaje por parte del usuario: {_character_db['prompt_user']}",
+                            "text": f"nombre del personaje: {_character_db['name']} y descripción del personaje por "
+                                    f"parte del usuario: {_character_db['prompt_user']}",
                         },
                         {
                             "type": "text",
