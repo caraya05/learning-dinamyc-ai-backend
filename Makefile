@@ -136,3 +136,6 @@ arm-pylint:
 
 arm-black:
 	docker-compose -f docker-compose-arm.yml run --rm fastapi black --config=pyproject.toml --skip-string-normalization .
+
+arm-build-bg:
+	docker-compose -f docker-compose-arm.yml build --no-cache celery_worker flower

@@ -9,6 +9,7 @@ from character.utils import get_extra_data_character_ai
 from core.database import db
 
 from gpt_ai.utils import openai_generator
+from task.services import update_task_service
 
 from utils import upload_image
 
@@ -192,14 +193,14 @@ async def async_create_character_task(_character_id,
                                               "message": f"Can't find character with id {_character_id}"}})
         return f"Can't find character with id {_character_id}"
     message_response = ""
-    response_body_type = await get_character_body_type(character_db, _body_type,
-                                                       _user_id=_user_id)
-    if not response_body_type:
-        message_response += " Error in get character body type service "
     response_description = await get_character_description(character_db,
                                                            _user_id=_user_id)
     if not response_description:
         message_response += " Error in get character description service "
+    response_body_type = await get_character_body_type(character_db, _body_type,
+                                                       _user_id=_user_id)
+    if not response_body_type:
+        message_response += " Error in get character body type service "
     response_image = await generate_image_character_face(_character_db=character_db,
                                                          _user_id=_user_id)
     if not response_image:
@@ -225,6 +226,11 @@ async def async_update_character_task(_character_id,
                                       _body_type,
                                       _user_id,
                                       _task_id):
+    await update_task_service(
+        _id=_task_id,
+        _status="pending"
+    )
+
     character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
 
     if not character_db:

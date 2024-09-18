@@ -8,10 +8,10 @@ openai==1.45.1
 openpyxl
 pillow
 pylint
-motor[srv]
 Pyrebase
 pytest
 python-multipart
+pymongo[srv]
 celery
 redis
 flower

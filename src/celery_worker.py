@@ -8,10 +8,10 @@ from bson import ObjectId
 from celery import Celery
 
 from core import db
-from gpt_ai.utils import generate_gpt4o, generate_image_dalle
+from gpt_ai.utils import openai_generator
 from utils import upload_image
 
-from character.tasks import async_create_character_task
+from character.tasks import async_create_character_task, async_update_character_task
 
 celery = Celery(__name__)
 celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
@@ -445,7 +445,7 @@ def background_task(task_id: str):
 
 # Desde aca va lo nuevo
 
-@celery.task(name="create_character_task")
+@celery.task(name="create_character_task", queue="create_character_task", retry=True, max_retries=1)
 def create_character_task(_character_id: str,
                           _body_type: list[str],
                           _user_id: str,
@@ -457,6 +457,22 @@ def create_character_task(_character_id: str,
         asyncio.set_event_loop(loop)
 
     return loop.run_until_complete(async_create_character_task(_character_id=_character_id,
+                                                               _body_type=_body_type,
+                                                               _user_id=_user_id,
+                                                               _task_id=_task_id))
+
+@celery.task(name="update_character_task", queue="update_character_task", retry=True, max_retries=1)
+def update_character_task(_character_id: str,
+                          _body_type: list[str],
+                          _user_id: str,
+                          _task_id: str):
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    return loop.run_until_complete(async_update_character_task(_character_id=_character_id,
                                                                _body_type=_body_type,
                                                                _user_id=_user_id,
                                                                _task_id=_task_id))
