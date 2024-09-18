@@ -81,7 +81,7 @@ class SchemaRetrieveLocationStr(ResponseModelStr):
     description (str): The description of the location.
     """
 
-    title: str
+    title: Optional[str]
     description: Optional[str]
     image: Optional[str]
     configuration: Optional[dict]
