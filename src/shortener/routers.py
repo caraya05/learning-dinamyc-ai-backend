@@ -14,6 +14,7 @@ from fastapi.templating import Jinja2Templates
 from PIL import Image
 from io import BytesIO
 
+
 from config import settings
 
 from core.database import db
@@ -45,10 +46,18 @@ async def share_game(game_id: str,
     game_db = await get_game_service(game_id)
     configuration_db = await get_configurations_service()
 
+    if not game_db['summary'] or not game_db['category_id']:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="it is possible that the game is not published",
+        )
+
     message_completed = configuration_db["share_message"]
     message_completed = message_completed.replace("{{name_game}}", game_db["title"])
     message_completed = message_completed.replace("{{summary_game}}", game_db["summary"])
     message_completed = message_completed.replace("{{category_game}}", game_db["category_id"])
+
+    message_share = "Error when sharing a game"
 
     if not game_db.get("image_share", None):
         url = game_db["image"]
@@ -94,7 +103,11 @@ async def share_game(game_id: str,
 
         await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {"image_share": image_url}})
 
-    return {"message": f"{message_completed} {settings.URL_API}/share/app/{game_id}"}
+    message_share = f"{message_completed} {settings.URL_API}/share/app/{game_id}"
+
+    message_share = message_share.replace("\n", "")
+
+    return message_share
 
 
 @routerAPP.get("/app/{game_id}", response_class=HTMLResponse)
@@ -118,6 +131,7 @@ async def share_app(game_id: str,
         context={"request": request,
                  "url": f"{settings.URL_API}/share/app/{game_id}",
                  "name": game_db["title"],
+                 "game_id": game_id,
                  "summary": game_db["summary"][0:50],
                  "image": game_db["image_share"],
                  "url_form": configuration_db["url_form"]},

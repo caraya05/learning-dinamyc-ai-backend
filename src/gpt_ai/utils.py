@@ -4,8 +4,6 @@ from config import settings
 
 client = OpenAI(organization=settings.OPENAI_API_ORG_ID,
                 api_key=settings.OPENAI_API_KEY,
-                # base_url="https://proxy.getprops.ai/",
-                # default_headers={"x-api-key": "TFjTs7VL2N4XwPqizdNk"}
                 )
 
 
@@ -36,29 +34,6 @@ def generate_image_dalle(
             status_code=400,
             detail="The image could not be generated, it probably does not comply with the content policy,"
                    " try to generate it again or contact Qwestar support.",
-        )
-
-
-def generate_gpt4_vision_(
-        content_prompt: list[dict], max_tokens: int = 1000, model: str = "gpt-4-vision-preview"
-):
-    try:
-        response = client.chat.completions.create(
-            model=model,
-            # response_format={"type": "json_object"},
-            messages=content_prompt,
-            max_tokens=max_tokens,
-        )
-
-        print("GPT4 Vision Token: ", response.usage)
-
-        return response.choices[0].message.content
-
-    except Exception as e:
-        print(f"Error GPT4 Vision: {str(e)}")
-        raise HTTPException(
-            status_code=400,
-            detail="Text could not be generated",
         )
 
 
@@ -123,5 +98,3 @@ def generate_gpt4o(
     except Exception as e:
         print(f"Error GPT4o: {str(e)}")
         raise Exception(f"Text not generated {type_text}")
-
-

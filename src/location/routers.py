@@ -18,7 +18,7 @@ from location.schemas import SchemaRetrieveLocation
 from location.schemas import SchemaCreateLocation
 from location.schemas import SchemaPartialUpdateLocation
 
-from location.services import get_locations_service, get_locations_v2_service
+from location.services import get_locations_service, get_locations_v2_service, get_all_location_service
 # from location.services import get_place_by_location_service
 from location.services import get_location_service
 from location.services import create_location_service
@@ -190,43 +190,17 @@ async def generate_image_location(
     If the location is successfully updated, it returns the location's information.
     """
     location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
-    # place_db = await get_place_by_location_service(location_id=location_id)
-
-    # if location_db["attempts"] == 0 and not place_db:
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST,
-    #         detail="Character attempts exhausted",
-    #     )
-
-    # if place_db:
-    prompt_db_image_location = await get_prompt_by_category_service("location_place_image")
-    #     prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
-    #         "{{PromptUserLocation}}", location_db["description"].split("//")[0])
-    #     prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
-    #         "{{promptUserPlaceName}}", place_db["title"])
-    #     prompt_db_image_location["description"] = prompt_db_image_location["description"].replace(
-    #         "{{descriptionLocationFloor}}", location_db["description"].split("//")[-1])
-    #     content_prompt = prompt_db_image_location["description"]
-    # else:
     prompt_db_image_location = await get_prompt_by_category_service("location_image")
-
     content_prompt = f'{prompt_db_image_location["description"]}, {location_db["description"]}'
-
     new_prompt = generate_gpt4o(content_prompt=[
         {"role": "system", "content": "reestructure el prompt para generar la imagen con estilo 3D volumétrico en vista"
                                       " isométrica para un videojuego RPG, con fondo de color solido."},
         {"role": "user", "content": content_prompt},
     ], type_="text", type_text="text")
-
     image_generate = generate_image_dalle(prompt=new_prompt,
                                           quality="hd",
                                           size="1792x1024")
-
     await db['location'].update_one({"_id": ObjectId(location_id)}, {"$set": location_db})
-
-    # if place_db:
-    #     await update_attempts_location_service(location_id=location_id)
-
     await disable_user_service(user_id=str(user_db["_id"]), section="location")
 
     return image_generate
@@ -276,3 +250,33 @@ async def get_locations(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Locations not found",
             )
+
+
+@router2.get("/all/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
+async def get_locations_all(
+        user_db: dict = Depends(auth),
+        page: int = 1,
+        count: int = 10,
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves all locations.
+
+    It returns a list of locations.
+    """
+
+    try:
+        locations_db, count_locations = await get_all_location_service(skip=page, limit=count, user_id=str(user_db['_id']))
+
+        for location in locations_db:
+            location["_id"] = str(location["_id"])
+            location["attempts"] = 0
+
+        return SchemaListLocation(results=locations_db, count=count_locations)
+
+    except Exception as e:
+        print(f"Error in get locations: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Locations not found",
+        )

@@ -1,5 +1,6 @@
 import json
 
+from core.database import db
 from gpt_ai.utils import generate_gpt4_
 from prompt.services import get_prompt_by_category_service
 
@@ -143,3 +144,18 @@ async def get_category_game_ai(
     print("category_generated", category_generated)
 
     return json.loads(category_generated)["category_selected"]
+
+
+async def number_players_have_played_game_util(game_id: str):
+    pipeline = [
+        {"$match": {"game_id": game_id}},
+        {"$group": {"_id": "$user_id"}},
+        {"$count": "distinct_user_count"}
+    ]
+    result = await db['record_game'].aggregate(pipeline).to_list(None)
+    if result:
+        distinct_user_count = result[0]["distinct_user_count"]
+    else:
+        distinct_user_count = 0
+
+    return distinct_user_count

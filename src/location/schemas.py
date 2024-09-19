@@ -33,6 +33,8 @@ class SchemaCreateLocation(BaseModel):
     prompt_user: Optional[str]
     # place_id: Optional[str]
     game_id: Optional[str]
+    environment: Optional[dict]
+
 
 
 class SchemaPartialUpdateLocation(BaseModel):
@@ -49,6 +51,7 @@ class SchemaPartialUpdateLocation(BaseModel):
     prompt_user: Optional[str]
     image: Optional[str]
     configuration: Optional[dict]
+    environment: Optional[dict]
     connections: Optional[dict]
 
 
@@ -71,6 +74,7 @@ class SchemaRetrieveLocation(ResponseModel):
     connections: Optional[dict] = {}
     sound_id: Optional[str | dict] = Field(None)
     characters: Optional[list] = []
+    environment: Optional[dict] = {}
 
     class Config:
         orm_mode = True
@@ -86,13 +90,14 @@ class SchemaRetrieveLocationStr(ResponseModelStr):
     description (str): The description of the location.
     """
 
-    title: str
+    title: Optional[str]
     description: Optional[str]
     image: Optional[str]
-    attempts: Optional[int]
+    attempts: Optional[int] = 0
     configuration: Optional[dict]
     connections: Optional[dict]
     sound_id: Optional[str | dict] = Field(None)
+    environment: Optional[dict] = {}
 
     class Config:
         orm_mode = True

@@ -7,6 +7,8 @@ from fastapi import status
 
 from uuid import uuid4
 
+from pyasn1_modules.rfc2985 import gender
+
 from core.database import db
 
 from character.models import Character
@@ -73,40 +75,40 @@ async def update_partial_character_service(character_id: str, character_update: 
                 size=(512, 512),
             )
 
-            prompt_content_extra_data = [
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": "Describe a detalle el personaje con la siquiente imagen y la descrpccion del personaje,"
-                                    " extrae los colores de la piel, cabello, ojos, labios, zapatos, pantalones y camisa."
-                                    "en dado caso que una prenda no este visible colocar un color adorde a los demas colores,"
-                                    "en dado caso de que la imagen no tenga colores colocar colores que se asemejen a la imagen."
-                                    "en dado caso no se puedan de terminar los colores colocar colores asocidos a la descripcion.",
-                        },
-                        {
-                            "type": "text",
-                            "text": f"Descripcion del personaje: {character_db['description']}",
-                        },
-                        {"type": "image_url", "image_url": {"url": character_update.image}},
-                    ],
-                }
-            ]
+            # prompt_content_extra_data = [
+            #     {
+            #         "role": "user",
+            #         "content": [
+            #             {
+            #                 "type": "text",
+            #                 "text": "Describe a detalle el personaje con la siquiente imagen y la descrpccion del personaje,"
+            #                         " extrae los colores de la piel, cabello, ojos, labios, zapatos, pantalones y camisa."
+            #                         "en dado caso que una prenda no este visible colocar un color adorde a los demas colores,"
+            #                         "en dado caso de que la imagen no tenga colores colocar colores que se asemejen a la imagen."
+            #                         "en dado caso no se puedan de terminar los colores colocar colores asocidos a la descripcion.",
+            #             },
+            #             {
+            #                 "type": "text",
+            #                 "text": f"Descripcion del personaje: {character_db['description']}",
+            #             },
+            #             {"type": "image_url", "image_url": {"url": character_update.image}},
+            #         ],
+            #     }
+            # ]
 
-            extra_data = get_extra_data_character_ai(prompt_content_extra_data)
+            # extra_data = get_extra_data_character_ai(prompt_content_extra_data)
 
-            character_db['extra_data'] = extra_data["extra_data"]
+            # character_db['extra_data'] = extra_data["extra_data"]
 
-            if character_db['gender'] in ["woman", "man"]:
-                customizes_db, count_customize = await get_customize_by_type_character_service(character_db['gender'],
-                                                                                               "hair")
+            # if character_db['genre'] in ["woman", "man"]:
+            #     customizes_db, count_customize = await get_customize_by_type_character_service(character_db['gender'],
+            #                                                                                    "hair")
 
-                customize_character = get_customize_by_character(
-                    customizes_db, character_db['description']
-                )
-
-                character_db['extra_data']["type_combing"] = customize_character["reference_ui"]
+                # customize_character = get_customize_by_character(
+                #     customizes_db, character_db['description']
+                # )
+                #
+                # character_db['extra_data']["type_combing"] = customize_character["reference_ui"]
 
             character_db["image"] = character_update.image
             await db["character"].update_one({"_id": ObjectId(character_id)},
@@ -177,9 +179,74 @@ async def create_character_by_collection_service(*,
                                                  user_id: str,
                                                  name: str,
                                                  prompt_user: str,
-                                                 body_type: str, ):
-    if body_type in ["woman", "man", "MAN", "WOMAN"]:
-        customizes_db, count_customize = await get_customize_by_type_character_service(body_type, "hair")
+                                                 ):
+
+    json_response_1= {
+        "body_type": "string (are the types of body types that are available for the character the options are adult, child, animal)",
+        "genre": "string (are the types of genres that are available for the character the options are man, woman if the character is adult or child, if animal it is null)",
+    }
+
+    response_1 = generate_gpt4o(
+        content_prompt=[
+            {
+                "role": "system",
+                "content": "Eres un identificador de genero y tipo de cuerpo de un personaje, "
+                           f" responde con un JSON que contenga el esquema {json_response_1}",
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"nombre del personaje: {name} y descripción del personaje por parte del usuario: {prompt_user}",
+                    },
+                ],
+            },
+        ],
+        type_text="collection",
+        model="gpt-4o",
+        max_tokens=4096
+    )
+
+    response_1 = json.loads(response_1)
+
+    json_response_2 = {
+        "character_type": "string (are the types of characters that are available for the character)",
+    }
+
+    character_type_db = await db["character_type"].find({"body_type": response_1["body_type"], "genre": response_1["genre"]}).to_list(None)
+
+    response_2 = generate_gpt4o(
+        content_prompt=[
+            {
+                "role": "system",
+                "content": "Eres un identificador de tipo de personaje, "
+                           f" responde con un JSON que contenga el esquema {json_response_2}",
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"nombre del personaje: {name} y descripción del personaje por parte del usuario: {prompt_user}",
+                    },
+                    {
+                        "type": "text",
+                        "text": f"escoge uno de los siquientes tipos de personajes: {character_type_db}",
+                    }
+                ],
+            },
+        ],
+        type_text="collection",
+        model="gpt-4o",
+        max_tokens=4096
+    )
+
+    response_2 = json.loads(response_2)
+
+
+    # if response_1["body_type"] in ["woman", "man", "MAN", "WOMAN"]:
+    #     customizes_db, count_customize = await get_customize_by_type_character_service(response_1["body_type"], "hair")
 
     json_response = {
         "description": "string (description to identify the colors that the character has, it is necessary to know the"
@@ -194,15 +261,15 @@ async def create_character_by_collection_service(*,
                 "content": "crear una descripcion para indentificar aspectos visuales del personaje y poder generar una imagen"
                            f" responde con un JSON que contenga el esquema {json_response}",
             },
-            {
-                "role": "assistant",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"escoge uno de los siquientes tipos de cabello: {customizes_db}",
-                    },
-                ],
-            },
+            # {
+            #     "role": "assistant",
+            #     "content": [
+            #         {
+            #             "type": "text",
+            #             "text": f"escoge uno de los siquientes tipos de cabello: {customizes_db}",
+            #         },
+            #     ],
+            # },
             {
                 "role": "user",
                 "content": [{"type": "text", "text": prompt_user}]
@@ -220,8 +287,10 @@ async def create_character_by_collection_service(*,
         created_by=user_id,
         updated_by=user_id,
         description=response.get("description"),
-        body_type=body_type,
+        body_type=response_1["body_type"],
         prompt_user=prompt_user,
+        genre=response_1["genre"],
+        character_type=response_2["character_type"]
     )
 
     character_db = Character(**character.dict())
@@ -295,62 +364,62 @@ async def get_images_character_face_service(character_id: str):
             file_name=f"characters/{uuid4()}.jpg",
             size=(512, 512),
         )
-        customizes_db = []
-        if character_db['body_type'] in ["woman", "man", "MAN", "WOMAN"]:
-            customizes_db, count_customize = await get_customize_by_type_character_service(character_db['body_type'],
-                                                                                           "hair")
+        # customizes_db = []
+        # if character_db['body_type'] in ["woman", "man", "MAN", "WOMAN"]:
+        #     customizes_db, count_customize = await get_customize_by_type_character_service(character_db['body_type'],
+        #                                                                                    "hair")
 
-        prompt_content_extra_data = [
-            {
-                "role": "system",
-                "content": "Describe a detalle el personaje con la siquiente imagen y la descrpccion del personaje,"
-                           " extrae los colores de la piel, cabello, ojos, labios, zapatos, pantalones y camisa."
-                           "en dado caso que una prenda no este visible colocar un color adorde a los demas colores,"
-                           "en dado caso de que la imagen no tenga colores colocar colores que se asemejen a la imagen."
-                           "en dado caso no se puedan de terminar los colores colocar colores asocidos a la descripcion.",
-            },
-            {
-                "role": "assistant",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"tipos de peinados: {customizes_db}",
-                    },
-                ],
-            },
-            {
-                "role": "user",
-                "content": [
-                    # {
-                    #     "type": "text",
-                    #     "text": "Describe a detalle el personaje con la siquiente imagen y la descrpccion del personaje,"
-                    #             " extrae los colores de la piel, cabello, ojos, labios, zapatos, pantalones y camisa."
-                    #             "en dado caso que una prenda no este visible colocar un color adorde a los demas colores,"
-                    #             "en dado caso de que la imagen no tenga colores colocar colores que se asemejen a la imagen."
-                    #             "en dado caso no se puedan de terminar los colores colocar colores asocidos a la descripcion.",
-                    # },
-                    {
-                        "type": "text",
-                        "text": f"Descripcion del personaje: {character_db['description']}",
-                    },
-                    {"type": "image_url", "image_url": {"url": character_db["image"]}},
-                ],
-            }
-        ]
+        # prompt_content_extra_data = [
+        #     {
+        #         "role": "system",
+        #         "content": "Describe a detalle el personaje con la siquiente imagen y la descrpccion del personaje,"
+        #                    " extrae los colores de la piel, cabello, ojos, labios, zapatos, pantalones y camisa."
+        #                    "en dado caso que una prenda no este visible colocar un color adorde a los demas colores,"
+        #                    "en dado caso de que la imagen no tenga colores colocar colores que se asemejen a la imagen."
+        #                    "en dado caso no se puedan de terminar los colores colocar colores asocidos a la descripcion.",
+        #     },
+        #     {
+        #         "role": "assistant",
+        #         "content": [
+        #             {
+        #                 "type": "text",
+        #                 "text": f"tipos de peinados: {customizes_db}",
+        #             },
+        #         ],
+        #     },
+        #     {
+        #         "role": "user",
+        #         "content": [
+        #             # {
+        #             #     "type": "text",
+        #             #     "text": "Describe a detalle el personaje con la siquiente imagen y la descrpccion del personaje,"
+        #             #             " extrae los colores de la piel, cabello, ojos, labios, zapatos, pantalones y camisa."
+        #             #             "en dado caso que una prenda no este visible colocar un color adorde a los demas colores,"
+        #             #             "en dado caso de que la imagen no tenga colores colocar colores que se asemejen a la imagen."
+        #             #             "en dado caso no se puedan de terminar los colores colocar colores asocidos a la descripcion.",
+        #             # },
+        #             {
+        #                 "type": "text",
+        #                 "text": f"Descripcion del personaje: {character_db['description']}",
+        #             },
+        #             {"type": "image_url", "image_url": {"url": character_db["image"]}},
+        #         ],
+        #     }
+        # ]
 
-        extra_data = get_extra_data_character_ai(prompt_content_extra_data)
+        # extra_data = get_extra_data_character_ai(prompt_content_extra_data)
 
-        character_db['extra_data'] = extra_data["extra_data"]
+        # character_db['extra_data'] = extra_data["extra_data"]
 
-        if character_db['body_type'] in ["woman", "man", "MAN", "WOMAN"]:
+        # if character_db['body_type'] in ["woman", "man", "MAN", "WOMAN"]:
             # customizes_db, count_customize = await get_customize_by_type_character_service(character_db['body_type'],
             #                                                                                "hair")
 
-            customize_character = get_customize_by_character(
-                customizes_db, character_db['description']
-            )
+            # customize_character = get_customize_by_character(
+            #     customizes_db, character_db['description']
+            # )
 
-            character_db['extra_data']["type_combing"] = customize_character["reference_ui"]
+            # character_db['extra_data']["type_combing"] = customize_character["reference_ui"]
 
         await db["character"].update_one({"_id": ObjectId(character_id)}, {"$set": character_db})
 
@@ -363,7 +432,7 @@ async def get_images_character_face_service(character_id: str):
         )
 
 
-async def update_character_service(character_id: str, name: str, prompt_user: str, body_type: str):
+async def update_character_service(character_id: str, name: str, prompt_user: str):
     try:
         if character_db := await db["character"].find_one({"_id": ObjectId(character_id)}):
             if name:
@@ -396,8 +465,73 @@ async def update_character_service(character_id: str, name: str, prompt_user: st
                 response = json.loads(response_collection)
                 character_db["description"] = response.get("description")
 
-            if body_type:
-                character_db["body_type"] = body_type
+            json_response_1 = {
+                "body_type": "string (are the types of body types that are available for the character the options are adult, child, animal)",
+                "genre": "string (are the types of genres that are available for the character the options are man, woman if the character is adult or child, if animal it is null)",
+            }
+
+            response_1 = generate_gpt4o(
+                content_prompt=[
+                    {
+                        "role": "system",
+                        "content": "Eres un identificador de genero y tipo de cuerpo de un personaje, "
+                                   f" responde con un JSON que contenga el esquema {json_response_1}",
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"nombre del personaje: {name} y descripción del personaje por parte del usuario: {prompt_user}",
+                            },
+                        ],
+                    },
+                ],
+                type_text="collection",
+                model="gpt-4o",
+                max_tokens=4096
+            )
+
+            response_1 = json.loads(response_1)
+
+            json_response_2 = {
+                "character_type": "string (are the types of characters that are available for the character)",
+            }
+
+            character_type_db = await db["character_type"].find(
+                {"body_type": response_1["body_type"], "genre": response_1["genre"]}).to_list(None)
+
+            response_2 = generate_gpt4o(
+                content_prompt=[
+                    {
+                        "role": "system",
+                        "content": "Eres un identificador de tipo de personaje, "
+                                   f" responde con un JSON que contenga el esquema {json_response_2}",
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"nombre del personaje: {name} y descripción del personaje por parte del usuario: {prompt_user}",
+                            },
+                            {
+                                "type": "text",
+                                "text": f"escoge uno de los siquientes tipos de personajes: {character_type_db}",
+                            }
+                        ],
+                    },
+                ],
+                type_text="collection",
+                model="gpt-4o",
+                max_tokens=4096
+            )
+
+            response_2 = json.loads(response_2)
+
+            character_db["body_type"] = response_1["body_type"]
+            character_db["genre"] = response_1["genre"]
+            character_db["character_type"] = response_2["character_type"]
 
             await db["character"].update_one({"_id": ObjectId(character_id)}, {"$set": character_db})
             character_db = await db["character"].find_one({"_id": ObjectId(character_id)})

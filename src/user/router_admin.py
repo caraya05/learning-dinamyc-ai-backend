@@ -28,8 +28,8 @@ async def get_users(
         user_db: dict = Depends(auth_admin),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema)
 ):
-    users_db = await db["user"].find().to_list(None)
+    users_db = await db["user"].find({"is_superuser":False, "is_staff":False}).to_list(None)
     for user in users_db:
-        user["id"] = str(user["_id"])
-        del user["_id"]
+        user["_id"] = str(user["_id"])
+        # del user["_id"]
     return users_db

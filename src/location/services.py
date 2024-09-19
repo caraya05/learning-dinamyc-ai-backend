@@ -5,24 +5,19 @@ from bson import ObjectId
 from fastapi import HTTPException
 from starlette import status
 
-from character.services import get_characters_by_location_service
 from core.database import db
-from location.models import Location
 
+from character.services import get_characters_by_location_service
+from location.models import Location
 from location.schemas import SchemaRetrieveLocation
 from location.schemas import SchemaCreateLocation
 from location.schemas import SchemaPartialUpdateLocation
-
 from scene.services import get_scenes_service
-
-from place.services import get_place_service
-
 from prompt.services import get_prompt_by_category_service
-
 from script.services import get_script_by_game_id_service
 # from sound.services import get_sound_by_field
-
 from gpt_ai.utils import generate_gpt4_
+from gpt_ai.utils import generate_gpt4o
 from sound.utils import identify_by_location_service
 
 from utils import upload_image
@@ -136,7 +131,6 @@ async def partial_update_location_service(*, location_id: str, schema: SchemaPar
     """
     try:
         if location_db := await db['location'].find_one({"_id": ObjectId(location_id)}):
-
             location_db["updated_by"] = user_id
             if schema.title:
                 location_db["title"] = schema.title
@@ -144,6 +138,29 @@ async def partial_update_location_service(*, location_id: str, schema: SchemaPar
                 location_db["prompt_user"] = schema.prompt_user
                 await generate_description_location_service(location_id=location_id)
             if schema.image:
+                json_environment = {
+                    "fog_level": "string (none, medium, high) - The level of fog in the location",
+                    "light_mode": "string (cloudy, directSun, shade, blueSky) - The light mode in the location",
+                    "light_intensity": "string (low, high) - The light intensity in the location",
+                    "animals": "array of strings ['dog','bird','squirrel','firefly'] - The animals in the location, choose only one or none if not necessary.",
+                }
+
+                prompt_analyze = [
+                    {
+                        "role": "system",
+                        "content": f"Analiza la imagen de la locacion y describe el ambiente en la imagen, response con el siguiente formato JSON: {json_environment}"
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image_url", "image_url": {"url": schema.image}},
+                        ],
+                    }
+                ]
+
+                response_analyze = generate_gpt4o(content_prompt=prompt_analyze, model="gpt-4o-mini")
+                response_analyze = json.loads(response_analyze)
+                location_db['environment'] = response_analyze
                 location_db["image"] = upload_image(
                     url_image=schema.image,
                     file_name=f"locations/{uuid4()}.jpg",
@@ -284,7 +301,8 @@ async def get_locations_v2_service(*, game_id: str, skip: int = 0, limit: int = 
         game_db = await db['game'].find_one({"_id": ObjectId(game_id)})
         locations = await (db['location'].find({"_id": {"$in": [ObjectId(i) for i in game_db["locations_id"]]}})
                            .sort("created_at", -1).skip(skip).limit(limit).to_list(None))
-        count_locations = await db['location'].count_documents({"_id": {"$in": [ObjectId(i) for i in game_db["locations_id"]]}})
+        count_locations = await db['location'].count_documents(
+            {"_id": {"$in": [ObjectId(i) for i in game_db["locations_id"]]}})
         # script_db = await get_script_by_game_id_service(game_id)
         # scenes_db, count_scene = await get_scenes_service(script_id=script_db["_id"])
         # locations_order = []
@@ -299,3 +317,21 @@ async def get_locations_v2_service(*, game_id: str, skip: int = 0, limit: int = 
     except Exception as e:
         print(f"Error in get locations service: {e}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Locations not found.")
+
+
+async def get_all_location_service(user_id: str, skip: int = 1, limit: int = 10):
+    try:
+        characters_db = await (db["location"]
+                               .find({"created_by": user_id})
+                               .sort("created_at", -1)
+                               .skip((skip - 1) * limit)
+                               .limit(limit)
+                               .to_list(None))
+        count_characters = await db["location"].count_documents({"created_by": user_id})
+        return characters_db, count_characters
+    except Exception as e:
+        print(f"Error in get all character service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Characters not found",
+        )

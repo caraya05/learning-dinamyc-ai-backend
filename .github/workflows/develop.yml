@@ -15,9 +15,21 @@ jobs:
       with:
         token: ${{ secrets.GH_PAT }}
 
+    - name: Send Inline Telegram Message (Start)
+      uses: cbrgm/telegram-github-action@v1
+      with:
+        token: ${{ secrets.TELEGRAM_TOKEN }}
+        to: ${{ secrets.TELEGRAM_CHAT_ID }}
+        message: |
+          Deployment started 🚀 by ${{ github.actor }}!
+          Commit: ${{ github.event.head_commit.message }}
+          Branch: ${{ github.ref }}
+          Repository: ${{ github.repository }}
+          View changes: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
+          Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
     - name: Despliegue en Digital Ocean
       uses: appleboy/ssh-action@master
-
       with:
         token: ${{ secrets.GH_PAT }}
         host: ${{ secrets.DIGITAL_OCEAN_HOST }}
@@ -32,3 +44,23 @@ jobs:
           make dev-build
           make dev-up-pro
 #          make apply-migrations
+
+    - name: Send Inline Telegram Message (End)
+      if: success()
+      uses: cbrgm/telegram-github-action@v1
+      with:
+        token: ${{ secrets.TELEGRAM_TOKEN }}
+        to: ${{ secrets.TELEGRAM_CHAT_ID }}
+        message: |
+          Deployment completed ✅ by ${{ github.actor }} 🐵 on branch ${{ github.ref }}.
+          Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+    - name: Send Inline Telegram Message (Failure)
+      if: failure()
+      uses: cbrgm/telegram-github-action@v1
+      with:
+        token: ${{ secrets.TELEGRAM_TOKEN }}
+        to: ${{ secrets.TELEGRAM_CHAT_ID }}
+        message: |
+          Deployment failed ❌ by ${{ github.actor }} on branch ${{ github.ref }}.
+          Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

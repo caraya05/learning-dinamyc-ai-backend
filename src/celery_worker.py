@@ -1,23 +1,21 @@
+import asyncio
 import json
 import os
 import sys
-import asyncio
-import requests
-
 from uuid import uuid4
+
+import requests
 from bson import ObjectId
 from celery import Celery
 
-from core import db
-
-from gpt_ai.utils import generate_image_dalle, generate_gpt4o, generate_gpt4_vision_
-from location.schemas import SchemaCreateLocation
 from character.schemas import SchemaCreateCharacter
-from scene.schemas import SchemaCreateScene
+from core import db
+from gpt_ai.utils import generate_gpt4o, generate_image_dalle
+from location.schemas import SchemaCreateLocation
 from object.schemas import SchemaCreateObject
+from scene.schemas import SchemaCreateScene
 from script.schemas import SchemaPartialUpdateScript
 from script.utils import get_script_locations_chapter_v2
-
 from utils import upload_image
 
 celery = Celery(__name__)
@@ -513,7 +511,7 @@ def image_is_vertical(image_url: str) -> bool:
         }
     ]
 
-    response_identify = generate_gpt4_vision_(content_prompt=prompt, max_tokens=4096)
+    response_identify = generate_gpt4o(content_prompt=prompt, max_tokens=4096, type_="text")
 
     if "vertical" in response_identify.lower() or "Vertical" in response_identify.lower():
         return True
@@ -577,27 +575,32 @@ def create_cover_image_task(game_id: str):
 
 async def async_generate_context_init_game_task(game_id: str):
     try:
-
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if not game_db:
+            print("game not found")
             return False
 
-        if game_db.get('history'):
-            return True
+        # if not game_db.get('history'):
+        #     print("game history not found")
+        #     return False
 
-        game_name = game_db.get('title')
-        if not game_name:
-            return False
+        # game_name = game_db.get('title')
+        # if not game_name:
+        #     print("game name not found")
+        #     return False
 
         if not game_db.get('locations_id'):
+            print("locations not found")
             return False
 
         first_location = await db['location'].find_one({'_id': ObjectId(game_db['locations_id'][0])})
         if not first_location:
+            print("location not found")
             return False
 
         location_description = first_location.get('prompt_user')
         if not location_description:
+            print("location description not found")
             return False
 
         # generate the story for the game
@@ -605,7 +608,7 @@ async def async_generate_context_init_game_task(game_id: str):
         content_prompt = [
             {"role": "system", "content": "You are a creative story generator."},
             {"role": "user",
-             "content": f"Generate the story init for the game '{game_name}' set in the location "
+             "content": f"Generate the story init for the game, set in the location "
                         f"'{first_location['title']}'. The location is described as: {location_description}. "
                         f"Respond only with the text of the story in JSON format: {{'story': '<story_text>'}}"}
         ]
@@ -865,6 +868,9 @@ async def async_get_category_game_task(game_id: str):
         ]
         category_generated = generate_gpt4o(content_prompt=content_prompt, type_text="category", max_tokens=1000,model="gpt-4o-mini")
         category_id = json.loads(category_generated)["category_selected"]
+        print(f"Category selected: {category_id}")
+        print(f"Game id: {game_id}")
+        print(f"Game db: {game_db}")
         await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'category_id': category_id}})
         return True
     except Exception as e:

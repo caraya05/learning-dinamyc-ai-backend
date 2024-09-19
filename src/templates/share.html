@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>{{ name }}</title>
+    <meta http-equiv=Content-Type content="text/html; charset=windows-1252">
     <meta property="og:image" content="{{ image }}" />
      <meta property="og:title" content="{{ name }}" />
     <meta property="og:url" content="{{ url }}" />
@@ -21,7 +22,7 @@
     </style>
     <script>
         window.onload = function() {
-            window.location.href = "{{ url_form }}";
+            window.location.href = "unitydl://qwestar?{{ game_id }}";
         }
     </script>
 </head>

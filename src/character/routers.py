@@ -323,7 +323,6 @@ async def create_character(
 
         if character_db := await create_character_by_collection_service(user_id=str(user_db.get("_id")),
                                                                         name=character.name,
-                                                                        body_type=character.body_type,
                                                                         prompt_user=character.prompt_user):
             return character_db
 
@@ -379,7 +378,6 @@ async def partial_update_character(
     try:
         character_db = await update_character_service(character_id=character_id,
                                                       name=character_update.name,
-                                                      body_type=character_update.body_type,
                                                       prompt_user=character_update.prompt_user)
         return character_db
 

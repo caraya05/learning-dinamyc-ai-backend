@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 from uuid import uuid4
 
+import pytz
 from bson import ObjectId
 from fastapi import APIRouter
 from fastapi import Depends
@@ -39,6 +40,7 @@ from game.services import add_characters_game_service
 from auth.auth import auth
 
 from auth.utils import auth_schema
+from game.utils import number_players_have_played_game_util
 from prompt.services import get_prompt_by_category_service
 
 # from script.services import get_scripts_service
@@ -80,6 +82,7 @@ async def get_games(
 
         for game in games_db:
             game["_id"] = str(game["_id"])
+            game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
 
         return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages // count + 1)
 
@@ -116,7 +119,9 @@ async def get_game(
     """
 
     try:
-        return await get_game_service(game_id)
+        game_db = await get_game_service(game_id)
+        game_db["plays"] = await number_players_have_played_game_util(game_id)
+        return game_db
     except Exception as e:
         print(f"Error getting game: {str(e)}")
         raise HTTPException(
@@ -361,6 +366,14 @@ async def my_games(
 
         for game in games_db:
             game["_id"] = str(game["_id"])
+            game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
+            game_published = await db['published_game'].find_one({'game_id': str(game["_id"])})
+            if not game_published:
+                game["status"] = 0
+                game["reject_note"] = None
+            else:
+                game["status"] = game_published["status"]
+                game["reject_note"] = game_published["return_note"]
 
         return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages)
 
@@ -527,12 +540,12 @@ async def play_game(
     """
 
     try:
-        record_game = await db['record_game'].create_one({
+        record_game = await db['record_game'].insert_one({
             'game_id': game_id,
             'user_id': str(user_db.get("_id")),
             'created_at': datetime.utcnow()
         })
-        return "Game played"
+        return {'detail': 'Game played'}
     except Exception as e:
         print(f"Error playing game: {str(e)}")
         raise HTTPException(
@@ -688,7 +701,8 @@ async def publish_game(
 
     It returns the game's information.
     """
-
+    get_category_game_task.delay(game_id)
+    generate_game_summary_task.delay(game_id)
     try:
         if game_db := await get_game_v2_service(game_id):
 
@@ -710,13 +724,26 @@ async def publish_game(
             if "published_at" in game_db:
                 del game_db["published_at"]
 
+            # Current time in UTC
+            now_utc = datetime.now(pytz.timezone('UTC'))
+            now_bog = now_utc.astimezone(pytz.timezone('America/Bogota'))
+            now_bog_minus_5 = now_bog - timedelta(hours=5)
+
             published_game = {
                 "published": True,
-                "updated_at": datetime.utcnow(),
+                "created_at": now_bog_minus_5,
+                "created_by": str(user_db.get("_id")),
+                "updated_at": now_bog_minus_5,
                 "updated_by": str(user_db.get("_id")),
+                "status": 1,
                 "game_id": game_id,
-                "game": game_db,
-                "version": version
+                "game": None,
+                "version": version,
+                "return_note": None,
+                "reviewed": False,
+                "reviewer": None,
+                "reviewed_at": None,
+                "reviewed_by": None,
             }
 
             if published_game_db := await db['published_game'].insert_one(published_game):
@@ -764,7 +791,7 @@ async def publish_games(
         )
 
 
-@router2.get("/publish/categories/", status_code=status.HTTP_200_OK)
+@router2.get("/publish/categories/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
 async def publish_games(
         category: str,
         user_db: dict = Depends(auth),
@@ -784,11 +811,12 @@ async def publish_games(
 
     try:
         if category == 'Other':
-            query = {'published': {'$exists': True}, 'category': None}
+            query = {'published': {'$exists': True}, 'category_id': None}
         else:
             query = {'published': {'$exists': True}, 'category_id': category}
 
         published_games = await db['game'].find(query).skip((page - 1) * count).limit(count).to_list(None)
+        count_published_games = await db['game'].count_documents(query)
 
         if not published_games:
             raise HTTPException(
@@ -797,9 +825,13 @@ async def publish_games(
             )
         games_published = []
         for game in published_games:
-            if games_published_db := await db['published_game'].find_one({'_id': ObjectId(game['published'])}):
-                games_published.append(games_published_db["game"])
-        return games_published
+            if games_published_db := await db['published_game'].find_one(
+                    {'_id': ObjectId(game['published']), 'status': 2}):
+                game["_id"] = str(game["_id"])
+                game["status"] = games_published_db["status"]
+                games_published.append(game)
+        return SchemaListGame(results=games_published, count=len(games_published), page=page,
+                              total_pages=count_published_games // count + 1)
 
     except Exception as e:
         print(f"Error publishing games: {str(e)}")
@@ -832,6 +864,7 @@ async def unpublish_game(
                     'published_at': ""
                 }}
             )
+            await db['published_game'].find_one_and_delete({'game_id': game_id})
             return "Game unpublished"
 
     except Exception as e:
@@ -884,9 +917,6 @@ async def change_character(
         if game_db := await change_character_principal_game_service(data.game_id, data.character_id):
             create_cover_image_task.delay(data.game_id)
             generate_context_init_game_task.delay(data.game_id)
-            time.sleep(3)
-            get_category_game_task.delay(data.game_id)
-            generate_game_summary_task.delay(data.game_id)
 
             # await generate_cover_image_game_v2_service(data.game_id)
             # story = await generate_story_game_service(data.game_id)
@@ -926,7 +956,17 @@ async def get_game(
     """
 
     try:
-        return await get_game_service(game_id)
+        game_db= await get_game_service(game_id)
+        game_pending = await db['published_game'].find_one({'game_id': game_id})
+        if game_pending:
+            game_db["status"] = game_pending["status"]
+            game_db["reject_note"] = game_pending["return_note"]
+        else:
+            game_db["status"] = 0
+            game_db["reject_note"] = None
+
+        return game_db
+
     except Exception as e:
         print(f"Error getting game: {str(e)}")
         raise HTTPException(
@@ -990,8 +1030,16 @@ async def my_games(
 
         for game in games_db:
             game["_id"] = str(game["_id"])
+            game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
+            game_published = await db['published_game'].find_one({'game_id': str(game["_id"])})
+            if  not game_published:
+                game["status"] = 0
+                game["reject_note"] = None
+            else:
+                game["status"] = game_published["status"]
+                game["reject_note"] = game_published["return_note"]
 
-        return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages)
+        return SchemaListGame(results=games_db, count=len(games_db), page=page, total_pages=count_pages // count + 1)
 
     except Exception as e:
         print(f"Error getting my games: {str(e)}")
