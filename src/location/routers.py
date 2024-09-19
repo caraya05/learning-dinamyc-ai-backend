@@ -23,7 +23,6 @@ from location.services import get_locations_service, get_locations_v2_service, g
 from location.services import get_location_service
 from location.services import create_location_service
 from location.services import partial_update_location_service
-from location.services import update_attempts_location_service
 from prompt.services import get_prompt_by_category_service
 from sound.services import get_sound_service
 from user.services import disable_user_service, validate_star_user_service
