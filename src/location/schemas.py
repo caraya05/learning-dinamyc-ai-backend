@@ -28,12 +28,7 @@ class SchemaCreateLocation(BaseModel):
     description (Optional[str]): The description of the location.
     """
     title: Optional[str]
-    description: Optional[str]
-    image: Optional[str]
     prompt_user: Optional[str]
-    # place_id: Optional[str]
-    game_id: Optional[str]
-    environment: Optional[dict]
 
 
 
@@ -47,11 +42,8 @@ class SchemaPartialUpdateLocation(BaseModel):
     image (Optional[str]): The image of the location.
     """
     title: Optional[str]
-    description: Optional[str]
     prompt_user: Optional[str]
-    image: Optional[str]
     configuration: Optional[dict]
-    environment: Optional[dict]
     connections: Optional[dict]
 
 

@@ -8,10 +8,10 @@ from datetime import datetime
 
 class Location(BaseModel):
     title: str = Field(None, example="Location Title")
-    description: str = Field(None, example="This is a location description")
+    description: Optional[str] = Field(None, example="This is a location description")
     prompt_user: str = Field(None, example="This is a prompt user")
-    image: str = Field(None, example="image.jpg")
-    config: list[dict] = Field(None, example="")
+    image: Optional[str] = Field(None, example="image.jpg")
+    config: Optional[list[dict]] = Field(None, example="")
     connections: Optional[dict] = Field(None, example="")
     sound_id: Optional[str] = Field(None, example="123")
     game_id: Optional[str] = Field(None, example="123")

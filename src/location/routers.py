@@ -1,31 +1,28 @@
-from bson import ObjectId
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import status
-
 from fastapi.security import HTTPAuthorizationCredentials
 
 from auth.auth import auth
 from auth.utils import auth_schema
-from core import db
-from game.services import get_locations_game_publish_service, get_location_game_publish_service
-from gpt_ai.utils import generate_image_dalle
-from gpt_ai.utils import generate_gpt4o
+from game.services import get_locations_game_publish_service
+from game.services import get_location_game_publish_service
 
 from location.schemas import SchemaListLocation
 from location.schemas import SchemaRetrieveLocation
 from location.schemas import SchemaCreateLocation
 from location.schemas import SchemaPartialUpdateLocation
 
-from location.services import get_locations_service, get_locations_v2_service
-# from location.services import get_place_by_location_service
+from location.services import get_locations_v2_service
+from location.services import generate_image_location_service
 from location.services import get_location_service
 from location.services import create_location_service
 from location.services import partial_update_location_service
-from prompt.services import get_prompt_by_category_service
 from sound.services import get_sound_service
-from user.services import disable_user_service, validate_star_user_service
+# TODO: falta implemntar el desconteo de estrellas
+from user.services import disable_user_service
+from user.services import validate_star_user_service
 
 router = APIRouter(prefix="/location", tags=["Location"])
 
@@ -34,7 +31,6 @@ router = APIRouter(prefix="/location", tags=["Location"])
 async def get_locations(
         game_id: str = None,
         publish: bool = False,
-        # place_id: str = None,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
@@ -43,7 +39,6 @@ async def get_locations(
 
     It returns a list of locations.
     """
-
     if publish:
         try:
             locations_db = await get_locations_game_publish_service(game_id=game_id)
@@ -58,10 +53,11 @@ async def get_locations(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Locations not found",
             )
-
     else:
         try:
-            locations_db, count_locations = await get_locations_service(skip=0, limit=100, game_id=game_id)
+            locations_db, count_locations = await get_locations_v2_service(skip=0,
+                                                                           limit=100,
+                                                                           game_id=game_id)
 
             for location in locations_db:
                 location["_id"] = str(location["_id"])
@@ -94,7 +90,8 @@ async def get_location(
         game_id = location_id.split("_")[-1]
         location_id = location_id.split("_")[0]
         try:
-            locations_db = await get_location_game_publish_service(game_id=game_id, location_id=location_id)
+            locations_db = await get_location_game_publish_service(game_id=game_id,
+                                                                   location_id=location_id)
             sound_db = await get_sound_service(locations_db["sound_id"])
             locations_db["sound_id"] = sound_db["file"]
             return locations_db
@@ -106,7 +103,8 @@ async def get_location(
             )
     else:
         try:
-            location_db = await get_location_service(location_id=location_id, user_id=str(user_db['_id']))
+            location_db = await get_location_service(location_id=location_id,
+                                                     user_id=str(user_db['_id']))
             return location_db
 
         except Exception as e:
@@ -131,7 +129,8 @@ async def create_location(
     await validate_star_user_service(user_id=str(user_db.get("_id")))
 
     try:
-        location_db = await create_location_service(schema, str(user_db['_id']))
+        location_db = await create_location_service(location=schema,
+                                                    user_id=str(user_db['_id']))
         return location_db
 
     except Exception as e:
@@ -160,7 +159,8 @@ async def partial_update_location(
     """
 
     try:
-        location_db = await partial_update_location_service(location_id=location_id, schema=schema,
+        location_db = await partial_update_location_service(location_id=location_id,
+                                                            location=schema,
                                                             user_id=str(user_db['_id']))
         if location_db["config"]:
             for config in location_db["config"]:
@@ -188,64 +188,14 @@ async def generate_image_location(
     It expects the location's id in the request path.
     If the location is successfully updated, it returns the location's information.
     """
-    location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
-    prompt_db_image_location = await get_prompt_by_category_service("location_image")
-    content_prompt = f'{prompt_db_image_location["description"]}, {location_db["description"]}'
-    new_prompt = generate_gpt4o(content_prompt=[
-        {"role": "system", "content": "reestructure el prompt para generar la imagen con estilo 3D volumétrico en vista"
-                                      " isométrica para un videojuego RPG, con fondo de color solido."},
-        {"role": "user", "content": content_prompt},
-    ], type_="text", type_text="text")
-    image_generate = generate_image_dalle(prompt=new_prompt,
-                                          quality="hd",
-                                          size="1792x1024")
-    await db['location'].update_one({"_id": ObjectId(location_id)}, {"$set": location_db})
-    await disable_user_service(user_id=str(user_db["_id"]), section="location")
+    try:
+        location_db = await generate_image_location_service(location_id=location_id,
+                                                            user_id=str(user_db['_id']))
+        return location_db
 
-    return image_generate
-
-
-router2 = APIRouter(prefix="/location", tags=["Location"])
-
-
-@router2.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
-async def get_locations(
-        game_id: str = None,
-        publish: bool = False,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-):
-    """
-    This endpoint retrieves all locations.
-
-    It returns a list of locations.
-    """
-    if publish:
-        try:
-            locations_db = await get_locations_game_publish_service(game_id=game_id)
-
-            for location in locations_db:
-                location["_id"] = f'{location["_id"]}_{game_id}'
-
-            return SchemaListLocation(results=locations_db, count=len(locations_db))
-        except Exception as e:
-            print(f"Error in get locations: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Locations not found",
-            )
-    else:
-        try:
-            locations_db, count_locations = await get_locations_v2_service(skip=0, limit=100, game_id=game_id)
-
-            for location in locations_db:
-                location["_id"] = str(location["_id"])
-
-            return SchemaListLocation(results=locations_db, count=count_locations)
-
-        except Exception as e:
-            print(f"Error in get locations: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Locations not found",
-            )
+    except Exception as e:
+        print(f"Error in generate image location: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Location not updated",
+        )
