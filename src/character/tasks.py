@@ -181,7 +181,7 @@ async def async_generate_character_task(_character_id,
     character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
 
     if not character_db:
-        await db["task"].update_one({"task_id": _task_id},
+        await db["task"].update_one({"_id": _task_id},
                                     {"$set": {"status": "error",
                                               "message": f"Can't find character with id {_character_id}"}})
         return f"Can't find character with id {_character_id}"
@@ -199,12 +199,12 @@ async def async_generate_character_task(_character_id,
     if not response_image:
         message_response += " Error in generate image character face service "
     if message_response != "":
-        await db["task"].update_one({"task_id": _task_id},
+        await db["task"].update_one({"_id": _task_id},
                                     {"$set": {"status": "error",
                                               "message": message_response}})
         return message_response
 
-    await db["task"].update_one({"task_id": _task_id},
+    await db["task"].update_one({"_id": _task_id},
                                 {"$set": {"status": "completed",
                                           "message": "Character created successfully"}})
 
@@ -218,7 +218,6 @@ async def async_generate_image_character_task(_character_id,
         _id=_task_id,
         _status="pending"
     )
-
     character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
 
     if not character_db:
@@ -241,4 +240,4 @@ async def async_generate_image_character_task(_character_id,
                                 {"$set": {"status": "completed",
                                           "message": "Character created successfully"}})
 
-    return "Character generate successfully"
+    return "Character image generate successfully"
