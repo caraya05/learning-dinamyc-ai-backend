@@ -23,7 +23,6 @@ from object.services import create_object_service
 
 from prompt.services import get_prompt_by_category_service
 
-from gpt_ai.utils import generate_image_dalle
 from user.services import disable_user_service, validate_star_user_service
 from utils import upload_image
 
@@ -117,40 +116,40 @@ def retrieve_object(
 #     return SchemaRetrieveObject(**object_db.dict())
 
 
-@router.get("/generate-image/{object_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveObject)
-async def generate_image(
-        object_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-):
-    """
-    This endpoint generates a image for a object.
-
-    It returns the image.
-    """
-
-    try:
-
-        object_db = await retrieve_object_service(object_id=object_id)
-        prompt_db_image_object = await get_prompt_by_category_service('image_object')
-        prompt_object = prompt_db_image_object.get("description").replace("x_object", object_db.get("description"))
-        image_generated = generate_image_dalle(prompt_object, quality="hd", size="1024x1024")
-
-        image_object = upload_image(
-            url_image=image_generated,
-            file_name=f"object/{uuid4()}.jpg",
-            size=(512, 512),
-        )
-
-        object_db = await update_image_object_service(object_id, image_object)
-        return object_db
-
-    except Exception as e:
-        print(f"Error in generate image: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Image not generated",
-        )
+# @router.get("/generate-image/{object_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveObject)
+# async def generate_image(
+#         object_id: str,
+#         user_db: dict = Depends(auth),
+#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+# ):
+#     """
+#     This endpoint generates a image for a object.
+#
+#     It returns the image.
+#     """
+#
+#     try:
+#
+#         object_db = await retrieve_object_service(object_id=object_id)
+#         prompt_db_image_object = await get_prompt_by_category_service('image_object')
+#         prompt_object = prompt_db_image_object.get("description").replace("x_object", object_db.get("description"))
+#         # image_generated = generate_image_dalle(prompt_object, quality="hd", size="1024x1024")
+#
+#         image_object = upload_image(
+#             url_image=image_generated,
+#             file_name=f"object/{uuid4()}.jpg",
+#             size=(512, 512),
+#         )
+#
+#         object_db = await update_image_object_service(object_id, image_object)
+#         return object_db
+#
+#     except Exception as e:
+#         print(f"Error in generate image: {str(e)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Image not generated",
+#         )
 
 
 router2 = APIRouter(prefix="/item", tags=["Item"])
@@ -181,42 +180,42 @@ async def create_object(
         )
 
 
-@router2.get("/{item_id}/generate-image/", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveObject)
-async def generate_image(
-        item_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-):
-    """
-    This endpoint generates a image for a object.
-
-    It returns the image.
-    """
-
-    try:
-
-        object_db = await retrieve_object_service(object_id=item_id)
-        prompt_db_image_object = await get_prompt_by_category_service('image_object')
-        prompt_object = prompt_db_image_object.get("description").replace("x_object", object_db.get("prompt_user"))
-        image_generated = generate_image_dalle(prompt_object, quality="hd", size="1024x1024")
-
-        image_object = upload_image(
-            url_image=image_generated,
-            file_name=f"object/{uuid4()}.jpg",
-            size=(512, 512),
-        )
-
-        await disable_user_service(user_id=str(user_db["_id"]), section="item")
-
-        object_db = await update_image_object_service(item_id, image_object)
-        return object_db
-
-    except Exception as e:
-        print(f"Error in generate image: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Image not generated",
-        )
+# @router2.get("/{item_id}/generate-image/", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveObject)
+# async def generate_image(
+#         item_id: str,
+#         user_db: dict = Depends(auth),
+#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+# ):
+#     """
+#     This endpoint generates a image for a object.
+#
+#     It returns the image.
+#     """
+#
+#     try:
+#
+#         object_db = await retrieve_object_service(object_id=item_id)
+#         prompt_db_image_object = await get_prompt_by_category_service('image_object')
+#         prompt_object = prompt_db_image_object.get("description").replace("x_object", object_db.get("prompt_user"))
+#         image_generated = generate_image_dalle(prompt_object, quality="hd", size="1024x1024")
+#
+#         image_object = upload_image(
+#             url_image=image_generated,
+#             file_name=f"object/{uuid4()}.jpg",
+#             size=(512, 512),
+#         )
+#
+#         await disable_user_service(user_id=str(user_db["_id"]), section="item")
+#
+#         object_db = await update_image_object_service(item_id, image_object)
+#         return object_db
+#
+#     except Exception as e:
+#         print(f"Error in generate image: {str(e)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Image not generated",
+#         )
 
 
 @router2.patch("/{item_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveObject)

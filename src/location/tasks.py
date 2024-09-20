@@ -34,7 +34,7 @@ class SchemaLocationEnvironment(BaseModel):
                           title="Animals",
                           description="['dog','bird','squirrel','firefly'] - The animals in the location, choose "
                                       "only one or none if not necessary.",
-                          max_length=50)
+                          )
 
 
 async def generate_environment_location(_location_id: str, _user_id: str):

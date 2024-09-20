@@ -71,9 +71,7 @@ async def websocket_endpoint(
             if not task_db:
                 await websocket.send_json({"detail": "No tasks found"})
             else:
-                print(f"Task found: {task_db}")
                 task_celery = AsyncResult(task_db["task_id"], app=celery)
-                print(f"Task celery: {task_celery}")
                 if task_celery.state == "SUCCESS":
                     await websocket.send_json({"detail": "Task completed", "task_id": str(task_db["_id"])})
                     await db["task"].update_one(

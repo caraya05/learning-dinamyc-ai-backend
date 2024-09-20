@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from fastapi import status
 
 from core import db
-from gpt_ai.utils import generate_gpt4o
+# from gpt_ai.utils import generate_gpt4o
 from utils import delete_image
 from voice.elevenlabs import generate_audio
 
@@ -98,132 +98,132 @@ async def get_voice_by_criteria_service(criteria: dict):
         )
 
 
-async def identify_voice_service(text_description: str, gender: str) -> dict:
-    variants_voices = await get_variants_service()
+# async def identify_voice_service(text_description: str, gender: str) -> dict:
+#     variants_voices = await get_variants_service()
+#
+#     json_response = {
+#         "age": "edad de la voz segun la descripcion",
+#         "gender": "genero de la voz segun la descripcion"
+#     }
+#
+#     content_prompt = [
+#         {
+#             "role": "system",
+#             "content": "Utilizando la siguiente descripción, identificar la voz que mejor se ajuste a la descripción. "
+#                        f"Respondiendo con la edad y género de la voz, con el siguiente formato JSON: {json_response}"
+#         },
+#         {
+#             "role": "assistant",
+#             "content": f"Variantes de voces a identificar: {variants_voices}"
+#         },
+#         {
+#             "role": "user",
+#             "content": f"Descripción del personaje: {text_description}"
+#                        f"Genero del personaje: {gender}"
+#         }
+#     ]
+#
+#     response_generated = generate_gpt4o(
+#         content_prompt=content_prompt,
+#         type_text="Identify Voice",
+#         type_="json_object"
+#     )
+#
+#     return json.loads(response_generated)
 
-    json_response = {
-        "age": "edad de la voz segun la descripcion",
-        "gender": "genero de la voz segun la descripcion"
-    }
 
-    content_prompt = [
-        {
-            "role": "system",
-            "content": "Utilizando la siguiente descripción, identificar la voz que mejor se ajuste a la descripción. "
-                       f"Respondiendo con la edad y género de la voz, con el siguiente formato JSON: {json_response}"
-        },
-        {
-            "role": "assistant",
-            "content": f"Variantes de voces a identificar: {variants_voices}"
-        },
-        {
-            "role": "user",
-            "content": f"Descripción del personaje: {text_description}"
-                       f"Genero del personaje: {gender}"
-        }
-    ]
-
-    response_generated = generate_gpt4o(
-        content_prompt=content_prompt,
-        type_text="Identify Voice",
-        type_="json_object"
-    )
-
-    return json.loads(response_generated)
-
-
-async def generate_voice_service(character: dict):
-    try:
-        criteria_voice = await identify_voice_service(text_description=character["description"],
-                                                      gender=character["body_type"])
-
-        voice = await get_voice_by_criteria_service(criteria=criteria_voice)
-
-        if character["audio"]:
-            delete_image(character["audio"])
-
-        game_db = await db["game"].find_one({'characters_id': {'$in': [str(character['_id'])]}})
-
-        if str(character["_id"]) == game_db["character_principal"]:
-            content_prompt = [
-                {"role": "system", "content": "You are a creative dialogue generator in english."},
-                {"role": "user",
-                 "content": f"Generate a first-person text in english about of the character '{character['name']}' in the game '{game_db['title']}'. "
-                            f"The current story is: {game_db['history']}. The character is described as: {character['prompt_user']}. "
-                            f"don't use the “as a”, just say what it does and that's all, use the “I am” or “I will do”. "
-                            f"do not physically describe the character,"
-                            f"the dialogue can be a sentence, a question or statement in the interaction."
-                            f"you are the protagonist, introduce yourself, what are you going to do?"
-                            f"should be a maximum of 20 words. "
-                            f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text>'}}"}
-            ]
-            story = generate_gpt4o(
-                content_prompt=content_prompt,
-                type_text="character dialogue",
-                max_tokens=2000,
-                model="gpt-4o-mini"
-            )
-
-            story = json.loads(story)
-            await db['character'].update_one({'_id': ObjectId(character['_id'])},
-                                             {'$set': {'presentation': story['dialogue']}})
-        else:
-            content_prompt = [
-                {"role": "system", "content": "You are a creative dialogue generator in english."},
-                {"role": "user",
-                 "content": f"Generate a first-person text in english about of the character '{character['name']}' in the game '{game_db['title']}'. "
-                            f"The current story is: {game_db['history']}. The character is described as: {character['prompt_user']}. "
-                            f"the dialogue should be the response of the interaction between that character and the main character."
-                            # f"don't use the “as a”, just say what it does and that's all, imagine it is the continuation of a conversation with the main character"
-                            f"do not physically describe the character,"
-                            f" the dialogue can be a sentence, a question or statement in the interaction you have with the character"
-                            f"should be a maximum of 20 words. "
-                            f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text_english>'}}"}
-            ]
-            story = generate_gpt4o(
-                content_prompt=content_prompt,
-                type_text="character dialogue",
-                max_tokens=2000,
-                model="gpt-4o-mini"
-            )
-
-            story = json.loads(story)
-
-            await db['character'].update_one({'_id': ObjectId(character['_id'])},
-                                             {'$set': {'presentation': story['dialogue']}})
-
-        # if not character.get("presentation"):
-        #     text_generated = generate_gpt4o(content_prompt=[
-        #         {"role": "user",
-        #          "content": f"Generate a first-person introduction in English about the life and story of the "
-        #                     f"character described as: {character['description']}, named {character['name']}."
-        #                     f" The introduction should be a maximum of 25 words."
-        #          },
-        #     ],
-        #         type_text="Generate Voice",
-        #         type_="text")
-        # else:
-        #     text_generated = character["presentation"]
-        character["presentation"] = story["dialogue"]
-        voice_url = generate_audio(text=story['dialogue'],
-                                   voice_id=voice["voice_id"])
-
-        character["audio"] = voice_url
-        # character["presentation"] = character
-
-        await db["character"].update_one({"_id": ObjectId(character["_id"])},
-                                         {"$set": character})
-        # if character_update.modified_count:
-
-        return character
-    #     else:
-    #         raise HTTPException(
-    #             status_code=status.HTTP_404_NOT_FOUND,
-    #             detail="Character not found"
-    #         )
-    except Exception as e:
-        print(f"Error in generate voice service: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Error in generate voice service",
-        )
+# async def generate_voice_service(character: dict):
+#     try:
+#         criteria_voice = await identify_voice_service(text_description=character["description"],
+#                                                       gender=character["body_type"])
+#
+#         voice = await get_voice_by_criteria_service(criteria=criteria_voice)
+#
+#         if character["audio"]:
+#             delete_image(character["audio"])
+#
+#         game_db = await db["game"].find_one({'characters_id': {'$in': [str(character['_id'])]}})
+#
+#         if str(character["_id"]) == game_db["character_principal"]:
+#             content_prompt = [
+#                 {"role": "system", "content": "You are a creative dialogue generator in english."},
+#                 {"role": "user",
+#                  "content": f"Generate a first-person text in english about of the character '{character['name']}' in the game '{game_db['title']}'. "
+#                             f"The current story is: {game_db['history']}. The character is described as: {character['prompt_user']}. "
+#                             f"don't use the “as a”, just say what it does and that's all, use the “I am” or “I will do”. "
+#                             f"do not physically describe the character,"
+#                             f"the dialogue can be a sentence, a question or statement in the interaction."
+#                             f"you are the protagonist, introduce yourself, what are you going to do?"
+#                             f"should be a maximum of 20 words. "
+#                             f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text>'}}"}
+#             ]
+#             story = generate_gpt4o(
+#                 content_prompt=content_prompt,
+#                 type_text="character dialogue",
+#                 max_tokens=2000,
+#                 model="gpt-4o-mini"
+#             )
+#
+#             story = json.loads(story)
+#             await db['character'].update_one({'_id': ObjectId(character['_id'])},
+#                                              {'$set': {'presentation': story['dialogue']}})
+#         else:
+#             content_prompt = [
+#                 {"role": "system", "content": "You are a creative dialogue generator in english."},
+#                 {"role": "user",
+#                  "content": f"Generate a first-person text in english about of the character '{character['name']}' in the game '{game_db['title']}'. "
+#                             f"The current story is: {game_db['history']}. The character is described as: {character['prompt_user']}. "
+#                             f"the dialogue should be the response of the interaction between that character and the main character."
+#                             # f"don't use the “as a”, just say what it does and that's all, imagine it is the continuation of a conversation with the main character"
+#                             f"do not physically describe the character,"
+#                             f" the dialogue can be a sentence, a question or statement in the interaction you have with the character"
+#                             f"should be a maximum of 20 words. "
+#                             f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text_english>'}}"}
+#             ]
+#             story = generate_gpt4o(
+#                 content_prompt=content_prompt,
+#                 type_text="character dialogue",
+#                 max_tokens=2000,
+#                 model="gpt-4o-mini"
+#             )
+#
+#             story = json.loads(story)
+#
+#             await db['character'].update_one({'_id': ObjectId(character['_id'])},
+#                                              {'$set': {'presentation': story['dialogue']}})
+#
+#         # if not character.get("presentation"):
+#         #     text_generated = generate_gpt4o(content_prompt=[
+#         #         {"role": "user",
+#         #          "content": f"Generate a first-person introduction in English about the life and story of the "
+#         #                     f"character described as: {character['description']}, named {character['name']}."
+#         #                     f" The introduction should be a maximum of 25 words."
+#         #          },
+#         #     ],
+#         #         type_text="Generate Voice",
+#         #         type_="text")
+#         # else:
+#         #     text_generated = character["presentation"]
+#         character["presentation"] = story["dialogue"]
+#         voice_url = generate_audio(text=story['dialogue'],
+#                                    voice_id=voice["voice_id"])
+#
+#         character["audio"] = voice_url
+#         # character["presentation"] = character
+#
+#         await db["character"].update_one({"_id": ObjectId(character["_id"])},
+#                                          {"$set": character})
+#         # if character_update.modified_count:
+#
+#         return character
+#     #     else:
+#     #         raise HTTPException(
+#     #             status_code=status.HTTP_404_NOT_FOUND,
+#     #             detail="Character not found"
+#     #         )
+#     except Exception as e:
+#         print(f"Error in generate voice service: {str(e)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail="Error in generate voice service",
+#         )

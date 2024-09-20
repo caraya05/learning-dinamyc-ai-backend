@@ -1,7 +1,6 @@
 import json
 
 from core.database import db
-from gpt_ai.utils import generate_gpt4_
 from prompt.services import get_prompt_by_category_service
 
 from category.schemas import SchemaRetrieveCategory

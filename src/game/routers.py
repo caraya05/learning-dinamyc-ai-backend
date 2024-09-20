@@ -1,5 +1,4 @@
 import time
-from uuid import uuid4
 
 from datetime import datetime
 from datetime import timedelta
@@ -18,15 +17,11 @@ from auth.auth import auth
 from auth.utils import auth_schema
 
 from category.services import get_categories_active_service
-from character.services import get_character_leading_role_service
-from configuration.services import get_configurations_service
 
 from game.schemas import SchemaRetrieveGame
 from game.schemas import SchemaChangeCharacter
 from game.schemas import SchemaUpdateGameV2
 from game.schemas import SchemaListGame
-from game.schemas import SchemaCreateGame
-from game.schemas import SchemaPartialUpdateGame
 from game.schemas import SchemaAddItem
 from game.schemas import SchemaAddCharacter
 from game.schemas import SchemaAddLocation
@@ -38,9 +33,6 @@ from game.services import get_game_v2_service
 from game.services import update_game_v2_service
 from game.services import get_my_games_v2_service
 from game.services import get_games_service
-from game.services import create_game_service
-from game.services import subtract_attempts_game_service
-from game.services import update_partial_game_service
 from game.services import delete_game_service
 from game.services import update_likes_game_service
 from game.services import add_items_game_service
@@ -49,18 +41,11 @@ from game.services import add_characters_game_service
 
 from game.utils import number_players_have_played_game_util
 
-from gpt_ai.utils import generate_image_dalle
-from utils import upload_image
+# from celery_worker import generate_context_new_location
 
-from celery_worker import create_cover_image_task
-from celery_worker import generate_context_init_game_task
-from celery_worker import generate_context_new_location
-from celery_worker import generate_context_new_character
-from celery_worker import get_category_game_task
-from celery_worker import generate_game_summary_task
 
-from celery.result import AsyncResult
-from celery_worker import celery
+from celery_worker import identify_category_game_task
+from task.services import create_task_service, update_task_service
 
 router = APIRouter(prefix="/game", tags=["Game"])
 
@@ -93,6 +78,7 @@ async def get_games(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Games not found",
         )
+
 
 # @router.get("/generate-cover/{game_id}", status_code=status.HTTP_200_OK)
 # async def cover_generate(
@@ -320,6 +306,7 @@ async def play_game(
             detail="Game not played",
         )
 
+
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveGame)
 async def create_game(
         user_db: dict = Depends(auth),
@@ -408,17 +395,11 @@ async def add_character_game(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Location not found",
             )
-        if character_game := await add_characters_game_service(data.game_id, data.character_id):
-
-            result = generate_context_new_character.delay(data.game_id, data.character_id,
-                                                          location_db.get('location_id'))
-            result_task = AsyncResult(id=result.id, app=celery)
-
-            for _ in range(5):
-                if result_task.ready():
-                    break
-                time.sleep(3)
-        return "Character added"
+        if character_game := await add_characters_game_service(game_id=data.game_id,
+                                                               characters_id=data.character_id,
+                                                               location_id=location_db['_id'],
+                                                               user_id=str(user_db.get("_id"))):
+            return "Character added"
 
     except HTTPException as e:
         print(f"Error adding character game: {e.detail}")
@@ -442,7 +423,7 @@ async def add_location_game(
 
     try:
         if location_game := await add_locations_game_service(data.game_id, data.location_id):
-            generate_context_new_location.delay(data.game_id, data.location_id)
+            # generate_context_new_location.delay(data.game_id, data.location_id)
             return "Location added"
 
     except Exception as e:
@@ -464,8 +445,26 @@ async def publish_game(
 
     It returns the game's information.
     """
-    get_category_game_task.delay(game_id)
-    generate_game_summary_task.delay(game_id)
+
+    task_db = await create_task_service(
+        _task_id="",
+        _user_id=str(user_db.get("_id")),
+        _task_data={},
+        _element_id=game_id,
+        _element_type="game",
+        _process="identify_category"
+    )
+
+    task_celery = identify_category_game_task.delay(_game_id=game_id,
+                                                    _task_id=str(task_db["_id"]),
+                                                    _user_id=str(user_db.get("_id"))
+                                                    )
+
+    await update_task_service(
+        _id=str(task_db["_id"]),
+        _task_id=task_celery.id,
+    )
+
     try:
         if game_db := await get_game_v2_service(game_id):
 
@@ -677,10 +676,8 @@ async def change_character(
     """
 
     try:
-        if game_db := await change_character_principal_game_service(data.game_id, data.character_id):
-            create_cover_image_task.delay(data.game_id)
-            generate_context_init_game_task.delay(data.game_id)
-
+        if game_db := await change_character_principal_game_service(data.game_id, data.character_id,
+                                                                    str(user_db.get("_id"))):
             return "Character changed"
 
     except Exception as e:
@@ -716,7 +713,7 @@ async def get_game(
     """
 
     try:
-        game_db= await get_game_service(game_id)
+        game_db = await get_game_service(game_id)
         game_pending = await db['published_game'].find_one({'game_id': game_id})
         if game_pending:
             game_db["status"] = game_pending["status"]
@@ -792,7 +789,7 @@ async def my_games(
             game["_id"] = str(game["_id"])
             game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
             game_published = await db['published_game'].find_one({'game_id': str(game["_id"])})
-            if  not game_published:
+            if not game_published:
                 game["status"] = 0
                 game["reject_note"] = None
             else:
