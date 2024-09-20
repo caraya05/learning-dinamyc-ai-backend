@@ -51,8 +51,8 @@ async def update_task_service(_id: str,
 
 async def get_task_pending_service(user_id: str):
     try:
-        task = await db["task"].find({"status": "pending", "user_id": user_id}).sort("created_at", 1).limit(1).to_list(
-            None)
+        task = await (db["task"].find({"status": "pending", "user_id": user_id})
+                      .sort("created_at", 1).limit(1).to_list(None))
         return task[0] if task else None
     except Exception as e:
         print("Error in get task pending", e)

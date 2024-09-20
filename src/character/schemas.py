@@ -9,8 +9,6 @@ from character.enums import TypeCharacter
 from character.enums import GenderCharacter
 from core import PyObjectId
 
-from weapon.schemas import SchemaRetrieveWeapon
-
 
 class ResponseModel(BaseModel):
     id: PyObjectId = Field(alias="_id")
@@ -32,7 +30,7 @@ class SchemaRetrieveCharacter(ResponseModel):
     name: str = Field(..., min_length=3, max_length=100, example="Jhon Doe")
     type: Optional[str] = Field(None, example=TypeCharacter.LEADING_ROLE)
     image: Optional[str] = Field(..., example="image", default_factory=None)
-    description: str = Field(..., min_length=8, example="this is a description")
+    description: Optional[str] = Field(None, min_length=8, example="this is a description")
     gender: Optional[str] = Field(None, example=GenderCharacter.MAN)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
     text_idle: Optional[dict] = Field(None, example={"key": "value"})
@@ -50,7 +48,7 @@ class SchemaRetrieveCharacterStr(ResponseModelStr):
     name: str = Field(..., min_length=3, max_length=100, example="Jhon Doe")
     type: str = Field(None, example=TypeCharacter.LEADING_ROLE)
     image: Optional[str] = Field(..., example="image", default_factory=None)
-    description: str = Field(..., min_length=8, example="this is a description")
+    description: Optional[str] = Field(None, min_length=8, example="this is a description")
     gender: str = Field(None, example=GenderCharacter.MAN)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
     text_idle: Optional[dict] = Field(None, example={"key": "value"})

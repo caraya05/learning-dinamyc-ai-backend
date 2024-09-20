@@ -89,8 +89,8 @@ class SchemaResponseStory(BaseModel):
     story: str = Field(..., description="Story generated")
 
 
-async def async_generate_context_init_game_task(_game_id: str,
-                                                _user_id: str):
+async def generate_context_init_game(_game_id: str,
+                                     _user_id: str):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
         if not game_db:
@@ -123,6 +123,7 @@ async def async_generate_context_init_game_task(_game_id: str,
     except Exception as e:
         print(f"Error generating story: {str(e)}")
         return False
+
 
 # async def async_generate_context_new_location(game_id: str, user_id: str):
 #     try:
@@ -178,3 +179,209 @@ async def async_generate_context_init_game_task(_game_id: str,
 #     except Exception as e:
 #         print(f"Error generating story: {str(e)}")
 #         return False
+
+
+class SchemaResponseStoryNC(BaseModel):
+    story: str = Field(..., description="Story generated")
+
+
+async def generate_context_new_character(game_id: str, character_id: str, location_id: str, user_id: str):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        location_db = await db['location'].find_one({'_id': ObjectId(location_id)})
+        character_db = await db['character'].find_one({'_id': ObjectId(character_id)})
+        response_story = await openai_generator.generate_gpt(
+            content_prompt=[
+                {"role": "system",
+                 "content": "You are a creative story generator."},
+                {"role": "user",
+                 "content": f"Continue the story for the game '{game_db['title']}' with the new character "
+                            f"'{character_db['name']}' in the location '{location_db['title']}'. "
+                            f"The current story is: {game_db.get('history', '')}. "
+                            f"The character is described as: {character_db['prompt_user']}. "
+                            f"The location is described as: {location_db['prompt_user']}."
+                 }
+            ],
+            type_text="story continuation",
+            max_tokens=1000,
+            model="gpt-4o-mini",
+            response_format=SchemaResponseStoryNC,
+            user_id=user_id,
+            type_generation="generate story continuation"
+        )
+        await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'history': response_story['story']}})
+
+        return True
+
+    except Exception as e:
+        print(f"Error generating story: {str(e)}")
+        return False
+
+
+class SchemaResponseSummary(BaseModel):
+    summary: str = Field(..., description="Summary generated")
+
+
+async def generate_game_summary(game_id: str, user_id: str):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        response_summary = await openai_generator.generate_gpt(
+            content_prompt=[
+                {"role": "system", "content": "You are a summarizer."},
+                {"role": "user",
+                 "content": f"Generate a summary for the following game history: {game_db['history']},"
+                            f"should be a maximum of 200 words. "
+                            f"Respond only with the text of the summary in JSON format: {{'summary': '<summary_text>'}}"}
+            ],
+            type_text="summary",
+            max_tokens=500,
+            model="gpt-4o-mini",
+            response_format=SchemaResponseSummary,
+            user_id=user_id,
+            type_generation="generate summary"
+        )
+
+        await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'summary': response_summary['summary']}})
+
+        return True
+
+    except Exception as e:
+        print(f"Error generating summary: {str(e)}")
+        return False
+
+
+class SchemaResponseCategory(BaseModel):
+    category_selected: str = Field(..., description="Category selected")
+
+
+async def identify_category_game(game_id: str, user_id: str):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        categories_db = await db['category'].find().to_list(None)
+        all_categories = [
+            {"_id": str(category.get("_id")), "name": category.get("name"), "description": category.get("description")}
+            for category in categories_db
+        ]
+        prompt_category = (
+            f"Based on the following RPG game history {game_db.get('history')}, classify it into one of the following "
+            "game categories according to the meaning of each.")
+        response_category = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": f"You are a game category classifier, capable of detecting the category of a game based on its history. "
+                               f"Respond with a JSON containing the schema '{{\"category_selected\": \"<category_name>\"}}'",
+                },
+                {"role": "assistant", "content": f"categories :{all_categories}"},
+                {"role": "user", "content": prompt_category},
+            ],
+            type_text="category",
+            max_tokens=1000,
+            model="gpt-4o-mini",
+            response_format=SchemaResponseCategory,
+            user_id=user_id,
+            type_generation="generate category"
+        )
+        category_id = response_category['category_selected']
+        await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {'category_id': category_id}})
+        return True
+    except Exception as e:
+        print(f"Error generating category: {str(e)}")
+        return False
+
+
+async def async_generate_image_cover_game_task(_game_id: str,
+                                               _user_id: str,
+                                               _task_id: str):
+    await update_task_service(
+        _id=_task_id,
+        _status="pending"
+    )
+    game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
+
+    if not game_db:
+        await db['task'].update_one({'_id': ObjectId(_task_id)},
+                                    {'$set': {'status': 'error',
+                                              'message': f"Can't find the game with id {_game_id}."}})
+        return f"can't find game with id {_game_id}"
+    message_response = ""
+    response_image = await generate_cover_image_game(_user_id, _game_id)
+    if not response_image:
+        message_response = " Error generating cover image "
+    response_context = await generate_context_init_game(_game_id, _user_id)
+    if not response_context:
+        message_response = " Error generating context "
+    if message_response:
+        await db['task'].update_one({'_id': ObjectId(_task_id)},
+                                    {'$set': {'status': 'error',
+                                              'message': message_response}})
+        return message_response
+    await db['task'].update_one({'_id': ObjectId(_task_id)},
+                                {'$set': {'status': 'completed',
+                                          'message': "Cover image and context generated"}})
+
+
+async def async_generate_context_new_character_task(_game_id: str,
+                                                    _character_id: str,
+                                                    _location_id: str,
+                                                    _user_id: str,
+                                                    _task_id: str):
+    await update_task_service(
+        _id=_task_id,
+        _status="pending"
+    )
+    response_story = await generate_context_new_character(_game_id, _character_id, _location_id, _user_id)
+    if not response_story:
+        await db['task'].update_one({'_id': ObjectId(_task_id)},
+                                    {'$set': {'status': 'error',
+                                              'message': "Error generating story"}})
+        return "Error generating story"
+    await db['task'].update_one({'_id': ObjectId(_task_id)},
+                                {'$set': {'status': 'completed',
+                                          'message': "Story generated"}})
+
+    return "Story generated"
+
+
+async def async_generate_summary_game_task(_game_id: str,
+                                           _user_id: str,
+                                           _task_id: str):
+    await update_task_service(
+        _id=_task_id,
+        _status="pending"
+    )
+    response_summary = await generate_game_summary(_game_id, _user_id)
+    if not response_summary:
+        await db['task'].update_one({'_id': ObjectId(_task_id)},
+                                    {'$set': {'status': 'error',
+                                              'message': "Error generating summary"}})
+        return "Error generating summary"
+    await db['task'].update_one({'_id': ObjectId(_task_id)},
+                                {'$set': {'status': 'completed',
+                                          'message': "Summary generated"}})
+    return "Summary generated"
+
+
+async def async_identify_category_game_task(_game_id: str,
+                                            _user_id: str,
+                                            _task_id: str):
+    await update_task_service(
+        _id=_task_id,
+        _status="pending"
+    )
+    message_response = ""
+    response_category = await identify_category_game(_game_id, _user_id)
+    if not response_category:
+        message_response = " Error generating category "
+    response_summary = await generate_game_summary(_game_id, _user_id)
+    if not response_summary:
+        message_response = " Error generating summary "
+    if message_response:
+        await db['task'].update_one({'_id': ObjectId(_task_id)},
+                                    {'$set': {'status': 'error',
+                                              'message': "Error generating category"}})
+        return "Error generating category"
+    await db['task'].update_one({'_id': ObjectId(_task_id)},
+                                {'$set': {'status': 'completed',
+                                          'message': "Category generated"}})
+    return "Category generated"

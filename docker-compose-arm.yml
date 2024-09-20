@@ -37,7 +37,7 @@ services:
     build:
       context: .
       dockerfile: .docker/DockerfileARM
-    command: celery -A celery_worker.celery worker --loglevel=info --basic-auth=user:pwd
+    command: celery -A celery_worker.celery worker --loglevel=info
     volumes:
       - ./src/:/code
     env_file:
@@ -51,7 +51,7 @@ services:
     build:
       context: .
       dockerfile: .docker/DockerfileARM
-    command: celery -A celery_worker.celery flower --port=5555
+    command: celery -A celery_worker.celery flower --port=5555 --basic-auth=user:pwd
     ports:
       - "5556:5555"
     env_file:

@@ -9,8 +9,6 @@ from character.services import get_characters_by_location_service
 from location.models import Location
 from location.schemas import SchemaCreateLocation
 from location.schemas import SchemaPartialUpdateLocation
-from scene.services import get_scenes_service
-from script.services import get_script_by_game_id_service
 from task.services import create_task_service, update_task_service
 
 
@@ -21,17 +19,7 @@ async def get_locations_service(*, game_id: str, skip: int = 0, limit: int = 100
     try:
         locations = await db['location'].find({"game_id": game_id}).skip(skip).limit(limit).to_list(None)
         count_locations = await db['location'].count_documents({"game_id": game_id})
-        script_db = await get_script_by_game_id_service(game_id)
-        scenes_db, count_scene = await get_scenes_service(script_id=script_db["_id"])
-        locations_order = []
-        for scene in scenes_db:
-            for location in locations:
-                if location.id == scene.location_id and location not in locations_order:
-                    locations_order.append(location)
-        for location in locations:
-            if location not in locations_order:
-                locations_order.append(location)
-        return locations_order, count_locations
+        return locations, count_locations
     except Exception as e:
         print(f"Error in get locations service: {e}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Locations not found.")
