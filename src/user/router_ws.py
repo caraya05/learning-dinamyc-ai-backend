@@ -66,6 +66,7 @@ async def websocket_endpoint(
         await websocket.send_json({"detail": "User not found"})
         await websocket.close(reason="User not found")
         return None
+    await websocket.send_json({"detail": "Connected to websocket"})
     try:
         while True:
             task_request = None
