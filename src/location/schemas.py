@@ -66,6 +66,8 @@ class SchemaRetrieveLocation(ResponseModel):
     characters: Optional[list] = []
     environment: Optional[dict] = {}
     status: Optional[int] = Field(1, example="status")
+    task_id: Optional[str] = Field(None, example="task_db")
+
 
     class Config:
         orm_mode = True

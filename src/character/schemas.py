@@ -51,7 +51,6 @@ class SchemaRetrieveCharacterStr(ResponseModelStr):
     type: str = Field(None, example=TypeCharacter.LEADING_ROLE)
     image: Optional[str] = Field(..., example="image", default_factory=None)
     description: str = Field(..., min_length=8, example="this is a description")
-    description: str = Field(..., min_length=8, example="this is a description")
     genre: str = Field(None, example=GenderCharacter.MAN)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
     text_idle: Optional[dict] = Field(None, example={"key": "value"})
