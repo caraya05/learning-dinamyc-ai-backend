@@ -41,6 +41,7 @@ class SchemaRetrieveCharacter(ResponseModel):
     audio: Optional[str] = Field(None, example="audio")
     presentation: Optional[str] = Field(None, example="presentation")
     task_id: Optional[str] = Field(None, example="task_db")
+    status: Optional[str] = Field(1, example="status")
 
 
 
@@ -55,6 +56,7 @@ class SchemaRetrieveCharacterStr(ResponseModelStr):
     body_type: Optional[str] = Field(None, example="body_type")
     prompt_user: Optional[str] = Field(None, example="prompt_user")
     audio: Optional[str] = Field(None, example="audio")
+    status: Optional[str] = Field(1, example="status")
     presentation: Optional[str] = Field(None, example="presentation")
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
 

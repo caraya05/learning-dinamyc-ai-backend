@@ -17,12 +17,13 @@ from utils import upload_image
 async def generate_image_character_face(_character_db,
                                         _user_id):
     try:
+        _character_db = await db["character"].find_one({"_id": _character_db["_id"]})
         image_face = await  openai_generator.generate_image(
             prompt=f"Genera una imagen cuadrada en vista frontal de {_character_db['description_shoulder_up']},"
                    " de ojos vivos, rasgos faciales exagerados y expresivos, de la "
                    "cintura para arriba, en estilo 3D Cel-shaded que Imita el aspecto "
                    "de los dibujos animados 2D, utilizando colores planos pero vivos y "
-                   f"contornos marcados. Con fondo Blanco. el sexo del personaje es {_character_db['body_type']}",
+                   f"contornos marcados. Con fondo Blanco. el sexo del personaje es {_character_db['genre']}",
             quality="hd",
             size="1024x1024",
             user_id=_user_id,
@@ -63,10 +64,8 @@ class SchemaCharacterCreate(BaseModel):
 
 
 class SchemaSelectCharacterType(BaseModel):
-    type_body: str = Field(..., example="type_body",
-                           description="type of body of the character according to the description")
-    genre: str = Field(..., example="genre",
-                       description="genre of the character according to the description")
+    character_type: str = Field(..., example="type_body",
+                                description="type of character according to the description")
 
 
 async def generate_character_body_type(_character_db, _user_id):
@@ -76,6 +75,8 @@ async def generate_character_body_type(_character_db, _user_id):
                 {
                     "role": "system",
                     "content": "Eres un identificador de genero y tipo de cuerpo de un personaje, "
+                               "los generos son: man, woman o null, los tipos de cuerpo son: "
+                               " adult, child o animal"
                 },
                 {
                     "role": "user",
@@ -88,14 +89,15 @@ async def generate_character_body_type(_character_db, _user_id):
                     ],
                 },
             ],
-            model="gpt-4o-mini",
+            model="gpt-4o-mini-2024-07-18",
             max_tokens=4096,
             response_format=SchemaSelectBodyType,
             type_generation="detect_body_type__genre",
             user_id=_user_id
         )
+
         character_type_db = await db["character_type"].find(
-            {"body_type": response_type_genre["body_type"], "genre": response_type_genre["genre"]}).to_list(None)
+            {"body_type": response_type_genre.body_type, "genre": response_type_genre.genre}).to_list(None)
 
         response_character_type = await openai_generator.generate_gpt(
             content_prompt=[
@@ -118,7 +120,7 @@ async def generate_character_body_type(_character_db, _user_id):
                     ],
                 },
             ],
-            model="gpt-4o-mini",
+            model="gpt-4o-mini-2024-07-18",
             max_tokens=4096,
             response_format=SchemaSelectCharacterType,
             type_generation="detect_character_type",
@@ -126,9 +128,9 @@ async def generate_character_body_type(_character_db, _user_id):
         )
 
         await db["character"].update_one({"_id": ObjectId(_character_db["_id"])},
-                                         {"$set": {"body_type": response_type_genre["type_body"],
-                                                   "genre": response_type_genre["genre"],
-                                                   "character_type": response_character_type["character_type"]}})
+                                         {"$set": {"body_type": response_type_genre.body_type,
+                                                   "genre": response_type_genre.genre,
+                                                   "character_type": response_character_type.character_type}})
 
         return True
     except Exception as e:
@@ -151,7 +153,7 @@ async def generate_character_description(_character_db,
                     "content": [{"type": "text", "text": f"Description by user: {_character_db['prompt_user']}"}]
                 },
             ],
-            model="gpt-4o",
+            model="gpt-4o-mini-2024-07-18",
             max_tokens=4096,
             response_format=SchemaCharacterCreate,
             user_id=_user_id,
@@ -159,9 +161,9 @@ async def generate_character_description(_character_db,
         )
 
         await db["character"].update_one({"_id": ObjectId(_character_db["_id"])},
-                                         {"$set": {"description": response["description"],
-                                                   "description_game": response["description_game"],
-                                                   "description_shoulder_up": response["description_shoulder_up"]}})
+                                         {"$set": {"description": response.description,
+                                                   "description_game": response.description_game,
+                                                   "description_shoulder_up": response.description_shoulder_up}})
 
         return True
     except Exception as e:
@@ -176,37 +178,33 @@ async def async_generate_character_task(_character_id,
         _id=_task_id,
         _status="pending"
     )
-
     character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
-
     if not character_db:
         await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"status": "error",
-                                              "message": f"Can't find character with id {_character_id}"}})
-        return f"Can't find character with id {_character_id}"
-    message_response = ""
+                                    {"$set": {"message": f"Error can't find character with id {_character_id}"}})
+        return f"Error can't find character with id {_character_id}"
     response_description = await generate_character_description(_character_db=character_db,
                                                                 _user_id=_user_id)
     if not response_description:
-        message_response += " Error in get character description service "
+        await db["task"].update_one({"_id": _task_id},
+                                    {"$set": {"message": "Exception in generate character description"}})
+        return "Error in generate character description"
     response_body_type = await generate_character_body_type(_character_db=character_db,
                                                             _user_id=_user_id)
     if not response_body_type:
-        message_response += " Error in get character body type service "
+        await db["task"].update_one({"_id": _task_id},
+                                    {"$set": {"message": "Error in generate character body type"}})
+        return "Error in generate character body type"
     response_image = await generate_image_character_face(_character_db=character_db,
                                                          _user_id=_user_id)
     if not response_image:
-        message_response += " Error in generate image character face service "
-    if message_response != "":
         await db["task"].update_one({"_id": _task_id},
                                     {"$set": {"status": "error",
-                                              "message": message_response}})
-        return message_response
-
+                                              "message": "Error in generate image character face service"}})
+        return "Error in generate image character face service "
     await db["task"].update_one({"_id": _task_id},
                                 {"$set": {"status": "completed",
                                           "message": "Character created successfully"}})
-
     return "Character generate successfully"
 
 
@@ -217,23 +215,22 @@ async def async_generate_image_character_task(_character_id,
         _id=_task_id,
         _status="pending"
     )
+
     character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
     if not character_db:
-        await db["task"].update_one({"task_id": _task_id},
+        await db["task"].update_one({"_id": _task_id},
                                     {"$set": {"status": "error",
-                                              "message": f"Can't find character with id {_character_id}"}})
-        return f"Can't find character with id {_character_id}"
-    message_response = ""
+                                              "message": f"Error can't find character with id {_character_id}"}})
+        return f"Error can't find character with id {_character_id}"
     response_image = await generate_image_character_face(_character_db=character_db,
                                                          _user_id=_user_id)
     if not response_image:
-        message_response += " Error in generate image character face service "
-    if message_response != "":
-        await db["task"].update_one({"task_id": _task_id},
+        await db["task"].update_one({"_id": _task_id},
                                     {"$set": {"status": "error",
-                                              "message": message_response}})
-        return message_response
-    await db["task"].update_one({"task_id": _task_id},
+                                              "message": "Error in generate image character face service"}})
+        return "Error in generate image character face service "
+
+    await db["task"].update_one({"_id": _task_id},
                                 {"$set": {"status": "completed",
                                           "message": "Character created successfully"}})
     return "Character image generate successfully"

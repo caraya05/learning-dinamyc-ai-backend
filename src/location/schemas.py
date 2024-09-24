@@ -31,7 +31,6 @@ class SchemaCreateLocation(BaseModel):
     prompt_user: Optional[str]
 
 
-
 class SchemaPartialUpdateLocation(BaseModel):
     """
     Schema for partially updating a location.
@@ -57,16 +56,16 @@ class SchemaRetrieveLocation(ResponseModel):
     description (str): The description of the location.
     """
 
-    title: Optional[str]
-    description: Optional[str]
-    image: Optional[str]
-    prompt_user: Optional[str]
-    attempts: Optional[int] = 3
+    title: Optional[str] = Field(None)
+    description: Optional[str] = Field(None)
+    image: Optional[str] = Field(None)
+    prompt_user: Optional[str] = Field(None)
     configuration: Optional[dict] = {}
     connections: Optional[dict] = {}
     sound_id: Optional[str | dict] = Field(None)
     characters: Optional[list] = []
     environment: Optional[dict] = {}
+    status: Optional[int] = Field(1, example="status")
 
     class Config:
         orm_mode = True
@@ -85,11 +84,11 @@ class SchemaRetrieveLocationStr(ResponseModelStr):
     title: str
     description: Optional[str]
     image: Optional[str]
-    attempts: Optional[int]
     configuration: Optional[dict]
     connections: Optional[dict]
     sound_id: Optional[str | dict] = Field(None)
     environment: Optional[dict] = {}
+    status: Optional[int] = Field(1, example="status")
 
     class Config:
         orm_mode = True
