@@ -71,7 +71,7 @@ async def handle_exception(e,
         "status": status_code,
         "is_error": True,
         "message": error_message,
-        "response": None,
+        "response": e,
         "prompt": prompt,
         "model": model,
         "type_generation": type_generation,
@@ -85,11 +85,22 @@ async def handle_exception(e,
     )
 
 
+from dataclasses import asdict
+
+
 async def store_response(response,
                          prompt,
                          model,
                          type_generation: str,
                          user_id=None):
+    # Convert response to dictionary
+    if hasattr(response, 'dict'):
+        response_dict = response.dict()
+    elif hasattr(response, '__dict__'):
+        response_dict = response.__dict__
+    else:
+        response_dict = asdict(response)
+
     utc_now = datetime.now(pytz.utc)
     colombia_now = utc_now.astimezone(pytz.timezone("America/Bogota"))
 
@@ -97,7 +108,7 @@ async def store_response(response,
         "status": 200,
         "is_error": False,
         "message": "Response stored successfully",
-        "response": response,
+        "response": response_dict,
         "prompt": prompt,
         "model": model,
         "type_generation": type_generation,
@@ -110,8 +121,7 @@ class OpenAIGenerator:
     def __init__(self):
         self.client = OpenAI(
             organization=settings.OPENAI_API_ORG_ID,
-            api_key=settings.OPENAI_API_KEY,
-            timeout=30.0
+            api_key=settings.OPENAI_API_KEY
         )
 
     async def generate_image(self,
@@ -157,10 +167,10 @@ class OpenAIGenerator:
                 response_format=response_format,
                 messages=content_prompt,
                 max_tokens=max_tokens,
-                temperature=0.6,
-                top_p=0.8,
-                frequency_penalty=0.6,
-                presence_penalty=0.7
+                # temperature=0.6,
+                # top_p=0.8,
+                # frequency_penalty=0.6,
+                # presence_penalty=0.7
             )
 
             await store_response(response=response,

@@ -105,7 +105,6 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
         task_celery = generate_character_task.delay(_character_id=str(character_created.inserted_id),
                                                     _user_id=user_id,
                                                     _task_id=str(task_db["_id"]))
-
         await update_task_service(
             _id=str(task_db["_id"]),
             _task_id=task_celery.id,
@@ -201,7 +200,7 @@ async def generate_image_character_service(character_id: str, user_id: str):
                                                           _task_id=str(task_db["_id"]))
         await update_task_service(
             _id=str(task_db["_id"]),
-            _task_id=task_celery.id,
+            _task_id=task_celery,
         )
         character_db["tasks_request"].append(str(task_db["_id"]))
         await db["character"].update_one({"_id": ObjectId(character_id)},
@@ -210,7 +209,7 @@ async def generate_image_character_service(character_id: str, user_id: str):
         character_db["task_id"] = str(task_db["_id"])
         return character_db
     except Exception as e:
-        print(f"Error in generate image character service: {str(e)}")
+        # print(f"Error in generate image character service: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Image not generated",
