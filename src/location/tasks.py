@@ -206,37 +206,49 @@ async def async_generate_location_task(_location_id: str,
     )
     location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
     if not location_db:
-        await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"status": "error",
-                                              "message": f"Error can't find location with id {_location_id}"}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message=f"Error can't find location with id {_location_id}"
+        )
         return f"Error can't find location with id {_location_id}"
     response_description = await generate_location_description(_location_id, _user_id)
     if not response_description:
-        await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"status": "error",
-                                              "message": "Error in generate location description service."}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error in generate location description service."
+        )
         return "Error in generate location description service."
     response_sound = await identify_location_sound(_location_id, _user_id)
     if not response_sound:
-        await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"status": "error",
-                                              "message": "Error in identify location sound service."}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error in identify location sound service."
+        )
         return "Error in identify location sound service."
     response_image = await generate_location_image(_location_id, _user_id)
     if not response_image:
-        await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"status": "error",
-                                              "message": "Error in generate location image service."}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error in generate location image service."
+        )
         return "Error in generate location image service."
     response_environment = await generate_environment_location(_location_id, _user_id)
     if not response_environment:
-        await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"status": "error",
-                                              "message": "Error in generate environment location service."}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error in generate environment location service."
+        )
         return "Error in generate environment location service."
-    await db["task"].update_one({"_id": _task_id},
-                                {"$set": {"status": "completed",
-                                          "message": "Location generate successfully"}})
+    await update_task_service(
+        _id=_task_id,
+        _status="completed",
+        _message="Location generate successfully"
+    )
     return "Location generate successfully"
 
 
@@ -247,23 +259,31 @@ async def async_generate_image_location_task(_location_id: str, _user_id: str, _
     )
     location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
     if not location_db:
-        await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"status": "error",
-                                              "message": f"Error can't find location with id {_location_id}"}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message=f"Error can't find location with id {_location_id}"
+        )
         return f"Error can't find location with id {_location_id}"
     response_image = await generate_location_image(_location_id, _user_id)
     if not response_image:
-        await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"status": "error",
-                                              "message": "Error in generate location image service."}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error in generate location image service."
+        )
         return "Error in generate location image service."
     response_environment = await generate_environment_location(_location_id, _user_id)
     if not response_environment:
-        await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"status": "error",
-                                              "message": "Error in generate environment location service."}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error in generate environment location service."
+        )
         return "Error in generate environment location service."
-    await db["task"].update_one({"_id": _task_id},
-                                {"$set": {"status": "completed",
-                                          "message": "Location generate successfully"}})
+    await update_task_service(
+        _id=_task_id,
+        _status="completed",
+        _message="Location image generate successfully"
+    )
     return "Location image generate successfully"

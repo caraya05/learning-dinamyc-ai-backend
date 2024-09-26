@@ -12,6 +12,7 @@ from gpt_ai.utils import openai_generator
 from task.services import update_task_service
 
 from utils import upload_image
+from voice.task import generate_voice_character
 
 
 class SchemaResponseImage(BaseModel):
@@ -62,7 +63,7 @@ async def generate_cover_image_game(_user_id: str,
                 model="gpt-4o-mini",
                 response_format=SchemaResponseImage,
                 user_id=_user_id,
-                type_text="identify image"
+                type_generation="identify image"
             )
 
             if response_identify.response_vertical:
@@ -107,7 +108,6 @@ async def generate_context_init_game(_game_id: str,
                             f"'{first_location['title']}'. The location is described as: {first_location['prompt_user']}. "
                  }
             ],
-            type_text="story init",
             max_tokens=1000,
             model="gpt-4o-mini",
             response_format=SchemaResponseStory,
@@ -198,7 +198,6 @@ async def generate_context_new_character(game_id: str, character_id: str, locati
                             f"The location is described as: {location_db['prompt_user']}."
                  }
             ],
-            type_text="story continuation",
             max_tokens=1000,
             model="gpt-4o-mini",
             response_format=SchemaResponseStoryNC,
@@ -227,7 +226,6 @@ async def generate_game_summary(game_id: str, user_id: str):
                             f"should be a maximum of 200 words. "
                             f"Respond only with the text of the summary in JSON format: {{'summary': '<summary_text>'}}"}
             ],
-            type_text="summary",
             max_tokens=500,
             model="gpt-4o-mini",
             response_format=SchemaResponseSummary,
@@ -271,7 +269,6 @@ async def identify_category_game(game_id: str, user_id: str):
                     "content": prompt_category
                 },
             ],
-            type_text="category",
             max_tokens=1000,
             model="gpt-4o-mini",
             response_format=SchemaResponseCategory,
@@ -295,25 +292,33 @@ async def async_generate_image_cover_game_task(_game_id: str,
     )
     game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
     if not game_db:
-        await db['task'].update_one({'_id': ObjectId(_task_id)},
-                                    {'$set': {'status': 'error',
-                                              'message': f"Error can't find the game with id {_game_id}."}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message=f"Error can't find the game with id {_game_id}."
+        )
         return f"Error can't find game with id {_game_id}"
     response_image = await generate_cover_image_game(_user_id, _game_id)
     if not response_image:
-        await db['task'].update_one({'_id': ObjectId(_task_id)},
-                                    {'$set': {'status': 'error',
-                                              'message': "Error generating image"}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error generating image"
+        )
         return "Error generating image"
     response_context = await generate_context_init_game(_game_id, _user_id)
     if not response_context:
-        await db['task'].update_one({'_id': ObjectId(_task_id)},
-                                    {'$set': {'status': 'error',
-                                              'message': "Error generating story"}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error generating story"
+        )
         return "Error generating story"
-    await db['task'].update_one({'_id': ObjectId(_task_id)},
-                                {'$set': {'status': 'completed',
-                                          'message': "Cover image and context generated"}})
+    await update_task_service(
+        _id=_task_id,
+        _status="completed",
+        _message="Cover image and context generated successfully"
+    )
     return "Cover image and context generated successfully"
 
 
@@ -328,13 +333,25 @@ async def async_generate_context_new_character_task(_game_id: str,
     )
     response_story = await generate_context_new_character(_game_id, _character_id, _location_id, _user_id)
     if not response_story:
-        await db['task'].update_one({'_id': ObjectId(_task_id)},
-                                    {'$set': {'status': 'error',
-                                              'message': "Error generating context"}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error generating context"
+        )
         return "Error generating context"
-    await db['task'].update_one({'_id': ObjectId(_task_id)},
-                                {'$set': {'status': 'completed',
-                                          'message': "Story generated"}})
+    voice_generated = await generate_voice_character(_character_id, _user_id)
+    if not voice_generated:
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error voice not generated"
+        )
+        return "Error voice not generated"
+    await update_task_service(
+        _id=_task_id,
+        _status="completed",
+        _message="Story generated successfully"
+    )
 
     return "Story generated successfully"
 
@@ -348,13 +365,18 @@ async def async_generate_summary_game_task(_game_id: str,
     )
     response_summary = await generate_game_summary(_game_id, _user_id)
     if not response_summary:
-        await db['task'].update_one({'_id': ObjectId(_task_id)},
-                                    {'$set': {'status': 'error',
-                                              'message': "Error generating summary"}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error generating summary"
+        )
         return "Error generating summary"
-    await db['task'].update_one({'_id': ObjectId(_task_id)},
-                                {'$set': {'status': 'completed',
-                                          'message': "Summary generated successfully"}})
+
+    await update_task_service(
+        _id=_task_id,
+        _status="completed",
+        _message="Summary generated successfully"
+    )
     return "Summary generated successfully"
 
 
@@ -367,17 +389,23 @@ async def async_identify_category_game_task(_game_id: str,
     )
     response_category = await identify_category_game(_game_id, _user_id)
     if not response_category:
-        await db['task'].update_one({'_id': ObjectId(_task_id)},
-                                    {'$set': {'status': 'error',
-                                              'message': "Error generating category"}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error generating category"
+        )
         return "Error generating category"
     response_summary = await generate_game_summary(_game_id, _user_id)
     if not response_summary:
-        await db['task'].update_one({'_id': ObjectId(_task_id)},
-                                    {'$set': {'status': 'error',
-                                              'message': "Error generating category"}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error generating summary"
+        )
         return "Error generating summary"
-    await db['task'].update_one({'_id': ObjectId(_task_id)},
-                                {'$set': {'status': 'completed',
-                                          'message': "Category generated successfully"}})
+    await update_task_service(
+        _id=_task_id,
+        _status="completed",
+        _message="Category generated successfully"
+    )
     return "Category generated successfully"

@@ -10,7 +10,6 @@ from core.database import db
 from gpt_ai.utils import openai_generator
 
 from task.services import update_task_service
-
 from utils import upload_image
 
 
@@ -180,31 +179,44 @@ async def async_generate_character_task(_character_id,
     )
     character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
     if not character_db:
-        await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"message": f"Error can't find character with id {_character_id}"}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message=f"Error can't find character with id {_character_id}"
+        )
         return f"Error can't find character with id {_character_id}"
     response_description = await generate_character_description(_character_db=character_db,
                                                                 _user_id=_user_id)
     if not response_description:
-        await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"message": "Exception in generate character description"}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error in generate character description"
+        )
         return "Error in generate character description"
     response_body_type = await generate_character_body_type(_character_db=character_db,
                                                             _user_id=_user_id)
     if not response_body_type:
-        await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"message": "Error in generate character body type"}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error in generate character body type"
+        )
         return "Error in generate character body type"
     response_image = await generate_image_character_face(_character_db=character_db,
                                                          _user_id=_user_id)
     if not response_image:
-        await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"status": "error",
-                                              "message": "Error in generate image character face service"}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error in generate image character face service"
+        )
         return "Error in generate image character face service "
-    await db["task"].update_one({"_id": _task_id},
-                                {"$set": {"status": "completed",
-                                          "message": "Character created successfully"}})
+    await update_task_service(
+        _id=_task_id,
+        _status="completed",
+        _message="Character generate successfully"
+    )
     return "Character generate successfully"
 
 
@@ -218,19 +230,24 @@ async def async_generate_image_character_task(_character_id,
 
     character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
     if not character_db:
-        await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"status": "error",
-                                              "message": f"Error can't find character with id {_character_id}"}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message=f"Error can't find character with id {_character_id}"
+        )
         return f"Error can't find character with id {_character_id}"
     response_image = await generate_image_character_face(_character_db=character_db,
                                                          _user_id=_user_id)
     if not response_image:
-        await db["task"].update_one({"_id": _task_id},
-                                    {"$set": {"status": "error",
-                                              "message": "Error in generate image character face service"}})
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message="Error in generate image character face service"
+        )
         return "Error in generate image character face service "
-
-    await db["task"].update_one({"_id": _task_id},
-                                {"$set": {"status": "completed",
-                                          "message": "Character created successfully"}})
+    await update_task_service(
+        _id=_task_id,
+        _status="completed",
+        _message="Character image generate successfully"
+    )
     return "Character image generate successfully"
