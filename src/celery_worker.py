@@ -1,11 +1,7 @@
 import asyncio
 import os
-from datetime import datetime
 
-from bson import ObjectId
 from celery import Celery
-
-from core import db
 
 from location.tasks import async_generate_location_task
 from location.tasks import async_generate_image_location_task

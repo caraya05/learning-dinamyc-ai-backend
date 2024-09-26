@@ -7,7 +7,7 @@ from core.database import db
 from gpt_ai.utils import openai_generator
 from task.services import update_task_service
 from voice.elevenlabs import generate_audio
-from voice.services import get_variants_service
+from voice.utils import get_variants_service
 
 
 class SchemaVoiceIdentification(BaseModel):
