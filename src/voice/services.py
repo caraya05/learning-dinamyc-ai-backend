@@ -1,15 +1,12 @@
-import json
 from datetime import datetime
-import random
 
 from bson import ObjectId
 from fastapi import HTTPException
 from fastapi import status
 
 from core import db
-# from gpt_ai.utils import generate_gpt4o
-from utils import delete_image
-from voice.elevenlabs import generate_audio
+from task.services import create_task_service, update_task_service
+from celery_worker import generate_voice_character_task
 
 
 async def add_voice_service(voices: list):
@@ -20,9 +17,7 @@ async def add_voice_service(voices: list):
                 "voice_id": voice["voice_id"],
                 "name": voice["name"],
                 "age": voice["labels"]["age"],
-                # "accent": voice["labels"]["accent"],
                 "gender": voice["labels"]["gender"],
-                # "language": voice["labels"]["language"],
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow(),
             })
@@ -51,18 +46,14 @@ async def get_variants_service():
     try:
         variants = await get_voices_service()
         ages = []
-        # accents = []
         genders = []
         for variant in variants:
             if variant["age"] not in ages:
                 ages.append(variant["age"])
-            # if variant["accent"] not in accents:
-            #     accents.append(variant["accent"])
             if variant["gender"] not in genders:
                 genders.append(variant["gender"])
         return {
             "ages": ages,
-            # "accents": accents,
             "genders": genders
         }
     except Exception as e:
@@ -73,157 +64,29 @@ async def get_variants_service():
         )
 
 
-async def get_voice_by_criteria_service(criteria: dict):
+async def generate_voice_service(character_id: str, user_id: str):
     try:
-        voice_by_gender = await db["voice"].find({"gender": criteria["gender"]}).to_list(None)
-
-        if not voice_by_gender:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No voice found matching the specified gender"
-            )
-
-        voice_by_age = [voice for voice in voice_by_gender if voice["age"] == criteria["age"]]
-
-        if voice_by_age:
-            voice = voice_by_age[0]
-        else:
-            voice = random.choice(voice_by_gender)
-        return voice
-    except Exception as e:
-        print(f"Error in get voice by criteria service: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Error in get voice by criteria service",
+        character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+        task_db = await create_task_service(
+            _task_id="",
+            _user_id=user_id,
+            _task_data={},
+            _element_id=str(character_id),
+            _element_type="character",
+            _process="update_character"
         )
-
-
-# async def identify_voice_service(text_description: str, gender: str) -> dict:
-#     variants_voices = await get_variants_service()
-#
-#     json_response = {
-#         "age": "edad de la voz segun la descripcion",
-#         "gender": "genero de la voz segun la descripcion"
-#     }
-#
-#     content_prompt = [
-#         {
-#             "role": "system",
-#             "content": "Utilizando la siguiente descripción, identificar la voz que mejor se ajuste a la descripción. "
-#                        f"Respondiendo con la edad y género de la voz, con el siguiente formato JSON: {json_response}"
-#         },
-#         {
-#             "role": "assistant",
-#             "content": f"Variantes de voces a identificar: {variants_voices}"
-#         },
-#         {
-#             "role": "user",
-#             "content": f"Descripción del personaje: {text_description}"
-#                        f"Genero del personaje: {gender}"
-#         }
-#     ]
-#
-#     response_generated = generate_gpt4o(
-#         content_prompt=content_prompt,
-#         type_text="Identify Voice",
-#         type_="json_object"
-#     )
-#
-#     return json.loads(response_generated)
-
-
-# async def generate_voice_service(character: dict):
-#     try:
-#         criteria_voice = await identify_voice_service(text_description=character["description"],
-#                                                       gender=character["body_type"])
-#
-#         voice = await get_voice_by_criteria_service(criteria=criteria_voice)
-#
-#         if character["audio"]:
-#             delete_image(character["audio"])
-#
-#         game_db = await db["game"].find_one({'characters_id': {'$in': [str(character['_id'])]}})
-#
-#         if str(character["_id"]) == game_db["character_principal"]:
-#             content_prompt = [
-#                 {"role": "system", "content": "You are a creative dialogue generator in english."},
-#                 {"role": "user",
-#                  "content": f"Generate a first-person text in english about of the character '{character['name']}' in the game '{game_db['title']}'. "
-#                             f"The current story is: {game_db['history']}. The character is described as: {character['prompt_user']}. "
-#                             f"don't use the “as a”, just say what it does and that's all, use the “I am” or “I will do”. "
-#                             f"do not physically describe the character,"
-#                             f"the dialogue can be a sentence, a question or statement in the interaction."
-#                             f"you are the protagonist, introduce yourself, what are you going to do?"
-#                             f"should be a maximum of 20 words. "
-#                             f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text>'}}"}
-#             ]
-#             story = generate_gpt4o(
-#                 content_prompt=content_prompt,
-#                 type_text="character dialogue",
-#                 max_tokens=2000,
-#                 model="gpt-4o-mini"
-#             )
-#
-#             story = json.loads(story)
-#             await db['character'].update_one({'_id': ObjectId(character['_id'])},
-#                                              {'$set': {'presentation': story['dialogue']}})
-#         else:
-#             content_prompt = [
-#                 {"role": "system", "content": "You are a creative dialogue generator in english."},
-#                 {"role": "user",
-#                  "content": f"Generate a first-person text in english about of the character '{character['name']}' in the game '{game_db['title']}'. "
-#                             f"The current story is: {game_db['history']}. The character is described as: {character['prompt_user']}. "
-#                             f"the dialogue should be the response of the interaction between that character and the main character."
-#                             # f"don't use the “as a”, just say what it does and that's all, imagine it is the continuation of a conversation with the main character"
-#                             f"do not physically describe the character,"
-#                             f" the dialogue can be a sentence, a question or statement in the interaction you have with the character"
-#                             f"should be a maximum of 20 words. "
-#                             f"Respond only with the text about the character's role in JSON format: {{'dialogue': '<dialogue_text_english>'}}"}
-#             ]
-#             story = generate_gpt4o(
-#                 content_prompt=content_prompt,
-#                 type_text="character dialogue",
-#                 max_tokens=2000,
-#                 model="gpt-4o-mini"
-#             )
-#
-#             story = json.loads(story)
-#
-#             await db['character'].update_one({'_id': ObjectId(character['_id'])},
-#                                              {'$set': {'presentation': story['dialogue']}})
-#
-#         # if not character.get("presentation"):
-#         #     text_generated = generate_gpt4o(content_prompt=[
-#         #         {"role": "user",
-#         #          "content": f"Generate a first-person introduction in English about the life and story of the "
-#         #                     f"character described as: {character['description']}, named {character['name']}."
-#         #                     f" The introduction should be a maximum of 25 words."
-#         #          },
-#         #     ],
-#         #         type_text="Generate Voice",
-#         #         type_="text")
-#         # else:
-#         #     text_generated = character["presentation"]
-#         character["presentation"] = story["dialogue"]
-#         voice_url = generate_audio(text=story['dialogue'],
-#                                    voice_id=voice["voice_id"])
-#
-#         character["audio"] = voice_url
-#         # character["presentation"] = character
-#
-#         await db["character"].update_one({"_id": ObjectId(character["_id"])},
-#                                          {"$set": character})
-#         # if character_update.modified_count:
-#
-#         return character
-#     #     else:
-#     #         raise HTTPException(
-#     #             status_code=status.HTTP_404_NOT_FOUND,
-#     #             detail="Character not found"
-#     #         )
-#     except Exception as e:
-#         print(f"Error in generate voice service: {str(e)}")
-#         raise HTTPException(
-#             status_code=status.HTTP_404_NOT_FOUND,
-#             detail="Error in generate voice service",
-#         )
+        task_celery = generate_voice_character_task.delay(_character_id=str(character_id),
+                                                          _user_id=user_id,
+                                                          _task_id=str(task_db["_id"]))
+        await update_task_service(
+            _id=str(task_db["_id"]),
+            _task_id=task_celery.id,
+        )
+        character_db["task_id"] = task_celery.id
+        return character_db
+    except Exception as e:
+        print(f"Error in generate voice service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error in generate voice service",
+        )
