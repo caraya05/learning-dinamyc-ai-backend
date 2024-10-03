@@ -254,8 +254,7 @@ async def generate_conversation_character(_game_id, _character_db, _user_id):
             type_generation="create_conversation_character",
         )
 
-
-        conversation_ = [ {"id_character": str(_character_db["_id"]), "dialog": dialog.dialog} for dialog in response.conversation ]
+        conversation_ = [{"id_character": str(_character_db["_id"]), "dialog": dialog.dialog, "audio": None} for dialog in response.conversation]
 
         await db["character"].update_one(
             {"_id": ObjectId(str(_character_db["_id"]))},
@@ -303,7 +302,8 @@ async def generate_monologue_character(_game_id, _character_db, _user_id):
             type_generation="create_monologue_character",
         )
 
-        conversation_ = [ {"id_character": str(_character_db["_id"]), "dialog": dialog.dialog} for dialog in response.conversation ]
+        conversation_ = [{"id_character": str(_character_db["_id"]), "dialog": dialog.dialog, "audio": None} for dialog
+                         in response.conversation]
 
         await db["character"].update_one(
             {"_id": ObjectId(_character_db["_id"])},
