@@ -1,3 +1,4 @@
+import asyncio
 from uuid import uuid4
 
 from bson import ObjectId
@@ -342,6 +343,11 @@ async def async_generate_context_new_character_task(
         _game_id: str, _character_id: str, _location_id: str, _user_id: str, _task_id: str
 ):
     await update_task_service(_id=_task_id, _status="pending")
+
+    game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
+    while not game_db.get('history'):
+        await asyncio.sleep(10)
+        game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
 
     game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
     if not game_db['character_principal'] or not game_db['history']:
