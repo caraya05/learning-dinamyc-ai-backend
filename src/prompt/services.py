@@ -77,7 +77,9 @@ async def update_prompt_service(_id: str, schema: SchemaPartialUpdatePrompt):
     Partially update a prompt.
     """
     try:
-        if prompt_updated := await db["prompt"].update_one({"_id": ObjectId(_id)}, {"$set": schema.dict()}):
+        if prompt_updated := await db["prompt"].update_one(
+            {"_id": ObjectId(_id)}, {"$set": schema.dict()}
+        ):
             if prompt_updated.modified_count:
                 prompt_db = await db["prompt"].find_one({"_id": ObjectId(_id)})
                 return prompt_db

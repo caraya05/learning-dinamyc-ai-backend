@@ -3,9 +3,7 @@ from motor import motor_asyncio
 
 from config import settings
 
-client = motor_asyncio.AsyncIOMotorClient(
-    settings.DATABASE_URL, serverSelectionTimeoutMS=10000
-)
+client = motor_asyncio.AsyncIOMotorClient(settings.DATABASE_URL, serverSelectionTimeoutMS=10000)
 db = client.get_database(settings.DATABASE_NAME)
 
 
@@ -41,4 +39,3 @@ async def create_indexes():
     await db["category"].create_index("name")
 
     await db["prompt"].create_index("category")
-

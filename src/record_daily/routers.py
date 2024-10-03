@@ -15,8 +15,6 @@ from fastapi import status
 router = APIRouter(prefix="/daily-record", tags=["Daily Record"])
 
 
-
-
 # @router.get("/export/by_date", status_code=status.HTTP_200_OK)
 # def export_by_date(request: Request, db: Session = Depends(get_db)):
 #     """

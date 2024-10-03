@@ -27,8 +27,8 @@ router = APIRouter(prefix="/configuration", tags=["Configuration"])
 
 @router.get("/", response_model=SchemaRetrieveConfiguration)
 async def get_configurations(
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves a list of configurations.
@@ -46,9 +46,9 @@ async def get_configurations(
 
 @router.get("/{configuration_id}", response_model=SchemaRetrieveConfiguration)
 async def get_configuration_by_id(
-        configuration_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    configuration_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves a configuration by id.
@@ -66,17 +66,21 @@ async def get_configuration_by_id(
 
 @router.post("/", response_model=SchemaRetrieveConfiguration)
 async def create_configuration(
-        configuration: SchemaCreateConfiguration,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    configuration: SchemaCreateConfiguration,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint creates a configuration.
     """
     try:
-        return await create_configuration_service(Configuration(**configuration.dict(),
-                                                                updated_by=str(user_db.get("_id")),
-                                                                created_by=str(user_db.get("_id"))))
+        return await create_configuration_service(
+            Configuration(
+                **configuration.dict(),
+                updated_by=str(user_db.get("_id")),
+                created_by=str(user_db.get("_id")),
+            )
+        )
 
     except Exception as e:
         print(f"Error creating configuration: {str(e)}")
@@ -88,10 +92,10 @@ async def create_configuration(
 
 @router.put("/{configuration_id}", response_model=SchemaRetrieveConfiguration)
 async def update_configuration(
-        configuration_id: str,
-        configuration: SchemaUpdateConfiguration,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    configuration_id: str,
+    configuration: SchemaUpdateConfiguration,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint updates a configuration.
@@ -102,16 +106,15 @@ async def update_configuration(
     except Exception as e:
         print(f"Error updating configuration: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Configuration not updated"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Configuration not updated"
         )
 
 
 @router.delete("/{configuration_id}")
 async def delete_configuration(
-        configuration_id: str,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    configuration_id: str,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint deletes a configuration.

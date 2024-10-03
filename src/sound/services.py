@@ -11,8 +11,9 @@ async def get_sounds_service():
         return sounds_db
     except Exception as e:
         print(f"error in get_sounds_service: {e}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Error in get sounds service")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Error in get sounds service"
+        )
 
 
 async def get_sound_service(sound_id: str) -> dict:
@@ -21,5 +22,6 @@ async def get_sound_service(sound_id: str) -> dict:
         return sound_db
     except Exception as e:
         print(f"error in get_sound_service: {e}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Error in get sound service")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Error in get sound service"
+        )

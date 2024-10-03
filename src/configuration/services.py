@@ -43,10 +43,13 @@ async def get_configuration_by_id_service(configuration_id: str):
         ) from ex
 
 
-async def update_configuration_service(configuration_id: str, configuration: SchemaUpdateConfiguration):
+async def update_configuration_service(
+    configuration_id: str, configuration: SchemaUpdateConfiguration
+):
     try:
-        updated_configuration = await db['configuration'].update_one({"_id": configuration_id},
-                                                                     {"$set": configuration.dict()})
+        updated_configuration = await db['configuration'].update_one(
+            {"_id": configuration_id}, {"$set": configuration.dict()}
+        )
         if updated_configuration.modified_count:
             return True
         else:

@@ -53,124 +53,108 @@ celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6
 
 # Desde aca va lo nuevo
 @celery.task(name="generate_character_task")
-def generate_character_task(_character_id: str,
-                            _user_id: str,
-                            _task_id: str):
+def generate_character_task(_character_id: str, _user_id: str, _task_id: str):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    return loop.run_until_complete(async_generate_character_task(_character_id=_character_id,
-                                                                 _user_id=_user_id,
-                                                                 _task_id=_task_id))
+    return loop.run_until_complete(
+        async_generate_character_task(
+            _character_id=_character_id, _user_id=_user_id, _task_id=_task_id
+        )
+    )
 
 
 @celery.task(name="generate_image_character_task")
-def generate_image_character_task(_character_id: str,
-                                  _user_id: str,
-                                  _task_id: str):
+def generate_image_character_task(_character_id: str, _user_id: str, _task_id: str):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    return loop.run_until_complete(async_generate_image_character_task(_character_id,
-                                                                       _user_id,
-                                                                       _task_id))
+    return loop.run_until_complete(
+        async_generate_image_character_task(_character_id, _user_id, _task_id)
+    )
 
 
 @celery.task(name="generate_location_task")
-def generate_location_task(_location_id: str,
-                           _user_id: str,
-                           _task_id: str):
+def generate_location_task(_location_id: str, _user_id: str, _task_id: str):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    return loop.run_until_complete(async_generate_location_task(_location_id,
-                                                                _user_id,
-                                                                _task_id))
+    return loop.run_until_complete(async_generate_location_task(_location_id, _user_id, _task_id))
 
 
 @celery.task(name="generate_image_location_task")
-def generate_image_location_task(_location_id: str,
-                                 _user_id: str,
-                                 _task_id: str):
+def generate_image_location_task(_location_id: str, _user_id: str, _task_id: str):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    return loop.run_until_complete(async_generate_image_location_task(_location_id=_location_id,
-                                                                      _user_id=_user_id,
-                                                                      _task_id=_task_id))
+    return loop.run_until_complete(
+        async_generate_image_location_task(
+            _location_id=_location_id, _user_id=_user_id, _task_id=_task_id
+        )
+    )
 
 
 @celery.task(name="identify_category_game_task")
-def identify_category_game_task(_game_id: str,
-                                _user_id: str,
-                                _task_id: str):
+def identify_category_game_task(_game_id: str, _user_id: str, _task_id: str):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    return loop.run_until_complete(async_identify_category_game_task(_game_id=_game_id,
-                                                                     _user_id=_user_id,
-                                                                     _task_id=_task_id))
+    return loop.run_until_complete(
+        async_identify_category_game_task(_game_id=_game_id, _user_id=_user_id, _task_id=_task_id)
+    )
 
 
 @celery.task(name="generate_image_cover_game_task")
-def generate_image_cover_game_task(_game_id: str,
-                                   _user_id: str,
-                                   _task_id: str):
+def generate_image_cover_game_task(_game_id: str, _user_id: str, _task_id: str):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    return loop.run_until_complete(async_generate_image_cover_game_task(_game_id,
-                                                                        _user_id,
-                                                                        _task_id))
+    return loop.run_until_complete(
+        async_generate_image_cover_game_task(_game_id, _user_id, _task_id)
+    )
 
 
 @celery.task(name="generate_context_new_character_task")
-def generate_context_new_character_task(_game_id: str,
-                                        _user_id: str,
-                                        _task_id: str,
-                                        _character_id: str,
-                                        _location_id: str):
+def generate_context_new_character_task(
+        _game_id: str, _user_id: str, _task_id: str, _character_id: str, _location_id: str
+):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    return loop.run_until_complete(async_generate_context_new_character_task(_game_id,
-                                                                             _user_id,
-                                                                             _task_id,
-                                                                             _character_id,
-                                                                             _location_id))
+    return loop.run_until_complete(
+        async_generate_context_new_character_task(
+            _game_id, _character_id, _location_id, _user_id, _task_id
+        )
+    )
 
 
 @celery.task(name="generate_voice_character_task")
-def generate_voice_character_task(_character_id: str,
-                                  _user_id: str,
-                                  _task_id: str):
+def generate_voice_character_task(_character_id: str, _user_id: str, _task_id: str):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    return loop.run_until_complete(async_generate_voice_task(_character_id,
-                                                             _user_id,
-                                                             _task_id))
+    return loop.run_until_complete(async_generate_voice_task(_character_id, _user_id, _task_id))

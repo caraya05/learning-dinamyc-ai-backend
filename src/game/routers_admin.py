@@ -22,8 +22,7 @@ router = APIRouter(prefix="/game-pending", tags=["Game Pending"])
 
 @router.get("/", status_code=status.HTTP_200_OK)
 async def get_pending_games(
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    user_db: dict = Depends(auth_admin), Token: HTTPAuthorizationCredentials = Depends(auth_schema)
 ):
     games_db = await db["published_game"].find().sort({"created_at": -1}).to_list(None)
     for game in games_db:
@@ -41,9 +40,9 @@ async def get_pending_games(
 
 @router.get("/{game_id}", status_code=status.HTTP_200_OK)
 async def get_pending_game(
-        game_id: str,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    game_id: str,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     if game_db is None:
@@ -66,9 +65,9 @@ async def get_pending_game(
 
 @router.get("/publish/{game_id}", status_code=status.HTTP_200_OK)
 async def publish_game(
-        game_id: str,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    game_id: str,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     published_game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     if game_db := await get_game_v2_service(published_game_db["game_id"]):
@@ -82,7 +81,9 @@ async def publish_game(
             published_game_db["reviewed_at"] = datetime.utcnow()
             published_game_db["reviewed_by"] = str(user_db["_id"])
         try:
-            await db["published_game"].update_one({"_id": published_game_db["_id"]}, {"$set": published_game_db})
+            await db["published_game"].update_one(
+                {"_id": published_game_db["_id"]}, {"$set": published_game_db}
+            )
             return {"detail": "Game published"}
         except Exception as e:
             raise HTTPException(status_code=400, detail="Error publishing game")
@@ -98,10 +99,10 @@ class SchemaUpdateGamePublish(BaseModel):
 
 @router.patch("/reject/{game_id}", status_code=status.HTTP_200_OK)
 async def reject_game(
-        game_id: str,
-        data: SchemaUpdateGamePublish,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    game_id: str,
+    data: SchemaUpdateGamePublish,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     published_game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     published_game_db["reviewed_at"] = datetime.utcnow()
@@ -109,7 +110,9 @@ async def reject_game(
     published_game_db["status"] = 3
     published_game_db["return_note"] = data.return_note
     try:
-        await db["published_game"].update_one({"_id": published_game_db["_id"]}, {"$set": published_game_db})
+        await db["published_game"].update_one(
+            {"_id": published_game_db["_id"]}, {"$set": published_game_db}
+        )
         return {"detail": "Game rejected"}
     except Exception as e:
         raise HTTPException(status_code=400, detail="Error rejecting game")
@@ -117,10 +120,10 @@ async def reject_game(
 
 @router.patch("/review/{game_id}", status_code=status.HTTP_200_OK)
 async def reviewer_game(
-        game_id: str,
-        data: SchemaUpdateGamePublish,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    game_id: str,
+    data: SchemaUpdateGamePublish,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     published_game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     published_game_db["reviewed_at"] = datetime.utcnow()
@@ -128,7 +131,9 @@ async def reviewer_game(
     # published_game_db["status"] = "reviewed"
     published_game_db["reviewer"] = data.reviewer
     try:
-        await db["published_game"].update_one({"_id": published_game_db["_id"]}, {"$set": published_game_db})
+        await db["published_game"].update_one(
+            {"_id": published_game_db["_id"]}, {"$set": published_game_db}
+        )
         return {"detail": "Game reviewed"}
     except Exception as e:
         raise HTTPException(status_code=400, detail="Error reviewing game")
@@ -136,10 +141,10 @@ async def reviewer_game(
 
 @router.patch("/update/{game_id}", status_code=status.HTTP_200_OK)
 async def update_game(
-        game_id: str,
-        data: SchemaUpdateGamePublish,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    game_id: str,
+    data: SchemaUpdateGamePublish,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     published_game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     published_game_db["updated_at"] = datetime.utcnow()
@@ -148,7 +153,9 @@ async def update_game(
     game_db["category_id"] = data.category
     try:
         await db["game"].update_one({"_id": ObjectId(game_db["_id"])}, {"$set": game_db})
-        await db["published_game"].update_one({"_id": published_game_db["_id"]}, {"$set": published_game_db})
+        await db["published_game"].update_one(
+            {"_id": published_game_db["_id"]}, {"$set": published_game_db}
+        )
         return {"detail": "Game updated"}
     except Exception as e:
         raise HTTPException(status_code=400, detail="Error updating game")

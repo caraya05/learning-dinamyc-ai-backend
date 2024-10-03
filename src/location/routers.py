@@ -20,6 +20,7 @@ from location.services import get_location_service
 from location.services import create_location_service
 from location.services import partial_update_location_service
 from sound.services import get_sound_service
+
 # TODO: falta implemntar el desconteo de estrellas
 from user.services import disable_user_service
 from user.services import validate_star_user_service
@@ -29,10 +30,10 @@ router = APIRouter(prefix="/location", tags=["Location"])
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
 async def get_locations(
-        game_id: str = None,
-        publish: bool = False,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_id: str = None,
+    publish: bool = False,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves all locations.
@@ -55,9 +56,9 @@ async def get_locations(
             )
     else:
         try:
-            locations_db, count_locations = await get_locations_v2_service(skip=0,
-                                                                           limit=100,
-                                                                           game_id=game_id)
+            locations_db, count_locations = await get_locations_v2_service(
+                skip=0, limit=100, game_id=game_id
+            )
 
             for location in locations_db:
                 location["_id"] = str(location["_id"])
@@ -74,10 +75,10 @@ async def get_locations(
 
 @router.get("/{location_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveLocation)
 async def get_location(
-        location_id: str,
-        publish: bool = False,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    location_id: str,
+    publish: bool = False,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves a location.
@@ -90,8 +91,9 @@ async def get_location(
         game_id = location_id.split("_")[-1]
         location_id = location_id.split("_")[0]
         try:
-            locations_db = await get_location_game_publish_service(game_id=game_id,
-                                                                   location_id=location_id)
+            locations_db = await get_location_game_publish_service(
+                game_id=game_id, location_id=location_id
+            )
             sound_db = await get_sound_service(locations_db["sound_id"])
             locations_db["sound_id"] = sound_db["file"]
             return locations_db
@@ -103,8 +105,9 @@ async def get_location(
             )
     else:
         try:
-            location_db = await get_location_service(location_id=location_id,
-                                                     user_id=str(user_db['_id']))
+            location_db = await get_location_service(
+                location_id=location_id, user_id=str(user_db['_id'])
+            )
             return location_db
 
         except Exception as e:
@@ -116,9 +119,9 @@ async def get_location(
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveLocation)
 async def create_location(
-        schema: SchemaCreateLocation,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    schema: SchemaCreateLocation,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint creates a location.
@@ -129,8 +132,7 @@ async def create_location(
     await validate_star_user_service(user_id=str(user_db.get("_id")))
 
     try:
-        location_db = await create_location_service(location=schema,
-                                                    user_id=str(user_db['_id']))
+        location_db = await create_location_service(location=schema, user_id=str(user_db['_id']))
         return location_db
 
     except Exception as e:
@@ -145,10 +147,10 @@ async def create_location(
     "/{location_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveLocation
 )
 async def partial_update_location(
-        location_id: str,
-        schema: SchemaPartialUpdateLocation,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    location_id: str,
+    schema: SchemaPartialUpdateLocation,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint partially updates a location.
@@ -159,9 +161,9 @@ async def partial_update_location(
     """
 
     try:
-        location_db = await partial_update_location_service(location_id=location_id,
-                                                            location=schema,
-                                                            user_id=str(user_db['_id']))
+        location_db = await partial_update_location_service(
+            location_id=location_id, location=schema, user_id=str(user_db['_id'])
+        )
         if location_db["config"]:
             for config in location_db["config"]:
                 if config["user"] == str(user_db['_id']):
@@ -176,11 +178,11 @@ async def partial_update_location(
         )
 
 
-@router.get("/generate_image/{location_id}", status_code=status.HTTP_200_OK)
+@router.get("/generate_image/{location_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveLocation)
 async def generate_image_location(
-        location_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    location_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint generates an image for a location.
@@ -189,8 +191,9 @@ async def generate_image_location(
     If the location is successfully updated, it returns the location's information.
     """
     try:
-        location_db = await generate_image_location_service(location_id=location_id,
-                                                            user_id=str(user_db['_id']))
+        location_db = await generate_image_location_service(
+            location_id=location_id, user_id=str(user_db['_id'])
+        )
         return location_db
 
     except Exception as e:
@@ -199,4 +202,3 @@ async def generate_image_location(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Location not updated",
         )
-        

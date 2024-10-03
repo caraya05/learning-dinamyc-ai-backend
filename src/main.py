@@ -43,7 +43,7 @@ app = FastAPI(
     swagger_ui_parameters={
         "syntaxHighlight": False,
     },
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 origins = [
@@ -115,7 +115,7 @@ admin = FastAPI(
     swagger_ui_parameters={
         "syntaxHighlight": False,
     },
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 admin.add_middleware(

@@ -26,10 +26,10 @@ def sum_arrays(*arrays):
 
 @router.get("/amount-created/", status_code=status.HTTP_200_OK)
 async def amount_of_created(
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     date_filter = {}
     if start_date is not None:
@@ -40,291 +40,239 @@ async def amount_of_created(
     query = {"created_at": date_filter} if date_filter else {}
 
     amount_users = len(await db["user"].find(query).to_list(None))
-    users_created_date = await db["user"].aggregate([
-        {
-            "$match": query
-        },
-        {
-            "$project": {
-                "created_at": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
-                }
-            }
-        },
-        {
-            "$group": {
-                "_id": "$created_at",
-                "count": {"$sum": 1}
-            }
-        },
-        {
-            "$sort": {
-                "_id": 1
-            }
-        }
-    ]).to_list(None)
+    users_created_date = (
+        await db["user"]
+        .aggregate(
+            [
+                {"$match": query},
+                {
+                    "$project": {
+                        "created_at": {
+                            "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                        }
+                    }
+                },
+                {"$group": {"_id": "$created_at", "count": {"$sum": 1}}},
+                {"$sort": {"_id": 1}},
+            ]
+        )
+        .to_list(None)
+    )
 
     amount_locations = len(await db["location"].find(query).to_list(None))
-    locations_created_date = await db["location"].aggregate([
-        {
-            "$match": query
-        },
-        {
-            "$project": {
-                "created_at": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
-                }
-            }
-        },
-        {
-            "$group": {
-                "_id": "$created_at",
-                "count": {"$sum": 1}
-            }
-        },
-        {
-            "$sort": {
-                "_id": 1
-            }
-        }
-    ]).to_list(None)
-    locations_unique_created_by = await db["location"].aggregate([
-        {
-            "$match": query
-        },
-        {
-            "$project": {
-                "date": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+    locations_created_date = (
+        await db["location"]
+        .aggregate(
+            [
+                {"$match": query},
+                {
+                    "$project": {
+                        "created_at": {
+                            "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                        }
+                    }
                 },
-                "created_by": 1
-            }
-        },
-        {
-            "$group": {
-                "_id": "$date",
-                "unique_created_by": {"$addToSet": "$created_by"}
-            }
-        },
-        {
-            "$sort": {"_id": 1}
-        }
-    ]).to_list(None)
+                {"$group": {"_id": "$created_at", "count": {"$sum": 1}}},
+                {"$sort": {"_id": 1}},
+            ]
+        )
+        .to_list(None)
+    )
+    locations_unique_created_by = (
+        await db["location"]
+        .aggregate(
+            [
+                {"$match": query},
+                {
+                    "$project": {
+                        "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+                        "created_by": 1,
+                    }
+                },
+                {"$group": {"_id": "$date", "unique_created_by": {"$addToSet": "$created_by"}}},
+                {"$sort": {"_id": 1}},
+            ]
+        )
+        .to_list(None)
+    )
 
     amount_characters = len(await db["character"].find(query).to_list(None))
-    characters_created_date = await db["character"].aggregate([
-        {
-            "$match": query
-        },
-        {
-            "$project": {
-                "created_at": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
-                }
-            }
-        },
-        {
-            "$group": {
-                "_id": "$created_at",
-                "count": {"$sum": 1}
-            }
-        },
-        {
-            "$sort": {
-                "_id": 1
-            }
-        }
-    ]).to_list(None)
-    characters_unique_created_by = await db["character"].aggregate([
-        {
-            "$match": query  # Asegúrate de que 'query' contenga tus criterios de filtrado específicos
-        },
-        {
-            "$project": {
-                "date": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+    characters_created_date = (
+        await db["character"]
+        .aggregate(
+            [
+                {"$match": query},
+                {
+                    "$project": {
+                        "created_at": {
+                            "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                        }
+                    }
                 },
-                "created_by": 1
-            }
-        },
-        {
-            "$group": {
-                "_id": "$date",
-                "unique_created_by": {"$addToSet": "$created_by"}
-            }
-        },
-        {
-            "$sort": {"_id": 1}
-        }
-    ]).to_list(None)
+                {"$group": {"_id": "$created_at", "count": {"$sum": 1}}},
+                {"$sort": {"_id": 1}},
+            ]
+        )
+        .to_list(None)
+    )
+    characters_unique_created_by = (
+        await db["character"]
+        .aggregate(
+            [
+                {
+                    "$match": query  # Asegúrate de que 'query' contenga tus criterios de filtrado específicos
+                },
+                {
+                    "$project": {
+                        "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+                        "created_by": 1,
+                    }
+                },
+                {"$group": {"_id": "$date", "unique_created_by": {"$addToSet": "$created_by"}}},
+                {"$sort": {"_id": 1}},
+            ]
+        )
+        .to_list(None)
+    )
 
     amount_weapons = len(await db["weapon"].find(query).to_list(None))
-    weapons_created_date = await db["weapon"].aggregate([
-        {
-            "$match": query
-        },
-        {
-            "$project": {
-                "created_at": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
-                }
-            }
-        },
-        {
-            "$group": {
-                "_id": "$created_at",
-                "count": {"$sum": 1}
-            }
-        },
-        {
-            "$sort": {
-                "_id": 1
-            }
-        }
-    ]).to_list(None)
+    weapons_created_date = (
+        await db["weapon"]
+        .aggregate(
+            [
+                {"$match": query},
+                {
+                    "$project": {
+                        "created_at": {
+                            "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                        }
+                    }
+                },
+                {"$group": {"_id": "$created_at", "count": {"$sum": 1}}},
+                {"$sort": {"_id": 1}},
+            ]
+        )
+        .to_list(None)
+    )
 
     amount_places = len(await db["place"].find(query).to_list(None))
-    places_created_date = await db["place"].aggregate([
-        {
-            "$match": query
-        },
-        {
-            "$project": {
-                "created_at": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
-                }
-            }
-        },
-        {
-            "$group": {
-                "_id": "$created_at",
-                "count": {"$sum": 1}
-            }
-        },
-        {
-            "$sort": {
-                "_id": 1
-            }
-        }
-    ]).to_list(None)
-    places_unique_created_by = await db["place"].aggregate([
-        {
-            "$match": query
-        },
-        {
-            "$project": {
-                "date": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+    places_created_date = (
+        await db["place"]
+        .aggregate(
+            [
+                {"$match": query},
+                {
+                    "$project": {
+                        "created_at": {
+                            "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                        }
+                    }
                 },
-                "created_by": 1
-            }
-        },
-        {
-            "$group": {
-                "_id": "$date",
-                "unique_created_by": {"$addToSet": "$created_by"}
-            }
-        },
-        {
-            "$sort": {"_id": 1}
-        }
-    ]).to_list(None)
+                {"$group": {"_id": "$created_at", "count": {"$sum": 1}}},
+                {"$sort": {"_id": 1}},
+            ]
+        )
+        .to_list(None)
+    )
+    places_unique_created_by = (
+        await db["place"]
+        .aggregate(
+            [
+                {"$match": query},
+                {
+                    "$project": {
+                        "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+                        "created_by": 1,
+                    }
+                },
+                {"$group": {"_id": "$date", "unique_created_by": {"$addToSet": "$created_by"}}},
+                {"$sort": {"_id": 1}},
+            ]
+        )
+        .to_list(None)
+    )
 
     amount_games = len(await db["game"].find(query).to_list(None))
-    games_created_date = await db["game"].aggregate([
-        {
-            "$match": query
-        },
-        {
-            "$project": {
-                "created_at": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
-                }
-            }
-        },
-        {
-            "$group": {
-                "_id": "$created_at",
-                "count": {"$sum": 1}
-            }
-        },
-        {
-            "$sort": {
-                "_id": 1
-            }
-        }
-    ]).to_list(None)
-    games_unique_created_by = await db["game"].aggregate([
-        {
-            "$match": query
-        },
-        {
-            "$project": {
-                "date": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+    games_created_date = (
+        await db["game"]
+        .aggregate(
+            [
+                {"$match": query},
+                {
+                    "$project": {
+                        "created_at": {
+                            "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                        }
+                    }
                 },
-                "created_by": 1
-            }
-        },
-        {
-            "$group": {
-                "_id": "$date",
-                "unique_created_by": {"$addToSet": "$created_by"}
-            }
-        },
-        {
-            "$sort": {"_id": 1}
-        }
-    ]).to_list(None)
+                {"$group": {"_id": "$created_at", "count": {"$sum": 1}}},
+                {"$sort": {"_id": 1}},
+            ]
+        )
+        .to_list(None)
+    )
+    games_unique_created_by = (
+        await db["game"]
+        .aggregate(
+            [
+                {"$match": query},
+                {
+                    "$project": {
+                        "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+                        "created_by": 1,
+                    }
+                },
+                {"$group": {"_id": "$date", "unique_created_by": {"$addToSet": "$created_by"}}},
+                {"$sort": {"_id": 1}},
+            ]
+        )
+        .to_list(None)
+    )
 
     amount_objects = len(await db["object"].find(query).to_list(None))
-    objects_created_date = await db["object"].aggregate([
-        {
-            "$match": query
-        },
-        {
-            "$project": {
-                "created_at": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
-                }
-            }
-        },
-        {
-            "$group": {
-                "_id": "$created_at",
-                "count": {"$sum": 1}
-            }
-        },
-        {
-            "$sort": {
-                "_id": 1
-            }
-        }
-    ]).to_list(None)
-    objects_unique_created_by = await db["object"].aggregate([
-        {
-            "$match": query
-        },
-        {
-            "$project": {
-                "date": {
-                    "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+    objects_created_date = (
+        await db["object"]
+        .aggregate(
+            [
+                {"$match": query},
+                {
+                    "$project": {
+                        "created_at": {
+                            "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                        }
+                    }
                 },
-                "created_by": 1
-            }
-        },
-        {
-            "$group": {
-                "_id": "$date",
-                "unique_created_by": {"$addToSet": "$created_by"}
-            }
-        },
-        {
-            "$sort": {"_id": 1}
-        }
-    ]).to_list(None)
+                {"$group": {"_id": "$created_at", "count": {"$sum": 1}}},
+                {"$sort": {"_id": 1}},
+            ]
+        )
+        .to_list(None)
+    )
+    objects_unique_created_by = (
+        await db["object"]
+        .aggregate(
+            [
+                {"$match": query},
+                {
+                    "$project": {
+                        "date": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+                        "created_by": 1,
+                    }
+                },
+                {"$group": {"_id": "$date", "unique_created_by": {"$addToSet": "$created_by"}}},
+                {"$sort": {"_id": 1}},
+            ]
+        )
+        .to_list(None)
+    )
 
-    total_data = locations_unique_created_by + characters_unique_created_by + places_unique_created_by + games_unique_created_by + objects_unique_created_by
+    total_data = (
+        locations_unique_created_by
+        + characters_unique_created_by
+        + places_unique_created_by
+        + games_unique_created_by
+        + objects_unique_created_by
+    )
 
     user_actives = {}
     for data in total_data:
@@ -348,20 +296,30 @@ async def amount_of_created(
     def multiply_and_sum_counts(data, factor):
         return sum(item["count"] * factor for item in data)
 
-    total_expenses = sum([
-        multiply_and_sum_counts(locations_created_date, 1),
-        multiply_and_sum_counts(characters_created_date, 1),
-        multiply_and_sum_counts(places_created_date, 1),
-        multiply_and_sum_counts(games_created_date, 10),
-        multiply_and_sum_counts(objects_created_date, 1)
-    ])
+    total_expenses = sum(
+        [
+            multiply_and_sum_counts(locations_created_date, 1),
+            multiply_and_sum_counts(characters_created_date, 1),
+            multiply_and_sum_counts(places_created_date, 1),
+            multiply_and_sum_counts(games_created_date, 10),
+            multiply_and_sum_counts(objects_created_date, 1),
+        ]
+    )
 
-    array_expenses = locations_created_date + characters_created_date + places_created_date + games_created_date + objects_created_date
+    array_expenses = (
+        locations_created_date
+        + characters_created_date
+        + places_created_date
+        + games_created_date
+        + objects_created_date
+    )
     expenses_by_id = {}
     for data in array_expenses:
         expenses_by_id[data["_id"]] = expenses_by_id.get(data["_id"], 0) + data["count"]
 
-    result_expenses = [{"_id": _id, "count": count} for _id, count in sorted(expenses_by_id.items())]
+    result_expenses = [
+        {"_id": _id, "count": count} for _id, count in sorted(expenses_by_id.items())
+    ]
 
     return {
         "amount_users": amount_users,
@@ -381,16 +339,16 @@ async def amount_of_created(
         "amount_users_active": len(amount_users_active),
         "users_active_date": result_final,
         "amount_expenses": total_expenses,
-        "expenses_created_date": result_expenses
+        "expenses_created_date": result_expenses,
     }
 
 
 @router.get("/amount-played/", status_code=status.HTTP_200_OK)
 async def amount_of_played(
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
         date_filter = {}
@@ -402,41 +360,34 @@ async def amount_of_played(
         query = {"created_at": date_filter} if date_filter else {}
 
         amount_played = len(await db["record_game"].find(query).to_list(None))
-        games_played_date = await db["record_game"].aggregate([
-            {
-                "$match": query
-            },
-            {
-                "$project": {
-                    "created_at": {
-                        "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
-                    }
-                }
-            },
-            {
-                "$group": {
-                    "_id": "$created_at",
-                    "count": {"$sum": 1}
-                }
-            }
-        ]).to_list(None)
+        games_played_date = (
+            await db["record_game"]
+            .aggregate(
+                [
+                    {"$match": query},
+                    {
+                        "$project": {
+                            "created_at": {
+                                "$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}
+                            }
+                        }
+                    },
+                    {"$group": {"_id": "$created_at", "count": {"$sum": 1}}},
+                ]
+            )
+            .to_list(None)
+        )
 
-        games_played = await db["record_game"].aggregate([
-            {
-                "$match": query
-            },
-            {
-                "$group": {
-                    "_id": "$game_id",
-                    "count": {"$sum": 1}
-                }
-            }
-        ]).to_list(None)
+        games_played = (
+            await db["record_game"]
+            .aggregate([{"$match": query}, {"$group": {"_id": "$game_id", "count": {"$sum": 1}}}])
+            .to_list(None)
+        )
 
         return {
             "amount_played": amount_played,
             "games_played_date": games_played_date,
-            "games_played": games_played
+            "games_played": games_played,
         }
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -444,10 +395,10 @@ async def amount_of_played(
 
 @router.get("/users/", status_code=status.HTTP_200_OK)
 async def get_users(
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    start_date: Optional[datetime] = None,
+    end_date: Optional[datetime] = None,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
         date_filter = {}
@@ -463,12 +414,25 @@ async def get_users(
             user_id = str(user["_id"])
             user["_id"] = user_id
             user["games"] = await db["game"].count_documents({"created_by": user_id, **query}) or 0
-            user["characters"] = await db["character"].count_documents({"created_by": user_id, **query}) or 0
-            user["outdoors"] = await db["place"].count_documents({"created_by": user_id, **query}) or 0
-            user["interiors"] = await db["location"].count_documents({"created_by": user_id, **query}) or 0
-            user["objects"] = await db["object"].count_documents({"created_by": user_id, **query}) or 0
-            user["expenses"] = (user["games"] * 10 + user["characters"] + user["outdoors"] + user["interiors"] +
-                                user["objects"])
+            user["characters"] = (
+                await db["character"].count_documents({"created_by": user_id, **query}) or 0
+            )
+            user["outdoors"] = (
+                await db["place"].count_documents({"created_by": user_id, **query}) or 0
+            )
+            user["interiors"] = (
+                await db["location"].count_documents({"created_by": user_id, **query}) or 0
+            )
+            user["objects"] = (
+                await db["object"].count_documents({"created_by": user_id, **query}) or 0
+            )
+            user["expenses"] = (
+                user["games"] * 10
+                + user["characters"]
+                + user["outdoors"]
+                + user["interiors"]
+                + user["objects"]
+            )
             del user["_id"]
             del user["photo"]
             del user["password"]

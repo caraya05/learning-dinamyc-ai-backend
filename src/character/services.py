@@ -30,8 +30,13 @@ async def get_character_service(character_id: str):
 
 async def get_characters_service(skip: int = 1, limit: int = 100, game_id: str = None):
     try:
-        if characters_db := await db["character"].find({"game_id": game_id}).skip((skip - 1) * limit).limit(
-                limit).to_list(None):
+        if (
+                characters_db := await db["character"]
+                        .find({"game_id": game_id})
+                        .skip((skip - 1) * limit)
+                        .limit(limit)
+                        .to_list(None)
+        ):
             return characters_db
         return None
     except Exception as e:
@@ -44,12 +49,14 @@ async def get_characters_service(skip: int = 1, limit: int = 100, game_id: str =
 
 async def get_all_character_service(user_id: str, skip: int = 1, limit: int = 10):
     try:
-        characters_db = await (db["character"]
-                               .find({"created_by": user_id})
-                               .sort("created_at", -1)
-                               .skip((skip - 1) * limit)
-                               .limit(limit)
-                               .to_list(None))
+        characters_db = await (
+            db["character"]
+            .find({"created_by": user_id})
+            .sort("created_at", -1)
+            .skip((skip - 1) * limit)
+            .limit(limit)
+            .to_list(None)
+        )
         return characters_db
     except Exception as e:
         print(f"Error in get all character service: {str(e)}")
@@ -59,7 +66,9 @@ async def get_all_character_service(user_id: str, skip: int = 1, limit: int = 10
         )
 
 
-async def get_characters_by_location_service(skip: int = 1, limit: int = 100, location_id: str = None):
+async def get_characters_by_location_service(
+        skip: int = 1, limit: int = 100, location_id: str = None
+):
     location_db = await db["location"].find_one({"_id": ObjectId(location_id)})
     if not location_db:
         raise HTTPException(
@@ -68,11 +77,18 @@ async def get_characters_by_location_service(skip: int = 1, limit: int = 100, lo
         )
 
     try:
-        if characters_locations_db := await db["character_location"].find(
-                {"location_id": location_id}).skip((skip - 1) * limit).limit(limit).to_list(None):
+        if (
+                characters_locations_db := await db["character_location"]
+                        .find({"location_id": location_id})
+                        .skip((skip - 1) * limit)
+                        .limit(limit)
+                        .to_list(None)
+        ):
             characters_db = []
             for character_location in characters_locations_db:
-                character_db = await db["character"].find_one({"_id": ObjectId(character_location["character_id"])})
+                character_db = await db["character"].find_one(
+                    {"_id": ObjectId(character_location["character_id"])}
+                )
                 character_db["characteristics"] = character_location["characteristics"]
                 character_db["_id"] = str(character_db["_id"])
                 characters_db.append(character_db)
@@ -99,19 +115,23 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
             _task_data={},
             _element_id=str(character_created.inserted_id),
             _element_type="character",
-            _process="create_character"
+            _process="create_character",
         )
 
-        task_celery = generate_character_task.delay(_character_id=str(character_created.inserted_id),
-                                                    _user_id=user_id,
-                                                    _task_id=str(task_db["_id"]))
+        task_celery = generate_character_task.delay(
+            _character_id=str(character_created.inserted_id),
+            _user_id=user_id,
+            _task_id=str(task_db["_id"]),
+        )
         await update_task_service(
             _id=str(task_db["_id"]),
             _task_id=task_celery.id,
         )
 
-        await db["character"].update_one({"_id": character_created.inserted_id},
-                                         {"$set": {"tasks_request": [str(task_db["_id"])]}})
+        await db["character"].update_one(
+            {"_id": character_created.inserted_id},
+            {"$set": {"tasks_request": [str(task_db["_id"])]}},
+        )
 
         if character_db := await db["character"].find_one({"_id": character_created.inserted_id}):
             character_db["task_id"] = str(task_db["_id"])
@@ -140,10 +160,10 @@ async def get_character_leading_role_service(game_id: str):
             detail="Character not found",
         )
 
-async def update_character_service(character_id: str,
-                                   user_id: str,
-                                   name: str = None,
-                                   prompt_user: str = None):
+
+async def update_character_service(
+        character_id: str, user_id: str, name: str = None, prompt_user: str = None
+):
     try:
         if character_db := await db["character"].find_one({"_id": ObjectId(character_id)}):
             update_fields = {"updated_at": datetime.utcnow()}
@@ -152,8 +172,7 @@ async def update_character_service(character_id: str,
             if prompt_user is not None:
                 update_fields["prompt_user"] = prompt_user
             await db["character"].update_one(
-                {"_id": ObjectId(character_id)},
-                {"$set": update_fields}
+                {"_id": ObjectId(character_id)}, {"$set": update_fields}
             )
             task_db = await create_task_service(
                 _task_id="",
@@ -161,18 +180,20 @@ async def update_character_service(character_id: str,
                 _task_data={},
                 _element_id=str(character_id),
                 _element_type="character",
-                _process="update_character"
+                _process="update_character",
             )
-            task_celery = generate_character_task.delay(_character_id=str(character_id),
-                                                        _user_id=user_id,
-                                                        _task_id=str(task_db["_id"]))
+            task_celery = generate_character_task.delay(
+                _character_id=str(character_id), _user_id=user_id, _task_id=str(task_db["_id"])
+            )
             await update_task_service(
                 _id=str(task_db["_id"]),
                 _task_id=task_celery.id,
             )
             character_db["tasks_request"].append(str(task_db["_id"]))
-            await db["character"].update_one({"_id": ObjectId(character_id)},
-                                             {"set": {"tasks_request": character_db["request_tasks"]}})
+            await db["character"].update_one(
+                {"_id": ObjectId(character_id)},
+                {"set": {"tasks_request": character_db["request_tasks"]}},
+            )
             character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
             character_db["task_id"] = str(task_db["_id"])
             return character_db
@@ -193,18 +214,20 @@ async def generate_image_character_service(character_id: str, user_id: str):
             _task_data={},
             _element_id=character_id,
             _element_type="character",
-            _process="generate_image_character"
+            _process="generate_image_character",
         )
-        task_celery = generate_image_character_task.delay(_character_id=character_id,
-                                                          _user_id=user_id,
-                                                          _task_id=str(task_db["_id"]))
+        task_celery = generate_image_character_task.delay(
+            _character_id=character_id, _user_id=user_id, _task_id=str(task_db["_id"])
+        )
         await update_task_service(
             _id=str(task_db["_id"]),
             _task_id=task_celery,
         )
         character_db["tasks_request"].append(str(task_db["_id"]))
-        await db["character"].update_one({"_id": ObjectId(character_id)},
-                                            {"set": {"tasks_request": character_db["request_tasks"]}})
+        await db["character"].update_one(
+            {"_id": ObjectId(character_id)},
+            {"set": {"tasks_request": character_db["request_tasks"]}},
+        )
 
         character_db["task_id"] = str(task_db["_id"])
         return character_db
@@ -225,7 +248,11 @@ async def delete_character_service(character_id: str):
         )
     # if character_db['image']:
     #     delete_image(character_db['image'])
-    if character_location_db := await db["character_location"].find({"character_id": character_id}).to_list(None):
+    if (
+            character_location_db := await db["character_location"]
+                    .find({"character_id": character_id})
+                    .to_list(None)
+    ):
         for character_location in character_location_db:
             await db["character_location"].delete_one({"_id": character_location["_id"]})
     delete_character = await db["character"].delete_one({"_id": ObjectId(character_id)})
@@ -248,20 +275,17 @@ async def add_character_to_location_service(character_id: str, location_id: str)
         )
     try:
         existing_entry = await db["character_location"].find_one(
-            {"character_id": character_id, "location_id": location_id})
-
+            {"character_id": character_id, "location_id": location_id}
+        )
         if existing_entry:
-            raise HTTPException(
-                status_code=status.HTTP_200_OK,
-                detail="Character already added to location",
-            )
+            return "Character already added to location"
 
         character_location_data = CharacterLocationModel(
             character_id=character_id,
             location_id=location_id,
             characteristics={},
             created_by=character_db["created_by"],
-            updated_by=character_db["updated_by"]
+            updated_by=character_db["updated_by"],
         )
         await db["character_location"].insert_one(character_location_data.dict())
 
@@ -275,17 +299,23 @@ async def add_character_to_location_service(character_id: str, location_id: str)
     return "character added to location"
 
 
-async def add_or_edit_character_location(character_id: str, location_id: str, characteristics: dict, user_id: str):
-    existing_entry = await db["character_location"].find_one({"character_id": character_id, "location_id": location_id})
+async def add_or_edit_character_location(
+        character_id: str, location_id: str, characteristics: dict, user_id: str
+):
+    existing_entry = await db["character_location"].find_one(
+        {"character_id": character_id, "location_id": location_id}
+    )
 
     if existing_entry:
         await db["character_location"].update_one(
             {"_id": existing_entry["_id"]},
-            {"$set": {
-                "characteristics": characteristics,
-                "updated_by": user_id,
-                "updated_at": datetime.utcnow()
-            }}
+            {
+                "$set": {
+                    "characteristics": characteristics,
+                    "updated_by": user_id,
+                    "updated_at": datetime.utcnow(),
+                }
+            },
         )
         return "Character location updated successfully"
     else:
@@ -294,7 +324,7 @@ async def add_or_edit_character_location(character_id: str, location_id: str, ch
             location_id=location_id,
             characteristics=characteristics,
             created_by=user_id,
-            updated_by=user_id
+            updated_by=user_id,
         )
         await db["character_location"].insert_one(character_location_data.dict())
         return "Character location added successfully"

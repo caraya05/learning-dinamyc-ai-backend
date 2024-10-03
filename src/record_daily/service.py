@@ -9,29 +9,31 @@ from record_daily.models import DailyRecord
 from core.database import db
 
 
-async def get_or_create_daily_record_service(*,
-                                             user_id: str,
-                                             created_at: datetime,
-                                             balance: int = 0,
-                                             expenses: int = 0,
-                                             games_created: int = 0,
-                                             sets_with_errors: int = 0,
-                                             attempts_to_create_without_balance: int = 0,
-                                             assets_created: dict = None,
-                                             ):
+async def get_or_create_daily_record_service(
+    *,
+    user_id: str,
+    created_at: datetime,
+    balance: int = 0,
+    expenses: int = 0,
+    games_created: int = 0,
+    sets_with_errors: int = 0,
+    attempts_to_create_without_balance: int = 0,
+    assets_created: dict = None,
+):
     """
     Get or create a daily record.
     """
 
     try:
-        if daily_record := await db['daily_record'].find_one({"user_id": user_id,
-                                                              "created_at": {
-                                                                  "$gte": created_at.replace(hour=0, minute=0, second=0,
-                                                                                             microsecond=0),
-                                                                  "$lt": created_at.replace(hour=23, minute=59,
-                                                                                            second=59,
-                                                                                            microsecond=999999)
-                                                              }}):
+        if daily_record := await db['daily_record'].find_one(
+            {
+                "user_id": user_id,
+                "created_at": {
+                    "$gte": created_at.replace(hour=0, minute=0, second=0, microsecond=0),
+                    "$lt": created_at.replace(hour=23, minute=59, second=59, microsecond=999999),
+                },
+            }
+        ):
             return daily_record
         else:
             daily_record = DailyRecord(
@@ -50,21 +52,21 @@ async def get_or_create_daily_record_service(*,
     except Exception as e:
         print(f"Daily record not created {e}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Daily record not created {str(e)}"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Daily record not created {str(e)}"
         )
 
 
-async def register_daily_record_service(*,
-                                        user_id: str,
-                                        created_at: datetime,
-                                        balance: int = 0,
-                                        expenses: int = 0,
-                                        games_created: int = 0,
-                                        sets_with_errors: int = 0,
-                                        attempts_to_create_without_balance: int = 0,
-                                        assets_created: dict = None,
-                                        ):
+async def register_daily_record_service(
+    *,
+    user_id: str,
+    created_at: datetime,
+    balance: int = 0,
+    expenses: int = 0,
+    games_created: int = 0,
+    sets_with_errors: int = 0,
+    attempts_to_create_without_balance: int = 0,
+    assets_created: dict = None,
+):
     """
     Update a daily record.
     """
@@ -86,14 +88,17 @@ async def register_daily_record_service(*,
             daily_record_db['games_created'] += games_created
             daily_record_db['sets_with_errors'] += sets_with_errors
             daily_record_db['assets_created'] += [assets_created]
-            daily_record_db['attempts_to_create_without_balance'] += attempts_to_create_without_balance
-            await db['daily_record'].update_one({"_id": ObjectId(daily_record_db['_id'])}, {"$set": daily_record_db})
+            daily_record_db[
+                'attempts_to_create_without_balance'
+            ] += attempts_to_create_without_balance
+            await db['daily_record'].update_one(
+                {"_id": ObjectId(daily_record_db['_id'])}, {"$set": daily_record_db}
+            )
         return await db['daily_record'].find_one({"_id": ObjectId(daily_record_db['_id'])})
     except Exception as e:
         print(f"Daily record not updated {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Daily record not updated"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Daily record not updated"
         )
 
 
@@ -129,7 +134,9 @@ async def get_list_daily_record_service(*, type_export: str):
                         "total_expenses": {"$sum": "$expenses"},
                         "total_games_created": {"$sum": "$games_created"},
                         "total_sets_with_errors": {"$sum": "$sets_with_errors"},
-                        "total_attempts_without_balance": {"$sum": "$attempts_to_create_without_balance"},
+                        "total_attempts_without_balance": {
+                            "$sum": "$attempts_to_create_without_balance"
+                        },
                     }
                 }
             ]
@@ -141,6 +148,5 @@ async def get_list_daily_record_service(*, type_export: str):
     except Exception as e:
         print(f"Daily records not retrieved {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Daily records not retrieved "
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Daily records not retrieved "
         )

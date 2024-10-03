@@ -31,10 +31,10 @@ router = APIRouter(prefix="/category", tags=["Category"])
 
 @router.get("/active/", response_model=SchemaListCategoryActive)
 async def get_categories_actives(
-        skip: int = 0,
-        limit: int = 10,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    skip: int = 0,
+    limit: int = 10,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves a list of categories.
@@ -58,10 +58,10 @@ async def get_categories_actives(
 
 @router.get("/", response_model=SchemaListCategory)
 async def get_categories(
-        skip: int = 0,
-        limit: int = 10,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    skip: int = 0,
+    limit: int = 10,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves a list of categories.
@@ -86,9 +86,9 @@ async def get_categories(
 
 @router.get("/{category_id}", response_model=SchemaRetrieveCategory)
 async def get_category_by_id(
-        category_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    category_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves a category by its id.
@@ -110,9 +110,9 @@ async def get_category_by_id(
 
 @router.post("/", response_model=SchemaRetrieveCategory)
 async def create_category(
-        category: SchemaCreateCategory,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    category: SchemaCreateCategory,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint creates a new category.
@@ -122,7 +122,11 @@ async def create_category(
     """
 
     try:
-        category = Category(**category.dict(), created_by=str(user_db.get("_id")), updated_by=str(user_db.get("_id")))
+        category = Category(
+            **category.dict(),
+            created_by=str(user_db.get("_id")),
+            updated_by=str(user_db.get("_id")),
+        )
         return await create_category_service(category)
 
     except Exception as e:
@@ -135,10 +139,10 @@ async def create_category(
 
 @router.put("/{category_id}", response_model=SchemaRetrieveCategory)
 async def update_category(
-        category_id: str,
-        category: SchemaUpdateCategory,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    category_id: str,
+    category: SchemaUpdateCategory,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint updates a category by its id.
@@ -148,7 +152,9 @@ async def update_category(
     """
 
     try:
-        category_updated = SchemaUpdateDocumentCategory(**category.dict(), updated_by=str(user_db.get("_id")))
+        category_updated = SchemaUpdateDocumentCategory(
+            **category.dict(), updated_by=str(user_db.get("_id"))
+        )
         return await update_category_service(category_id, category_updated)
 
     except Exception as e:
@@ -161,9 +167,9 @@ async def update_category(
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_category(
-        category_id: str,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    category_id: str,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint deletes a category by its id.

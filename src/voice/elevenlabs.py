@@ -18,26 +18,25 @@ def get_voices() -> list:
     headers = {
         "Accept": "application/json",
         "xi-api-key": XI_API_KEY,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
     }
     response = requests.get(url, headers=headers, params=querystring)
     data = response.json()
     return data['voices']
 
 
-def generate_audio(text: str,
-                   voice_id: str,
-                   model_id: str = "eleven_multilingual_v2",
-                   stability: float = 0.5,
-                   similarity_boost: float = 0.8,
-                   style: float = 0.0,
-                   use_speaker_boost: bool = True,
-                   chunk_size: int = 1024):
+def generate_audio(
+    text: str,
+    voice_id: str,
+    model_id: str = "eleven_multilingual_v2",
+    stability: float = 0.5,
+    similarity_boost: float = 0.8,
+    style: float = 0.0,
+    use_speaker_boost: bool = True,
+    chunk_size: int = 1024,
+):
     tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
-    headers = {
-        "Accept": "application/json",
-        "xi-api-key": XI_API_KEY
-    }
+    headers = {"Accept": "application/json", "xi-api-key": XI_API_KEY}
     data = {
         "text": text,
         "model_id": model_id,
@@ -45,8 +44,8 @@ def generate_audio(text: str,
             "stability": stability,
             "similarity_boost": similarity_boost,
             "style": style,
-            "use_speaker_boost": use_speaker_boost
-        }
+            "use_speaker_boost": use_speaker_boost,
+        },
     }
     response = requests.post(tts_url, headers=headers, json=data, stream=True)
 
@@ -61,8 +60,9 @@ def generate_audio(text: str,
         audio_segment.export(ogg_audio_in_memory, format="ogg")
         ogg_audio_in_memory.seek(0)
 
-        url_audio = upload_audio(file_name=f"voice/{uuid4()}.ogg",
-                                 audio_byte_arr=ogg_audio_in_memory)
+        url_audio = upload_audio(
+            file_name=f"voice/{uuid4()}.ogg", audio_byte_arr=ogg_audio_in_memory
+        )
         return url_audio
     else:
         print("error generate voice", response.text)

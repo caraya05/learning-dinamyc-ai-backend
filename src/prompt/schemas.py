@@ -71,6 +71,7 @@ class SchemaRetrieveListPrompt(ResponseModelStr):
     """
     Schema for retrieving a prompt
     """
+
     title: Optional[str] = Field(..., example="Prompt Title")
     description: Optional[str] = Field(..., example="This is a prompt description")
     prompt_system: Optional[str] = Field(..., example="Prompt System")

@@ -10,8 +10,9 @@ from category.models import Category
 with open('Category.csv', 'r') as f:
     reader = csv.DictReader(f)
     for row in reader:
-        category_csv = Category(name=row['name'],
-                                description=row['description'],
-                                is_active=True,
-                                )
+        category_csv = Category(
+            name=row['name'],
+            description=row['description'],
+            is_active=True,
+        )
         db["category"].insert_one(category_csv.dict())

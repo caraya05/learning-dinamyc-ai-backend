@@ -9,10 +9,11 @@ from prompt.models import Prompt
 with open('Prompt.csv', 'r') as f:
     reader = csv.DictReader(f)
     for row in reader:
-        prompt_csv = Prompt(title=row['title'],
-                            description=row['description'],
-                            prompt_system=row['prompt_system'],
-                            category=row['category'],
-                            is_active=True,
-                            )
+        prompt_csv = Prompt(
+            title=row['title'],
+            description=row['description'],
+            prompt_system=row['prompt_system'],
+            category=row['category'],
+            is_active=True,
+        )
         db["prompt"].insert_one(prompt_csv.dict())
