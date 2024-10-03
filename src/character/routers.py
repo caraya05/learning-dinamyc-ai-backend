@@ -126,22 +126,22 @@ async def get_all_characters(
         )
 
 
-@router.get("/{character_id}/generate-face/", response_model=SchemaRetrieveCharacter)
-async def get_images_character_face(
-    character_id: str,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-):
-    try:
-        character_db = await generate_image_character_service(character_id=character_id)
-        await disable_user_service(user_id=str(user_db.get("_id")), section="character")
-        return character_db
-    except Exception as e:
-        print(f"error in get characters: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Characters not found",
-        )
+# @router.get("/{character_id}/generate-face/", response_model=SchemaRetrieveCharacter)
+# async def get_images_character_face(
+#     character_id: str,
+#     user_db: dict = Depends(auth),
+#     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+# ):
+#     try:
+#         character_db = await generate_image_character_service(character_id=character_id)
+#         await disable_user_service(user_id=str(user_db.get("_id")), section="character")
+#         return character_db
+#     except Exception as e:
+#         print(f"error in get characters: {str(e)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Characters not found",
+#         )
 
 
 @router.post("/", response_model=SchemaRetrieveCharacter)
@@ -216,6 +216,7 @@ async def partial_update_character(
             character_id=character_id,
             name=character_update.name,
             prompt_user=character_update.prompt_user,
+            user_id=str(user_db.get("_id")),
         )
         return character_db
     except Exception as e:

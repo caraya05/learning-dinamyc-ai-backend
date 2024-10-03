@@ -181,27 +181,27 @@ async def partial_update_location(
         )
 
 
-@router.get("/generate_image/{location_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveLocation)
-async def generate_image_location(
-    location_id: str,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-):
-    """
-    This endpoint generates an image for a location.
-
-    It expects the location's id in the request path.
-    If the location is successfully updated, it returns the location's information.
-    """
-    try:
-        location_db = await generate_image_location_service(
-            location_id=location_id, user_id=str(user_db['_id'])
-        )
-        return location_db
-
-    except Exception as e:
-        print(f"Error in generate image location: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Location not updated",
-        )
+# @router.get("/generate_image/{location_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveLocation)
+# async def generate_image_location(
+#     location_id: str,
+#     user_db: dict = Depends(auth),
+#     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+# ):
+#     """
+#     This endpoint generates an image for a location.
+#
+#     It expects the location's id in the request path.
+#     If the location is successfully updated, it returns the location's information.
+#     """
+#     try:
+#         location_db = await generate_image_location_service(
+#             location_id=location_id, user_id=str(user_db['_id'])
+#         )
+#         return location_db
+#
+#     except Exception as e:
+#         print(f"Error in generate image location: {str(e)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Location not updated",
+#         )
