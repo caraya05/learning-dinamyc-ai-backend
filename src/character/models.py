@@ -27,7 +27,6 @@ class Character(BaseModel):
     conversation: Optional[list[dict]] = Field([], example=[{"key": "value"}])
     type: str = Field(..., example=TypeCharacter.LEADING_ROLE)
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
-    audio: Optional[str] = Field(None, example="audio")
     status: Optional[int] = Field(0, example=200)
     tasks_request: Optional[list[str]] = Field([], example=["task1", "task2"])
     tasks_notified: Optional[list[str]] = Field([], example=["task1", "task2"])
