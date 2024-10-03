@@ -38,30 +38,37 @@ class SchemaLocationEnvironment(BaseModel):
 
 async def generate_environment_location(_location_id: str, _user_id: str):
     try:
-        location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
-        response_analyze = await openai_generator.generate_gpt(
-            content_prompt=[
-                {
-                    "role": "system",
-                    "content": f"Analiza la imagen de la locacion y describe el ambiente en la imagen,"
-                               f"las opciones de animales son dog ,bird ,squirrel, firefly",
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "image_url", "image_url": {"url": location_db["image"]}},
-                    ],
-                },
-            ],
-            model="gpt-4o-mini",
-            max_tokens=4096,
-            response_format=SchemaLocationEnvironment,
-            type_generation="generate_environment_location",
-            user_id=_user_id,
-        )
+        # location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
+        # response_analyze = await openai_generator.generate_gpt(
+        #     content_prompt=[
+        #         {
+        #             "role": "system",
+        #             "content": f"Analiza la imagen de la locacion y describe el ambiente en la imagen,"
+        #                        f"las opciones de animales son dog ,bird ,squirrel, firefly",
+        #         },
+        #         {
+        #             "role": "user",
+        #             "content": [
+        #                 {"type": "image_url", "image_url": {"url": location_db["image"]}},
+        #             ],
+        #         },
+        #     ],
+        #     model="gpt-4o-mini",
+        #     max_tokens=4096,
+        #     response_format=SchemaLocationEnvironment,
+        #     type_generation="generate_environment_location",
+        #     user_id=_user_id,
+        # )
+        #
+        # location_environment = response_analyze.dict()
+        # location_environment["animals"] = []
 
-        location_environment = response_analyze.dict()
-        location_environment["animals"] = []
+        location_environment = {
+            "fog_level": "none",
+            "light_mode": "directSun",
+            "light_intensity": "high",
+            "animals": []
+        }
 
         await db['location'].update_one(
             {"_id": ObjectId(_location_id)}, {"$set": {"environment": location_environment}}
