@@ -16,7 +16,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 @router.post("/verify", status_code=status.HTTP_200_OK)
 def verify_token(
-        token: dict = {"access": ""},
+    token: dict = {"access": ""},
 ):
     """
     Verify if token_user is valid
@@ -30,15 +30,11 @@ def verify_token(
     )
 
 
-@router.post(
-    "/token",
-    response_model=Token,
-    responses={401: {"model": ExceptionModel}}
-)
+@router.post("/token", response_model=Token, responses={401: {"model": ExceptionModel}})
 async def token(credentials: Credentials):
     if user := await authenticate_user(
-            email=credentials.email,
-            password=credentials.password,
+        email=credentials.email,
+        password=credentials.password,
     ):
         return await generate_token(
             user_id=user.get("_id"),
@@ -51,10 +47,7 @@ async def token(credentials: Credentials):
     )
 
 
-@router.post(
-    "/google",
-    status_code=status.HTTP_200_OK
-)
+@router.post("/google", status_code=status.HTTP_200_OK)
 async def sign_in_with_google(data: dict):
     """
     Sign in with google
@@ -63,10 +56,7 @@ async def sign_in_with_google(data: dict):
     return await social_auth_firebase(data)
 
 
-@router.post(
-    "/apple",
-    status_code=status.HTTP_200_OK
-)
+@router.post("/apple", status_code=status.HTTP_200_OK)
 async def sign_in_with_apple(data: dict):
     """
     Sign in with apple
@@ -74,11 +64,7 @@ async def sign_in_with_apple(data: dict):
     return await social_auth_firebase(data)
 
 
-@router.post(
-    "/refresh",
-    response_model=Token,
-    responses={401: {"model": ExceptionModel}}
-)
+@router.post("/refresh", response_model=Token, responses={401: {"model": ExceptionModel}})
 async def refresh(payload: Refresh):
     try:
         if new_token := await auth_refresh(token=payload.refresh):

@@ -31,11 +31,14 @@ async def auth(token: str = Depends(auth_header)) -> dict:
 
 async def auth_admin(token: str = Depends(auth_header)) -> dict:
     if user_admin := await auth_base(token=token):
-        if user_admin.get("is_superuser") and user_admin.get("is_active") and user_admin.get("is_staff"):
+        if (
+            user_admin.get("is_superuser")
+            and user_admin.get("is_active")
+            and user_admin.get("is_staff")
+        ):
             return user_admin
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="User is not an admin",
         headers={"WWW-Authenticate": "Bearer"},
     )
-

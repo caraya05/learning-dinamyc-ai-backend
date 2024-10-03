@@ -23,20 +23,26 @@ class ResponseModelStr(BaseModel):
 
 class SchemaCreateCharacter(BaseModel):
     name: str = Field(..., max_length=100, example="Jhon Doe")
-    prompt_user: Optional[str] = Field(None, example="prompt_user")
+    prompt_user: str = Field(..., example="prompt_user")
+    prompt_user_dialog: str = Field(None, example="prompt_user_dialog")
+    type: str = Field(..., example="role")
+    conversation_type: str = Field(..., example="conversation_type")
 
 
 class SchemaRetrieveCharacter(ResponseModel):
     name: str = Field(..., min_length=3, max_length=100, example="Jhon Doe")
     type: Optional[str] = Field(None, example=TypeCharacter.LEADING_ROLE)
     image: Optional[str] = Field(..., example="image", default_factory=None)
-    description: str = Field(..., min_length=8, example="this is a description")
+    description: Optional[str] = Field(..., min_length=8, example="this is a description")
     genre: Optional[str] = Field(None, example=GenderCharacter.MAN)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
     text_idle: Optional[dict] = Field(None, example={"key": "value"})
     game_id: Optional[str] = Field(..., example="game_id")
     body_type: Optional[str] = Field(None, example="body_type")
     prompt_user: Optional[str] = Field(None, example="prompt_user")
+    prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
+    conversation_type: Optional[str] = Field(None, example="conversation_type")
+    conversation: Optional[list[dict]] = Field([], example=[{"key": "value"}])
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
     audio: Optional[str] = Field(None, example="audio")
     presentation: Optional[str] = Field(None, example="presentation")
@@ -45,17 +51,19 @@ class SchemaRetrieveCharacter(ResponseModel):
     character_type: Optional[str] = Field(None, example="character_type")
 
 
-
 class SchemaRetrieveCharacterStr(ResponseModelStr):
     name: str = Field(..., min_length=3, max_length=100, example="Jhon Doe")
     type: str = Field(None, example=TypeCharacter.LEADING_ROLE)
     image: Optional[str] = Field(..., example="image", default_factory=None)
-    description: str = Field(..., min_length=8, example="this is a description")
+    description: Optional[str] = Field(..., min_length=8, example="this is a description")
     genre: str = Field(None, example=GenderCharacter.MAN)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})
     text_idle: Optional[dict] = Field(None, example={"key": "value"})
     body_type: Optional[str] = Field(None, example="body_type")
     prompt_user: Optional[str] = Field(None, example="prompt_user")
+    prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
+    conversation_type: Optional[str] = Field(None, example="conversation_type")
+    conversation: Optional[list[dict]] = Field([], example=[{"key": "value"}])
     audio: Optional[str] = Field(None, example="audio")
     status: Optional[str] = Field(1, example="status")
     presentation: Optional[str] = Field(None, example="presentation")

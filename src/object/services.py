@@ -10,6 +10,7 @@ from object.models import Object
 
 from object.schemas import SchemaCreateObject, ObjectLocationModel
 from object.schemas import SchemaCreateItem
+
 # from object.schemas import SchemaPartialUpdateObject
 
 from utils import upload_image, delete_image
@@ -20,7 +21,9 @@ async def get_objects_service(game_id: str, skip: int = 0, limit: int = 100):
     Get a list of objects.
     """
     try:
-        objects_db = await db["object"].find({"game_id": game_id}).skip(skip).limit(limit).to_list(None)
+        objects_db = (
+            await db["object"].find({"game_id": game_id}).skip(skip).limit(limit).to_list(None)
+        )
         count_objects = await db["object"].count_documents({"game_id": game_id})
         return objects_db, count_objects
     except Exception as e:
@@ -181,7 +184,8 @@ async def add_item_location_service(item_id: str, location_id: str):
         )
 
     existing_entry = await db["object_location"].find_one(
-        {"object_id": item_id, "location_id": location_id})
+        {"object_id": item_id, "location_id": location_id}
+    )
     if existing_entry:
         raise HTTPException(
             status_code=status.HTTP_200_OK,
@@ -193,7 +197,7 @@ async def add_item_location_service(item_id: str, location_id: str):
         location_id=location_id,
         characteristics={},
         created_by=item_db["created_by"],
-        updated_by=item_db["updated_by"]
+        updated_by=item_db["updated_by"],
     )
     try:
         await db["object_location"].insert_one(object_location.dict())
@@ -208,18 +212,27 @@ async def add_item_location_service(item_id: str, location_id: str):
         )
 
 
-async def add_or_edit_item_characteristic_service(item_id: str, location_id: str, characteristics: dict, user_id: str):
+async def add_or_edit_item_characteristic_service(
+    item_id: str, location_id: str, characteristics: dict, user_id: str
+):
     """
     Add or edit a characteristic to a object in a location.
     """
 
     existing_entry = await db["object_location"].find_one(
-        {"object_id": item_id, "location_id": location_id})
+        {"object_id": item_id, "location_id": location_id}
+    )
 
     if existing_entry:
         await db["object_location"].update_one(
             {"object_id": item_id, "location_id": location_id},
-            {"$set": {"characteristics": characteristics, "updated_at": datetime.utcnow(), "updated_by": user_id}}
+            {
+                "$set": {
+                    "characteristics": characteristics,
+                    "updated_at": datetime.utcnow(),
+                    "updated_by": user_id,
+                }
+            },
         )
 
         return "Item characteristic updated"
@@ -229,7 +242,7 @@ async def add_or_edit_item_characteristic_service(item_id: str, location_id: str
             location_id=location_id,
             characteristics=characteristics,
             created_by=user_id,
-            updated_by=user_id
+            updated_by=user_id,
         )
 
         await db["object_location"].insert_one(object_location.dict())
@@ -248,11 +261,16 @@ async def get_item_by_location_service(location_id: str):
             detail="Location not found",
         )
     try:
-        if object_locations_db := await db["object_location"].find({"location_id": location_id}).to_list(
-                None):
+        if (
+            object_locations_db := await db["object_location"]
+            .find({"location_id": location_id})
+            .to_list(None)
+        ):
             objects_db = []
             for object_location in object_locations_db:
-                object_db = await db["object"].find_one({"_id": ObjectId(object_location["object_id"])})
+                object_db = await db["object"].find_one(
+                    {"_id": ObjectId(object_location["object_id"])}
+                )
                 object_db["characteristics"] = object_location["characteristics"]
                 object_db["_id"] = str(object_db["_id"])
                 objects_db.append(object_db)
@@ -270,12 +288,14 @@ async def get_all_object_service(user_id: str, skip: int = 1, limit: int = 10):
     Get all objects.
     """
     try:
-        objects_db = await (db["object"]
-                            .find({"created_by": user_id})
-                            .sort("created_at", -1)
-                            .skip((skip - 1) * limit)
-                            .limit(limit)
-                            .to_list(None))
+        objects_db = await (
+            db["object"]
+            .find({"created_by": user_id})
+            .sort("created_at", -1)
+            .skip((skip - 1) * limit)
+            .limit(limit)
+            .to_list(None)
+        )
         return objects_db
     except Exception as e:
         print(f"Error in get all object service: {str(e)}")

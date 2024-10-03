@@ -17,7 +17,9 @@ async def get_locations_service(*, game_id: str, skip: int = 0, limit: int = 100
     Get a list of locations.
     """
     try:
-        locations = await db['location'].find({"game_id": game_id}).skip(skip).limit(limit).to_list(None)
+        locations = (
+            await db['location'].find({"game_id": game_id}).skip(skip).limit(limit).to_list(None)
+        )
         count_locations = await db['location'].count_documents({"game_id": game_id})
         return locations, count_locations
     except Exception as e:
@@ -32,7 +34,9 @@ async def get_location_service(*, location_id: str, user_id: str) -> dict:
     try:
         if location_db := await db['location'].find_one({"_id": ObjectId(location_id)}):
             if location_db["sound_id"]:
-                location_db["sound_id"] = await db['sound'].find_one({"_id": ObjectId(location_db["sound_id"])})
+                location_db["sound_id"] = await db['sound'].find_one(
+                    {"_id": ObjectId(location_db["sound_id"])}
+                )
 
             if location_db["config"]:
                 user_config_found = False
@@ -54,13 +58,14 @@ async def get_location_service(*, location_id: str, user_id: str) -> dict:
                 if not user_connect_found and location_db["connect"]:
                     location_db["connections"] = location_db["connect"][0]["connect"]
 
-            if characters_db := await get_characters_by_location_service(skip=1, limit=100, location_id=location_id):
+            if characters_db := await get_characters_by_location_service(
+                skip=1, limit=100, location_id=location_id
+            ):
                 location_db["characters"] = characters_db
             return location_db
     except Exception as e:
         print(f"Error in get location service: {e}")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail="Location not found.")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found.")
 
 
 async def get_locations_v2_service(*, game_id: str, skip: int = 0, limit: int = 100):
@@ -70,10 +75,17 @@ async def get_locations_v2_service(*, game_id: str, skip: int = 0, limit: int = 
     try:
 
         game_db = await db['game'].find_one({"_id": ObjectId(game_id)})
-        locations = await (db['location'].find({"_id": {"$in": [ObjectId(i) for i in game_db["locations_id"]]}})
-                           .sort("created_at", -1).skip(skip).limit(limit).to_list(None))
+        locations = await (
+            db['location']
+            .find({"_id": {"$in": [ObjectId(i) for i in game_db["locations_id"]]}})
+            .sort("created_at", -1)
+            .skip(skip)
+            .limit(limit)
+            .to_list(None)
+        )
         count_locations = await db['location'].count_documents(
-            {"_id": {"$in": [ObjectId(i) for i in game_db["locations_id"]]}})
+            {"_id": {"$in": [ObjectId(i) for i in game_db["locations_id"]]}}
+        )
 
         return locations, count_locations
     except Exception as e:
@@ -97,13 +109,13 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str):
             _task_data={},
             _element_id=str(location_created.inserted_id),
             _element_type="location",
-            _process="generate_location"
+            _process="generate_location",
         )
 
         task_celery = generate_location_task.delay(
             _location_id=str(location_created.inserted_id),
             _user_id=user_id,
-            _task_id=str(task_db["_id"])
+            _task_id=str(task_db["_id"]),
         )
 
         await update_task_service(
@@ -111,8 +123,10 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str):
             _task_id=task_celery.id,
         )
 
-        await db['location'].update_one({"_id": location_created.inserted_id},
-                                        {"$set": {"tasks_request": [str(task_celery.id)]}})
+        await db['location'].update_one(
+            {"_id": location_created.inserted_id},
+            {"$set": {"tasks_request": [str(task_celery.id)]}},
+        )
         if location_db := await db['location'].find_one({"_id": location_created.inserted_id}):
             location_db["task_id"] = str(task_db["_id"])
             return location_db
@@ -121,7 +135,9 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Location not created")
 
 
-async def partial_update_location_service(*, location_id: str, location: SchemaPartialUpdateLocation, user_id: str):
+async def partial_update_location_service(
+    *, location_id: str, location: SchemaPartialUpdateLocation, user_id: str
+):
     """
     Partially update a location.
     """
@@ -163,12 +179,10 @@ async def partial_update_location_service(*, location_id: str, location: SchemaP
                 _task_data={},
                 _element_id=str(location_id),
                 _element_type="location",
-                _process="update_location"
+                _process="update_location",
             )
             task_celery = generate_location_task.delay(
-                _location_id=location_id,
-                _user_id=user_id,
-                _task_id=str(task_db["_id"])
+                _location_id=location_id, _user_id=user_id, _task_id=str(task_db["_id"])
             )
 
             await update_task_service(
@@ -178,15 +192,16 @@ async def partial_update_location_service(*, location_id: str, location: SchemaP
 
             location_db["tasks_request"] = location_db["tasks_request"].append(str(task_db["_id"]))
 
-            await db['location'].update_one({"_id": ObjectId(location_id)},
-                                            {"$set": {"tasks_request": location_db["tasks_request"]}})
+            await db['location'].update_one(
+                {"_id": ObjectId(location_id)},
+                {"$set": {"tasks_request": location_db["tasks_request"]}},
+            )
             location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
             location_db["task_id"] = str(task_db["_id"])
             return location_db
     except Exception as e:
         print(f"Error in partial update location service: {e}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Location not updated.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Location not updated.")
 
 
 async def generate_image_location_service(location_id: str, user_id: str):
@@ -201,12 +216,10 @@ async def generate_image_location_service(location_id: str, user_id: str):
             _task_data={},
             _element_id=location_id,
             _element_type="location",
-            _process="generate_image_location"
+            _process="generate_image_location",
         )
         task_celery = generate_image_location_task.delay(
-            _location_id=location_id,
-            _user_id=user_id,
-            _task_id=str(task_db["_id"])
+            _location_id=location_id, _user_id=user_id, _task_id=str(task_db["_id"])
         )
 
         await update_task_service(
@@ -214,17 +227,20 @@ async def generate_image_location_service(location_id: str, user_id: str):
             _task_id=task_celery.id,
         )
 
-        location_db["tasks_request"] = location_db["tasks_request"].append(str(task_db["_id"]))
+        if not isinstance(location_db["tasks_request"], list):
+            location_db["tasks_request"] = []
+        location_db["tasks_request"].append(str(task_db["_id"]))
 
-        await db['location'].update_one({"_id": ObjectId(location_id)},
-                                        {"$set": {"tasks_request": location_db["tasks_request"]}})
+        await db['location'].update_one(
+            {"_id": ObjectId(location_id)},
+            {"$set": {"tasks_request": location_db["tasks_request"]}},
+        )
 
         location_db["task_id"] = str(task_db["_id"])
         return location_db
     except Exception as e:
         print(f"Error in generate image location service: {e}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Image not generated.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image not generated.")
 
 
 async def delete_location_service(location_id: str):
@@ -237,8 +253,7 @@ async def delete_location_service(location_id: str):
                 return True
     except Exception as e:
         print(f"Error in delete location service: {e}")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Location not deleted.")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Location not deleted.")
 
 
 async def get_all_location_service(user_id: str, skip: int = 1, limit: int = 10):

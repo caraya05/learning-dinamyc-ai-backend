@@ -37,12 +37,12 @@ async def get_history(story_line: str):
         {
             "role": "system",
             "content": f"cada escena de cada capitulo debe ser variada,"
-                       f"logra que el primer capitulo sea el mas interesante,"
-                       f"logra que el primer capitulo tenga una escena de dialogo, una de busqueda, una de entrega y una de batalla,"
-                       f"logra que el primer primer capitulo tenga un personaje principal, un antagonista, un  o un mini enemigo"
-                       f"y un mini enemigo que pueden ser un ave negra o un zorro marron, "
-                       f"{prompt_history.get('prompt_system')} "
-                       f"responde con un JSON que contenga el esquema '{schema_story}'",
+            f"logra que el primer capitulo sea el mas interesante,"
+            f"logra que el primer capitulo tenga una escena de dialogo, una de busqueda, una de entrega y una de batalla,"
+            f"logra que el primer primer capitulo tenga un personaje principal, un antagonista, un  o un mini enemigo"
+            f"y un mini enemigo que pueden ser un ave negra o un zorro marron, "
+            f"{prompt_history.get('prompt_system')} "
+            f"responde con un JSON que contenga el esquema '{schema_story}'",
         },
         {"role": "user", "content": [{"type": "text", "text": text_user}]},
     ]
@@ -62,14 +62,14 @@ async def get_synopsis(history: dict) -> dict:
         "title": "string (title of the game)",
         "prompt_image": "string (create a prompt to create an image containing the story of the game )",
         "summary": "string (summary of the game to be a maximum of 4 lines, in continuous narrative form without "
-                   "listing the chapters, narrated by a narrator.)",
+        "listing the chapters, narrated by a narrator.)",
     }
 
     content_prompt = [
         {
             "role": "system",
             "content": f"{prompt_synopsis.get('prompt_system')} "
-                       f"responde con un JSON que contenga el esquema '{schema_synopsis}'",
+            f"responde con un JSON que contenga el esquema '{schema_synopsis}'",
         },
         {"role": "assistant", "content": f"historia del juego :{history}"},
         {"role": "user", "content": [{"type": "text", "text": prompt_synopsis.get('description')}]},
@@ -94,7 +94,7 @@ async def get_characters_principals(history: str) -> dict:
                 "genre": "string (genre of the character)",
                 "description": "string (description of the character)",
                 "type": "string (the character types are: leading role, other, enemy, antagonist."
-                        "There can only be one antagonist, one leading role, one enemy and many others. ) ",
+                "There can only be one antagonist, one leading role, one enemy and many others. ) ",
             }
         ]
     }
@@ -103,10 +103,13 @@ async def get_characters_principals(history: str) -> dict:
         {
             "role": "system",
             "content": f"{prompt_characters.get('prompt_system')} "
-                       f"responde con un JSON que contenga el esquema '{schema_characters}'",
+            f"responde con un JSON que contenga el esquema '{schema_characters}'",
         },
         {"role": "assistant", "content": f"historia del juego :{history}"},
-        {"role": "user", "content": [{"type": "text", "text": prompt_characters.get('description')}]},
+        {
+            "role": "user",
+            "content": [{"type": "text", "text": prompt_characters.get('description')}],
+        },
     ]
 
     characters_generated = generate_gpt4_(
@@ -116,12 +119,15 @@ async def get_characters_principals(history: str) -> dict:
     return json.loads(characters_generated)
 
 
-async def get_category_game_ai(
-        history: str, categories: list[SchemaRetrieveCategory]
-) -> str:
+async def get_category_game_ai(history: str, categories: list[SchemaRetrieveCategory]) -> str:
     all_categories = [
-        {"_id": str(category.get("_id")), "name": category.get("name"), "description": category.get("description")} for
-        category in categories]
+        {
+            "_id": str(category.get("_id")),
+            "name": category.get("name"),
+            "description": category.get("description"),
+        }
+        for category in categories
+    ]
 
     prompt_category = await get_prompt_by_category_service('category_game')
     schema_category = {"category_selected": "string (name of the category selected)"}
@@ -130,7 +136,7 @@ async def get_category_game_ai(
         {
             "role": "system",
             "content": f"{prompt_category.get('prompt_system')} "
-                       f"responde con un JSON que contenga el esquema '{schema_category}'",
+            f"responde con un JSON que contenga el esquema '{schema_category}'",
         },
         {"role": "assistant", "content": f"categorias :{all_categories}"},
         {"role": "user", "content": [{"type": "text", "text": text_prompt}]},
@@ -149,7 +155,7 @@ async def number_players_have_played_game_util(game_id: str):
     pipeline = [
         {"$match": {"game_id": game_id}},
         {"$group": {"_id": "$user_id"}},
-        {"$count": "distinct_user_count"}
+        {"$count": "distinct_user_count"},
     ]
     result = await db['record_game'].aggregate(pipeline).to_list(None)
     if result:

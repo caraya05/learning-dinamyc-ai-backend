@@ -22,11 +22,7 @@ from config import settings
 from core.database import db
 
 
-async def handle_exception(e,
-                           prompt,
-                           model,
-                           type_generation: str,
-                           user_id=None):
+async def handle_exception(e, prompt, model, type_generation: str, user_id=None):
     error_message = str(e)
     status_code = 500
 
@@ -40,16 +36,22 @@ async def handle_exception(e,
         error_message = f"Another non-200-range status code was received: {str(e.status_code)}"
         status_code = e.status_code
     elif isinstance(e, UnprocessableEntityError):
-        error_message = "The request was well-formed but was unable to be followed due to semantic errors."
+        error_message = (
+            "The request was well-formed but was unable to be followed due to semantic errors."
+        )
         status_code = 422
     elif isinstance(e, PermissionDeniedError):
-        error_message = "The request was understood but it has been refused or access is not allowed."
+        error_message = (
+            "The request was understood but it has been refused or access is not allowed."
+        )
         status_code = 403
     elif isinstance(e, NotFoundError):
         error_message = "The requested resource could not be found."
         status_code = 404
     elif isinstance(e, InternalServerError):
-        error_message = "The server encountered an internal error and was unable to complete your request."
+        error_message = (
+            "The server encountered an internal error and was unable to complete your request."
+        )
         status_code = 500
     elif isinstance(e, ConflictError):
         error_message = "The request could not be completed due to a conflict with the current state of the resource."
@@ -67,32 +69,27 @@ async def handle_exception(e,
     utc_now = datetime.now(pytz.utc)
     colombia_now = utc_now.astimezone(pytz.timezone("America/Bogota"))
 
-    await db["logs"].insert_one({
-        "status": status_code,
-        "is_error": True,
-        "message": error_message,
-        "response": e,
-        "prompt": prompt,
-        "model": model,
-        "type_generation": type_generation,
-        "user_id": user_id,
-        "created_at": colombia_now
-    })
-
-    raise HTTPException(
-        status_code=status_code,
-        detail=error_message
+    await db["logs"].insert_one(
+        {
+            "status": status_code,
+            "is_error": True,
+            "message": error_message,
+            "response": e,
+            "prompt": prompt,
+            "model": model,
+            "type_generation": type_generation,
+            "user_id": user_id,
+            "created_at": colombia_now,
+        }
     )
+
+    raise HTTPException(status_code=status_code, detail=error_message)
 
 
 from dataclasses import asdict
 
 
-async def store_response(response,
-                         prompt,
-                         model,
-                         type_generation: str,
-                         user_id=None):
+async def store_response(response, prompt, model, type_generation: str, user_id=None):
     # Convert response to dictionary
     if hasattr(response, 'dict'):
         response_dict = response.dict()
@@ -104,34 +101,37 @@ async def store_response(response,
     utc_now = datetime.now(pytz.utc)
     colombia_now = utc_now.astimezone(pytz.timezone("America/Bogota"))
 
-    await db["logs"].insert_one({
-        "status": 200,
-        "is_error": False,
-        "message": "Response stored successfully",
-        "response": response_dict,
-        "prompt": prompt,
-        "model": model,
-        "type_generation": type_generation,
-        "user_id": user_id,
-        "created_at": colombia_now
-    })
+    await db["logs"].insert_one(
+        {
+            "status": 200,
+            "is_error": False,
+            "message": "Response stored successfully",
+            "response": response_dict,
+            "prompt": prompt,
+            "model": model,
+            "type_generation": type_generation,
+            "user_id": user_id,
+            "created_at": colombia_now,
+        }
+    )
 
 
 class OpenAIGenerator:
     def __init__(self):
         self.client = OpenAI(
-            organization=settings.OPENAI_API_ORG_ID,
-            api_key=settings.OPENAI_API_KEY
+            organization=settings.OPENAI_API_ORG_ID, api_key=settings.OPENAI_API_KEY
         )
 
-    async def generate_image(self,
-                             prompt: str,
-                             model: str = "dall-e-3",
-                             count: int = 1,
-                             size: str = "1024x1792",
-                             quality: str = "standard",
-                             user_id: str = None,
-                             type_generation: str = None):
+    async def generate_image(
+        self,
+        prompt: str,
+        model: str = "dall-e-3",
+        count: int = 1,
+        size: str = "1024x1792",
+        quality: str = "standard",
+        user_id: str = None,
+        type_generation: str = None,
+    ):
         try:
             response = await self.client.images.generate(
                 model=model,
@@ -142,11 +142,13 @@ class OpenAIGenerator:
                 style="vivid",
             )
 
-            await store_response(response=response,
-                                 prompt=prompt,
-                                 model=model,
-                                 type_generation=type_generation,
-                                 user_id=user_id)
+            await store_response(
+                response=response,
+                prompt=prompt,
+                model=model,
+                type_generation=type_generation,
+                user_id=user_id,
+            )
 
             return response.data[0].url
 
@@ -154,40 +156,52 @@ class OpenAIGenerator:
 
             await handle_exception(e, prompt, model, user_id)
 
-    async def generate_gpt(self,
-                           content_prompt: list[dict],
-                           response_format: ResponseFormatT,
-                           type_generation: str = "",
-                           max_tokens: int = 1000,
-                           model: str = "gpt-4o",
-                           user_id: str = None):
+    async def generate_gpt(
+        self,
+        content_prompt: list[dict],
+        response_format: ResponseFormatT,
+        type_generation: str = "",
+        max_tokens: int = 1000,
+        model: str = "gpt-4o",
+        user_id: str = None,
+    ):
         try:
             response = await self.client.beta.chat.completions.parse(
                 model=model,
                 response_format=response_format,
                 messages=content_prompt,
                 max_tokens=max_tokens,
-                # temperature=0.6,
-                # top_p=0.8,
-                # frequency_penalty=0.6,
-                # presence_penalty=0.7
+                stop=None,
+                temperature=0.6,
+                top_p=0.8,
+                frequency_penalty=0.6,
+                presence_penalty=0.7,
+
             )
 
-            await store_response(response=response,
-                                 prompt=content_prompt,
-                                 model=model,
-                                 type_generation=type_generation,
-                                 user_id=user_id)
+            print(f"Response: {response}")
+
+            await store_response(
+                response=response,
+                prompt=content_prompt,
+                model=model,
+                type_generation=type_generation,
+                user_id=user_id,
+            )
+
+            print(f"Response: {response.choices[0].message.parsed}")
 
             return response.choices[0].message.parsed
 
         except Exception as e:
-
-            await handle_exception(e=e,
-                                   prompt=content_prompt,
-                                   model=model,
-                                   type_generation=type_generation,
-                                   user_id=None)
+            print(f"Error in generate_gpt: {str(e)}")
+            await handle_exception(
+                e=e,
+                prompt=content_prompt,
+                model=model,
+                type_generation=type_generation,
+                user_id=None,
+            )
 
 
 openai_generator = OpenAIGenerator()

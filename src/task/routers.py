@@ -13,8 +13,9 @@ router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
 
 @router.get("/pending")
-async def get_tasks(user: dict = Depends(auth),
-                    Token: HTTPAuthorizationCredentials = Depends(auth_schema)):
+async def get_tasks(
+    user: dict = Depends(auth), Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+):
     tasks_db = await get_task_pending_service(user_id=str(user["_id"]), is_list=True)
 
     results_tasks = []

@@ -25,7 +25,12 @@ from io import BytesIO
 router = APIRouter(prefix="/user", tags=["User"])
 
 
-@router.post("/", response_model=SchemaRetrieveUser, status_code=status.HTTP_201_CREATED, include_in_schema=False)
+@router.post(
+    "/",
+    response_model=SchemaRetrieveUser,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
 async def create_user(user: SchemaUser):
     """
     This endpoint creates a new user.
@@ -55,8 +60,8 @@ async def create_user(user: SchemaUser):
 
 @router.get("/current-user", response_model=SchemaRetrieveUser)
 async def get_current_user(
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves the current user's information.
@@ -86,10 +91,9 @@ async def get_current_user(
 
 @router.get("/{user_id}", response_model=SchemaRetrieveUser)
 async def get_user(
-        user_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-
+    user_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves the current user's information.
@@ -123,8 +127,8 @@ async def get_user(
 
 @router.get("/validate-stars/", status_code=status.HTTP_200_OK)
 async def validate_stars(
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     if user_db['stars'] is None or user_db['stars'] <= 0:
         await update_attempt_to_create_service(str(user_db['_id']))
@@ -135,9 +139,9 @@ async def validate_stars(
 # update photo user
 @router.post("/update-photo/", response_model=SchemaRetrieveUser)
 async def update_photo_user(
-        photo: UploadFile = File(...),
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    photo: UploadFile = File(...),
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     photo_content = await photo.read()
 
@@ -149,6 +153,7 @@ async def update_photo_user(
     )
 
     return await update_photo_service(user_id=str(user_db['_id']), photo=url_photo)
+
 
 # @router.put("/{id}", response_model=SchemaRetrieveUser)
 # async def update_user(id: str,

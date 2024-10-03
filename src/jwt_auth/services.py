@@ -40,22 +40,18 @@ async def generate_token(user_id: PyObjectId, password_ts: float) -> dict:
     access = {
         "user_id": str(user_id),
         "password_ts": password_ts,
-        "exp": datetime.utcnow()
-        + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
+        "exp": datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
         "type": TokenType.ACCESS.value,
     }
     refresh = access.copy()
     refresh.update(
         {
-            "exp": datetime.utcnow()
-            + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+            "exp": datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
             "type": TokenType.REFRESH.value,
         }
     )
     access_token = jwt.encode(access, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
-    refresh_token = jwt.encode(
-        refresh, settings.SECRET_KEY, algorithm=settings.ALGORITHM
-    )
+    refresh_token = jwt.encode(refresh, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
@@ -73,9 +69,7 @@ async def decode_token(token: str) -> dict | None:
 async def auth_access(token: str, roles: list) -> dict | None:
     if payload := await decode_token(token):
         if payload.get("type") == TokenType.ACCESS.value:
-            if user := await authenticate_token(
-                payload.get("user_id"), payload.get("password_ts")
-            ):
+            if user := await authenticate_token(payload.get("user_id"), payload.get("password_ts")):
                 if user.get("role") in roles:
                     return user
 
@@ -83,9 +77,7 @@ async def auth_access(token: str, roles: list) -> dict | None:
 async def auth_refresh(token: str) -> dict | None:
     if payload := await decode_token(token):
         if payload.get("type") == TokenType.REFRESH.value:
-            if user := await authenticate_token(
-                payload.get("user_id"), payload.get("password_ts")
-            ):
+            if user := await authenticate_token(payload.get("user_id"), payload.get("password_ts")):
                 return await generate_token(
                     user_id=user.get("_id"),
                     password_ts=user.get("password_ts"),

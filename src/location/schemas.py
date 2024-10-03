@@ -27,6 +27,7 @@ class SchemaCreateLocation(BaseModel):
     name (str): The name of the location.
     description (Optional[str]): The description of the location.
     """
+
     title: Optional[str]
     prompt_user: Optional[str]
 
@@ -40,6 +41,7 @@ class SchemaPartialUpdateLocation(BaseModel):
     description (Optional[str]): The description of the location.
     image (Optional[str]): The image of the location.
     """
+
     title: Optional[str]
     prompt_user: Optional[str]
     configuration: Optional[dict]
@@ -67,7 +69,6 @@ class SchemaRetrieveLocation(ResponseModel):
     environment: Optional[dict] = {}
     status: Optional[int] = Field(1, example="status")
     task_id: Optional[str] = Field(None, example="task_db")
-
 
     class Config:
         orm_mode = True

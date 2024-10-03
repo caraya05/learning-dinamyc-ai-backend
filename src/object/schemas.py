@@ -67,6 +67,7 @@ class SchemaPartialUpdateObject(SchemaCreateObject):
     description (Optional[str]): The description of the objective.
     image (Optional[str]): The image of the objective.
     """
+
     pass
 
 

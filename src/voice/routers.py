@@ -14,8 +14,8 @@ router = APIRouter(prefix='/voice', tags=['voice'])
 
 @router.get("/add/")
 async def add_voice(
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     voices_elevenlabs = get_voices()
     return await add_voice_service(voices=voices_elevenlabs)
@@ -23,9 +23,11 @@ async def add_voice(
 
 @router.get("/generate-voice/{character_id}")
 async def generate_voice(
-        character_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    character_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
-    if voice_generation := await generate_voice_service(character_id=character_id, user_id=user_db["_id"]):
+    if voice_generation := await generate_voice_service(
+        character_id=character_id, user_id=user_db["_id"]
+    ):
         return "Voice generated successfully"

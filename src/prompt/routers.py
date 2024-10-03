@@ -28,10 +28,10 @@ router = APIRouter(prefix="/prompt", tags=["Prompt"])
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListPrompt)
 async def get_prompts(
-        limit: int = 100,
-        skip: int = 0,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    limit: int = 100,
+    skip: int = 0,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves all prompts.
@@ -54,9 +54,9 @@ async def get_prompts(
 
 @router.get("/{prompt_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrievePrompt)
 async def get_prompt(
-        prompt_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    prompt_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves a single prompt.
@@ -76,9 +76,9 @@ async def get_prompt(
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrievePrompt)
 async def create_prompt(
-        prompt: SchemaCreatePrompt,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    prompt: SchemaCreatePrompt,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint creates a prompt.
@@ -86,9 +86,9 @@ async def create_prompt(
     It returns a single prompt.
     """
     try:
-        prompt_created = Prompt(**prompt.dict(),
-                                created_by=str(user_db.get("_id")),
-                                updated_by=str(user_db.get("_id")))
+        prompt_created = Prompt(
+            **prompt.dict(), created_by=str(user_db.get("_id")), updated_by=str(user_db.get("_id"))
+        )
 
         prompt_db = await create_prompt_service(schema=prompt_created)
 
@@ -103,10 +103,10 @@ async def create_prompt(
 
 @router.put("/{prompt_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrievePrompt)
 async def update_prompt(
-        prompt_id: str,
-        prompt: SchemaPartialUpdatePrompt,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    prompt_id: str,
+    prompt: SchemaPartialUpdatePrompt,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint partially updates a prompt.
@@ -125,9 +125,9 @@ async def update_prompt(
 
 @router.delete("/{prompt_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_prompt(
-        prompt_id: str,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    prompt_id: str,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint deletes a prompt.

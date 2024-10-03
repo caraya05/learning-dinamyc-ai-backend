@@ -25,10 +25,7 @@ async def get_variants_service():
                 ages.append(variant["age"])
             if variant["gender"] not in genders:
                 genders.append(variant["gender"])
-        return {
-            "ages": ages,
-            "genders": genders
-        }
+        return {"ages": ages, "genders": genders}
     except Exception as e:
         print(f"Error in get variants service: {str(e)}")
         raise HTTPException(

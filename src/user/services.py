@@ -111,7 +111,11 @@ async def get_or_created_user_service(user: dict):
                 photo=user.photo_url if user.photo_url else None,
                 created_by=user.email,
                 updated_by=user.email,
-                stars=configuration_db["stars_news_users"] if configuration_db.get("stars_news_users", None) else 20,
+                stars=(
+                    configuration_db["stars_news_users"]
+                    if configuration_db.get("stars_news_users", None)
+                    else 20
+                ),
             )
             new_user = await db["user"].insert_one(user_db_.dict())
             user_created = await db["user"].find_one({"_id": new_user.inserted_id})
@@ -123,9 +127,7 @@ async def get_or_created_user_service(user: dict):
             )
     except Exception as e:
         print("Error in create user", e)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=f"User not created {e}"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"User not created {e}")
 
 
 async def deduct_stars_service(user_id: str, stars: int):
@@ -149,8 +151,7 @@ async def deduct_stars_service(user_id: str, stars: int):
     except Exception as e:
         print(f"Error in deduct stars {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error in deduct stars {e}"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error in deduct stars {e}"
         )
 
 
@@ -166,8 +167,7 @@ async def update_photo_service(user_id: str, photo: str):
     except Exception as e:
         print(f"Error in update photo {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error in update photo {e}"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error in update photo {e}"
         )
 
 
@@ -194,8 +194,7 @@ async def update_attempt_to_create_service(user_id: str):
     except Exception as e:
         print(f"Error in update attempt to create {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error in update attempt to create {e}"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error in update attempt to create {e}"
         )
 
 
@@ -206,8 +205,7 @@ async def get_user_by_id_service(user_id: str):
     except Exception as e:
         print(f"Error in get user by id {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error in get user by id {e}"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error in get user by id {e}"
         )
 
 
@@ -216,8 +214,7 @@ async def disable_user_service(user_id: str, section: str):
         user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
         if not user_db or user_db['stars'] <= 0:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User without stars"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="User without stars"
             )
 
         stars_disabled = 1 if section in {"character", "place", "location", "item"} else 0
@@ -230,12 +227,11 @@ async def disable_user_service(user_id: str, section: str):
             games_created=0,
             sets_with_errors=0,
             attempts_to_create_without_balance=0,
-            assets_created={"section": section, "stars": stars_disabled}
+            assets_created={"section": section, "stars": stars_disabled},
         )
 
         await db["user"].update_one(
-            {"_id": ObjectId(user_id)},
-            {"$set": {"stars": user_db['stars'] - stars_disabled}}
+            {"_id": ObjectId(user_id)}, {"$set": {"stars": user_db['stars'] - stars_disabled}}
         )
         return True
     except Exception as e:
@@ -248,13 +244,11 @@ async def validate_star_user_service(user_id: str):
         user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
         if user_db['stars'] <= 0:
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User without stars"
+                status_code=status.HTTP_400_BAD_REQUEST, detail="User without stars"
             )
         return user_db
     except Exception as e:
         print(f"Error in validate star user {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error in validate star user {e}"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Error in validate star user {e}"
         )

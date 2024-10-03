@@ -51,9 +51,9 @@ router = APIRouter(prefix="/ws/user", tags=["User"])
 
 @router.websocket("/{user_id}")
 async def websocket_endpoint(
-        websocket: WebSocket,
-        user_id: str,
-        token: str,
+    websocket: WebSocket,
+    user_id: str,
+    token: str,
 ):
     await websocket.accept()
     valid_token = await is_token_valid(token)
@@ -86,31 +86,47 @@ async def websocket_endpoint(
                             task_celery = AsyncResult(task_db["task_id"], app=celery)
                             if task_celery.state == "SUCCESS":
                                 if "Error" in task_celery.result:
-                                    await websocket.send_json({"detail": "Task failed",
-                                                               "task_id": str(task_db["_id"]),
-                                                               "error": task_celery.result,
-                                                               "element_id": str(task_db["element_id"]),
-                                                               "element_type": task_db["element_type"]})
-                                    await update_task_service(_id=str(task_db["_id"]),
-                                                              _status="failed",
-                                                              _was_notified=True)
+                                    await websocket.send_json(
+                                        {
+                                            "detail": "Task failed",
+                                            "task_id": str(task_db["_id"]),
+                                            "error": task_celery.result,
+                                            "element_id": str(task_db["element_id"]),
+                                            "element_type": task_db["element_type"],
+                                        }
+                                    )
+                                    await update_task_service(
+                                        _id=str(task_db["_id"]),
+                                        _status="failed",
+                                        _was_notified=True,
+                                    )
                                 else:
-                                    await websocket.send_json({"detail": "Task completed",
-                                                               "task_id": str(task_db["_id"]),
-                                                               "element_id": str(task_db["element_id"]),
-                                                               "element_type": task_db["element_type"]})
-                                    await update_task_service(_id=str(task_db["_id"]),
-                                                              _status="completed",
-                                                              _was_notified=True)
+                                    await websocket.send_json(
+                                        {
+                                            "detail": "Task completed",
+                                            "task_id": str(task_db["_id"]),
+                                            "element_id": str(task_db["element_id"]),
+                                            "element_type": task_db["element_type"],
+                                        }
+                                    )
+                                    await update_task_service(
+                                        _id=str(task_db["_id"]),
+                                        _status="completed",
+                                        _was_notified=True,
+                                    )
                             elif task_celery.state == "FAILURE":
-                                await websocket.send_json({"detail": "Task failed",
-                                                           "task_id": str(task_db["_id"]),
-                                                           "element_id": str(task_db["element_id"]),
-                                                           "element_type": task_db["element_type"],
-                                                           "error": task_celery.result})
-                                await update_task_service(_id=str(task_db["_id"]),
-                                                          _status="failed",
-                                                          _was_notified=True)
+                                await websocket.send_json(
+                                    {
+                                        "detail": "Task failed",
+                                        "task_id": str(task_db["_id"]),
+                                        "element_id": str(task_db["element_id"]),
+                                        "element_type": task_db["element_type"],
+                                        "error": task_celery.result,
+                                    }
+                                )
+                                await update_task_service(
+                                    _id=str(task_db["_id"]), _status="failed", _was_notified=True
+                                )
             else:
                 task_db = await get_task_pending_service(user_id)
                 if task_db:
@@ -118,31 +134,43 @@ async def websocket_endpoint(
                         task_celery = AsyncResult(task_db["task_id"], app=celery)
                         if task_celery.state == "SUCCESS":
                             if "Error" in task_celery.result:
-                                await websocket.send_json({"detail": "Task failed",
-                                                           "task_id": str(task_db["_id"]),
-                                                           "error": task_celery.result,
-                                                           "element_id": str(task_db["element_id"]),
-                                                           "element_type": task_db["element_type"]})
-                                await update_task_service(_id=str(task_db["_id"]),
-                                                          _status="failed",
-                                                          _was_notified=True)
+                                await websocket.send_json(
+                                    {
+                                        "detail": "Task failed",
+                                        "task_id": str(task_db["_id"]),
+                                        "error": task_celery.result,
+                                        "element_id": str(task_db["element_id"]),
+                                        "element_type": task_db["element_type"],
+                                    }
+                                )
+                                await update_task_service(
+                                    _id=str(task_db["_id"]), _status="failed", _was_notified=True
+                                )
                             else:
-                                await websocket.send_json({"detail": "Task completed",
-                                                           "task_id": str(task_db["_id"]),
-                                                           "element_id": str(task_db["element_id"]),
-                                                           "element_type": task_db["element_type"]})
-                                await update_task_service(_id=str(task_db["_id"]),
-                                                          _status="completed",
-                                                          _was_notified=True)
+                                await websocket.send_json(
+                                    {
+                                        "detail": "Task completed",
+                                        "task_id": str(task_db["_id"]),
+                                        "element_id": str(task_db["element_id"]),
+                                        "element_type": task_db["element_type"],
+                                    }
+                                )
+                                await update_task_service(
+                                    _id=str(task_db["_id"]), _status="completed", _was_notified=True
+                                )
                         elif task_celery.state == "FAILURE":
-                            await websocket.send_json({"detail": "Task failed",
-                                                       "task_id": str(task_db["_id"]),
-                                                       "element_id": str(task_db["element_id"]),
-                                                       "element_type": task_db["element_type"],
-                                                       "error": task_celery.result})
-                            await update_task_service(_id=str(task_db["_id"]),
-                                                      _status="failed",
-                                                      _was_notified=True)
+                            await websocket.send_json(
+                                {
+                                    "detail": "Task failed",
+                                    "task_id": str(task_db["_id"]),
+                                    "element_id": str(task_db["element_id"]),
+                                    "element_type": task_db["element_type"],
+                                    "error": task_celery.result,
+                                }
+                            )
+                            await update_task_service(
+                                _id=str(task_db["_id"]), _status="failed", _was_notified=True
+                            )
 
     except WebSocketException as e:
         await websocket.send_json({"detail": "Error connecting to websocket"})

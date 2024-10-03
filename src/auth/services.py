@@ -50,15 +50,13 @@ async def generate_token(user_id: PyObjectId, password_ts: float) -> dict:
     access = {
         "user_id": str(user_id),
         "password_ts": password_ts,
-        "exp": datetime.utcnow()
-               + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRES_IN),
+        "exp": datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRES_IN),
         "type": TokenType.ACCESS.value,
     }
     refresh = access.copy()
     refresh.update(
         {
-            "exp": datetime.utcnow()
-                   + timedelta(days=settings.REFRESH_TOKEN_EXPIRES_IN),
+            "exp": datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRES_IN),
             "type": TokenType.REFRESH.value,
         }
     )
@@ -90,7 +88,9 @@ async def auth_refresh(token: str) -> dict | None:
     if payload := await decode_token(token):
         if payload.get("type") == TokenType.REFRESH.value:
             if user := await authenticate_token(payload.get("user_id"), payload.get("password_ts")):
-                return await generate_token(user_id=user.get("_id"), password_ts=user.get("password"))
+                return await generate_token(
+                    user_id=user.get("_id"), password_ts=user.get("password")
+                )
 
 
 async def social_auth_firebase(data: dict):

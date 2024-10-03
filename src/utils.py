@@ -21,12 +21,12 @@ def generate_uuid():
 
 
 def upload_image(
-        size: tuple[int, int],
-        file_name: str,
-        image_content_type: any = None,
-        url_image: str = None,
-        name_bucket: str = 'backend',
-        img_byte_arr: any = None
+    size: tuple[int, int],
+    file_name: str,
+    image_content_type: any = None,
+    url_image: str = None,
+    name_bucket: str = 'backend',
+    img_byte_arr: any = None,
 ):
     try:
         if not img_byte_arr:
@@ -68,11 +68,7 @@ def upload_image(
         )
 
 
-def upload_audio(*,
-                 file_name: str,
-                 name_bucket: str = 'backend',
-                 audio_byte_arr: any = None
-                 ):
+def upload_audio(*, file_name: str, name_bucket: str = 'backend', audio_byte_arr: any = None):
     try:
         audio = audio_byte_arr
 

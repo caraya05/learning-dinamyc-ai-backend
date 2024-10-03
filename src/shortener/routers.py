@@ -36,10 +36,11 @@ templates = Jinja2Templates(directory="templates")
 
 
 @router.get("/{game_id}", status_code=200)
-async def share_game(game_id: str,
-                     user_db: dict = Depends(auth),
-                     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-                     ):
+async def share_game(
+    game_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     """
     This endpoint shares a game.
     """
@@ -101,7 +102,9 @@ async def share_game(game_id: str,
             name_bucket="backend",
         )
 
-        await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': {"image_share": image_url}})
+        await db['game'].update_one(
+            {'_id': ObjectId(game_id)}, {'$set': {"image_share": image_url}}
+        )
 
     message_share = f"{message_completed} {settings.URL_API}/share/app/{game_id}"
 
@@ -111,8 +114,7 @@ async def share_game(game_id: str,
 
 
 @routerAPP.get("/app/{game_id}", response_class=HTMLResponse)
-async def share_app(game_id: str,
-                    request: Request):
+async def share_app(game_id: str, request: Request):
     """
     This endpoint shares an app.
     """
@@ -128,11 +130,13 @@ async def share_app(game_id: str,
 
     return templates.TemplateResponse(
         name="share.html",
-        context={"request": request,
-                 "url": f"{settings.URL_API}/share/app/{game_id}",
-                 "name": game_db["title"],
-                 "game_id": game_id,
-                 "summary": game_db["summary"][0:50],
-                 "image": game_db["image_share"],
-                 "url_form": configuration_db["url_form"]},
+        context={
+            "request": request,
+            "url": f"{settings.URL_API}/share/app/{game_id}",
+            "name": game_db["title"],
+            "game_id": game_id,
+            "summary": game_db["summary"][0:50],
+            "image": game_db["image_share"],
+            "url_form": configuration_db["url_form"],
+        },
     )

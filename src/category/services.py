@@ -29,7 +29,9 @@ async def get_categories_active_service(skip: int, limit: int):
         count_categories = 0
         if categories_db := await db["category"].find({"is_active": True}).to_list(None):
             count_categories = len(categories_db)
-            categories_db = await db["category"].find({"is_active": True}).skip(skip).limit(limit).to_list(None)
+            categories_db = (
+                await db["category"].find({"is_active": True}).skip(skip).limit(limit).to_list(None)
+            )
         return categories_db, count_categories
     except Exception as e:
         print(f"Error get categories actives service: {str(e)}")
@@ -66,7 +68,9 @@ async def create_category_service(category: Category):
 
 async def update_category_service(category_id: str, category: SchemaUpdateDocumentCategory):
     try:
-        if category_updated := await db["category"].update_one({"_id": ObjectId(category_id)}, {"$set": category.dict()}):
+        if category_updated := await db["category"].update_one(
+            {"_id": ObjectId(category_id)}, {"$set": category.dict()}
+        ):
             if category_updated.modified_count:
                 category_db = await db["category"].find_one({"_id": ObjectId(category_id)})
                 return category_db

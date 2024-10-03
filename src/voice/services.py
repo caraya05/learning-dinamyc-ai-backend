@@ -13,14 +13,16 @@ async def add_voice_service(voices: list):
     await db["voice"].delete_many({})
     for voice in voices:
         try:
-            await db["voice"].insert_one({
-                "voice_id": voice["voice_id"],
-                "name": voice["name"],
-                "age": voice["labels"]["age"],
-                "gender": voice["labels"]["gender"],
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
-            })
+            await db["voice"].insert_one(
+                {
+                    "voice_id": voice["voice_id"],
+                    "name": voice["name"],
+                    "age": voice["labels"]["age"],
+                    "gender": voice["labels"]["gender"],
+                    "created_at": datetime.utcnow(),
+                    "updated_at": datetime.utcnow(),
+                }
+            )
         except Exception as e:
             print(f"Error in add voice service: {str(e)}")
             raise HTTPException(
@@ -39,11 +41,11 @@ async def generate_voice_service(character_id: str, user_id: str):
             _task_data={},
             _element_id=str(character_id),
             _element_type="character",
-            _process="update_character"
+            _process="update_character",
         )
-        task_celery = generate_voice_character_task.delay(_character_id=str(character_id),
-                                                          _user_id=user_id,
-                                                          _task_id=str(task_db["_id"]))
+        task_celery = generate_voice_character_task.delay(
+            _character_id=str(character_id), _user_id=user_id, _task_id=str(task_db["_id"])
+        )
         await update_task_service(
             _id=str(task_db["_id"]),
             _task_id=task_celery.id,
