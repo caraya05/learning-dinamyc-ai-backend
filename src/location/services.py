@@ -243,6 +243,24 @@ async def generate_image_location_service(location_id: str, user_id: str):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image not generated.")
 
 
+async def get_all_location_service(user_id: str, skip: int = 1, limit: int = 10):
+    try:
+        characters_db = await (db["location"]
+                               .find({"created_by": user_id})
+                               .sort("created_at", -1)
+                               .skip((skip - 1) * limit)
+                               .limit(limit)
+                               .to_list(None))
+        count_characters = await db["location"].count_documents({"created_by": user_id})
+        return characters_db, count_characters
+    except Exception as e:
+        print(f"Error in get all character service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Characters not found",
+        )
+
+
 async def delete_location_service(location_id: str):
     """
     Delete a location.

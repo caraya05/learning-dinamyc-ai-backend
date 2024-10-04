@@ -14,7 +14,7 @@ from character.schemas import SchemaCreateCharacter
 from character.schemas import SchemaRetrieveCharacter
 from character.schemas import SchemaListCharacter
 
-from character.services import get_character_service
+from character.services import get_character_service, get_characters_service
 from character.services import generate_image_character_service
 from character.services import create_character_service
 from character.services import delete_character_service
@@ -34,10 +34,10 @@ router = APIRouter(prefix='/characters', tags=['Characters'])
 
 @router.get("/{character_id}", response_model=SchemaRetrieveCharacter)
 async def get_character(
-    character_id: str,
-    publish: bool = False,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        character_id: str,
+        publish: bool = False,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     if publish:
         game_id = character_id.split('_')[1]
@@ -67,10 +67,11 @@ async def get_character(
 
 @router.get("/", response_model=SchemaListCharacter)
 async def get_characters(
-    location_id: str,
-    publish: bool = False,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        location_id: str = None,
+        game_id: str = None,
+        publish: bool = False,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     if publish:
         try:
@@ -90,9 +91,14 @@ async def get_characters(
             )
     else:
         try:
-            characters_db = await get_characters_by_location_service(
-                skip=1, limit=100, location_id=location_id
-            )
+            if game_id:
+                characters_db = await get_characters_service(
+                    game_id=game_id, skip=1, limit=200
+                )
+            else:
+                characters_db = await get_characters_by_location_service(
+                    skip=1, limit=200, location_id=location_id
+                )
             for i in characters_db:
                 i["_id"] = str(i["_id"])
             return SchemaListCharacter(results=characters_db, count=len(characters_db))
@@ -106,10 +112,10 @@ async def get_characters(
 
 @router.get("/me/", response_model=SchemaListCharacter)
 async def get_all_characters(
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-    page: int = 1,
-    count: int = 10,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        page: int = 1,
+        count: int = 10,
 ):
     try:
         characters_db = await get_all_character_service(
@@ -146,9 +152,9 @@ async def get_all_characters(
 
 @router.post("/", response_model=SchemaRetrieveCharacter)
 async def create_character(
-    character: SchemaCreateCharacter,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        character: SchemaCreateCharacter,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
         character_db = await create_character_service(
@@ -165,13 +171,13 @@ async def create_character(
 
 @router.post("/add-character-location/")
 async def add_character_location(
-    character_location: SchemaAddCharacterLocation,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        character_location: SchemaAddCharacterLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
         if character_db := await add_character_to_location_service(
-            character_id=character_location.character_id, location_id=character_location.location_id
+                character_id=character_location.character_id, location_id=character_location.location_id
         ):
             return character_db
     except HTTPException as e:
@@ -184,16 +190,16 @@ async def add_character_location(
 
 @router.post("/add-edit-characteristic/")
 async def add_edit_characteristic(
-    character: SchemaUpdatedCharacterLocation,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        character: SchemaUpdatedCharacterLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
         if character_db := await add_or_edit_character_location(
-            character_id=character.character_id,
-            location_id=character.location_id,
-            characteristics=character.characteristics,
-            user_id=str(user_db.get("_id")),
+                character_id=character.character_id,
+                location_id=character.location_id,
+                characteristics=character.characteristics,
+                user_id=str(user_db.get("_id")),
         ):
             return character_db
     except Exception as e:
@@ -206,10 +212,10 @@ async def add_edit_characteristic(
 
 @router.patch("/{character_id}", response_model=SchemaRetrieveCharacter)
 async def partial_update_character(
-    character_id: str,
-    character_update: SchemaUpdateCharacterCollection,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        character_id: str,
+        character_update: SchemaUpdateCharacterCollection,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
         character_db = await update_character_service(
@@ -229,9 +235,9 @@ async def partial_update_character(
 
 @router.delete("/{character_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_character(
-    character_id: str,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        character_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     await delete_character_service(character_id=character_id)
     return status.HTTP_204_NO_CONTENT

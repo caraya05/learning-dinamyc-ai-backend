@@ -89,7 +89,7 @@ class SchemaRetrieveLocationStr(ResponseModelStr):
     image: Optional[str]
     configuration: Optional[dict]
     connections: Optional[dict]
-    sound_id: Optional[str | dict] = Field(None)
+    sound_id: Optional[str] = Field(None)
     environment: Optional[dict] = {}
     status: Optional[int] = Field(1, example="status")
 
