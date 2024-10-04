@@ -19,8 +19,6 @@ class SchemaRetrieveGame(ResponseModel):
     synopsis: Optional[str] = Field(None, example="synopsis og the game")
     image: Optional[str] = Field(None, example="photo", decimal_places=None)
     image_background: Optional[str] = Field(None, example="photo background", decimal_places=None)
-    story_line: Optional[str] = Field(None, example="story_line")
-    attempts: Optional[int] = Field(None, example=3)
     summary: Optional[str] = Field(None, example="summary of the game")
     character_principal: Optional[str] = Field(None, example="Character principal")
     created_at: datetime
@@ -45,8 +43,6 @@ class SchemaRetrieveGameStr(ResponseModelStr):
     synopsis: Optional[str] = Field(..., example="synopsis og the game")
     image: Optional[str] = Field(..., example="photo", decimal_places=None)
     image_background: Optional[str] = Field(..., example="photo background", decimal_places=None)
-    story_line: Optional[str] = Field(..., example="story_line")
-    attempts: Optional[int] = Field(..., example=3)
     summary: Optional[str] = Field(..., example="summary of the game")
     created_at: datetime
     created_by: str
