@@ -58,8 +58,9 @@ async def get_pending_game(
     # game_db["game"]["characters"] *= 10
 
     for location in game_db["game"]["locations"]:
-        sound_db = await get_sound_service(location["sound_id"])
-        location["sound"] = sound_db.get("file")
+        if location.get("sound_id"):
+            sound_db = await get_sound_service(location["sound_id"])
+            location["sound"] = sound_db.get("file")
     return game_db
 
 
