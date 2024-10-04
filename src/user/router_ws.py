@@ -206,5 +206,8 @@ async def websocket_endpoint(
                                 )
 
     except WebSocketException as e:
-        await websocket.send_json({"detail": "Error connecting to websocket"})
-        await websocket.close(reason="Error connecting to websocket")
+        await websocket.send_json({"detail": "disconnected"})
+        await websocket.close(reason="disconnect")
+    except WebSocketDisconnect as e:
+        await websocket.send_json({"detail": "disconnected"})
+        await websocket.close(reason="disconnect")
