@@ -17,9 +17,7 @@ from voice.task import generate_voice_character
 
 
 class SchemaResponseImage(BaseModel):
-    response_vertical: bool = Field(
-        ..., description="Response of the content image is vertical or not"
-    )
+    response_vertical: str
 
 
 async def generate_cover_image_game(_user_id: str, _game_id: str):
@@ -41,53 +39,53 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
             return False
         prompt = (
             f"Generate a image in 3D animation style of extraordinary quality for the game "
-            f"'{game_db['title']}' featuring the character {first_character['prompt_user']}'"
-            f" in the location '{first_location['prompt_user']}'. The scene should depict an "
-            f"action-packed moment that captures the essence of the game."
+            f"{game_db['title']} featuring the character {first_character['prompt_user']}"
+            f" in the location {first_location['prompt_user']}. The scene should depict an "
+            f"action-packed moment that captures the essence of the game. with content in vertical."
         )
-        for attempt in range(3):
-            response_image = await openai_generator.generate_image(
-                prompt=prompt,
-                quality="hd",
-                size="1024x1792",
-                user_id=_user_id,
-                type_generation="generate image cover game",
-            )
-            response_identify = await openai_generator.generate_gpt(
-                content_prompt=[
-                    {
-                        "role": "system",
-                        "content": "Eres un verificador de imagenes, que puede detectar si contenido de una imagen esta en vertical u horizontal."
-                                   "response con la palabra 'vertical' si el contenido es vertical o 'horizontal' si es horizontal.",
-                    },
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "image_url", "image_url": {"url": response_image}},
-                        ],
-                    },
-                ],
-                max_tokens=4096,
-                model="gpt-4o-mini",
-                response_format=SchemaResponseImage,
-                user_id=_user_id,
-                type_generation="identify image",
-            )
+        # for attempt in range(3):
+        response_image = await openai_generator.generate_image(
+            prompt=prompt,
+            quality="hd",
+            size="1024x1792",
+            user_id=_user_id,
+            type_generation="generate image cover game",
+        )
+            # response_identify = await openai_generator.generate_gpt( content_prompt=[
+            #         {
+            #             "role": "system",
+            #             "content": "Eres un verificador de imagenes, que puede detectar si contenido de una imagen esta en vertical u horizontal."
+            #                        "response con true si el contenido es vertical o false si es horizontal.",
+            #         },
+            #         {
+            #             "role": "user",
+            #             "content": [
+            #                 {"type": "image_url", "image_url": {"url": response_image}},
+            #             ],
+            #         },
+            #     ],
+            #     max_tokens=4096,
+            #     model="gpt-4o-mini",
+            #     response_format=SchemaResponseImage,
+            #     user_id=_user_id,
+            #     type_generation="identify image",
+            # )
 
-            if response_identify.response_vertical:
-                image = upload_image(
-                    url_image=response_image, file_name=f"covers/{uuid4()}.jpg", size=(512, 896)
-                )
-                await db['game'].update_one({'_id': ObjectId(_game_id)}, {'$set': {'image': image}})
-                return True
-            else:
-                prompt = (
-                    f"Generate a image in 3D animation style of extraordinary quality for the game "
-                    f"'{game_db['title']}' featuring the character {first_character['prompt_user']}'"
-                    f" in the location '{first_location['prompt_user']}'. The scene should depict an "
-                    f"action-packed moment that captures the essence of the game, with content in vertical."
-                )
+            # if response_identify.response_vertical:
+        image = upload_image(
+            url_image=response_image, file_name=f"covers/{uuid4()}.jpg", size=(512, 896)
+        )
+        await db['game'].update_one({'_id': ObjectId(_game_id)}, {'$set': {'image': image}})
         return True
+            # else:
+            #     prompt = (
+            #         f"Generate a image in 3D animation style of extraordinary quality for the game "
+            #         f"{game_db['title']} featuring the character {first_character['prompt_user']}"
+            #         f" in the location {first_location['prompt_user']}. The scene should depict an "
+            #         f"action-packed moment that captures the essence of the game, with content in vertical."
+            #     )
+            # return True
+
     except Exception as e:
         print(f"Error Cover Image: {str(e)}")
         return False
