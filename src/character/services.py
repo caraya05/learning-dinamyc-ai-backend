@@ -66,8 +66,11 @@ async def get_all_character_service(user_id: str, skip: int = 1, limit: int = 10
         )
 
 
+
+
+
 async def get_characters_by_location_service(
-        skip: int = 1, limit: int = 100, location_id: str = None
+        skip: int = 1, limit: int = 100, location_id: str = None, game_id: str = None
 ):
     location_db = await db["location"].find_one({"_id": ObjectId(location_id)})
     if not location_db:
