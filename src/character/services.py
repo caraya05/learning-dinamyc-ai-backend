@@ -30,15 +30,14 @@ async def get_character_service(character_id: str):
 
 async def get_characters_service(skip: int = 1, limit: int = 100, game_id: str = None):
     try:
-        if (
-                characters_db := await db["character"]
-                        .find({"game_id": game_id})
-                        .skip((skip - 1) * limit)
-                        .limit(limit)
-                        .to_list(None)
-        ):
-            return characters_db
-        return None
+        game_db = await db["game"].find_one({"_id": ObjectId(game_id)})
+        if not game_db.get("characters_id"):
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Characters not found",
+            )
+        characters_db = await db["character"].find({"_id":{"$in": [ObjectId(i) for i in game_db["characters_id"]]}}).skip((skip - 1) * limit).limit(limit).to_list(None)
+        return characters_db
     except Exception as e:
         print(f"Error in get characters service: {str(e)}")
         raise HTTPException(
