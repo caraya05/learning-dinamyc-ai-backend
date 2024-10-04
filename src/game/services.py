@@ -364,7 +364,7 @@ async def change_character_principal_game_service(
                 _element_type="game",
                 _process="generate_cover_image_context_game",
             )
-            task_celery = await generate_image_cover_game_task.delay(
+            task_celery = generate_image_cover_game_task.delay(
                 _task_id=str(task_db['_id']),
                 _game_id=game_id,
                 _user_id=user_id,

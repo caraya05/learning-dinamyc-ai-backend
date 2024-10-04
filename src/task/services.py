@@ -95,11 +95,11 @@ async def update_task_service(
 
 async def get_task_pending_service(user_id: str, ids: str = None, is_list: bool = False):
     try:
-        query = {"was_notified": False, "user_id": user_id, "status": "pending"}
+        query = {"was_notified": False, "user_id": user_id}
         if ids:
             query["_id"] = ObjectId(ids)
 
-        cursor = db["task"].find(query).sort("reported_at", 1)
+        cursor = db["task"].find(query).sort("created_at", 1)
         task = await cursor.to_list(None if is_list else 1)
 
         return task if is_list else (task[0] if task else None)
