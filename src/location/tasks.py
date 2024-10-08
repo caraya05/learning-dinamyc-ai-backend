@@ -141,6 +141,9 @@ async def identify_location_sound(_location_id: str, _user_id: str):
     location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
     try:
         sounds_db = await get_sounds_service()
+        str_sounds = ""
+        for sound in sounds_db:
+            str_sounds += f"_id: {sound['_id']} - {sound['name']}, "
         response_sound = await openai_generator.generate_gpt(
             content_prompt=[
                 {
@@ -151,7 +154,7 @@ async def identify_location_sound(_location_id: str, _user_id: str):
                             "text": "con la siquiente image y descripcion de una locacion, escoje uno de los "
                                     "sonidos de la lista que se escucharia en este lugar",
                         },
-                        {"type": "text", "text": f"Listado de sonidos: {sounds_db}"},
+                        {"type": "text", "text": f"Listado de sonidos: {str_sounds}"},
                         {
                             "type": "text",
                             "text": f"descripcion de la locacion : {location_db['description']}",

@@ -1,3 +1,4 @@
+import random
 from uuid import uuid4
 
 from bson import ObjectId
@@ -11,6 +12,70 @@ from gpt_ai.utils import openai_generator
 
 from task.services import update_task_service
 from utils import upload_image
+from voice.utils import get_variants_service
+
+
+class SchemaVoiceIdentification(BaseModel):
+    age: str = Field(..., description="Age of the voice according to the description")
+    genre: str = Field(..., description="Genre of the voice according to the description")
+
+
+async def generate_voice_character(game_id, character_id: str, user_id: str):
+    try:
+        character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+        variants_voices = await get_variants_service()
+        response_generated = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": "Utilizando la siguiente descripción, identificar la voz que mejor se ajuste a la descripción. "
+                               f"Respondiendo con la edad y género de la voz,",
+                },
+                {
+                    "role": "assistant",
+                    "content": f"Variantes de voces a identificar: {variants_voices}",
+                },
+                {
+                    "role": "user",
+                    "content": f"Descripción del personaje: {character_db['description']}"
+                               f"Genero del personaje: {character_db['genre']}",
+                },
+            ],
+            response_format=SchemaVoiceIdentification,
+            type_generation="Voice Identification",
+            max_tokens=2000,
+            model="gpt-4o-mini",
+            user_id=user_id,
+        )
+
+        voice_by_gender = (
+            await db["voice"].find({"gender": response_generated.genre}).to_list(None)
+        )
+
+        voice_by_age = [
+            voice for voice in voice_by_gender if voice["age"] == response_generated.age
+        ]
+
+
+        if voice_by_age:
+            voice = voice_by_age[0]
+        else:
+            voice = random.choice(voice_by_gender)
+
+
+        await db["character"].update_one(
+            {"_id": ObjectId(character_id)}, {"$set": {"voice_id": str(voice["_id"])}}
+        )
+        if character_db["conversation_type"] == "one_way":
+            await generate_monologue_character(_game_id=game_id, _character_db=character_db,
+                                               _user_id=user_id)
+        if character_db["conversation_type"] == "two_way":
+            await generate_conversation_character(_game_id=game_id, _character_db=character_db,
+                                                  _user_id=user_id)
+        return True
+    except Exception as e:
+        print(f"Error in generate voice service: {str(e)}")
+        return False
 
 
 async def generate_image_character_face(_character_db, _user_id):
@@ -216,8 +281,8 @@ class SchemaCharacterConversations(BaseModel):
 
 async def generate_conversation_character(_game_id, _character_db, _user_id):
     game_db = await db["game"].find_one({"_id": ObjectId(_game_id)})
-    if not game_db:
-        return False
+    # if not game_db:
+    #     return False
     character_principal_db = await db["character"].find_one(
         {"_id": ObjectId(game_db["character_principal"])}
     )
@@ -272,17 +337,17 @@ async def generate_conversation_character(_game_id, _character_db, _user_id):
 
 
 async def generate_monologue_character(_game_id, _character_db, _user_id):
-    game_db = await db["game"].find_one({"_id": ObjectId(_game_id)})
+    # game_db = await db["game"].find_one({"_id": ObjectId(_game_id)})
     character_other_db = await db["character"].find_one({"_id": ObjectId(_character_db["_id"])})
     try:
-        if not character_other_db.get("prompt_user_dialog"):
-            character_other_db["prompt_user_dialog"] = game_db["history"]
+        # if not character_other_db.get("prompt_user_dialog"):
+        #     character_other_db["prompt_user_dialog"] = game_db["history"]
 
         response = await openai_generator.generate_gpt(
             content_prompt=[
                 {
                     "role": "system",
-                    "content": "create a monologue for the character, the monologue must be coherent and make sense."
+                    "content": "create a monologue in english for the character, the monologue must be coherent and make sense."
                 },
                 {
                     "role": "user",
@@ -356,6 +421,7 @@ async def async_generate_character_task(_character_id, _user_id, _task_id):
             _message="Error in generate image character face service",
         )
         return "Error in generate image character face service "
+
     await update_task_service(
         _id=_task_id, _status="completed", _message="Character generate successfully"
     )
@@ -387,3 +453,5 @@ async def async_generate_image_character_task(_character_id, _user_id, _task_id)
         _id=_task_id, _status="completed", _message="Character image generate successfully"
     )
     return "Character image generate successfully"
+
+
