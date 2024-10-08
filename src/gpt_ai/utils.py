@@ -179,8 +179,6 @@ class OpenAIGenerator:
 
             )
 
-            print(f"Response: {response}")
-
             await store_response(
                 response=response,
                 prompt=content_prompt,
@@ -188,8 +186,6 @@ class OpenAIGenerator:
                 type_generation=type_generation,
                 user_id=user_id,
             )
-
-            print(f"Response: {response.choices[0].message.parsed}")
 
             return response.choices[0].message.parsed
 

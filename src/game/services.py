@@ -18,7 +18,8 @@ from game.utils import get_synopsis
 from object.services import get_item_by_location_service
 from task.services import create_task_service, update_task_service
 
-from celery_worker import generate_image_cover_game_task, generate_context_new_character_task
+from celery_worker import generate_image_cover_game_task, generate_voice_character_task
+# from celery_worker import generate_context_new_character_task
 
 from utils import upload_image
 
@@ -275,27 +276,28 @@ async def add_characters_game_service(
             game_updated = await db['game'].update_one(
                 {'_id': ObjectId(game_id)}, {'$set': game_db}
             )
+            # TODO: descomentar cuando se tenga el servicio de tareas
             if game_updated:
                 task_db = await create_task_service(
                     _task_id="",
                     _user_id=user_id,
                     _task_data={},
-                    _element_id=game_id,
-                    _element_type="game",
-                    _process="generate_new_context_game",
+                    _element_id=characters_id,
+                    _element_type="character",
+                    _process="generate_voice_character_game",
                 )
-                task_celery = generate_context_new_character_task.delay(
+                task_celery = generate_voice_character_task.delay(
                     _task_id=str(task_db['_id']),
                     _game_id=game_id,
                     _character_id=characters_id,
-                    _location_id=location_id,
+                    # _location_id=location_id,
                     _user_id=user_id,
                 )
                 await update_task_service(
                     _id=str(task_db["_id"]),
                     _task_id=task_celery.id,
                 )
-                return await db['game'].find_one({'_id': ObjectId(game_id)})
+            return await db['game'].find_one({'_id': ObjectId(game_id)})
     except Exception as e:
         print(f"Error adding characters game service: {str(e)}")
         raise HTTPException(
