@@ -1,11 +1,14 @@
+from datetime import datetime
 from uuid import uuid4
 
+import pytz
 import requests
 
 from io import BytesIO
 from pydub import AudioSegment
 
 from config import settings
+from core import db
 from utils import upload_audio
 
 XI_API_KEY = settings.ELEVENLABS_API_KEY
@@ -25,15 +28,16 @@ def get_voices() -> list:
     return data['voices']
 
 
-def generate_audio(
-    text: str,
-    voice_id: str,
-    model_id: str = "eleven_multilingual_v2",
-    stability: float = 0.5,
-    similarity_boost: float = 0.8,
-    style: float = 0.0,
-    use_speaker_boost: bool = True,
-    chunk_size: int = 1024,
+async def generate_audio(
+        text: str,
+        voice_id: str,
+        model_id: str = "eleven_multilingual_v2",
+        stability: float = 0.5,
+        similarity_boost: float = 0.8,
+        style: float = 0.0,
+        use_speaker_boost: bool = True,
+        chunk_size: int = 1024,
+        user_id: str = None,
 ):
     tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
     headers = {"Accept": "application/json", "xi-api-key": XI_API_KEY}
@@ -48,6 +52,23 @@ def generate_audio(
         },
     }
     response = requests.post(tts_url, headers=headers, json=data, stream=True)
+
+    utc_now = datetime.now(pytz.utc)
+    colombia_now = utc_now.astimezone(pytz.timezone("America/Bogota"))
+
+    await db["logs"].insert_one(
+        {
+            "status": 200,
+            "is_error": False,
+            "message": "Response stored successfully",
+            "response": str(response),
+            "prompt": text,
+            "model": "elevenlabs",
+            "type_generation": "audio",
+            "user_id": user_id,
+            "created_at": colombia_now,
+        }
+    )
 
     if response.ok:
         audio_in_memory = BytesIO()
@@ -65,5 +86,18 @@ def generate_audio(
         )
         return url_audio
     else:
+        await db["logs"].insert_one(
+            {
+                "status": response.status_code,
+                "is_error": True,
+                "message": response.text,
+                "response": str(response),
+                "prompt": text,
+                "model": "elevenlabs",
+                "type_generation": "audio",
+                "user_id": user_id,
+                "created_at": colombia_now,
+            }
+        )
         print("error generate voice", response.text)
         return None

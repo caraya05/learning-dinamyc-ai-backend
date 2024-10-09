@@ -6,7 +6,7 @@ ENV C_FORCE_ROOT=1
 WORKDIR /code
 
 # Install build dependencies
-RUN apk add --no-cache git cmake libffi-dev linux-headers g++
+RUN apk add --no-cache git cmake libffi-dev linux-headers g++ ffmpeg
 
 # Install Python dependencies
 COPY ./src/requirements.txt /code/requirements.txt
@@ -14,7 +14,6 @@ RUN pip install "Cython<3.0" pyyaml --no-build-isolation \
     && pip install --no-cache-dir --upgrade -r /code/requirements.txt
 
 COPY ./src/. /code
-
 # Stage 2: Final
 #FROM arm64v8/python:3.12-alpine
 #

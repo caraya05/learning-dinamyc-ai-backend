@@ -31,32 +31,39 @@ services:
   redis:
     container_name: redisARM
     image: arm64v8/redis:6.2-alpine
-
-  celery_worker:
-    container_name: celery_workerARM
-    build:
-      context: .
-      dockerfile: .docker/DockerfileARM
-    command: celery -A celery_worker.celery worker --loglevel=info
     volumes:
-      - ./src/:/code
-    env_file:
-      - .env
-    depends_on:
-      - fastapi
-      - redis
+      - redis-data:/data
 
   flower:
     container_name: flowerARM
     build:
       context: .
       dockerfile: .docker/DockerfileARM
-    command: celery -A celery_worker.celery flower --port=5555
+    command: celery -A celery_worker.celery flower --port=5555 --url_prefix=/flower
     ports:
       - "5556:5555"
     env_file:
       - .env
     depends_on:
-      - fastapi
-      - redis
       - celery_worker
+    volumes:
+      - flower-data:/data
+
+  celery_worker:
+    container_name: celery_workerARM
+    build:
+      context: .
+      dockerfile: .docker/DockerfileCelery
+    command: celery -A celery_worker.celery worker --loglevel=info --pool=solo
+    volumes:
+      - ./src/:/code
+      - celery-data:/data
+    env_file:
+      - .env
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:
+  flower-data:
+  celery-data:

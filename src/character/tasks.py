@@ -12,6 +12,7 @@ from gpt_ai.utils import openai_generator
 
 from task.services import update_task_service
 from utils import upload_image
+from voice.elevenlabs import generate_audio
 from voice.utils import get_variants_service
 
 
@@ -56,15 +57,13 @@ async def generate_voice_character(game_id, character_id: str, user_id: str):
             voice for voice in voice_by_gender if voice["age"] == response_generated.age
         ]
 
-
         if voice_by_age:
             voice = voice_by_age[0]
         else:
             voice = random.choice(voice_by_gender)
 
-
         await db["character"].update_one(
-            {"_id": ObjectId(character_id)}, {"$set": {"voice_id": str(voice["_id"])}}
+            {"_id": ObjectId(character_id)}, {"$set": {"voice_id": str(voice["voice_id"])}}
         )
         if character_db["conversation_type"] == "one_way":
             await generate_monologue_character(_game_id=game_id, _character_db=character_db,
@@ -72,6 +71,25 @@ async def generate_voice_character(game_id, character_id: str, user_id: str):
         if character_db["conversation_type"] == "two_way":
             await generate_conversation_character(_game_id=game_id, _character_db=character_db,
                                                   _user_id=user_id)
+
+        if character_db["conversation_type"] != "none":
+            character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+            if character_db["conversation"]:
+                for conversation in character_db["conversation"]:
+                    if conversation["dialog"]:
+                        character_dialog_db = await db["character"].find_one(
+                            {"_id": ObjectId(conversation['id_character'])}
+                        )
+                        audio = await generate_audio(
+                            text=conversation["dialog"],
+                            voice_id=character_dialog_db["voice_id"],
+                            user_id=user_id,
+                        )
+                        conversation["audio"] = audio
+                await db["character"].update_one(
+                    {"_id": ObjectId(character_id)}, {"$set": {"conversation": character_db["conversation"]}}
+                )
+
         return True
     except Exception as e:
         print(f"Error in generate voice service: {str(e)}")
@@ -270,7 +288,7 @@ async def generate_character_description(_character_db, _user_id):
 
 class SchemaCharacterConversation(BaseModel):
     id_character: str = Field(..., example="id_character", description="id of the character")
-    dialog: str = Field(..., example="dialog", description="dialog of the character")
+    dialog: str = Field(..., example="dialog", description="dialog of the character and be a maximum of 15-30 words.")
 
 
 class SchemaCharacterConversations(BaseModel):
@@ -295,7 +313,7 @@ async def generate_conversation_character(_game_id, _character_db, _user_id):
             content_prompt=[
                 {"role": "system", "content": "create a conversation between the main character and another character,"
                                               " the conversation must be coherent and make sense and min 2 interactions"
-                                              "and max 5, the other character starts and the main character ends."},
+                                              "and max 5, the other character starts and the main character ends, and be a maximum of 15-40 words."},
                 {
                     "role": "user",
                     "content": [
@@ -319,7 +337,8 @@ async def generate_conversation_character(_game_id, _character_db, _user_id):
             type_generation="create_conversation_character",
         )
 
-        conversation_ = [{"id_character": str(_character_db["_id"]), "dialog": dialog.dialog, "audio": None} for dialog in response.conversation]
+        conversation_ = [{"id_character": str(_character_db["_id"]), "dialog": dialog.dialog, "audio": None} for dialog
+                         in response.conversation]
 
         await db["character"].update_one(
             {"_id": ObjectId(str(_character_db["_id"]))},
@@ -347,7 +366,7 @@ async def generate_monologue_character(_game_id, _character_db, _user_id):
             content_prompt=[
                 {
                     "role": "system",
-                    "content": "create a monologue in english for the character, the monologue must be coherent and make sense."
+                    "content": "create a monologue in english for the character, the monologue must be coherent and make sense, and be a maximum of 15-40 words."
                 },
                 {
                     "role": "user",
@@ -453,5 +472,3 @@ async def async_generate_image_character_task(_character_id, _user_id, _task_id)
         _id=_task_id, _status="completed", _message="Character image generate successfully"
     )
     return "Character image generate successfully"
-
-
