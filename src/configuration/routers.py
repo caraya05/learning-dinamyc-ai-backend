@@ -18,7 +18,6 @@ from configuration.services import update_configuration_service
 from configuration.services import delete_configuration_service
 
 from configuration.schemas import SchemaRetrieveConfiguration
-from configuration.schemas import SchemaListConfiguration
 from configuration.schemas import SchemaCreateConfiguration
 from configuration.schemas import SchemaUpdateConfiguration
 
@@ -139,3 +138,4 @@ def get_current_images():
         "splash_screen": "https://qwestar.sfo3.cdn.digitaloceanspaces.com/backend/screen/b80b7060-40b0-47dc-a523-402292d1ef23.jpeg",
         "login_screen": "https://qwestar.sfo3.cdn.digitaloceanspaces.com/backend/screen/f30c6340-2fd9-4f98-9ddc-ce484186f271.jpeg",
     }
+

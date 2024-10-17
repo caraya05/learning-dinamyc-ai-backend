@@ -14,12 +14,14 @@ from auth import routers as token_routers
 from prompt import routers as prompt_routers
 from category import routers as category_routers
 from configuration import routers as configuration_routers
+from configuration import routers_admin as configuration_admin_routers
 from game import routers as game_routers
 from game import routers_stats as stats_routers
 from game import routers_admin as game_admin_routers
 from object import routers as object_routers
 from location import routers as location_routers
 from character import routers as character_routers
+from character import routers_admin as character_admin_routers
 from voice import routers as voice_routers
 from shortener import routers as shortener_routers
 from task import routers as task_routers
@@ -139,5 +141,7 @@ async def add_process_time_header(request: Request, call_next):
 admin.include_router(user_admin_routers.router)
 admin.include_router(stats_routers.router)
 admin.include_router(game_admin_routers.router)
+admin.include_router(character_admin_routers.router)
+admin.include_router(configuration_admin_routers.router)
 
 app.mount("/v1/admin", admin)
