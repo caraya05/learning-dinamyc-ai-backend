@@ -17,6 +17,8 @@ from typing import Optional
 from game.services import get_game_v2_service
 from sound.services import get_sound_service
 
+from game.services_admin import get_games_service_admin
+
 router = APIRouter(prefix="/game-pending", tags=["Game Pending"])
 
 
@@ -152,3 +154,16 @@ async def update_game(
         return {"detail": "Game updated"}
     except Exception as e:
         raise HTTPException(status_code=400, detail="Error updating game")
+
+
+router_admin = APIRouter(prefix="/game", tags=["Game"])
+
+@router_admin.get("/", status_code=status.HTTP_200_OK)
+async def get_games(
+        user_db: dict = Depends(auth_admin),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+):
+    games_db = await get_games_service_admin()
+    return games_db
+
+

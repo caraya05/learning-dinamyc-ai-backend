@@ -27,7 +27,7 @@ async def get_character_service_admin(character_id: str):
 
 
 async def get_characters_service_admin(skip: int = 0, limit: int = 100):
-    characters_db = await db["character"].find().skip((skip - 1) * limit).limit(limit).to_list(None)
+    characters_db = await db["character"].find().to_list(None)
     for i in range(len(characters_db)):
         characters_db[i]["_id"] = str(characters_db[i]["_id"])
     return characters_db

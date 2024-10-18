@@ -5,7 +5,6 @@ from fastapi import Request
 
 from fastapi.middleware.cors import CORSMiddleware
 
-
 from core.database import create_indexes
 from user import routers as user_routers
 from auth import routers as token_routers
@@ -15,6 +14,7 @@ from configuration import routers as configuration_routers
 from configuration import routers_admin as configuration_admin_routers
 from game import routers as game_routers
 from game import routers_stats as stats_routers
+from game import routers_admin as game_pending_admin_routers
 from game import routers_admin as game_admin_routers
 from script import routers as script_routers
 from object import routers as object_routers
@@ -132,7 +132,8 @@ async def add_process_time_header(request: Request, call_next):
 
 admin.include_router(user_admin_routers.router)
 admin.include_router(stats_routers.router)
-admin.include_router(game_admin_routers.router)
+admin.include_router(game_admin_routers.router_admin)
+admin.include_router(game_pending_admin_routers.router)
 
 app.mount("/v1/admin", admin)
 
