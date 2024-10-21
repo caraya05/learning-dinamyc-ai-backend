@@ -4,7 +4,7 @@ from motor import motor_asyncio
 from config import settings
 
 client = motor_asyncio.AsyncIOMotorClient(
-    settings.DATABASE_URL, serverSelectionTimeoutMS=10000
+    settings.DATABASE_URL, serverSelectionTimeoutMS=20000
 )
 db = client.get_database(settings.DATABASE_NAME)
 
