@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from bson import ObjectId
 
 from core.database import db
@@ -12,3 +14,18 @@ async def get_games_service_admin(skip: int = 0, limit: int = 100):
         #                                          {"$set": {"game_id": str(games_db[i]["_id"])}})
         games_db[i]["_id"] = str(games_db[i]["_id"])
     return games_db
+
+
+async def get_game_service_admin(game_id: str):
+    game_db = await db["game"].find_one({"_id": ObjectId(game_id)})
+    if game_db is None:
+        return None
+    game_db["_id"] = str(game_db["_id"])
+    return game_db
+
+
+async def update_game_service_admin(game_id: str, game: dict, user_id:str):
+    if game_db := await get_game_service_admin(game_id):
+        game_db = game
+        game_db["updated_by"] = user_id
+        game_db["updated_at"] = datetime.utcnow()

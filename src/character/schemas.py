@@ -28,7 +28,7 @@ class SchemaCreateCharacter(BaseModel):
     body_type: Optional[str] = Field(None, example="body_type")
     genre: Optional[str] = Field(None, example=GenderCharacter.MAN)
     type: Optional[str] = Field(None, max_length=100, example="leading role")
-    description: str = Field(..., example="this is a description")
+    description: Optional[str] = Field(..., example="this is a description")
     game_id: Optional[str] = Field(None, max_length=100, example="game_id")
     attempts: Optional[int] = Field(None, example=0)
     extra_data: Optional[dict] = Field(None, example={"key": "value"})

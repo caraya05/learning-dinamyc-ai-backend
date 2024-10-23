@@ -82,12 +82,13 @@ async def update_character_service_admin(character_id: str, character: SchemaAdm
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Character not found",
             )
-        character_db = character
+        for key, value in character.dict().items():
+            setattr(character_db, key, value)
         character_db.updated_at = datetime.utcnow()
         character_db.updated_by = user_id
         await db["character"].update_one(
             {"_id": ObjectId(character_id)},
-            {"$set": character_db.dict()},
+            {"$set": character.dict()},
         )
         return character_db
     except Exception as e:

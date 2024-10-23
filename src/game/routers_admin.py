@@ -18,6 +18,7 @@ from game.services import get_game_v2_service
 from sound.services import get_sound_service
 
 from game.services_admin import get_games_service_admin
+from game.services_admin import get_game_service_admin
 
 router = APIRouter(prefix="/game-pending", tags=["Game Pending"])
 
@@ -166,4 +167,13 @@ async def get_games(
     games_db = await get_games_service_admin()
     return games_db
 
-
+@router_admin.get("/{game_id}", status_code=status.HTTP_200_OK)
+async def get_game(
+        game_id: str,
+        user_db: dict = Depends(auth_admin),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+):
+    game_db = await get_game_service_admin(game_id)
+    if game_db is None:
+        raise HTTPException(status_code=404, detail="Game not found")
+    return game_db
