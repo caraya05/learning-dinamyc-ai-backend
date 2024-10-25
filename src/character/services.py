@@ -166,6 +166,13 @@ async def get_character_leading_role_service(game_id: str):
 async def update_character_service(
         character_id: str, user_id: str, name: str = None, prompt_user: str = None
 ):
+    name_or_prompt_user_changed = False
+    character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+
+    if name and prompt_user and name != character_db["name"] and prompt_user != character_db["prompt_user"]:
+        name_or_prompt_user_changed = True
+
+
     try:
         if character_db := await db["character"].find_one({"_id": ObjectId(character_id)}):
             update_fields = {"updated_at": datetime.utcnow()}
@@ -176,28 +183,30 @@ async def update_character_service(
             await db["character"].update_one(
                 {"_id": ObjectId(character_id)}, {"$set": update_fields}
             )
-            task_db = await create_task_service(
-                _task_id="",
-                _user_id=user_id,
-                _task_data={},
-                _element_id=str(character_id),
-                _element_type="character",
-                _process="update_character",
-            )
-            task_celery = generate_character_task.delay(
-                _character_id=str(character_id), _user_id=user_id, _task_id=str(task_db["_id"])
-            )
-            await update_task_service(
-                _id=str(task_db["_id"]),
-                _task_id=task_celery.id,
-            )
-            character_db["tasks_request"].append(str(task_db["_id"]))
-            await db["character"].update_one(
-                {"_id": ObjectId(character_id)},
-                {"set": {"tasks_request": character_db["request_tasks"]}},
-            )
             character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
-            character_db["task_id"] = str(task_db["_id"])
+            if name_or_prompt_user_changed:
+                task_db = await create_task_service(
+                    _task_id="",
+                    _user_id=user_id,
+                    _task_data={},
+                    _element_id=str(character_id),
+                    _element_type="character",
+                    _process="update_character",
+                )
+                task_celery = generate_character_task.delay(
+                    _character_id=str(character_id), _user_id=user_id, _task_id=str(task_db["_id"])
+                )
+                await update_task_service(
+                    _id=str(task_db["_id"]),
+                    _task_id=task_celery.id,
+                )
+                character_db["tasks_request"].append(str(task_db["_id"]))
+                await db["character"].update_one(
+                    {"_id": ObjectId(character_id)},
+                    {"set": {"tasks_request": character_db["request_tasks"]}},
+                )
+                character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+                character_db["task_id"] = str(task_db["_id"])
             return character_db
     except Exception as e:
         print(f"Error in update character service: {str(e)}")

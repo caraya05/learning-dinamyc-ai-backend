@@ -136,11 +136,27 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str):
 
 
 async def partial_update_location_service(
-    *, location_id: str, location: SchemaPartialUpdateLocation, user_id: str
+    *, location_id: str, location: SchemaPartialUpdateLocation, user_id: str,
 ):
     """
     Partially update a location.
     """
+
+    title_or_prompt_user_changed = False
+    config_edited = False
+    connect_edited = False
+
+    location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
+
+    if location.title and location.title != location_db.get("title"):
+        title_or_prompt_user_changed = True
+    if location.prompt_user and location.prompt_user != location_db.get("prompt_user"):
+        title_or_prompt_user_changed = True
+
+    if location.configuration and location.configuration != location_db.get("config"):
+        config_edited = True
+    if location.connections and location.connections != location_db.get("connect"):
+        connect_edited = True
     try:
         if location_db := await db['location'].find_one({"_id": ObjectId(location_id)}):
             location_db["updated_by"] = user_id
@@ -173,31 +189,30 @@ async def partial_update_location_service(
                         if location_db["connect"][i]["user"] == user_id:
                             location_db["connect"][i]["connect"] = location.connections
             await db['location'].update_one({"_id": ObjectId(location_id)}, {"$set": location_db})
-            task_db = await create_task_service(
-                _task_id="",
-                _user_id=user_id,
-                _task_data={},
-                _element_id=str(location_id),
-                _element_type="location",
-                _process="update_location",
-            )
-            task_celery = generate_location_task.delay(
-                _location_id=location_id, _user_id=user_id, _task_id=str(task_db["_id"])
-            )
-
-            await update_task_service(
-                _id=str(task_db["_id"]),
-                _task_id=task_celery.id,
-            )
-
-            location_db["tasks_request"] = location_db["tasks_request"].append(str(task_db["_id"]))
-
-            await db['location'].update_one(
-                {"_id": ObjectId(location_id)},
-                {"$set": {"tasks_request": location_db["tasks_request"]}},
-            )
             location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
-            location_db["task_id"] = str(task_db["_id"])
+            if title_or_prompt_user_changed  or ( not config_edited and not connect_edited and title_or_prompt_user_changed):
+                task_db = await create_task_service(
+                    _task_id="",
+                    _user_id=user_id,
+                    _task_data={},
+                    _element_id=str(location_id),
+                    _element_type="location",
+                    _process="update_location",
+                )
+                task_celery = generate_location_task.delay(
+                    _location_id=location_id, _user_id=user_id, _task_id=str(task_db["_id"])
+                )
+                await update_task_service(
+                    _id=str(task_db["_id"]),
+                    _task_id=task_celery.id,
+                )
+                location_db["tasks_request"] = location_db["tasks_request"].append(str(task_db["_id"]))
+                await db['location'].update_one(
+                    {"_id": ObjectId(location_id)},
+                    {"$set": {"tasks_request": location_db["tasks_request"]}},
+                )
+                location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
+                location_db["task_id"] = str(task_db["_id"])
             return location_db
     except Exception as e:
         print(f"Error in partial update location service: {e}")
