@@ -20,6 +20,7 @@ from script import routers as script_routers
 from object import routers as object_routers
 from scene import routers as scene_routers
 from location import routers as location_routers
+from location import routers_admin as location_admin_routers
 from character import routers as character_routers
 from character import routers_admin as character_admin_routers
 from customize import routers as customize_routers
@@ -133,6 +134,10 @@ async def add_process_time_header(request: Request, call_next):
 admin.include_router(user_admin_routers.router)
 admin.include_router(stats_routers.router)
 admin.include_router(game_admin_routers.router_admin)
+admin.include_router(location_admin_routers.router)
+
+admin.include_router(character_admin_routers.router)
+
 admin.include_router(game_pending_admin_routers.router)
 
 app.mount("/v1/admin", admin)
@@ -172,7 +177,6 @@ appv2.include_router(character_routers.router2)
 appv2.include_router(object_routers.router2)
 appv2.include_router(game_routers.router2)
 appv2.include_router(location_routers.router2)
-admin.include_router(character_admin_routers.router)
 admin.include_router(configuration_admin_routers.router)
 
 app.mount("/v2/api", appv2)

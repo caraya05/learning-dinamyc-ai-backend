@@ -29,7 +29,7 @@ jobs:
           Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
 
     - name: Despliegue en Digital Ocean
-      uses: appleboy/ssh-action@v0.1.3
+      uses: appleboy/ssh-action@master
       with:
         host: ${{ secrets.DIGITAL_OCEAN_HOST }}
         username: ${{ secrets.DIGITAL_OCEAN_USERNAME }}
