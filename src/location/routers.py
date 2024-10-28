@@ -96,7 +96,13 @@ async def get_location(
         location_id = location_id.split("_")[0]
         try:
             locations_db = await get_location_game_publish_service(game_id=game_id, location_id=location_id)
+            if locations_db.get("audio", None) :
+                locations_db["sound_id"] = locations_db["audio"]
+                return locations_db
             sound_db = await get_sound_service(locations_db["sound_id"])
+            if not sound_db:
+                locations_db["sound_id"] = None
+                return locations_db
             locations_db["sound_id"] = sound_db["file"]
             return locations_db
         except Exception as e:

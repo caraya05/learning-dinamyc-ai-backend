@@ -292,6 +292,7 @@ async def add_characters_game_service(game_id: str, characters_id: str):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db:
+            await db['character'].update_one({'_id': ObjectId(characters_id)}, {'$set': {'game_id': game_id}})
             if game_db.get('characters_id'):
                 game_db["characters_id"].append(characters_id)
             else:
@@ -311,6 +312,7 @@ async def add_locations_game_service(game_id: str, locations_id: str):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db:
+            await db['location'].update_one({'_id': ObjectId(locations_id)}, {'$set': {'game_id': game_id}})
             if game_db.get('locations_id'):
                 game_db["locations_id"].append(locations_id)
             else:

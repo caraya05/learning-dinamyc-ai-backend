@@ -45,6 +45,6 @@ async def update_location(
         user_db: dict = Depends(auth_admin),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema)
 ):
-    if location_db := await update_location_service_admin(location_id, location, user_db["_id"]):
+    if location_db := await update_location_service_admin(location_id, location, str(user_db["_id"])):
         return location_db
     raise HTTPException(status_code=404, detail="Location not found")

@@ -9,7 +9,7 @@ class SchemaUpdateLocation(BaseModel):
     description: str = Field(None, example="This is a location description")
     prompt_user: str = Field(None, example="This is a prompt user")
     image: str = Field(None, example="image.jpg")
-    sound_id: str = Field(None, example="123")
+    audio: str = Field(None, example="audio.mp3")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str = Field(default="system", example="system")
     updated_at: datetime = Field(default_factory=datetime.utcnow)
