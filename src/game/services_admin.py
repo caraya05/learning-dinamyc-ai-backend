@@ -13,6 +13,10 @@ async def get_games_service_admin(skip: int = 0, limit: int = 100):
         #     for j in range(len(games_db[i]["characters_id"])):
         #         await db["character"].update_one({"_id": ObjectId(games_db[i]["characters_id"][j])},
         #                                          {"$set": {"game_id": str(games_db[i]["_id"])}})
+        # if games_db[i]["locations_id"]:
+        #     for j in range(len(games_db[i]["locations_id"])):
+        #         await db["location"].update_one({"_id": ObjectId(games_db[i]["locations_id"][j])},
+        #                                         {"$set": {"game_id": str(games_db[i]["_id"])}})
         games_db[i]["_id"] = str(games_db[i]["_id"])
     return games_db
 
