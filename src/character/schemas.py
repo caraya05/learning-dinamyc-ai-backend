@@ -24,8 +24,7 @@ class ResponseModelStr(BaseModel):
 class SchemaCreateCharacter(BaseModel):
     name: str = Field(..., max_length=100, example="Jhon Doe")
     prompt_user: str = Field(..., example="prompt_user")
-    prompt_user_dialog: str = Field(None, example="prompt_user_dialog")
-    type: str = Field(..., example="role")
+    prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
     conversation_type: str = Field(..., example="conversation_type")
 
 

@@ -31,7 +31,6 @@ jobs:
     - name: Despliegue en Digital Ocean
       uses: appleboy/ssh-action@master
       with:
-        token: ${{ secrets.GH_PAT }}
         host: ${{ secrets.DIGITAL_OCEAN_HOST }}
         username: ${{ secrets.DIGITAL_OCEAN_USERNAME }}
         key: ${{ secrets.DIGITAL_OCEAN_SSH_KEY }}
@@ -39,11 +38,11 @@ jobs:
         script: |
           cd /root/.project/qwestar-ai-backend
           git config --global url."https://${{ secrets.GH_PAT }}@github.com/".insteadOf "https://github.com/"
-#          make dev-stop
+    #      make dev-stop
           git pull origin develop
           make dev-build
           make dev-up-pro
-#          make apply-migrations
+    #      make apply-migrations
 
     - name: Send Inline Telegram Message (End)
       if: success()
