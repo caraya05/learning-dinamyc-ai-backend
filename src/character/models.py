@@ -25,7 +25,7 @@ class Character(BaseModel):
     text_idle: Optional[dict] = Field(None, example="Text idle")
     conversation_type: str = Field(..., example=TypeConversation.NONE_CONVERSATION)
     conversation: Optional[list[dict]] = Field([], example=[{"key": "value"}])
-    type: str = Field(..., example=TypeCharacter.LEADING_ROLE)
+    type: Optional[str] = Field(None, example=TypeCharacter.NPC)
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
     status: Optional[int] = Field(0, example=200)
     tasks_request: Optional[list[str]] = Field([], example=["task1", "task2"])
