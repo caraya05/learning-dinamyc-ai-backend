@@ -304,28 +304,35 @@ async def generate_conversation_character(_game_id, _character_db, _user_id):
     character_principal_db = await db["character"].find_one(
         {"_id": ObjectId(game_db["character_principal"])}
     )
+
     character_other_db = await db["character"].find_one({"_id": ObjectId(str(_character_db["_id"]))})
+
+    language_detection = await generate_language_detection(character_other_db['prompt_user_dialog'], _user_id)
+
     try:
         if not character_other_db.get("prompt_user_dialog"):
             character_other_db["prompt_user_dialog"] = game_db["history"]
 
         response = await openai_generator.generate_gpt(
             content_prompt=[
-                {"role": "system", "content": "create a conversation between the main character and another character,"
-                                              " the conversation must be coherent and make sense and min 2 interactions"
-                                              "and max 5, the other character starts and the main character ends, and be a maximum of 15-40 words."},
+                {"role": "system", "content": f"extracts from the conversation the texts that would be said by the "
+                                              f"main character and the other character as told in the user's dialog "
+                                              f"in the conversation of the character. The conversation of the "
+                                              f"character is: {language_detection}"},
                 {
                     "role": "user",
                     "content": [
                         {
                             "type": "text",
-                            "text": f"Main character: {character_principal_db['prompt_user_dialog']} "
-                                    f"id: {str(character_principal_db['_id'])}",
+                            "text": f"Main character id: {str(character_principal_db['_id'])}",
                         },
                         {
                             "type": "text",
-                            "text": f"Other character: {character_other_db['prompt_user_dialog']}"
-                                    f"id: {str(character_other_db['_id'])}",
+                            "text":  f"Other character id: {str(character_other_db['_id'])}",
+                        },
+                        {
+                            "type": "text",
+                            "text":  f"Conversation of the character: {character_other_db['prompt_user_dialog']}",
                         },
                     ],
                 },
@@ -362,18 +369,20 @@ async def generate_monologue_character(_game_id, _character_db, _user_id):
         # if not character_other_db.get("prompt_user_dialog"):
         #     character_other_db["prompt_user_dialog"] = game_db["history"]
 
+        language_detection = await generate_language_detection(character_other_db['prompt_user_dialog'], _user_id)
+
         response = await openai_generator.generate_gpt(
             content_prompt=[
                 {
                     "role": "system",
-                    "content": "create a monologue in english for the character, the monologue must be coherent and make sense, and be a maximum of 15-40 words."
+                    "content": f" Correct spelling on the text of dialogue in the {language_detection} language. "
                 },
                 {
                     "role": "user",
                     "content": [
                         {
                             "type": "text",
-                            "text": f"Character: {character_other_db['prompt_user_dialog']}"
+                            "text": f"character dialog: {character_other_db['prompt_user_dialog']}"
                                     f"id: {str(character_other_db['_id'])}",
                         },
                     ],
@@ -403,6 +412,33 @@ async def generate_monologue_character(_game_id, _character_db, _user_id):
         print(f"Error in generating character monologue: {str(e)}")
         return False
 
+class SchemaLanguageDetection(BaseModel):
+    response: str = Field(..., example="response", description="response of the language detection")
+
+async def generate_language_detection(_text, _user_id):
+    try:
+        response = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": "Detecta el idioma del texto",
+                },
+                {
+                    "role": "user",
+                    "content": f"Texto: {_text}",
+                },
+            ],
+            model="gpt-4o-mini-2024-07-18",
+            max_tokens=4096,
+            response_format=SchemaLanguageDetection,
+            user_id=_user_id,
+            type_generation="detect_language",
+        )
+
+        return response.response
+    except Exception as e:
+        print(f"Error in generating language detection: {str(e)}")
+        return "english"
 
 async def async_generate_character_task(_character_id, _user_id, _task_id):
     await update_task_service(_id=_task_id, _status="pending")

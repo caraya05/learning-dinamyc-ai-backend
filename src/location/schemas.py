@@ -64,7 +64,7 @@ class SchemaRetrieveLocation(ResponseModel):
     prompt_user: Optional[str] = Field(None)
     configuration: Optional[dict] = {}
     connections: Optional[dict] = {}
-    sound_id: Optional[str | dict] = Field(None)
+    sound: Optional[str | dict] = Field(None)
     characters: Optional[list] = []
     environment: Optional[dict] = {}
     status: Optional[int] = Field(1, example="status")
