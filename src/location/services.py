@@ -39,7 +39,6 @@ async def get_location_service(*, location_id: str, user_id: str) -> dict:
                 )
                 if sound_db:
                     location_db["sound"] = sound_db["file"]
-
             if location_db["config"]:
                 user_config_found = False
                 for config in location_db["config"]:
