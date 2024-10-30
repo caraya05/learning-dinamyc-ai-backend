@@ -51,40 +51,40 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
             user_id=_user_id,
             type_generation="generate image cover game",
         )
-            # response_identify = await openai_generator.generate_gpt( content_prompt=[
-            #         {
-            #             "role": "system",
-            #             "content": "Eres un verificador de imagenes, que puede detectar si contenido de una imagen esta en vertical u horizontal."
-            #                        "response con true si el contenido es vertical o false si es horizontal.",
-            #         },
-            #         {
-            #             "role": "user",
-            #             "content": [
-            #                 {"type": "image_url", "image_url": {"url": response_image}},
-            #             ],
-            #         },
-            #     ],
-            #     max_tokens=4096,
-            #     model="gpt-4o-mini",
-            #     response_format=SchemaResponseImage,
-            #     user_id=_user_id,
-            #     type_generation="identify image",
-            # )
+        # response_identify = await openai_generator.generate_gpt( content_prompt=[
+        #         {
+        #             "role": "system",
+        #             "content": "Eres un verificador de imagenes, que puede detectar si contenido de una imagen esta en vertical u horizontal."
+        #                        "response con true si el contenido es vertical o false si es horizontal.",
+        #         },
+        #         {
+        #             "role": "user",
+        #             "content": [
+        #                 {"type": "image_url", "image_url": {"url": response_image}},
+        #             ],
+        #         },
+        #     ],
+        #     max_tokens=4096,
+        #     model="gpt-4o-mini",
+        #     response_format=SchemaResponseImage,
+        #     user_id=_user_id,
+        #     type_generation="identify image",
+        # )
 
-            # if response_identify.response_vertical:
+        # if response_identify.response_vertical:
         image = upload_image(
             url_image=response_image, file_name=f"covers/{uuid4()}.jpg", size=(512, 896)
         )
         await db['game'].update_one({'_id': ObjectId(_game_id)}, {'$set': {'image': image}})
         return True
-            # else:
-            #     prompt = (
-            #         f"Generate a image in 3D animation style of extraordinary quality for the game "
-            #         f"{game_db['title']} featuring the character {first_character['prompt_user']}"
-            #         f" in the location {first_location['prompt_user']}. The scene should depict an "
-            #         f"action-packed moment that captures the essence of the game, with content in vertical."
-            #     )
-            # return True
+        # else:
+        #     prompt = (
+        #         f"Generate a image in 3D animation style of extraordinary quality for the game "
+        #         f"{game_db['title']} featuring the character {first_character['prompt_user']}"
+        #         f" in the location {first_location['prompt_user']}. The scene should depict an "
+        #         f"action-packed moment that captures the essence of the game, with content in vertical."
+        #     )
+        # return True
 
     except Exception as e:
         print(f"Error Cover Image: {str(e)}")
@@ -364,7 +364,7 @@ async def async_generate_context_new_character_task(
             _id=_task_id, _status="failed", _message="Error generating context"
         )
         return "Error generating context"
-    voice_generated = await generate_voice_character(_character_id, _user_id)
+    voice_generated = await generate_voice_character(_game_id, _character_id, _user_id)
     if not voice_generated:
         await update_task_service(
             _id=_task_id, _status="failed", _message="Error voice not generated"
