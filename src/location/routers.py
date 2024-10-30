@@ -94,11 +94,8 @@ async def get_location(
             locations_db = await get_location_game_publish_service(
                 game_id=game_id, location_id=location_id
             )
-            sound_db = await get_sound_service(locations_db["sound_id"])
-            if not sound_db:
-                locations_db["sound_id"] = None
-                return locations_db
-            locations_db["sound_id"] = sound_db["file"]
+            sound_db = await get_sound_service(locations_db["sound"])
+            locations_db["sound"] = sound_db["file"]
             return locations_db
         except Exception as e:
             print(f"Error in get locations: {str(e)}")
