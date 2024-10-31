@@ -14,6 +14,7 @@ class Location(BaseModel):
     config: Optional[list[dict]] = Field(None, example="")
     connections: Optional[dict] = Field(None, example="")
     sound_id: Optional[str] = Field(None, example="123")
+    sound: Optional[str] = Field(None, example="123")
     game_id: Optional[str] = Field(None, example="123")
     status: Optional[int] = Field(0, example=200)
     tasks_request: Optional[list[str]] = Field([], example=["task1", "task2"])
