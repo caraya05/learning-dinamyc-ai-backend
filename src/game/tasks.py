@@ -342,38 +342,38 @@ async def async_generate_context_new_character_task(
 ):
     await update_task_service(_id=_task_id, _status="pending")
 
-    game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
-    while not game_db.get('history'):
-        await asyncio.sleep(10)
-        game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
-
-    game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
-    if not game_db['character_principal'] or not game_db['history']:
-        await update_task_service(
-            _id=_task_id,
-            _status="completed",
-            _message=f"Game {_game_id} doesn't have a principal character or history",
-        )
-        return f"Game {_game_id} doesn't have a principal character or history"
-
-    response_story = await generate_context_new_character(
-        _game_id, _character_id, _location_id, _user_id
-    )
-    if not response_story:
-        await update_task_service(
-            _id=_task_id, _status="failed", _message="Error generating context"
-        )
-        return "Error generating context"
-    voice_generated = await generate_voice_character(_game_id, _character_id, _user_id)
-    if not voice_generated:
-        await update_task_service(
-            _id=_task_id, _status="failed", _message="Error voice not generated"
-        )
-        return "Error voice not generated"
-    await update_task_service(
-        _id=_task_id, _status="completed", _message="Story generated successfully"
-    )
-
+#     game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
+#     while not game_db.get('history'):
+#         await asyncio.sleep(10)
+#         game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
+#
+#     game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
+#     if not game_db['character_principal'] or not game_db['history']:
+#         await update_task_service(
+#             _id=_task_id,
+#             _status="completed",
+#             _message=f"Game {_game_id} doesn't have a principal character or history",
+#         )
+#         return f"Game {_game_id} doesn't have a principal character or history"
+#
+#     # response_story = await generate_context_new_character(
+#     #     _game_id, _character_id, _location_id, _user_id
+#     # )
+#     # if not response_story:
+#     #     await update_task_service(
+#     #         _id=_task_id, _status="failed", _message="Error generating context"
+#     #     )
+#     #     return "Error generating context"
+#     voice_generated = await generate_voice_character(_game_id, _character_id, _user_id)
+#     if not voice_generated:
+#         await update_task_service(
+#             _id=_task_id, _status="failed", _message="Error voice not generated"
+#         )
+#         return "Error voice not generated"
+#     await update_task_service(
+#         _id=_task_id, _status="completed", _message="Story generated successfully"
+#     )
+#
     return "Story generated successfully"
 
 

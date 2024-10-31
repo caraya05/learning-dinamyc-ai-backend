@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timedelta
 
 from bson import ObjectId
 from fastapi import APIRouter, Depends
@@ -158,6 +159,23 @@ async def websocket_endpoint(
             else:
                 task_db = await get_task_pending_service(user_id)
                 if task_db:
+                    created_at = task_db.get("created_at")
+                    if created_at:
+                        if datetime.utcnow() - created_at > timedelta(hours=1):
+                            await manager.send_personal_message(
+                                {
+                                    "detail": "Task failed due to timeout",
+                                    "task_id": str(task_db["_id"]),
+                                    "element_id": str(task_db["element_id"]),
+                                    "element_type": task_db["element_type"],
+                                    "status": 3,
+                                },
+                                websocket
+                            )
+                            await update_task_service(
+                                _id=str(task_db["_id"]), _status="failed", _was_notified=True
+                            )
+                            continue  # Skip further processing for this task
                     if task_db.get("task_id", None):
                         task_celery = AsyncResult(task_db["task_id"], app=celery)
                         if task_celery.state == "SUCCESS":

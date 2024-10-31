@@ -52,16 +52,13 @@ async def generate_voice_character(game_id, character_id: str, user_id: str):
         voice_by_gender = (
             await db["voice"].find({"gender": response_generated.genre}).to_list(None)
         )
-
         voice_by_age = [
             voice for voice in voice_by_gender if voice["age"] == response_generated.age
         ]
-
         if voice_by_age:
             voice = voice_by_age[0]
         else:
             voice = random.choice(voice_by_gender)
-
         await db["character"].update_one(
             {"_id": ObjectId(character_id)}, {"$set": {"voice_id": str(voice["voice_id"])}}
         )
@@ -71,7 +68,6 @@ async def generate_voice_character(game_id, character_id: str, user_id: str):
         if character_db["conversation_type"] == "two_way":
             await generate_conversation_character(_game_id=game_id, _character_db=character_db,
                                                   _user_id=user_id)
-
         if character_db["conversation_type"] != "none":
             character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
             if character_db["conversation"]:
@@ -89,7 +85,6 @@ async def generate_voice_character(game_id, character_id: str, user_id: str):
                 await db["character"].update_one(
                     {"_id": ObjectId(character_id)}, {"$set": {"conversation": character_db["conversation"]}}
                 )
-
         return True
     except Exception as e:
         print(f"Error in generate voice service: {str(e)}")
@@ -149,10 +144,6 @@ class SchemaCharacterCreate(BaseModel):
         example="description_shoulder_up",
         description="string (15-word description cut from the head to the waist of"
                     " the character, to generate an image of the character",
-    )
-
-    description_game: str = Field(
-        ..., example="description_game", description="description of the character for the game"
     )
 
 
@@ -274,7 +265,6 @@ async def generate_character_description(_character_db, _user_id):
             {
                 "$set": {
                     "description": response.description,
-                    "description_game": response.description_game,
                     "description_shoulder_up": response.description_shoulder_up,
                 }
             },
@@ -299,26 +289,25 @@ class SchemaCharacterConversations(BaseModel):
 
 async def generate_conversation_character(_game_id, _character_db, _user_id):
     game_db = await db["game"].find_one({"_id": ObjectId(_game_id)})
-    # if not game_db:
-    #     return False
     character_principal_db = await db["character"].find_one(
         {"_id": ObjectId(game_db["character_principal"])}
     )
-
     character_other_db = await db["character"].find_one({"_id": ObjectId(str(_character_db["_id"]))})
-
     language_detection = await generate_language_detection(character_other_db['prompt_user_dialog'], _user_id)
-
     try:
-        if not character_other_db.get("prompt_user_dialog"):
-            character_other_db["prompt_user_dialog"] = game_db["history"]
 
         response = await openai_generator.generate_gpt(
             content_prompt=[
-                {"role": "system", "content": f"extracts from the conversation the texts that would be said by the "
-                                              f"main character and the other character as told in the user's dialog "
-                                              f"in the conversation of the character. The conversation of the "
-                                              f"character is: {language_detection}"},
+                {
+                    "role": "system",
+                    "content": f" You are a character dialogue extractor, according to a text where there is a conversation between two characters as follows. " +
+                               "1. hello. how are you?" +
+                               "2. hello, well how are you?" +
+                               "where 1 is the main character and 2 is the other character, transform it to a"
+                               "replace 1 with the id of the main character and 2 with the id of the other character, "
+                               " conversation according to the json schema and the data provided by the user, and "
+                               f"correct the spelling of the dialogue text in the {language_detection} language.",
+                },
                 {
                     "role": "user",
                     "content": [
@@ -328,11 +317,11 @@ async def generate_conversation_character(_game_id, _character_db, _user_id):
                         },
                         {
                             "type": "text",
-                            "text":  f"Other character id: {str(character_other_db['_id'])}",
+                            "text": f"Other character id: {str(character_other_db['_id'])}",
                         },
                         {
                             "type": "text",
-                            "text":  f"Conversation of the character: {character_other_db['prompt_user_dialog']}",
+                            "text": f"Conversation of the character: {character_other_db['prompt_user_dialog']}",
                         },
                     ],
                 },
@@ -343,8 +332,7 @@ async def generate_conversation_character(_game_id, _character_db, _user_id):
             user_id=_user_id,
             type_generation="create_conversation_character",
         )
-
-        conversation_ = [{"id_character": str(_character_db["_id"]), "dialog": dialog.dialog, "audio": None} for dialog
+        conversation_ = [{"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None} for dialog
                          in response.conversation]
 
         await db["character"].update_one(
@@ -412,8 +400,10 @@ async def generate_monologue_character(_game_id, _character_db, _user_id):
         print(f"Error in generating character monologue: {str(e)}")
         return False
 
+
 class SchemaLanguageDetection(BaseModel):
     response: str = Field(..., example="response", description="response of the language detection")
+
 
 async def generate_language_detection(_text, _user_id):
     try:
@@ -439,6 +429,7 @@ async def generate_language_detection(_text, _user_id):
     except Exception as e:
         print(f"Error in generating language detection: {str(e)}")
         return "english"
+
 
 async def async_generate_character_task(_character_id, _user_id, _task_id):
     await update_task_service(_id=_task_id, _status="pending")
