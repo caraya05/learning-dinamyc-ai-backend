@@ -40,8 +40,15 @@ async def get_character(
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     if publish:
-        game_id = character_id.split('_')[1]
-        character_id = character_id.split('_')[0]
+        try:
+            game_id = character_id.split('_')[1]
+            character_id = character_id.split('_')[0]
+        except Exception as e:
+            print(f"error in get character: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Character not found",
+            )
         try:
             character_db = await get_character_game_publish_service(
                 character_id=character_id, game_id=game_id
