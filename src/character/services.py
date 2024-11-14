@@ -233,7 +233,7 @@ async def generate_image_character_service(character_id: str, user_id: str):
         character_db["tasks_request"].append(str(task_db["_id"]))
         await db["character"].update_one(
             {"_id": ObjectId(character_id)},
-            {"set": {"tasks_request": character_db["request_tasks"]}},
+            {"$set": {"tasks_request": character_db["request_tasks"]}},
         )
 
         character_db["task_id"] = str(task_db["_id"])
