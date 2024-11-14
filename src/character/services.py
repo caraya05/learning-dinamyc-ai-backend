@@ -199,7 +199,7 @@ async def update_character_service(
                 character_db["tasks_request"].append(str(task_db["_id"]))
                 await db["character"].update_one(
                     {"_id": ObjectId(character_id)},
-                    {"set": {"tasks_request": character_db["tasks_request"]}},
+                    {"$set": {"tasks_request": character_db["tasks_request"]}},
                 )
                 character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
                 character_db["task_id"] = str(task_db["_id"])
