@@ -166,9 +166,8 @@ async def update_character_service(
     name_or_prompt_user_changed = False
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
 
-    if name and prompt_user and name != character_db["name"] and prompt_user != character_db["prompt_user"]:
+    if prompt_user != character_db["prompt_user"]:
         name_or_prompt_user_changed = True
-
 
     try:
         if character_db := await db["character"].find_one({"_id": ObjectId(character_id)}):

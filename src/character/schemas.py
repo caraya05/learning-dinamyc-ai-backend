@@ -76,6 +76,8 @@ class SchemaCreateCharacterCollection(BaseModel):
 class SchemaUpdateCharacterCollection(BaseModel):
     name: Optional[str] = Field(None, max_length=100, example="Jhon Doe")
     prompt_user: Optional[str] = Field(None, example="prompt_user")
+    prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
+    conversation_type: Optional[str] = Field(None, example="conversation_type")
 
 
 class SchemaPartialUpdateCharacter(BaseModel):
