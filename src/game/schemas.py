@@ -27,6 +27,8 @@ class SchemaRetrieveGame(ResponseModel):
     plays: int = Field(0, example=0)
     status: Optional[int] = Field(1, example="status")
     reject_note: Optional[str] = Field(None, example="reject_note")
+    published_at: Optional[datetime] = Field(None, example=datetime.utcnow())
+    is_published: Optional[bool] = Field(False, example=True)
 
 
 class ResponseModelStr(BaseModel):
@@ -50,6 +52,8 @@ class SchemaRetrieveGameStr(ResponseModelStr):
     plays: int = Field(0, example=0)
     status: Optional[int] = Field(1, example="status")
     reject_note: Optional[str] = Field(None, example="reject_note")
+    published_at: Optional[datetime] = Field(None, example=datetime.utcnow())
+    is_published: Optional[bool] = Field(False, example=True)
 
 
 class SchemaListGame(BaseModel):
