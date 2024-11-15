@@ -4,7 +4,7 @@ from bson import ObjectId
 from fastapi import HTTPException
 from fastapi import status
 
-from celery_worker import generate_character_task
+from celery_worker import generate_character_task, update_character_task
 from celery_worker import generate_image_character_task
 
 from character.models import Character
@@ -161,13 +161,20 @@ async def get_character_leading_role_service(game_id: str):
 
 
 async def update_character_service(
-        character_id: str, user_id: str, name: str = None, prompt_user: str = None
+        character_id: str, user_id: str, name: str = None, prompt_user: str = None, dialog: str = None, type_dialog: str = None
 ):
     name_or_prompt_user_changed = False
+    dialog_changed = False
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
 
     if prompt_user != character_db["prompt_user"]:
         name_or_prompt_user_changed = True
+
+    if  dialog != character_db["prompt_user_dialog"]:
+        dialog_changed = True
+
+    if type_dialog != character_db["type_conversation"]:
+        dialog_changed = True
 
     try:
         if character_db := await db["character"].find_one({"_id": ObjectId(character_id)}):
@@ -180,6 +187,12 @@ async def update_character_service(
                 {"_id": ObjectId(character_id)}, {"$set": update_fields}
             )
             character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+
+            if not character_db["game_id"]:
+                game_db = await db["game"].find_one({"characters_id": {"$in": [character_id]}})
+                if game_db:
+                    character_db["game_id"] = str(game_db["_id"])
+
             if name_or_prompt_user_changed:
                 task_db = await create_task_service(
                     _task_id="",
@@ -189,8 +202,8 @@ async def update_character_service(
                     _element_type="character",
                     _process="update_character",
                 )
-                task_celery = generate_character_task.delay(
-                    _character_id=str(character_id), _user_id=user_id, _task_id=str(task_db["_id"])
+                task_celery = update_character_task.delay(
+                    _character_id=str(character_id), _user_id=user_id, _task_id=str(task_db["_id"]), _game_id=character_db["game_id"], _updated_data=name_or_prompt_user_changed, _updated_voice=dialog_changed
                 )
                 await update_task_service(
                     _id=str(task_db["_id"]),
@@ -335,3 +348,14 @@ async def add_or_edit_character_location(
         )
         await db["character_location"].insert_one(character_location_data.dict())
         return "Character location added successfully"
+
+
+async def remove_character_location(character_id: str, location_id: str):
+    existing_entry = await db["character_location"].find_one(
+        {"character_id": character_id, "location_id": location_id}
+    )
+
+    if existing_entry:
+        await db["character_location"].delete_one({"_id": existing_entry["_id"]})
+        return "Character location removed successfully"
+    return "Character location not found"
