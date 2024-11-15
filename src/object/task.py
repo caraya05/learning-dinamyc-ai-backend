@@ -36,10 +36,6 @@ async def generate_image_item(prompt_user: str, object_id: str, user_id: str):
 async def async_generate_item(item_id: str, _user_id: str, _task_id: str):
     await update_task_service(_id=_task_id, _status="pending")
 
-    print(
-        f"Generating image item for item_id: {item_id}, user_id: {_user_id}, task_id: {_task_id}"
-    )
-
     item_db = await db['item'].find_one({"_id": ObjectId(item_id)})
     if not item_db:
         await update_task_service(
@@ -58,4 +54,7 @@ async def async_generate_item(item_id: str, _user_id: str, _task_id: str):
         )
         return f"Error in generate image item"
 
-    return True
+    await update_task_service(
+        _id=_task_id, _status="completed", _message="Item generated successfully"
+    )
+    return "Item generated successfully"
