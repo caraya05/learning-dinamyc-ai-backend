@@ -474,6 +474,59 @@ async def async_generate_character_task(_character_id, _user_id, _task_id):
     return "Character generate successfully"
 
 
+async def async_update_character_task(_character_id, _user_id, _task_id, _game_id, _updated_data, _updated_voice):
+    await update_task_service(_id=_task_id, _status="pending")
+    if _updated_data:
+        character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
+        if not character_db:
+            await update_task_service(
+                _id=_task_id,
+                _status="failed",
+                _message=f"Error can't find character with id {_character_id}",
+            )
+            return f"Error can't find character with id {_character_id}"
+        response_description = await generate_character_description(
+            _character_db=character_db, _user_id=_user_id
+        )
+        if not response_description:
+            await update_task_service(
+                _id=_task_id, _status="failed", _message="Error in generate character description"
+            )
+            return "Error in generate character description"
+        response_body_type = await generate_character_body_type(
+            _character_db=character_db, _user_id=_user_id
+        )
+        if not response_body_type:
+            await update_task_service(
+                _id=_task_id, _status="failed", _message="Error in generate character body type"
+            )
+            return "Error in generate character body type"
+        response_image = await generate_image_character_face(
+            _character_db=character_db, _user_id=_user_id
+        )
+        if not response_image:
+            await update_task_service(
+                _id=_task_id,
+                _status="failed",
+                _message="Error in generate image character face service",
+            )
+            return "Error in generate image character face service "
+
+    if _updated_voice:
+        voice_generated = await generate_voice_character(_game_id, _character_id, _user_id)
+        if not voice_generated:
+            await update_task_service(
+                _id=_task_id, _status="failed", _message="Error voice not generated"
+            )
+            return "Error voice not generated"
+
+    await update_task_service(
+        _id=_task_id, _status="completed", _message="Character updated successfully"
+    )
+
+    return "Character updated successfully"
+
+
 async def async_generate_image_character_task(_character_id, _user_id, _task_id):
     await update_task_service(_id=_task_id, _status="pending")
 

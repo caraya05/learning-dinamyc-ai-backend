@@ -333,15 +333,27 @@ async def add_items_game_service(game_id: str, items_id: str):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db:
+            # Check and update items_id array
             if game_db.get('items_id'):
-                game_db["items_id"].append(items_id)
+                game_db['items_id'].append(items_id)
             else:
-                game_db["items_id"] = [items_id]
-            game_updated = await db['game'].update_one(
-                {'_id': ObjectId(game_id)}, {'$set': game_db}
+                game_db['items_id'] = [items_id]
+
+            await db['game'].update_one(
+                {'_id': ObjectId(game_id)}, {'$set': {'items_id': game_db['items_id']}}
             )
-            if game_updated.modified_count:
-                return await db['game'].find_one({'_id': ObjectId(game_id)})
+
+            # Check and update games_id array
+            item_db = await db['item'].find_one({'_id': ObjectId(items_id)})
+            if item_db.get('games_id'):
+                item_db['games_id'].append(game_id)
+            else:
+                item_db['games_id'] = [game_id]
+
+            await db['item'].update_one(
+                {'_id': ObjectId(items_id)}, {'$set': {'games_id': item_db['games_id']}}
+            )
+            return "Item added to game"
     except Exception as e:
         print(f"Error adding items game service: {str(e)}")
         raise HTTPException(

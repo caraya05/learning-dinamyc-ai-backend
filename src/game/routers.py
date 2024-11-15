@@ -355,7 +355,7 @@ async def create_game(
         )
 
 
-@router.post("/add-item", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveGame)
+@router.post("/add-item", status_code=status.HTTP_200_OK)
 async def add_item_game(
         data: SchemaAddItem,
         user_db: dict = Depends(auth),

@@ -8,11 +8,13 @@ from location.tasks import async_generate_image_location_task
 
 from character.tasks import async_generate_character_task
 from character.tasks import async_generate_image_character_task
+from character.tasks import async_update_character_task
 
 from game.tasks import async_identify_category_game_task
 from game.tasks import async_generate_image_cover_game_task
 from game.tasks import async_generate_context_new_character_task
 from voice.task import async_generate_voice_task
+from object.task import async_generate_item
 
 celery = Celery(__name__)
 celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
@@ -63,6 +65,20 @@ def generate_character_task(_character_id: str, _user_id: str, _task_id: str):
     return loop.run_until_complete(
         async_generate_character_task(
             _character_id=_character_id, _user_id=_user_id, _task_id=_task_id
+        )
+    )
+
+@celery.task(name="update_character_task")
+def update_character_task(_character_id: str, _user_id: str, _task_id: str, _game_id: str, _updated_data:bool, _updated_voice:bool):
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    return loop.run_until_complete(
+        async_update_character_task(
+            _character_id=_character_id, _user_id=_user_id, _task_id=_task_id, _game_id=_game_id, _updated_data=_updated_data, _updated_voice=_updated_voice
         )
     )
 
@@ -157,3 +173,14 @@ def generate_voice_character_task(_game_id,_character_id: str, _user_id: str, _t
         asyncio.set_event_loop(loop)
 
     return loop.run_until_complete(async_generate_voice_task(_game_id, _character_id, _user_id, _task_id))
+
+
+@celery.task(name="generate_item_task")
+def generate_item_task(_item_id: str, _user_id: str, _task_id: str):
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    return loop.run_until_complete(async_generate_item(_item_id, _user_id, _task_id))

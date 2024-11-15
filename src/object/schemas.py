@@ -3,7 +3,7 @@ from datetime import datetime
 from bson import ObjectId
 from pydantic import BaseModel
 from pydantic import Field
-from typing import Optional, Dict
+from typing import Optional
 
 from core import PyObjectId
 
@@ -24,18 +24,12 @@ class SchemaObject(BaseModel):
     Schema for a objective.
 
     Attributes:
-    title (str): The title of the objective.
-    description (str): The description of the objective.
-    image (str): The image of the objective.
+    name (str): The name of the object.
+    prompt_user (str): The prompt_user of the object.
     """
 
     name: str
-    description: Optional[str]
-    prompt_user: Optional[str]
-    image: Optional[str]
-    function: Optional[str] = None
-    script_id: Optional[str]
-    game_id: Optional[str] = None
+    prompt_user: str
 
 
 class SchemaCreateObject(BaseModel):
@@ -49,14 +43,7 @@ class SchemaCreateObject(BaseModel):
     """
 
     name: str
-    description: Optional[str]
-    characteristics: Optional[Dict[str, str]]
-    prompt_user: Optional[str]
-    image: Optional[str]
-    function: Optional[str | None] = None
-    script_id: Optional[str]
-    game_id: Optional[str | None] = None
-
+    prompt_user: str
 
 class SchemaPartialUpdateObject(SchemaCreateObject):
     """
@@ -68,10 +55,11 @@ class SchemaPartialUpdateObject(SchemaCreateObject):
     image (Optional[str]): The image of the objective.
     """
 
-    pass
+    name: str
+    prompt_user: str
 
 
-class SchemaRetrieveObject(SchemaObject, ResponseModel):
+class SchemaRetrieveObject(ResponseModel):
     """
     Schema for retrieving a objective.
 
@@ -80,6 +68,11 @@ class SchemaRetrieveObject(SchemaObject, ResponseModel):
     title (str): The title of the objective.
     description (str): The description of the objective.
     """
+    name: str
+    prompt_user: str
+    image: Optional[str] = None
+    characteristics: Optional[list] = None
+    task_id: Optional[str] = None
 
     class Config:
         orm_mode = True
@@ -130,9 +123,9 @@ class SchemaCreateItem(BaseModel):
 
 
 class ObjectLocationModel(BaseModel):
-    object_id: str = Field(None, example="object_id")
+    item_id: str = Field(None, example="object_id")
     location_id: str = Field(None, example="location_id")
-    characteristics: Dict[str, str] = Field(None, example={"key": "value"})
+    characteristics: dict = Field(None, example={"key": "value"})
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str = Field(...)
@@ -145,9 +138,13 @@ class ObjectLocationModel(BaseModel):
 class SchemaUpdatedObjectLocation(BaseModel):
     item_id: str = Field(...)
     location_id: str = Field(...)
-    characteristics: Dict[str, str] = Field(...)
+    characteristics: dict = Field(...)
 
 
 class SchemaAddItemLocation(BaseModel):
     location_id: str = Field(..., example="location_id")
+    item_id: str = Field(..., example="character_id")
+
+class SchemaAddItemGame(BaseModel):
+    game_id: str = Field(..., example="game_id")
     item_id: str = Field(..., example="character_id")
