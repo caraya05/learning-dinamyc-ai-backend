@@ -30,6 +30,8 @@ class SchemaObject(BaseModel):
 
     name: str
     prompt_user: str
+    type_item: Optional[str] = None
+    prompt_user_dialog: Optional[str] = None
 
 
 class SchemaCreateObject(BaseModel):
@@ -44,6 +46,8 @@ class SchemaCreateObject(BaseModel):
 
     name: str
     prompt_user: str
+    type_item: Optional[str] = None
+    prompt_user_dialog: Optional[str] = None
 
 class SchemaPartialUpdateObject(SchemaCreateObject):
     """
@@ -57,6 +61,8 @@ class SchemaPartialUpdateObject(SchemaCreateObject):
 
     name: str
     prompt_user: str
+    type_item: Optional[str] = None
+    prompt_user_dialog: Optional[str] = None
 
 
 class SchemaRetrieveObject(ResponseModel):
@@ -71,6 +77,9 @@ class SchemaRetrieveObject(ResponseModel):
     name: str
     prompt_user: str
     image: Optional[str] = None
+    type_item: Optional[str] = None
+    prompt_user_dialog: Optional[str] = None
+    conversation : Optional[list] = None
     characteristics: Optional[list] = None
     task_id: Optional[str] = None
 
@@ -120,6 +129,8 @@ class SchemaCreateItem(BaseModel):
 
     name: str
     prompt_user: str
+    type_item: Optional[str] = None
+    prompt_user_dialog: Optional[str] = None
 
 
 class ObjectLocationModel(BaseModel):
