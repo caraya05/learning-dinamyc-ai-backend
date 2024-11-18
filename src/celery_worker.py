@@ -191,11 +191,11 @@ def generate_item_task(_item_id: str, _user_id: str, _task_id: str):
 
 
 @celery.task(name="updated_item_task")
-def updated_item_task(_item_id: str, _user_id: str, _task_id: str, updated_prompt_user: bool, updated_dialog: bool):
+def updated_item_task(_item_id: str, _user_id: str, _task_id: str, _updated_prompt_user: bool, _updated_dialog: bool):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
 
-    return loop.run_until_complete(async_updated_item(_item_id, _user_id, _task_id, updated_prompt_user, updated_dialog))
+    return loop.run_until_complete(async_updated_item(_item_id, _user_id, _task_id, _updated_prompt_user, _updated_dialog))
