@@ -194,6 +194,10 @@ async def update_item_service(object_id: str, schema: SchemaCreateItem):
             if item_db["prompt_user"] != schema.prompt_user:
                 updated_prompt_user = True
             item_db["prompt_user"] = schema.prompt_user
+        if schema.prompt_user_dialog:
+            if item_db["prompt_user_dialog"] != schema.prompt_user_dialog:
+                updated_dialog = True
+            item_db["prompt_user_dialog"] = schema.prompt_user_dialog
 
         item_db["updated_at"] = datetime.utcnow()
         await db["item"].update_one({"_id": ObjectId(object_id)}, {"$set": item_db})
@@ -222,7 +226,6 @@ async def update_item_service(object_id: str, schema: SchemaCreateItem):
 
             object_db = await db["item"].find_one({"_id": ObjectId(object_id)})
             object_db["task_id"] = str(task_db["_id"])
-
             return object_db
 
         return await db["item"].find_one({"_id": ObjectId(object_id)})
