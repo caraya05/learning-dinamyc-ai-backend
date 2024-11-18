@@ -19,7 +19,7 @@ from task.services import create_task_service, update_task_service
 
 from utils import upload_image, delete_image
 
-from celery_worker import generate_item_task
+from celery_worker import generate_item_task, updated_item_task
 
 
 async def get_objects_service(game: str = None,
@@ -185,18 +185,19 @@ async def update_item_service(object_id: str, schema: SchemaCreateItem):
     Update a object.
     """
     try:
-        updated = False
+        updated_prompt_user = False
+        updated_dialog = False
         item_db = await db["item"].find_one({"_id": ObjectId(object_id)})
         if schema.name:
             item_db["name"] = schema.name
         if schema.prompt_user:
             if item_db["prompt_user"] != schema.prompt_user:
-                updated = True
+                updated_prompt_user = True
             item_db["prompt_user"] = schema.prompt_user
 
         item_db["updated_at"] = datetime.utcnow()
         await db["item"].update_one({"_id": ObjectId(object_id)}, {"$set": item_db})
-        if updated:
+        if updated_dialog or updated_prompt_user:
             task_db = await create_task_service(
                 _task_id="",
                 _user_id=item_db["created_by"],
@@ -205,10 +206,12 @@ async def update_item_service(object_id: str, schema: SchemaCreateItem):
                 _element_type="item",
                 _process="generate image item",
             )
-            task_celery = generate_item_task.delay(
+            task_celery = updated_item_task.delay(
                 _item_id=object_id,
                 _user_id=item_db["created_by"],
                 _task_id=str(task_db["_id"]),
+                _updated_prompt_user=updated_prompt_user,
+                _updated_dialog=updated_dialog,
             )
             await update_task_service(
                 _id=str(task_db["_id"]),

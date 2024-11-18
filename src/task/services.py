@@ -84,7 +84,6 @@ async def update_task_service(
                 element_db["tasks_notified"].append(_id)
                 _query["tasks_notified"] = element_db["tasks_notified"]
         if _query != {}:
-            print("Query", _query)
             await db[task_db["element_type"]].update_one(
                 {"_id": ObjectId(task_db["element_id"])}, {"$set": _query}
             )

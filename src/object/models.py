@@ -7,6 +7,7 @@ from datetime import datetime
 class Object(BaseModel):
     name: str = Field(None, example="Object Name")
     prompt_user: str = Field(None, example="Prompt User")
+    prompt_user_dialog: Optional[str] = Field(None, example="Prompt User Dialog")
     image: Optional[str] = Field(None, example="image.jpg")
     games_id: Optional[str] = Field(None, example="123")
     locations_id: Optional[str] = Field(None, example="123")
