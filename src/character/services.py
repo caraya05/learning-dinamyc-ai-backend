@@ -173,7 +173,7 @@ async def update_character_service(
     if  dialog != character_db["prompt_user_dialog"]:
         dialog_changed = True
 
-    if type_dialog != character_db["type_conversation"]:
+    if type_dialog != character_db["conversation_type"]:
         dialog_changed = True
 
     try:
