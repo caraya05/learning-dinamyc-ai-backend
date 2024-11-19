@@ -230,6 +230,8 @@ async def partial_update_character(
             name=character_update.name,
             prompt_user=character_update.prompt_user,
             user_id=str(user_db.get("_id")),
+            type_dialog=character_update.conversation_type,
+            dialog=character_update.prompt_user_dialog
         )
         return character_db
     except Exception as e:
