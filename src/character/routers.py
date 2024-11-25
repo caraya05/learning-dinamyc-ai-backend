@@ -27,7 +27,7 @@ from character.services import update_character_service
 from game.services import get_character_game_publish_service
 from game.services import get_location_game_publish_service
 
-from user.services import disable_user_service
+from user.services import disable_user_service, validate_star_user_service
 
 router = APIRouter(prefix='/characters', tags=['Characters'])
 
@@ -164,6 +164,8 @@ async def create_character(
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
+        await validate_star_user_service(user_id=str(user_db.get("_id")))
+        await  disable_user_service(user_id=str(user_db.get("_id")), section="character")
         character_db = await create_character_service(
             character=character, user_id=str(user_db.get("_id"))
         )
@@ -225,6 +227,8 @@ async def partial_update_character(
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
+        await validate_star_user_service(user_id=str(user_db.get("_id")))
+        await  disable_user_service(user_id=str(user_db.get("_id")), section="character")
         character_db = await update_character_service(
             character_id=character_id,
             name=character_update.name,

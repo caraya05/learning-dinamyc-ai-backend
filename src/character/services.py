@@ -193,7 +193,8 @@ async def update_character_service(
                 if game_db:
                     character_db["game_id"] = str(game_db["_id"])
 
-            if name_or_prompt_user_changed:
+            if name_or_prompt_user_changed or dialog_changed:
+
                 task_db = await create_task_service(
                     _task_id="",
                     _user_id=user_id,

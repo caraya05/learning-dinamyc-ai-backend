@@ -160,6 +160,7 @@ async def create_location(
     If the location is successfully created, it returns the location's information.
     """
     await validate_star_user_service(user_id=str(user_db.get("_id")))
+    await  disable_user_service(user_id=str(user_db.get("_id")), section="location")
 
     try:
         location_db = await create_location_service(location=schema, user_id=str(user_db['_id']))
