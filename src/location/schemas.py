@@ -30,6 +30,7 @@ class SchemaCreateLocation(BaseModel):
 
     title: Optional[str]
     prompt_user: Optional[str]
+    game_id: Optional[str]
 
 
 class SchemaPartialUpdateLocation(BaseModel):
@@ -46,6 +47,7 @@ class SchemaPartialUpdateLocation(BaseModel):
     prompt_user: Optional[str]
     configuration: Optional[dict]
     connections: Optional[dict]
+    game_id: Optional[str]
 
 
 class SchemaRetrieveLocation(ResponseModel):

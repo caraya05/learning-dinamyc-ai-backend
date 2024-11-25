@@ -7,6 +7,17 @@ from datetime import datetime
 
 
 class Location(BaseModel):
+    game_id: Optional[str] = Field(None, example="123")
+    status: Optional[int] = Field(0, example=200)
+    tasks_request: Optional[list[str]] = Field([], example=["task1", "task2"])
+    tasks_notified: Optional[list[str]] = Field([], example=["task1", "task2"])
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: str = Field(default="system", example="system")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: str = Field(default="system", example="system")
+
+
+class LocationGLIC(BaseModel):
     title: str = Field(None, example="Location Title")
     description: Optional[str] = Field(None, example="This is a location description")
     prompt_user: str = Field(None, example="This is a prompt user")
@@ -16,10 +27,3 @@ class Location(BaseModel):
     sound_id: Optional[str] = Field(None, example="123")
     sound: Optional[str] = Field(None, example="123")
     game_id: Optional[str] = Field(None, example="123")
-    status: Optional[int] = Field(0, example=200)
-    tasks_request: Optional[list[str]] = Field([], example=["task1", "task2"])
-    tasks_notified: Optional[list[str]] = Field([], example=["task1", "task2"])
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    created_by: str = Field(default="system", example="system")
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_by: str = Field(default="system", example="system")

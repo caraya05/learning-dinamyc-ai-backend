@@ -7,14 +7,14 @@ from fastapi.security import HTTPAuthorizationCredentials
 from auth.auth import auth
 from auth.utils import auth_schema
 
-from character.schemas import SchemaUpdateCharacterCollection
+from character.schemas import SchemaUpdateCharacterCollection, SchemaNewInteraction
 from character.schemas import SchemaAddCharacterLocation
 from character.schemas import SchemaUpdatedCharacterLocation
 from character.schemas import SchemaCreateCharacter
 from character.schemas import SchemaRetrieveCharacter
 from character.schemas import SchemaListCharacter
 
-from character.services import get_character_service, get_characters_service
+from character.services import get_character_service, get_characters_service, new_interaction_character_service
 from character.services import generate_image_character_service
 from character.services import create_character_service
 from character.services import delete_character_service
@@ -128,8 +128,8 @@ async def get_all_characters(
         characters_db = await get_all_character_service(
             user_id=str(user_db.get("_id")), skip=page, limit=count
         )
-        for i in characters_db:
-            i["_id"] = str(i["_id"])
+        # for i in characters_db:
+        #     i["_id"] = str(i["_id"])
         return SchemaListCharacter(results=characters_db, count=len(characters_db))
     except Exception as e:
         print(f"error in get characters: {str(e)}")
@@ -165,7 +165,9 @@ async def create_character(
 ):
     try:
         character_db = await create_character_service(
-            character=character, user_id=str(user_db.get("_id"))
+            character=character,
+            user_id=str(user_db.get("_id")),
+            game_id=character.game_id,
         )
         return character_db
     except Exception as e:
@@ -176,23 +178,23 @@ async def create_character(
         )
 
 
-@router.post("/add-character-location/")
-async def add_character_location(
-        character_location: SchemaAddCharacterLocation,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-):
-    try:
-        if character_db := await add_character_to_location_service(
-                character_id=character_location.character_id, location_id=character_location.location_id
-        ):
-            return character_db
-    except HTTPException as e:
-        print(f"error in create character: {str(e)}")
-        raise HTTPException(
-            status_code=e.status_code,
-            detail=e.detail,
-        )
+# @router.post("/add-character-location/")
+# async def add_character_location(
+#         character_location: SchemaAddCharacterLocation,
+#         user_db: dict = Depends(auth),
+#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+# ):
+#     try:
+#         if character_db := await add_character_to_location_service(
+#                 character_id=character_location.character_id, location_id=character_location.location_id
+#         ):
+#             return character_db
+#     except HTTPException as e:
+#         print(f"error in create character: {str(e)}")
+#         raise HTTPException(
+#             status_code=e.status_code,
+#             detail=e.detail,
+#         )
 
 
 @router.post("/add-edit-characteristic/")
@@ -205,6 +207,7 @@ async def add_edit_characteristic(
         if character_db := await add_or_edit_character_location(
                 character_id=character.character_id,
                 location_id=character.location_id,
+                game_id=character.game_id,
                 characteristics=character.characteristics,
                 user_id=str(user_db.get("_id")),
         ):
@@ -231,7 +234,9 @@ async def partial_update_character(
             prompt_user=character_update.prompt_user,
             user_id=str(user_db.get("_id")),
             type_dialog=character_update.conversation_type,
-            dialog=character_update.prompt_user_dialog
+            dialog=character_update.prompt_user_dialog,
+            game_id=character_update.game_id,
+            location_id=character_update.location_id,
         )
         return character_db
     except Exception as e:
@@ -239,6 +244,29 @@ async def partial_update_character(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Character not updated",
+        )
+
+
+@router.post("/{character_id}/generate-interaction/", response_model=SchemaRetrieveCharacter)
+async def generate_interaction_character(
+        character_id: str,
+        new_interaction: SchemaNewInteraction,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    try:
+        character_db = await new_interaction_character_service(location_id=new_interaction.location_id,
+                                                               game_id=new_interaction.game_id,
+                                                               conversation_type=new_interaction.conversation_type,
+                                                               prompt_user_dialog=new_interaction.prompt_user_dialog,
+                                                               user_id=str(user_db.get("_id")),
+                                                               character_id=character_id)
+        return character_db
+    except Exception as e:
+        print(f"error in get characters: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Characters not found",
         )
 
 

@@ -26,44 +26,22 @@ class SchemaCreateCharacter(BaseModel):
     prompt_user: str = Field(..., example="prompt_user")
     prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
     conversation_type: str = Field(..., example="conversation_type")
+    game_id: Optional[str] = Field(None, example="location_id")
+    location_id: Optional[str] = Field(None, example="location_id")
 
 
 class SchemaRetrieveCharacter(ResponseModel):
-    name: str = Field(..., min_length=3, max_length=100, example="Jhon Doe")
-    type: Optional[str] = Field(None, example=TypeCharacter.LEADING_ROLE)
-    image: Optional[str] = Field(..., example="image", default_factory=None)
-    description: Optional[str] = Field(..., min_length=8, example="this is a description")
-    genre: Optional[str] = Field(None, example=GenderCharacter.MAN)
-    extra_data: Optional[dict] = Field(None, example={"key": "value"})
-    text_idle: Optional[dict] = Field(None, example={"key": "value"})
     game_id: Optional[str] = Field(..., example="game_id")
-    body_type: Optional[str] = Field(None, example="body_type")
-    prompt_user: Optional[str] = Field(None, example="prompt_user")
-    prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
-    conversation_type: Optional[str] = Field(None, example="conversation_type")
-    conversation: Optional[list[dict]] = Field([], example=[{"key": "value"}])
-    characteristics: Optional[dict] = Field(None, example={"key": "value"})
     task_id: Optional[str] = Field(None, example="task_db")
     status: Optional[str] = Field(1, example="status")
-    character_type: Optional[str] = Field(None, example="character_type")
+    state_game: Optional[list] = Field([], example=["state_game"])
 
 
 class SchemaRetrieveCharacterStr(ResponseModelStr):
-    name: str = Field(..., min_length=3, max_length=100, example="Jhon Doe")
-    type: str = Field(None, example=TypeCharacter.LEADING_ROLE)
-    image: Optional[str] = Field(None, example="image", default_factory=None)
-    description: Optional[str] = Field(None, min_length=8, example="this is a description")
-    genre: Optional[str] = Field(None, example=GenderCharacter.MAN)
-    extra_data: Optional[dict] = Field(None, example={"key": "value"})
-    text_idle: Optional[dict] = Field(None, example={"key": "value"})
-    body_type: Optional[str] = Field(None, example="body_type")
-    prompt_user: Optional[str] = Field(None, example="prompt_user")
-    prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
-    conversation_type: Optional[str] = Field(None, example="conversation_type")
-    conversation: Optional[list[dict]] = Field([], example=[{"key": "value"}])
+    game_id: Optional[str] = Field(..., example="game_id")
+    task_id: Optional[str] = Field(None, example="task_db")
     status: Optional[str] = Field(1, example="status")
-    characteristics: Optional[dict] = Field(None, example={"key": "value"})
-    character_type: Optional[str] = Field(None, example="character_type")
+    state_game: Optional[list] = Field([], example=["state_game"])
 
     # weapon: Optional[SchemaRetrieveWeapon] = Field(None, example="weapon")
 
@@ -78,6 +56,8 @@ class SchemaUpdateCharacterCollection(BaseModel):
     prompt_user: Optional[str] = Field(None, example="prompt_user")
     prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
     conversation_type: Optional[str] = Field(None, example="conversation_type")
+    location_id: Optional[str] = Field(None, example="location_id")
+    game_id : Optional[str] = Field(None, example="game_id")
 
 
 class SchemaPartialUpdateCharacter(BaseModel):
@@ -100,10 +80,17 @@ class SchemaAddCharacterLocation(BaseModel):
     location_id: str = Field(..., example="location_id")
     character_id: str = Field(..., example="character_id")
 
+class SchemaNewInteraction(BaseModel):
+    location_id: str = Field(..., example="location_id")
+    game_id: str = Field(..., example="game_id")
+    conversation_type: str = Field(..., example="conversation_type")
+    prompt_user_dialog: str = Field(..., example="prompt_user_dialog")
+
 
 class CharacterLocationModel(BaseModel):
     character_id: str = Field(...)
     location_id: str = Field(...)
+    game_id: str = Field(...)
     characteristics: Dict[str, str] = Field(...)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -117,4 +104,5 @@ class CharacterLocationModel(BaseModel):
 class SchemaUpdatedCharacterLocation(BaseModel):
     character_id: str = Field(...)
     location_id: str = Field(...)
+    game_id: str = Field(...)
     characteristics: Dict[str, str] = Field(...)

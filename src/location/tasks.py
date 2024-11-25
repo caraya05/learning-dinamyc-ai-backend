@@ -17,7 +17,6 @@ from task.services import update_task_service
 from utils import upload_image
 
 
-
 class SchemaLocationEnvironment(BaseModel):
     fog_level: str = Field(
         ...,
@@ -36,7 +35,7 @@ class SchemaLocationEnvironment(BaseModel):
     )
 
 
-async def generate_environment_location(_location_id: str, _user_id: str):
+async def generate_environment_location(_location_id: str, _user_id: str, _state_game_id):
     try:
         # location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
         # response_analyze = await openai_generator.generate_gpt(
@@ -63,6 +62,8 @@ async def generate_environment_location(_location_id: str, _user_id: str):
         # location_environment = response_analyze.dict()
         # location_environment["animals"] = []
 
+        element_state_db = await db["state_glic"].find_one({"element_id": _location_id, "state": _state_game_id})
+
         location_environment = {
             "fog_level": "none",
             "light_mode": "directSun",
@@ -70,9 +71,17 @@ async def generate_environment_location(_location_id: str, _user_id: str):
             "animals": []
         }
 
-        await db['location'].update_one(
-            {"_id": ObjectId(_location_id)}, {"$set": {"environment": location_environment}}
+        # await db['location'].update_one(
+        #     {"_id": ObjectId(_location_id)}, {"$set": {"environment": location_environment}}
+        # )
+
+        element_state_db["data"]["environment"] = location_environment
+
+        await db["state_glic"].update_one(
+            {"_id": element_state_db["_id"]},
+            {"$set": {"data": element_state_db["data"]}},
         )
+
         return True
     except Exception as e:
         print(f"Error in generate environment location: {e}")
@@ -100,9 +109,12 @@ class SchemaLocationSound(BaseModel):
     )
 
 
-async def generate_location_description(_location_id: str, _user_id: str):
+async def generate_location_description(_location_id: str, _user_id: str, state_game_id):
     try:
         location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
+
+        element_state_db = await db["state_glic"].find_one({"element_id": _location_id, "state": state_game_id})
+
         prompt_db_location_place = await get_prompt_by_category_service("location_place")
         prompt_db_location_place["description"] = prompt_db_location_place["description"].replace(
             "{{PromptUserLocation}}", location_db["prompt_user"]
@@ -122,23 +134,33 @@ async def generate_location_description(_location_id: str, _user_id: str):
             type_generation="generate_description_location",
             user_id=_user_id,
         )
-        await db['location'].update_one(
-            {"_id": ObjectId(_location_id)},
-            {
-                "$set": {
-                    "description": response_description.description,
-                    "description_floor": response_description.description_floor,
-                }
-            },
+
+        element_state_db["data"]["description"] = response_description.description
+        element_state_db["data"]["description_floor"] = response_description.description_floor
+
+        await db["state_glic"].update_one(
+            {"_id": element_state_db["_id"]},
+            {"$set": {"data": element_state_db["data"]}},
         )
+
+        # await db['location'].update_one(
+        #     {"_id": ObjectId(_location_id)},
+        #     {
+        #         "$set": {
+        #             "description": response_description.description,
+        #             "description_floor": response_description.description_floor,
+        #         }
+        #     },
+        # )
         return True
     except Exception as e:
         print(f"Error in generate location description: {e}")
         return False
 
 
-async def identify_location_sound(_location_id: str, _user_id: str):
+async def identify_location_sound(_location_id: str, _user_id: str, _state_game_id):
     location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
+    element_state_db = await db["state_glic"].find_one({"element_id": _location_id, "state": _state_game_id})
     try:
         sounds_db = await get_sounds_service()
         str_sounds = ""
@@ -157,7 +179,7 @@ async def identify_location_sound(_location_id: str, _user_id: str):
                         {"type": "text", "text": f"Listado de sonidos: {str_sounds}"},
                         {
                             "type": "text",
-                            "text": f"descripcion de la locacion : {location_db['description']}",
+                            "text": f"descripcion de la locacion : {element_state_db['data']['description']}",
                         },
                     ],
                 }
@@ -168,8 +190,15 @@ async def identify_location_sound(_location_id: str, _user_id: str):
             type_generation="identify_sound_by_location",
             user_id=_user_id,
         )
-        await db['location'].update_one(
-            {"_id": ObjectId(_location_id)}, {"$set": {"sound": response_sound.sound_id}}
+        # await db['location'].update_one(
+        #     {"_id": ObjectId(_location_id)}, {"$set": {"sound": response_sound.sound_id}}
+        # )
+
+        element_state_db["data"]["sound"] = response_sound.sound_id
+
+        await db["state_glic"].update_one(
+            {"_id": ObjectId(element_state_db["_id"])},
+            {"$set": {"data": element_state_db["data"]}},
         )
 
         return True
@@ -186,11 +215,14 @@ class SchemaLocationImage(BaseModel):
     )
 
 
-async def generate_location_image(_location_id: str, _user_id: str):
+async def generate_location_image(_location_id: str, _user_id: str, _state_game_id: str):
     try:
         location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
+
+        element_state_db = await db["state_glic"].find_one({"element_id": _location_id, "state": _state_game_id})
+
         prompt_db_image_location = await get_prompt_by_category_service("location_image")
-        content_prompt = f'{prompt_db_image_location["description"]}, {location_db["description"]}'
+        content_prompt = f'{prompt_db_image_location["description"]}, {element_state_db["data"]["description"]}'
         new_prompt = await openai_generator.generate_gpt(
             content_prompt=[
                 {
@@ -200,7 +232,7 @@ async def generate_location_image(_location_id: str, _user_id: str):
                 },
                 {
                     "role": "user",
-                 "content": content_prompt
+                    "content": content_prompt
                 },
             ],
             model="gpt-4o-mini",
@@ -221,16 +253,27 @@ async def generate_location_image(_location_id: str, _user_id: str):
             file_name=f"characters/{uuid4()}.jpg",
             size=(2436, 1372),
         )
-        await db['location'].update_one(
-            {"_id": ObjectId(_location_id)}, {"$set": {"image": image_generated}}
-        )
+        # await db['location'].update_one(
+        #     {"_id": ObjectId(_location_id)}, {"$set": {"image": image_generated}}
+        # )
+
+        element_state_db["data"]["image"] = image_generated
+
+        await db["state_glic"].update_one({
+            "_id": element_state_db["_id"]
+        }, {
+            "$set": {
+                "data": element_state_db["data"]
+            }
+        })
+
         return True
     except Exception as e:
         print(f"Error in generate location image: {e}")
         return False
 
 
-async def async_generate_location_task(_location_id: str, _user_id: str, _task_id: str):
+async def async_generate_location_task(_location_id: str, _user_id: str, _task_id: str, _state_game_id: str):
     await update_task_service(_id=_task_id, _status="pending")
     location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
     if not location_db:
@@ -240,7 +283,7 @@ async def async_generate_location_task(_location_id: str, _user_id: str, _task_i
             _message=f"Error can't find location with id {_location_id}",
         )
         return f"Error can't find location with id {_location_id}"
-    response_description = await generate_location_description(_location_id, _user_id)
+    response_description = await generate_location_description(_location_id, _user_id, _state_game_id)
     if not response_description:
         await update_task_service(
             _id=_task_id,
@@ -248,19 +291,19 @@ async def async_generate_location_task(_location_id: str, _user_id: str, _task_i
             _message="Error in generate location description service.",
         )
         return "Error in generate location description service."
-    response_sound = await identify_location_sound(_location_id, _user_id)
+    response_sound = await identify_location_sound(_location_id, _user_id, _state_game_id)
     if not response_sound:
         await update_task_service(
             _id=_task_id, _status="failed", _message="Error in identify location sound service."
         )
         return "Error in identify location sound service."
-    response_image = await generate_location_image(_location_id, _user_id)
+    response_image = await generate_location_image(_location_id, _user_id, _state_game_id)
     if not response_image:
         await update_task_service(
             _id=_task_id, _status="failed", _message="Error in generate location image service."
         )
         return "Error in generate location image service."
-    response_environment = await generate_environment_location(_location_id, _user_id)
+    response_environment = await generate_environment_location(_location_id, _user_id, _state_game_id)
     if not response_environment:
         await update_task_service(
             _id=_task_id,

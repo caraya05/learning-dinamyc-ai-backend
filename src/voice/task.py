@@ -11,9 +11,15 @@ from voice.elevenlabs import generate_audio
 from voice.utils import get_variants_service
 
 
+async def async_generate_voice_task(_game_id,
+                                    _character_id: str,
+                                    _user_id: str,
+                                    _task_id: str,
+                                    _state_game_id: str,
+                                    _location_id: str,
+                                    _type_conversation: str,
+                                    _prompt_user_dialog: str):
 
-
-async def async_generate_voice_task(_game_id, _character_id: str, _user_id: str, _task_id: str):
     await update_task_service(_id=_task_id, _status="pending")
 
     character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
@@ -24,7 +30,13 @@ async def async_generate_voice_task(_game_id, _character_id: str, _user_id: str,
             _message=f"Error can't find character with id {_character_id}",
         )
         return "Error can't find character"
-    voice_generated = await generate_voice_character(_game_id, _character_id, _user_id)
+    voice_generated = await generate_voice_character(game_id=_game_id,
+                                                     character_id=_character_id,
+                                                     user_id=_user_id,
+                                                     state_game=_state_game_id,
+                                                     location_id=_location_id,
+                                                     type_conversation=_type_conversation,
+                                                     prompt_user_dialog=_prompt_user_dialog)
     if not voice_generated:
         await update_task_service(
             _id=_task_id, _status="failed", _message="Error voice not generated"
