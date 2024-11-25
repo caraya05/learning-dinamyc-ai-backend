@@ -77,6 +77,8 @@ async def create_object(
     """
 
     try:
+        await validate_star_user_service(user_id=str(user_db.get("_id")))
+        await  disable_user_service(user_id=str(user_db.get("_id")), section="item")
         object_db = await create_item_service(object_, str(user_db.get("_id")))
         return object_db
 

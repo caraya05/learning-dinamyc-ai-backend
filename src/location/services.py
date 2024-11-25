@@ -10,6 +10,7 @@ from location.models import Location
 from location.schemas import SchemaCreateLocation
 from location.schemas import SchemaPartialUpdateLocation
 from task.services import create_task_service, update_task_service
+from user.services import validate_star_user_service, disable_user_service
 
 
 async def get_locations_service(*, game_id: str, skip: int = 0, limit: int = 100):
@@ -192,6 +193,8 @@ async def partial_update_location_service(
             await db['location'].update_one({"_id": ObjectId(location_id)}, {"$set": location_db})
             location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
             if title_or_prompt_user_changed  or ( not config_edited and not connect_edited and title_or_prompt_user_changed):
+                await validate_star_user_service(user_id=user_id)
+                await  disable_user_service(user_id=user_id, section="location")
                 task_db = await create_task_service(
                     _task_id="",
                     _user_id=user_id,

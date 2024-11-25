@@ -14,6 +14,7 @@ from object.models import Object
 from object.schemas import SchemaCreateObject, ObjectLocationModel
 from object.schemas import SchemaCreateItem
 from task.services import create_task_service, update_task_service
+from user.services import validate_star_user_service, disable_user_service
 
 # from object.schemas import SchemaPartialUpdateObject
 
@@ -202,6 +203,8 @@ async def update_item_service(object_id: str, schema: SchemaCreateItem):
         item_db["updated_at"] = datetime.utcnow()
         await db["item"].update_one({"_id": ObjectId(object_id)}, {"$set": item_db})
         if updated_dialog or updated_prompt_user:
+            await validate_star_user_service(user_id=item_db["created_by"])
+            await  disable_user_service(user_id=item_db["created_by"], section="item")
             task_db = await create_task_service(
                 _task_id="",
                 _user_id=item_db["created_by"],
