@@ -150,11 +150,17 @@ async def create_item_service(schema: SchemaCreateObject, user_id: str):
         schema_object.created_by = user_id
         schema_object.updated_by = user_id
 
+        print(f"schema_object: {schema_object}")
+
         object_state = ObjectGLIC(**schema.dict())
 
         object_created = await db["item"].insert_one(schema_object.dict())
 
-        state_game = await get_state_game_by_game_id(schema_object.games_id)
+        print(f"object_created: {object_created}")
+
+        state_game = await get_state_game_by_game_id(schema.game_id)
+
+        print(f"state_game: {state_game}")
 
         if state_game:
             await create_state_glic(

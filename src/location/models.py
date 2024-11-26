@@ -22,7 +22,7 @@ class LocationGLIC(BaseModel):
     description: Optional[str] = Field(None, example="This is a location description")
     prompt_user: str = Field(None, example="This is a prompt user")
     image: Optional[str] = Field(None, example="image.jpg")
-    config: Optional[list[dict]] = Field(None, example="")
+    configuration: Optional[dict] = Field(None, example="")
     connections: Optional[dict] = Field(None, example="")
     sound_id: Optional[str] = Field(None, example="123")
     sound: Optional[str] = Field(None, example="123")

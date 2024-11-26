@@ -19,6 +19,22 @@ class ResponseModelStr(BaseModel):
     id: str = Field(alias="_id")
 
 
+class SchemaStateData(BaseModel):
+    name: str = Field(None, example="Object Name")
+    prompt_user: str = Field(None, example="Prompt User")
+    prompt_user_dialog: Optional[str] = Field(None, example="Prompt User Dialog")
+    type_item: Optional[str] = Field(None, example="type_item")
+    image: Optional[str] = Field(None, example="image.jpg")
+    locations_id: Optional[str] = Field(None, example="123")
+
+
+
+class SchemaStateLocation(BaseModel):
+    order: Optional[int] = Field(None, example=1)
+    state: Optional[str] = Field(None, example="state")
+    data: Optional[SchemaStateData] = Field(None, example={})
+
+
 class SchemaObject(BaseModel):
     """
     Schema for a objective.
@@ -76,20 +92,16 @@ class SchemaRetrieveObject(ResponseModel):
     title (str): The title of the objective.
     description (str): The description of the objective.
     """
-    name: str
-    prompt_user: str
-    image: Optional[str] = None
-    type_item: Optional[str] = None
-    prompt_user_dialog: Optional[str] = None
-    conversation : Optional[list] = None
-    characteristics: Optional[list] = None
+    game_id: Optional[str] = None
     task_id: Optional[str] = None
+    status: Optional[int] = 1
+    state_game: Optional[list[SchemaStateLocation]] = []
 
     class Config:
         orm_mode = True
 
 
-class SchemaRetrieveObjectStr(SchemaCreateObject, ResponseModelStr):
+class SchemaRetrieveObjectStr( ResponseModelStr):
     """
     Schema for retrieving a objective.
 
@@ -98,6 +110,10 @@ class SchemaRetrieveObjectStr(SchemaCreateObject, ResponseModelStr):
     title (str): The title of the objective.
     description (str): The description of the objective.
     """
+    game_id: Optional[str] = None
+    task_id: Optional[str] = None
+    status: Optional[int] = 1
+    state_game: Optional[list[SchemaStateLocation]] = []
 
     class Config:
         orm_mode = True

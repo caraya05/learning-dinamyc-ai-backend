@@ -8,7 +8,7 @@ from core.database import db
 from character.services import get_characters_by_location_service
 from location.models import Location
 from location.models import LocationGLIC
-from location.schemas import SchemaCreateLocation
+from location.schemas import SchemaCreateLocation, SchemaStateLocation
 from location.schemas import SchemaPartialUpdateLocation
 from state_game.services import get_state_game_by_game_id
 from state_glic.services import create_state_glic
@@ -37,36 +37,44 @@ async def get_location_service(*, location_id: str, user_id: str) -> dict:
     try:
         if location_db := await db['location'].find_one({"_id": ObjectId(location_id)}):
 
-            if location_db.get("sound", None):
+            element_state_db = await db['state_glic'].find_one(
+                {"element_id": location_id}
+            )
+            element_state_db["_id"] = str(element_state_db["_id"])
+
+            if element_state_db["data"].get("sound", None):
                 sound_db = await db['sound'].find_one(
-                    {"_id": ObjectId(location_db["sound"])}
+                    {"_id": ObjectId(element_state_db["data"]["sound"])}
                 )
                 if sound_db:
-                    location_db["sound"] = sound_db["file"]
-            if location_db["config"]:
-                user_config_found = False
-                for config in location_db["config"]:
-                    if config["user"] == user_id:
-                        location_db["configuration"] = config["config"]
-                        user_config_found = True
-                        break
-                if not user_config_found and location_db["config"]:
-                    location_db["configuration"] = location_db["config"][0]["config"]
-
-            if location_db.get("connect", None):
-                user_connect_found = False
-                for connect in location_db["connect"]:
-                    if connect["user"] == user_id:
-                        location_db["connections"] = connect["connect"]
-                        user_connect_found = True
-                        break
-                if not user_connect_found and location_db["connect"]:
-                    location_db["connections"] = location_db["connect"][0]["connect"]
+                    element_state_db["data"]["sound"] = sound_db["file"]
+            # if location_db["config"]:
+            #     user_config_found = False
+            #     for config in location_db["config"]:
+            #         if config["user"] == user_id:
+            #             location_db["configuration"] = config["config"]
+            #             user_config_found = True
+            #             break
+            #     if not user_config_found and location_db["config"]:
+            #         location_db["configuration"] = location_db["config"][0]["config"]
+            #
+            # if location_db.get("connect", None):
+            #     user_connect_found = False
+            #     for connect in location_db["connect"]:
+            #         if connect["user"] == user_id:
+            #             location_db["connections"] = connect["connect"]
+            #             user_connect_found = True
+            #             break
+            #     if not user_connect_found and location_db["connect"]:
+            #         location_db["connections"] = location_db["connect"][0]["connect"]
+            # element_state_db = SchemaStateLocation(**element_state_db["data"])
+            location_db["state_game"] = [element_state_db]
 
             if characters_db := await get_characters_by_location_service(
                 skip=1, limit=100, location_id=location_id
             ):
                 location_db["characters"] = characters_db
+
             return location_db
     except Exception as e:
         print(f"Error in get location service: {e}")
@@ -82,14 +90,30 @@ async def get_locations_v2_service(*, game_id: str, skip: int = 0, limit: int = 
         game_db = await db['game'].find_one({"_id": ObjectId(game_id)})
         locations = await (
             db['location']
-            .find({"_id": {"$in": [ObjectId(i) for i in game_db["locations_id"]]}})
+            .find({"game_id": game_id})
             .sort("created_at", -1)
             .skip(skip)
             .limit(limit)
             .to_list(None)
         )
+
+        for i in range(len(locations)):
+            locations[i]["_id"] = str(locations[i]["_id"])
+            element_state_db = await db['state_glic'].find_one(
+                {"element_id": locations[i]["_id"]}
+            )
+            if element_state_db:
+                element_state_db["_id"] = str(element_state_db["_id"])
+                if element_state_db["data"].get("sound", None):
+                    sound_db = await db['sound'].find_one(
+                        {"_id": ObjectId(element_state_db["data"]["sound"])}
+                    )
+                    if sound_db:
+                        element_state_db["data"]["sound"] = sound_db["file"]
+                locations[i]["state_game"] = [element_state_db]
+
         count_locations = await db['location'].count_documents(
-            {"_id": {"$in": [ObjectId(i) for i in game_db["locations_id"]]}}
+            {"game_id": game_id}
         )
 
         return locations, count_locations
@@ -136,7 +160,7 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str):
             _location_id=str(location_created.inserted_id),
             _user_id=user_id,
             _task_id=str(task_db["_id"]),
-            _sate_game_id=state_game["_id"],
+            _state_game_id=state_game["_id"],
         )
 
         await update_task_service(
@@ -296,14 +320,31 @@ async def generate_image_location_service(location_id: str, user_id: str):
 
 async def get_all_location_service(user_id: str, skip: int = 1, limit: int = 10):
     try:
-        characters_db = await (db["location"]
+        locations  = await (db["location"]
                                .find({"created_by": user_id})
                                .sort("created_at", -1)
                                .skip((skip - 1) * limit)
                                .limit(limit)
                                .to_list(None))
+        if not locations:
+            return locations, 0
+        for i in range(len(locations)):
+            locations[i]["_id"] = str(locations[i]["_id"])
+            element_state_db = await db['state_glic'].find_one(
+                {"element_id": locations[i]["_id"]}
+            )
+            if element_state_db:
+                element_state_db["_id"] = str(element_state_db["_id"])
+                if element_state_db["data"].get("sound", None):
+                    sound_db = await db['sound'].find_one(
+                        {"_id": ObjectId(element_state_db["data"]["sound"])}
+                    )
+                    if sound_db:
+                        element_state_db["data"]["sound"] = sound_db["file"]
+                locations[i]["state_game"] = [element_state_db]
+
         count_characters = await db["location"].count_documents({"created_by": user_id})
-        return characters_db, count_characters
+        return locations, count_characters
     except Exception as e:
         print(f"Error in get all character service: {str(e)}")
         raise HTTPException(

@@ -19,6 +19,23 @@ class ResponseModelStr(BaseModel):
     id: str = Field(alias="_id")
 
 
+class SchemaStateData(BaseModel):
+    title: str = Field(None, example="Location Title")
+    description: Optional[str] = Field(None, example="This is a location description")
+    prompt_user: str = Field(None, example="This is a prompt user")
+    image: Optional[str] = Field(None, example="image.jpg")
+    configuration: Optional[dict] = Field(None, example="")
+    connections: Optional[dict] = Field(None, example="")
+    sound: Optional[str] = Field(None, example="123")
+
+
+class SchemaStateLocation(BaseModel):
+    order: Optional[int] = Field(None, example=1)
+    state: Optional[str] = Field(None, example="state")
+    data: Optional[SchemaStateData] = Field(None, example={})
+
+
+
 class SchemaCreateLocation(BaseModel):
     """
     Schema for creating a new location.
@@ -60,17 +77,10 @@ class SchemaRetrieveLocation(ResponseModel):
     description (str): The description of the location.
     """
 
-    title: Optional[str] = Field(None)
-    description: Optional[str] = Field(None)
-    image: Optional[str] = Field(None)
-    prompt_user: Optional[str] = Field(None)
-    configuration: Optional[dict] = {}
-    connections: Optional[dict] = {}
-    sound: Optional[str | dict] = Field(None)
-    characters: Optional[list] = []
-    environment: Optional[dict] = {}
-    status: Optional[int] = Field(1, example="status")
+    game_id: Optional[str] = Field(None)
     task_id: Optional[str] = Field(None, example="task_db")
+    state_game: Optional[list[SchemaStateLocation]] = Field([], example=["state_game"])
+    status: Optional[int] = Field(1, example="status")
 
     class Config:
         orm_mode = True
@@ -86,13 +96,9 @@ class SchemaRetrieveLocationStr(ResponseModelStr):
     description (str): The description of the location.
     """
 
-    title: Optional[str]
-    description: Optional[str]
-    image: Optional[str]
-    configuration: Optional[dict]
-    connections: Optional[dict]
-    sound_id: Optional[str] = Field(None)
-    environment: Optional[dict] = {}
+    game_id: Optional[str] = Field(None)
+    task_id: Optional[str] = Field(None, example="task_db")
+    state_game: Optional[list[SchemaStateLocation]] = Field([], example=["state_game"])
     status: Optional[int] = Field(1, example="status")
 
     class Config:

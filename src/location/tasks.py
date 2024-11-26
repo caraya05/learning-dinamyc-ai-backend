@@ -117,7 +117,7 @@ async def generate_location_description(_location_id: str, _user_id: str, state_
 
         prompt_db_location_place = await get_prompt_by_category_service("location_place")
         prompt_db_location_place["description"] = prompt_db_location_place["description"].replace(
-            "{{PromptUserLocation}}", location_db["prompt_user"]
+            "{{PromptUserLocation}}", element_state_db["data"]["prompt_user"]
         )
         response_description = await openai_generator.generate_gpt(
             content_prompt=[

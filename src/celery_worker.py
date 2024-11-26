@@ -201,7 +201,7 @@ def generate_voice_character_task(_game_id,
 
 
 @celery.task(name="generate_item_task")
-def generate_item_task(_item_id: str, _user_id: str, _task_id: str, location_id: str = None, state_game_id: str = None,
+def generate_item_task(_item_id: str, _user_id: str, _task_id: str, _location_id: str = None, _state_game_id: str = None,
                        _game_id: str = None):
     try:
         loop = asyncio.get_event_loop()
@@ -210,7 +210,7 @@ def generate_item_task(_item_id: str, _user_id: str, _task_id: str, location_id:
         asyncio.set_event_loop(loop)
 
     return loop.run_until_complete(
-        async_generate_item(_item_id, _user_id, _task_id, location_id, state_game_id, _game_id))
+        async_generate_item(_item_id, _user_id, _task_id, _location_id, _state_game_id, _game_id))
 
 
 @celery.task(name="updated_item_task")
