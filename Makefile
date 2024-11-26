@@ -1,5 +1,5 @@
 build:
-	docker-compose  build
+	docker-compose  build --no-cache
 
 up:
 	docker-compose  up
@@ -7,8 +7,8 @@ up:
 up-pro:
 	docker-compose  up -d
 
-up-db-pro:
-	docker-compose  up -d postgres
+#up-db-pro:
+#	docker-compose  up -d postgres
 
 down:
 	docker-compose  down
@@ -16,14 +16,14 @@ down:
 stop:
 	docker-compose  stop
 
-init-migrations:
-	docker-compose  run --rm fastapi alembic init alembic
+#init-migrations:
+#	docker-compose  run --rm fastapi alembic init alembic
 
-apply-migrations:
-	docker-compose  run --rm fastapi alembic upgrade head
+#apply-migrations:
+#	docker-compose  run --rm fastapi alembic upgrade head
 
-migrate:
-	docker-compose  run --rm fastapi alembic revision --autogenerate -m "migration"
+#migrate:
+#	docker-compose  run --rm fastapi alembic revision --autogenerate -m "migration"
 
 black:
 	docker-compose  run --rm fastapi black --config=pyproject.toml --skip-string-normalization .
@@ -31,8 +31,80 @@ black:
 bash:
 	docker-compose  run --rm fastapi sh
 
+clean:
+	docker-compose down --rmi all --volumes --remove-orphans | true
+	docker-compose rm -f | true
+
+flake8:
+	docker-compose run --rm fastapi flake8 code
+
+pylint:
+	docker-compose run --rm fastapi pylint code
+
+dev-build:
+	docker-compose -f docker-compose-develop.yml build --no-cache
+
+dev-up:
+	docker-compose -f docker-compose-develop.yml up
+
+dev-up-pro:
+	docker-compose -f docker-compose-develop.yml up -d
+
+dev-down:
+	docker-compose -f docker-compose-develop.yml down
+
+dev-stop:
+	docker-compose -f docker-compose-develop.yml stop
+
+dev-black:
+	docker-compose -f docker-compose-develop.yml run --rm fastapi black --config=pyproject.toml --skip-string-normalization .
+
+dev-bash:
+	docker-compose -f docker-compose-develop.yml run --rm fastapi sh
+
+dev-clean:
+	docker-compose -f docker-compose-develop.yml down --rmi all --volumes --remove-orphans | true
+	docker-compose -f docker-compose-develop.yml rm -f | true
+
+dev-flake8:
+	docker-compose -f docker-compose-develop.yml run --rm fastapi flake8 code
+
+dev-pylint:
+	docker-compose -f docker-compose-develop.yml run --rm fastapi pylint code
+
+stage-build:
+	docker-compose -f docker-compose-stage.yml build --no-cache
+
+stage-up:
+	docker-compose -f docker-compose-stage.yml up
+
+stage-up-pro:
+	docker-compose -f docker-compose-stage.yml up -d
+
+stage-down:
+	docker-compose -f docker-compose-stage.yml down
+
+stage-stop:
+	docker-compose -f docker-compose-stage.yml stop
+
+stage-black:
+	docker-compose -f docker-compose-stage.yml run --rm fastapi black --config=pyproject.toml --skip-string-normalization .
+
+stage-bash:
+	docker-compose -f docker-compose-stage.yml run --rm fastapi sh
+
+stage-clean:
+	docker-compose -f docker-compose-stage.yml down --rmi all --volumes --remove-orphans | true
+	docker-compose -f docker-compose-stage.yml rm -f | true
+
+stage-flake8:
+	docker-compose -f docker-compose-stage.yml run --rm fastapi flake8 code
+
+stage-pylint:
+	docker-compose -f docker-compose-stage.yml run --rm fastapi pylint code
+
 arm-build:
-	docker-compose -f docker-compose-arm.yml build
+	docker-compose -f docker-compose-arm.yml build --no-cache
 
 arm-up:
 	docker-compose -f docker-compose-arm.yml up
@@ -43,14 +115,27 @@ arm-down:
 arm-stop:
 	docker-compose -f docker-compose-arm.yml stop
 
-arm-apply-migrations:
-	docker-compose -f docker-compose-arm.yml run --rm fastapi alembic upgrade head
+#arm-apply-migrations:
+#	docker-compose -f docker-compose-arm.yml run --rm fastapi alembic upgrade head
 
-arm-migrate:
-	docker-compose -f docker-compose-arm.yml run --rm fastapi alembic revision --autogenerate -m "create table"
+#arm-migrate:
+#	docker-compose -f docker-compose-arm.yml run --rm fastapi alembic revision --autogenerate -m "create table"
+
+#arm-bash:
+#	docker-compose -f docker-compose-arm.yml run --rm fastapi sh
+
+arm-clean:
+	docker-compose -f docker-compose-arm.yml down --rmi all --volumes --remove-orphans | true
+	docker-compose -f docker-compose-arm.yml rm -f | true
+
+arm-flake8:
+	docker-compose -f docker-compose-arm.yml run --rm fastapi flake8 .
+
+arm-pylint:
+	docker-compose -f docker-compose-arm.yml run --rm fastapi sh -c "find . -name '*.py' -type f | xargs pylint"
 
 arm-black:
 	docker-compose -f docker-compose-arm.yml run --rm fastapi black --config=pyproject.toml --skip-string-normalization .
 
-arm-bash:
-	docker-compose -f docker-compose-arm.yml run --rm fastapi sh
+arm-build-bg:
+	docker-compose -f docker-compose-arm.yml build --no-cache celery_worker flower

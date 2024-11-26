@@ -1,34 +1,24 @@
-version: '3.7'
+version: '3.8'
 
 services:
   fastapi:
+    container_name: fastapi
     build:
       context: .
       dockerfile: .docker/Dockerfile
     command: ./fastapi-entrypoint-loc.sh
     env_file:
-      - .envs/.env
+      - .env
     volumes:
       - ./src/:/code
     ports:
       - "9000:9000"
-#    environment:
-#      - DATABASE_URI=postgresql://prospero_db_username:prospero_db_password@postgres/prospero_db_dev
-    depends_on:
-      - postgres
-
-  postgres:
-    image: postgres:12.1-alpine
-    ports:
-      - 5432:5432
-    volumes:
-      - .postgres_data_base:/var/lib/postgresql/data/
-    env_file:
-      - .envs/.env_postgres
 
   nginx:
-    build: ./nginx
-    image: nginx:latest
+    container_name: nginx
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
     depends_on:
       - fastapi
     ports:
@@ -36,5 +26,38 @@ services:
       - "443:443"
     volumes:
       - ./nginx:/etc/nginx/conf.d/:ro
-      - ./nginx/ssl:/etc/ssl/:ro
-      - ./src/statics:/code/statics
+#      - ./nginx/ssl:/etc/ssl/:ro
+      - ./src/static:/code/static
+
+  redis:
+    container_name: redis
+    image: redis:6.2-alpine
+
+  celery_worker:
+    container_name: celery_worker
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+    command: celery -A celery_worker.celery worker --loglevel=info
+    volumes:
+      - ./src/:/code
+    env_file:
+      - .env
+    depends_on:
+      - fastapi
+      - redis
+
+  flower:
+    container_name: flower
+    build:
+      context: .
+      dockerfile: .docker/Dockerfile
+    command: celery -A celery_worker.celery flower --port=5555
+    ports:
+      - "5556:5555"
+    env_file:
+      - .env
+    depends_on:
+      - fastapi
+      - redis
+      - celery_worker

@@ -1,0 +1,27 @@
+from enum import Enum
+
+
+class PromptType(Enum):
+    CHARACTER: str = "character"
+    CHARACTERS_PRINCIPAL: str = "characters principal"
+    LOCATION: str = "location"
+    SCENE: str = "scene"
+    WEAPON: str = "weapon"
+    COVER: str = "cover"
+    HISTORY: str = "history"
+    SYNOPSIS: str = "synopsis"
+    CHARACTER_IMAGE: str = "character image"
+    LOCATION_IMAGE: str = "location image"
+    SCRIPT: str = "script"
+    IMAGE_BACKGROUND: str = "image background"
+    IMAGE_WEAPON: str = "image weapon"
+    IMAGE_OBJECT: str = "image object"
+    IMAGE_INTRODUCTION: str = "image introduction"
+    TEXT_INTRODUCTION: str = "text introduction"
+    CATEGORY_GAME: str = "category game"
+    IMAGEN_SCENE_CERO: str = "imagen scene cero"
+    TEXT_INTRODUCTION_SCENE_CERO: str = "text introduction scene cero"
+    BEFORE_BATTLE: str = "before battle"
+    FINISH_CHAPTER: str = "finish chapter"
+    TEXT_FINISH_CHAPTER: str = "text finish chapter"
+    IMAGE_GAME_OVER: str = "image game over"

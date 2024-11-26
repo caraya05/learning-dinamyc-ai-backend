@@ -1,49 +1,36 @@
-import datetime
-import enum
+from datetime import datetime
+from typing import Optional
 
-from sqlalchemy import Column
-from sqlalchemy import String
-from sqlalchemy import Date
-from sqlalchemy import Text
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy_utils import ChoiceType
+from pydantic import Field
+from pydantic import BaseModel
 
-from utils import generate_uuid
-
-Base = declarative_base()
+from character.enums import TypeCharacter
+from character.enums import GenderCharacter
+from character.enums import TypeConversation
 
 
-class TypeCharacterEnum(enum.Enum):
-    leading_role = "leading role"
-    enemy = "enemy"
-    antagonist = "antagonist"
-    other = "other"
-
-class AbstractBaseModel(Base):
-    __abstract__ = True
-    id = Column(String, name="id", primary_key=True, default=generate_uuid, index=True)
-    created_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    created_by: str = Column(String, default="system")
-    updated_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    updated_by: str = Column(String, default="system")
-
-
-class Character(AbstractBaseModel):
-    TYPE_CHARACTER = [
-        ("leading role", "leading role"),
-        ("enemy", "enemy"),
-        ("antagonist", "antagonist"),
-        ("other", "other"),
-    ]
-
-    __tablename__ = "character"
-    name: str = Column(String, index=False)
-    type: str = Column(ChoiceType(TYPE_CHARACTER), nullable=False)
-    description: str = Column(Text, nullable=False)
-    image: str = Column(String, nullable=True)
-    genre: str = Column(String, nullable=True)
-    game_id: str = Column(String, nullable=False)
-
-
-    def __repr__(self):
-        return f"<Character {self.name} - {self.type}>"
+class Character(BaseModel):
+    name: str = Field(..., example="Character Name")
+    description: Optional[str] = Field(None, example="This is a character")
+    description_shoulder_up: Optional[str] = Field(None, example="This is a character")
+    is_active: bool = Field(default=True, example=True)
+    prompt_user: str = Field(None, example="prompt_user")
+    prompt_user_dialog: str = Field(None, example="prompt_user_dialog")
+    body_type: Optional[str] = Field(None, example="body_type")
+    genre: Optional[str] = Field(None, example=GenderCharacter.MAN)
+    character_type: Optional[str] = Field(None, example="character_type")
+    image: Optional[str] = Field(None, example="image.jpg")
+    game_id: Optional[str] = Field(None, example="game_id")
+    extra_data: Optional[dict] = Field(None, example="Extra data")
+    text_idle: Optional[dict] = Field(None, example="Text idle")
+    conversation_type: str = Field(..., example=TypeConversation.NONE_CONVERSATION)
+    conversation: Optional[list[dict]] = Field([], example=[{"key": "value"}])
+    type: Optional[str] = Field(None, example=TypeCharacter.NPC)
+    characteristics: Optional[dict] = Field(None, example={"key": "value"})
+    status: Optional[int] = Field(0, example=200)
+    tasks_request: Optional[list[str]] = Field([], example=["task1", "task2"])
+    tasks_notified: Optional[list[str]] = Field([], example=["task1", "task2"])
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: str = Field(default="system", example="system")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: str = Field(default="system", example="system")

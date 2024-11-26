@@ -1,142 +1,256 @@
-
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import status
-from fastapi import Request
-
 from fastapi.security import HTTPAuthorizationCredentials
-from fastapi_jwt_auth import AuthJWT
 
-from sqlalchemy.orm import Session
+from auth.auth import auth
+from auth.utils import auth_schema
 
+from character.schemas import SchemaUpdateCharacterCollection
+from character.schemas import SchemaAddCharacterLocation
+from character.schemas import SchemaUpdatedCharacterLocation
 from character.schemas import SchemaCreateCharacter
-from character.schemas import SchemaPartialUpdateCharacter
 from character.schemas import SchemaRetrieveCharacter
 from character.schemas import SchemaListCharacter
 
+from character.services import get_character_service, get_characters_service
+from character.services import generate_image_character_service
 from character.services import create_character_service
-from character.services import get_character_service
-from character.services import get_characters_service
-from character.services import update_partial_character_service
-from config import auth_scheme
+from character.services import delete_character_service
+from character.services import add_character_to_location_service
+from character.services import get_characters_by_location_service
+from character.services import add_or_edit_character_location
+from character.services import get_all_character_service
+from character.services import update_character_service
+
+from game.services import get_character_game_publish_service
+from game.services import get_location_game_publish_service
+
+from user.services import disable_user_service, validate_star_user_service
 
 router = APIRouter(prefix='/characters', tags=['Characters'])
 
 
-def get_db(request: Request):
-    return request.state.db
+@router.get("/{character_id}", response_model=SchemaRetrieveCharacter)
+async def get_character(
+        character_id: str,
+        publish: bool = False,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    if publish:
+        try:
+            game_id = character_id.split('_')[1]
+            character_id = character_id.split('_')[0]
+        except Exception as e:
+            print(f"error in get character: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Character not found",
+            )
+        try:
+            character_db = await get_character_game_publish_service(
+                character_id=character_id, game_id=game_id
+            )
+            return character_db
+        except Exception as e:
+            print(f"error in get character: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Character not found",
+            )
+    else:
+        try:
+            character_db = await get_character_service(character_id=character_id)
+            return character_db
+        except Exception as e:
+            print(f"error in get character: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Character not found",
+            )
 
 
 @router.get("/", response_model=SchemaListCharacter)
-def get_characters(db: Session = Depends(get_db),
-                   game_id: str = None,
-                   Authorize: AuthJWT = Depends(),
-                   Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
-                   ):
-    """
-    This endpoint retrieves all characters.
+async def get_characters(
+        location_id: str = None,
+        game_id: str = None,
+        publish: bool = False,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    if publish:
+        try:
+            game_id = location_id.split("_")[-1]
+            location_id = location_id.split("_")[0]
+            locations_db = await get_location_game_publish_service(
+                game_id=game_id, location_id=location_id
+            )
+            return SchemaListCharacter(
+                results=locations_db["characters"], count=len(locations_db["characters"])
+            )
+        except Exception as e:
+            print(f"error in get characters: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Characters publish not found",
+            )
+    else:
+        try:
+            if game_id:
+                characters_db = await get_characters_service(
+                    game_id=game_id, skip=1, limit=200
+                )
+            else:
+                characters_db = await get_characters_by_location_service(
+                    skip=1, limit=200, location_id=location_id
+                )
+            for i in characters_db:
+                i["_id"] = str(i["_id"])
+            return SchemaListCharacter(results=characters_db, count=len(characters_db))
+        except Exception as e:
+            print(f"error in get characters: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Characters not found",
+            )
 
-    It returns a list of characters.
-    """
 
+@router.get("/me/", response_model=SchemaListCharacter)
+async def get_all_characters(
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        page: int = 1,
+        count: int = 10,
+):
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
-
+        characters_db = await get_all_character_service(
+            user_id=str(user_db.get("_id")), skip=page, limit=count
+        )
+        for i in characters_db:
+            i["_id"] = str(i["_id"])
+        return SchemaListCharacter(results=characters_db, count=len(characters_db))
     except Exception as e:
+        print(f"error in get characters: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Characters not found",
         )
 
-    characters_db = get_characters_service(db, skip=0, limit=100, game_id=game_id)
-    print(characters_db[0].__dict__)
 
-    # return SchemaListCharacter(results=characters_db, count=len(characters_db))
-    return SchemaListCharacter(results=characters_db, count=len(characters_db))
-
-
-@router.get("/{character_id}", response_model=SchemaRetrieveCharacter)
-def get_character(character_id: str,
-                  db: Session = Depends(get_db),
-                  Authorize: AuthJWT = Depends(),
-                  Token: HTTPAuthorizationCredentials = Depends(),
-                  ):
-    """
-    This endpoint retrieves a character.
-
-    It expects the character's id in the request path.
-    If the character is successfully retrieved, it returns the character's information.
-    """
-
-    try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-        )
-
-    character_db = get_character_service(db, character_id=character_id)
-
-    return SchemaRetrieveCharacter.from_orm(character_db)
+# @router.get("/{character_id}/generate-face/", response_model=SchemaRetrieveCharacter)
+# async def get_images_character_face(
+#     character_id: str,
+#     user_db: dict = Depends(auth),
+#     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+# ):
+#     try:
+#         character_db = await generate_image_character_service(character_id=character_id)
+#         await disable_user_service(user_id=str(user_db.get("_id")), section="character")
+#         return character_db
+#     except Exception as e:
+#         print(f"error in get characters: {str(e)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Characters not found",
+#         )
 
 
 @router.post("/", response_model=SchemaRetrieveCharacter)
-def create_character(character: SchemaCreateCharacter,
-                     db: Session = Depends(get_db),
-                     Authorize: AuthJWT = Depends(),
-                     Token: HTTPAuthorizationCredentials = Depends(),
-                     ):
-    """
-    This endpoint creates a character.
-
-    It expects the character's information in the request body.
-    If the character is successfully created, it returns the character's information.
-    """
-
+async def create_character(
+        character: SchemaCreateCharacter,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
-
+        await validate_star_user_service(user_id=str(user_db.get("_id")))
+        await  disable_user_service(user_id=str(user_db.get("_id")), section="character")
+        character_db = await create_character_service(
+            character=character, user_id=str(user_db.get("_id"))
+        )
+        return character_db
     except Exception as e:
+        print(f"error in create character: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not created",
         )
 
-    character_db = create_character_service(db, character=character)
 
-    return SchemaRetrieveCharacter.from_orm(character_db)
+@router.post("/add-character-location/")
+async def add_character_location(
+        character_location: SchemaAddCharacterLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    try:
+        if character_db := await add_character_to_location_service(
+                character_id=character_location.character_id, location_id=character_location.location_id
+        ):
+            return character_db
+    except HTTPException as e:
+        print(f"error in create character: {str(e)}")
+        raise HTTPException(
+            status_code=e.status_code,
+            detail=e.detail,
+        )
+
+
+@router.post("/add-edit-characteristic/")
+async def add_edit_characteristic(
+        character: SchemaUpdatedCharacterLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    try:
+        if character_db := await add_or_edit_character_location(
+                character_id=character.character_id,
+                location_id=character.location_id,
+                characteristics=character.characteristics,
+                user_id=str(user_db.get("_id")),
+        ):
+            return character_db
+    except Exception as e:
+        print(f"error in create character: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not created",
+        )
 
 
 @router.patch("/{character_id}", response_model=SchemaRetrieveCharacter)
-def partial_update_character(character_id: str,
-                             character_update: SchemaPartialUpdateCharacter,
-                             db: Session = Depends(get_db),
-                             Authorize: AuthJWT = Depends(),
-                             Token: HTTPAuthorizationCredentials = Depends(),
-                             ):
-    """
-    This endpoint partially updates a character.
-
-    It expects the character's id in the request path and the character's information in the request body.
-    If the character is successfully updated, it returns the character's information.
-    """
-
+async def partial_update_character(
+        character_id: str,
+        character_update: SchemaUpdateCharacterCollection,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
     try:
-        Authorize.jwt_required()
-        current_user = Authorize.get_jwt_subject()
-
+        await validate_star_user_service(user_id=str(user_db.get("_id")))
+        await  disable_user_service(user_id=str(user_db.get("_id")), section="character")
+        character_db = await update_character_service(
+            character_id=character_id,
+            name=character_update.name,
+            prompt_user=character_update.prompt_user,
+            user_id=str(user_db.get("_id")),
+            type_dialog=character_update.conversation_type,
+            dialog=character_update.prompt_user_dialog
+        )
+        return character_db
     except Exception as e:
+        print(f"error in partial update character: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not updated",
         )
 
-    character_db = update_partial_character_service(db, character_id=character_id, character_update=character_update)
 
-    return SchemaRetrieveCharacter.from_orm(character_db)
+@router.delete("/{character_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_character(
+        character_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    await delete_character_service(character_id=character_id)
+    return status.HTTP_204_NO_CONTENT

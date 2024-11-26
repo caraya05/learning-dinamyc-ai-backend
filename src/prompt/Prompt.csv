@@ -1,0 +1,82 @@
+id,created_at,created_by,updated_at,updated_by,title,description,category,prompt_system,is_active
+282b461e-2832-4ee6-828d-a5b205671683,2024-01-25,system,2024-01-25,system,Locacion,describe una locación específica en un espacio cerrado donde se pueda encontrar cada uno de los siguientes personajes:,location,,True
+0132a4b6-cdba-4371-a78f-17086f8a5c84,2024-01-25,system,2024-01-25,system,Personaje,"Describe al detalle a cada uno de los personajes de esta imagen, sin mencionar su ubicación en la imagen, solo la descripción de los personajes al detalle.  ",character,,True
+10afde4e-f932-4a7b-8a2b-783c3e7d5eb8,2024-02-03,system,2024-02-03,system,Imagen Personaje,"Genera una imagen en arte pixel y vista frontal de x_personaje, de la cintura para arriba y con fondo blanco",character_image,,True
+62f11fe9-c87e-47c3-81d8-7b72577a53aa,2024-02-01,system,2024-02-01,system,Resumen 0 Sinopsis,"Dame un resumen en inglés del juego que estamos creando, introduciendo al personaje principal, y de no mas de 2 renglones por capitulo y un titulo atractivo y corto para el juego en ingles",synopsis,"Eres un gran escritor capaz de resumen en inglés de un juego y dandole un titulo atractivo y sorprendente
+",True
+274c0334-3d8a-471a-81e6-d9e24c0e2580,2024-02-03,system,2024-02-03,system,Imagen Locacion,Genera una imagen en arte voxel y vista isométrica de 1024x1024 de  ESCENARIO teniendo en cuenta que el piso del ESCENARIO se describe así:,location_image,,True
+57edbcae-7910-4eca-a6c7-62150fead3c9,2024-02-01,system,2024-02-01,system,Historia,"Estoy creando un mini juego RPG, acerca de x_story_line. Esta historia debe tener un giro inesperado y un final sorprendente. 
+Genera la estructura narrativa de esta historia, la historia debe transcurrir en 5 capitulos, cada capitulo debe transcurrir en 4 escenarios, en cada escenario debe ocurrir una interaccion, y el total de escenarios deben ser 8, esto quiere decir que el protagonista debe regresar a escenarios donde ya estuvo previamente.
+Ten en cuenta que el tipo de interacciones que puede realizar el usuario son:
+- Dialogar
+- Responder preguntas de opción múltiple, y poder pasar al siguiente escenario.
+- Responder preguntas de opción múltiple, y recibir un objeto.
+- Encontrar un objeto en el escenario.
+- Dialogar y entregar un objeto a un personaje.
+- Enfrentar grupos de mini-enemigos pequeños de no más de 1 metro de altura que vuelan o que caminan.
+- Enfrentar grupos de enemigos de tamaño y figura humana.
+- Enfrentar a enemigos en batalla uno contra uno.",history,"Eres un gran escritor capaz de crear una historia super interesante para un mini juego RPG, eres capaz de crear historias con un inicio, un desarrollo y un final, ademas de añadirle cambios sorprendentes.",True
+c2d191af-3127-4427-a85c-1ddd79949dfd,2024-02-20,system,2024-02-20,system,imagen objeto,"Genera una imagen en arte pixel y vista frontal del objeto x_object, con fondo blanco, en resolución 1024 x 1024",image_object,,True
+db805b7d-5146-47c0-8370-a8b86d73af49,2024-03-08,system,2024-03-08,system,texto introduccion escena cero,"Genera una introducción que debe decir un narrador antes de la primera escena de esta historia, que coloque en contexto y le genere expectativa al jugador, en no más de 6 renglones. (En inglés)",text_introduction_scene_cero,,True
+f1a81eb8-b5f0-43a2-ae4b-b52a3d1d1699,2024-03-06,system,2024-03-06,system,Categoria de juego,"Segun la siquiente historia de un juego RPG ""x_history"" clasificalo dentro una de las siquientes categorias de juego segun el significado de cada una.",category_game,,True
+dbd7ca5c-e085-49d7-b0df-a622c453cbf7,2024-03-08,system,2024-03-08,system,imagen escena cero,"Genera una imagen en arte voxel y vista isométrica del exterior del x_location de la escena 1, en una noche estrellada o un atardecer, en resolución 1024 x 1024",imagen_scene_cero,,True
+33231123-9a42-4b79-b22c-b4934654318a,2024-03-08,system,2024-03-08,system,Guion,"Estoy creando un mini juego RPG, acerca de x_history . Esta historia debe tener un giro inesperado y un final emotivo.
+
+Genera la estructura narrativa de esta historia, la historia debe transcurrir en 5 capítulos, cada capítulo debe transcurrir en 4 escenas, cada escena en una locación diferente, en cada escena debe ocurrir una sola interacción, y el total de locaciones deben ser 8, esto quiere decir que el protagonista debe regresar a escenarios donde ya estuvo previamente.
+
+Ten en cuenta que el tipo de interacciones que puede realizar el usuario son:
+- Dialogar
+- Responder preguntas de opción múltiple, y poder pasar al siguiente escenario.
+- Responder preguntas de opción múltiple, y recibir un objeto.
+- Encontrar un objeto en el escenario.
+- Dialogar y entregar un objeto a un personaje.
+- Enfrentar grupos de enemigos de tamaño y figura humana.
+- Enfrentar grupos de mini-enemigos pequeños de no más de 1 metro de altura que vuelan o que caminan.
+- Enfrentar a enemigos en batalla uno contra uno.
+",script,"en cada escena debe aparecer el protagonista y otro personaje, en total máximo 2 personajes.",True
+cc3c2b9c-e74a-45d2-84d9-74d45a49e8c9,2024-03-13,system,2024-03-13,system,Imagen fondo,"Genera una imagen en vista frontal y arte voxel de lo que sería la secuencia donde el usuario no interactúa, para mostrar justo después de completar la interacción 4 del capítulo 1  x_escena, en resolución wide, recuerda que el protagonista es  x_personaje",image_background,,True
+a1271fba-207d-437c-8cb0-ce2871613563,2024-03-15,system,2024-03-15,system,Portada,"Genera una escena importante de esta historia x_history en estilo de animación 3D de extraordinaria calidad, recuerda que el protagonista es x_character, en resolución 1024x1792, el contenido debe estar en formato vertical",cover,,True
+7a35ed3a-198b-41ec-a16a-793c96faaa61,2024-03-08,system,2024-03-08,system,imagen arma,"Genera una imagen en arte pixel y vista frontal de una arma x_description, con fondo blanco, en resolución 1024 x 1024",image_weapon,,True
+37ee8380-c35c-4ecc-b961-38141719d67a,2024-03-08,system,2024-03-08,system,arma,Dame una idea y su respectiva descripción de un arma x_weapon que utilizaria el x_character en esta x_history.,weapon,,True
+b931b920-8d00-4e66-861f-9bea01d57e0a,2024-03-13,system,2024-03-13,system,texto final de capitulo,"Genera un texto que diría un narrador al final de la escena x_num_scene, de no más de 6 renglones, que describa lo que sucedió y genere expectativa sobre lo que va suceder a continuación",text_finish_chapter,,True
+84d154db-515f-4600-9aa7-de523e97bb7f,2024-03-13,system,2024-03-13,system,Imagen de derrota,"Genera una imagen en la se refleje una derrota de batalla en vista frontal y arte voxel donde el personaje x_character es derrotado por los x_mini_enemy que estan en esta locacion x_location, en resolución 1024 x 1024",image_game_over,,True
+7d1d41df-bd3c-46be-b9cf-b4fbb18c3aa2,2024-03-13,system,2024-03-13,system,imagen final de capitulo,"Genera una imagen en vista frontal y arte voxel de lo que sería la secuencia donde el usuario no interactúa, para mostrar justo después de completar la interacción 4 del capítulo 1 x_interaction, en resolución wide, recuerda que el protagonista es x_character",finish_chapter,,True
+090b6d11-135f-48d1-b844-f39ead0e953c,2024-03-27,system,2024-03-27,system,Personajes principales,"Dame una lista con nombre, y descripción física, género del protagonista, el antagonista, 
+y los personajes que aparecen en las primeras 4 escenas, crea siempre el mini enemy. 
+Dale un nombre al juego muy atractivo y que genere recordación. También dame una lista con nombre y descripción de los lugares donde se desarrollan las primeras 4 escenas. Ademas dame un listado los objetos que aparecen en la historia",characters_principal,"los personajes deben estar humanizados a excepción del mini enemy,
+crea un personaje de cada tipo leading role, other, enemy, antagonist acorde a la historia.
+crea el mini enemy siempre, el mini enemy debe puede ser un duende pequeño de ojos verdesy cabello punk verder de color de fiel cafe, un ave negra, un gusano, lobo gris con blanco y un fantasma negro,
+solo puede haber un antagonist, un leading role, un enemy, un mini enemy y otros son personajes de relleno.
+el mini enemy es el unico animal los demas deben ser humanos. 
+los escenarios deben ser cerrados y cubiertos, los suelos deben estar lo mas despejados de objetos, 
+el nombre, descripcion interna y externa debe de condordar y las descripciones deben ser servir para la generacion de imagenes.
+asegurate  que siempre esten las locaciones, los personajes, los objetos, si la historia esta en ingles la respuesta debe estar tambien en ingles.",True
+0644d8f9-a824-4efb-b3b1-ceed4de45148,2024-03-22,system,2024-03-22,system,Escena,"Genera ahora el guión de la escena número x_scene del capítulo número x_script  de esta historia, detallando el lugar específico donde se lleva a cabo y cada personaje con el que se interactúa, ten en cuenta que el tipo de interacciones definidas para cada escena, y la información que requiere cada tipo de interacción.
+- Dialogar (personaje, textos de diálogo)
+- Responder preguntas de opción múltiple, y poder pasar al siguiente escenario. (Personaje, Pregunta, opciones de respuesta, respuesta correcta, contra-respuesta cuando acierta, contra-respuesta si no acierta)
+- Responder preguntas de opción múltiple, y recibir un objeto. (Personaje, Pregunta, opciones de respuesta, respuesta correcta, contra-respuesta cuando acierta, objeto recibido, contra-respuesta si no acierta)
+- Encontrar un objeto en el escenario. (Objeto a encontrar, textos si aplican)
+- Entregar un objeto a un personaje (personaje, diálogo con el personaje, objeto a entregar, respuesta si intenta entregar el objeto que no es, respuesta si aún no tiene ese objeto)
+- Enfrentar grupos de enemigos humano o de figura humana (enemigos, texto narrador antes de enfrentarlo, diálogo del protagonista  al derrotarlos)
+- Enfrentar grupos de mini-enemigos (mini-enemigos, vuela o camina, texto narrador antes de enfrentarlo, diálogo del protagonista  al derrotarlos)
+- Enfrentar a enemigos en batalla uno contra uno (enemigo, diálogo del protagonista antes de enfrentarlo, diálogo si gana, o si pierde)
+Los dialogos en ingles.
+",scene,"Garantiza que en cada escena creada deben una locacion, tener solo 2 personajes y uno de esos sea el personaje principal y el otro puede ser el mini enemigo,el antagonista ,el enemigo o otro, 
+tambien varia cada en escena en difrentes locaciones, solo la dinamica de question debe tener questions el dialogo inicial debe ser la pregunta y las opciones dentro de questions debe ser las opciones de respuesta multiple ,
+todas las escenas deben tener la locacion diferente,
+todas las escenas deben tener start dialogues y end dialogues,
+las opciones de las preguntas no deben ser mas de 3,
+el tipo de dinamica battle group debe ser solo entre el principal y el mini enemigo, no puede estar el antagonista, el enemigo o otro,
+el tipo de dinamica search debe tener un objeto, dos personajes uno puede estar el antagonista o otro y el principal, de reward item o next, no puede tener questions,
+el tipo de dinamica dialog debe tener dos personajes uno puede estar el antagonista o otro y el principal, y de reward info,
+el tipo de dinamica question debe tener siempre dos personajes uno puede ser el antagonista o otro y el principal siempre, y de reward info o next,
+si la recompenza es item, is_subtractable debe ser true y la dinamica debe ser search,
+las dinamicas de dialog, question, search, no puede ser un mini enemy, ni el enemy,
+las dinamicas de battle, battle group, no puede ser un other, ni antagonista,
+las dinamicas de search, battle, battle group, no puede tener questions, 
+las dinamicas de search no puede tener questions, 
+verificar los tipos de personajes para las dinamicas si no estan presentes usar otra dinamica,
+la primera escena debe ser de dinamica dialog,
+la segunda escena debe ser de dinamica search, 
+la tercera escena debe ser dinamica questions y la cuarta escena debe ser dinamica battle group,
+characters debe contendra los id de los personajes que aparecen en la escena que estan en los dialogos,",True

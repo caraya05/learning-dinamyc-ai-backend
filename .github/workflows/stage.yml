@@ -1,0 +1,63 @@
+name: Despliegue stage
+
+on:
+  push:
+    branches:
+      - stage
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Código
+      uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.GH_PAT }}
+
+    - name: Send Inline Telegram Message (Start)
+      uses: cbrgm/telegram-github-action@v1
+      with:
+        token: ${{ secrets.TELEGRAM_TOKEN }}
+        to: ${{ secrets.TELEGRAM_CHAT_ID }}
+        message: |
+          Deployment started 🚀 by ${{ github.actor }}!
+          Commit: ${{ github.event.head_commit.message }}
+          Branch: ${{ github.ref }}
+          Repository: ${{ github.repository }}
+          View changes: https://github.com/${{ github.repository }}/commit/${{ github.sha }}
+          Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+    - name: Despliegue en Digital Ocean
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.DIGITAL_OCEAN_HOST_STAGE }}
+        username: ${{ secrets.DIGITAL_OCEAN_USERNAME }}
+        key: ${{ secrets.DIGITAL_OCEAN_SSH_KEY }}
+        passphrase: ${{ secrets.DIGITAL_OCEAN_SSH_KEY_PASSPHRASE }}
+        script: |
+          cd /root/.project/qwestar-ai-backend
+          git config --global url."https://${{ secrets.GH_PAT }}@github.com/".insteadOf "https://github.com/"
+          git pull origin stage
+          make stage-build
+          make stage-up-pro
+
+    - name: Send Inline Telegram Message (End)
+      if: success()
+      uses: cbrgm/telegram-github-action@v1
+      with:
+        token: ${{ secrets.TELEGRAM_TOKEN }}
+        to: ${{ secrets.TELEGRAM_CHAT_ID }}
+        message: |
+          Deployment completed ✅ by ${{ github.actor }} 🐵 on branch ${{ github.ref }}.
+          Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+    - name: Send Inline Telegram Message (Failure)
+      if: failure()
+      uses: cbrgm/telegram-github-action@v1
+      with:
+        token: ${{ secrets.TELEGRAM_TOKEN }}
+        to: ${{ secrets.TELEGRAM_CHAT_ID }}
+        message: |
+          Deployment failed ❌ by ${{ github.actor }} on branch ${{ github.ref }}.
+          Action run: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}

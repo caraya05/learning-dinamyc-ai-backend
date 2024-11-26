@@ -1,52 +1,40 @@
-# from fastapi.openapi.utils import get_openapi
-from fastapi.staticfiles import StaticFiles
+import time
 
-from database import engine
-from database import SessionLocal
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, status
 from fastapi import Request
-from fastapi import Response
+
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi_jwt_auth.exceptions import AuthJWTException
-from fastapi_jwt_auth import AuthJWT
+from starlette.websockets import WebSocket
 
+from core.database import create_indexes
 from user import routers as user_routers
-from user import models as user_base
-from user.admin import UserAdmin
-
+from user import router_admin as user_admin_routers
+from user import router_ws as user_ws_routers
 from auth import routers as token_routers
-
-from character import routers as character_routers
-from character import models as character_base
-from character.admin import CharacterAdmin
-
-from game_progress import routers as game_progress_routers
-from game_progress import models as game_progress_base
-from game_progress.admin import GameProgressAdmin
-
-from game import routers as game_routers
-from game import models as game_base
-from game.admin import GameAdmin
-
-from location import routers as location_routers
-from location import models as location_base
-from location.admin import LocationAdmin
-
-from scene import routers as scene_routers
-from scene import models as scene_base
-from scene.admin import SceneAdmin
-
 from prompt import routers as prompt_routers
-from prompt import models as prompt_base
-from prompt.admin import PromptAdmin
+from category import routers as category_routers
+from configuration import routers as configuration_routers
+from game import routers as game_routers
+from game import routers_stats as stats_routers
+from game import routers_admin as game_admin_routers
+from object import routers as object_routers
+from location import routers as location_routers
+from character import routers as character_routers
+from voice import routers as voice_routers
+from shortener import routers as shortener_routers
+from task import routers as task_routers
+from contextlib import asynccontextmanager
+from config import settings
 
-from admin_config import authentication_backend
 
-from sqladmin import Admin
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await create_indexes()
+    yield
+
 
 app = FastAPI(
-    title="Qwestar AI API",
+    title=f"Qwestar AI API V1 {settings.NAME_ENV} ",
     description="Qwestar AI is a game that uses AI to generate stories, characters, and images.",
     version="1.0",
     docs_url="/v1/api/docs",
@@ -55,13 +43,14 @@ app = FastAPI(
     swagger_ui_parameters={
         "syntaxHighlight": False,
     },
+    lifespan=lifespan,
 )
-
-app.mount("/statics", StaticFiles(directory="statics"), name="statics")
 
 origins = [
     "*",
 ]
+
+# app.mount("/static", StaticFiles(directory="static"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
@@ -71,113 +60,84 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(user_routers.router, prefix="/v1/api")
-app.include_router(token_routers.router, prefix="/v1/api")
-app.include_router(character_routers.router, prefix="/v1/api")
-# app.include_router(game_progress_routers.router, prefix="/v1/api")
-app.include_router(game_routers.router, prefix="/v1/api")
-# app.include_router(location_routers.router, prefix="/v1/api")
-# app.include_router(scene_routers.router, prefix="/v1/api")
-# app.include_router(prompt_routers.router, prefix="/v1/api")
-
-admin = Admin(
-    app,
-    engine,
-    title="Qwestar AI Admin",
-    authentication_backend=authentication_backend,
-    base_url="/admin",
-)
-
-admin.add_view(UserAdmin)
-admin.add_view(CharacterAdmin)
-admin.add_view(GameProgressAdmin)
-admin.add_view(GameAdmin)
-admin.add_view(LocationAdmin)
-admin.add_view(SceneAdmin)
-admin.add_view(PromptAdmin)
-
-
-
-user_base.Base.metadata.create_all(bind=engine)
-character_base.Base.metadata.create_all(bind=engine)
-game_progress_base.Base.metadata.create_all(bind=engine)
-game_base.Base.metadata.create_all(bind=engine)
-location_base.Base.metadata.create_all(bind=engine)
-scene_base.Base.metadata.create_all(bind=engine)
-prompt_base.Base.metadata.create_all(bind=engine)
-
 
 @app.middleware("http")
-async def db_session_middleware(request: Request, call_next):
-    response = Response("Internal server error", status_code=500)
-    try:
-        request.state.db = SessionLocal()
-        response = await call_next(request)
-    finally:
-        request.state.db.close()
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
     return response
 
 
-@app.exception_handler(AuthJWTException)
-def authjwt_exception_handler(request: Request, exc: AuthJWTException):
-    if exc.message == "Signature has expired":
-        return JSONResponse(status_code=401, content={"detail": exc.message})
-    elif exc.message == "Signature verification failed":
-        return JSONResponse(status_code=401, content={"detail": exc.message})
+app.include_router(token_routers.router, prefix="/v1/api")
+app.include_router(category_routers.router, prefix="/v1/api")
+app.include_router(character_routers.router, prefix="/v1/api")
+app.include_router(configuration_routers.router, prefix="/v1/api")
+app.include_router(game_routers.router, prefix="/v1/api")
+app.include_router(location_routers.router, prefix="/v1/api")
+app.include_router(object_routers.router, prefix="/v1/api")
+# app.include_router(place_routers.router, prefix="/v1/api")
+app.include_router(prompt_routers.router, prefix="/v1/api")
+app.include_router(user_routers.router, prefix="/v1/api")
+# app.include_router(weapon_routers.router2, prefix="/v2/api")
+app.include_router(shortener_routers.router, prefix="/v1/api")
+app.include_router(voice_routers.router, prefix="/v1/api")
+app.include_router(user_ws_routers.router, prefix="")
+app.include_router(task_routers.router, prefix="/v1/api")
+app.include_router(shortener_routers.routerAPP)
 
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.message})
 
-
-denylist = set()
-
-
-@AuthJWT.token_in_denylist_loader
-def check_if_token_in_denylist(decrypted_token):
-    jti = decrypted_token['jti']
-    return jti in denylist
-
-
-# def custom_openapi():
-#     if app.openapi_schema:
-#         return app.openapi_schema
-#
-#     openapi_schema = get_openapi(
-#         title="Custom title",
-#         version="2.5.0",
-#         description="This is a very custom OpenAPI schema",
-#         routes=app.routes,
-#     )
-#
-#     # Custom documentation fastapi-jwt-auth
-#     headers = {
-#         "name": "Authorization",
-#         "in": "header",
-#         "required": True,
-#         "schema": {
-#             "title": "Authorization",
-#             "type": "string"
-#         },
-#     }
-#
-#     # Get routes from index 4 because before that fastapi define router for /openapi.json, /redoc, /docs, etc
-#     # Get all router where operation_id is authorize
-#     router_authorize = [route for route in app.routes[4:] if route.operation_id == "authorize"]
-#     print(router_authorize)
-#     for route in router_authorize:
-#         method = list(route.methods)[0].lower()
-#         try:
-#             # If the router has another parameter
-#             openapi_schema["paths"][route.path][method]['parameters'].append(headers)
-#         except Exception:
-#             # If the router doesn't have a parameter
-#             openapi_schema["paths"][route.path][method].update({"parameters":[headers]})
-#
-#     app.openapi_schema = openapi_schema
-#     return app.openapi_schema
-#
-#
-# app.openapi = custom_openapi
-
-@app.get("/")
+@app.get("/health", tags=["Health Check"])
 async def root():
-    return {"message": "AI toys"}
+    return {"message": "Ok"}
+
+
+@app.websocket("/ws/echo")
+async def websocket_echo(websocket: WebSocket):
+    await websocket.accept()
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await websocket.send_text(f"Message text was: {data}")
+    except Exception as e:
+        await websocket.close()
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+admin = FastAPI(
+    title=f"Qwestar AI Admin API {settings.NAME_ENV}",
+    description="Qwestar AI is a game that uses AI to generate stories, characters, and images.",
+    version="0.0",
+    # docs_url="/v1/admin/docs",
+    # redoc_url="/v1/admin/redocs",
+    openapi_url="/openapi/openapi.json",
+    swagger_ui_parameters={
+        "syntaxHighlight": False,
+    },
+    lifespan=lifespan,
+)
+
+admin.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@admin.middleware("http")
+async def add_process_time_header(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = time.time() - start_time
+    response.headers["X-Process-Time"] = str(process_time)
+    return response
+
+
+admin.include_router(user_admin_routers.router)
+admin.include_router(stats_routers.router)
+admin.include_router(game_admin_routers.router)
+
+app.mount("/v1/admin", admin)

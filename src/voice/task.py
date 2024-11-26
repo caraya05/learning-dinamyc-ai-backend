@@ -1,0 +1,36 @@
+import random
+
+from bson import ObjectId
+from pydantic import BaseModel, Field
+
+from character.tasks import generate_voice_character
+from core.database import db
+from gpt_ai.utils import openai_generator
+from task.services import update_task_service
+from voice.elevenlabs import generate_audio
+from voice.utils import get_variants_service
+
+
+
+
+async def async_generate_voice_task(_game_id, _character_id: str, _user_id: str, _task_id: str):
+    await update_task_service(_id=_task_id, _status="pending")
+
+    character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
+    if not character_db:
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message=f"Error can't find character with id {_character_id}",
+        )
+        return "Error can't find character"
+    voice_generated = await generate_voice_character(_game_id, _character_id, _user_id)
+    if not voice_generated:
+        await update_task_service(
+            _id=_task_id, _status="failed", _message="Error voice not generated"
+        )
+        return "Error voice not generated"
+    await update_task_service(
+        _id=_task_id, _status="completed", _message="Voice character generated"
+    )
+    return "Voice character generated"

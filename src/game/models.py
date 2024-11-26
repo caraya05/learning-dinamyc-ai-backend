@@ -1,43 +1,29 @@
-import datetime
+from typing import Optional
 
-from sqlalchemy import Column
-from sqlalchemy import String
-from sqlalchemy import Date
-from sqlalchemy import Text
-from sqlalchemy.ext.declarative import declarative_base
-
-from utils import generate_uuid
-
-Base = declarative_base()
+from pydantic import BaseModel
+from pydantic import Field
+from datetime import datetime
 
 
-class AbstractBaseModel(Base):
-    __abstract__ = True
-    id = Column(String, name="id", primary_key=True, default=generate_uuid, index=True)
-    created_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    created_by: str = Column(String, default="system")
-    updated_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    updated_by: str = Column(String, default="system")
-
-
-class Game(AbstractBaseModel):
-    __tablename__ = "game"
-    title: str = Column(String, index=False, nullable=True)
-    synopsis: str = Column(Text, nullable=True)
-    history: str = Column(Text, nullable=True)
-    image: str = Column(String, nullable=True)
-    image_background: str = Column(String, nullable=True)
-    prompt_image: str = Column(String, nullable=True)
-    # is_active: bool = Column(Boolean, default=False)
-    # location: str = Column(Text, nullable=True)
-    # characters: str = Column(String, nullable=True)
-    story_line = Column(Text, nullable=False)
-    user_id: str = Column(String, nullable=False)
-
-    # is_multiverse: bool = Column(Boolean, default=False)
-    # multiverse = Column(ARRAY(String), nullable=True)
-    # is_future_travel: bool = Column(Boolean, default=False)
-    # is_past_travel: bool = Column(Boolean, default=False)
-
-    def __repr__(self):
-        return f"<Game {self.title} - {self.user_id}>"
+class Game(BaseModel):
+    title: Optional[str] = Field(None, example="Game Title")
+    synopsis: Optional[str] = Field(None, example="This is a game synopsis")
+    history: Optional[dict] = Field(None, example="This is a game history")
+    summary: Optional[str] = Field(None, example="This is a game summary")
+    character_principal: Optional[str] = Field(None, example="Character principal")
+    image: Optional[str] = Field(None, example="image.jpg")
+    image_background: Optional[str] = Field(None, example="background.jpg")
+    prompt_image: Optional[str] = Field(None, example="prompt.jpg")
+    characters_id: Optional[list[str]] = Field(None, example=["123", "456"])
+    locations_id: Optional[list[str]] = Field(None, example=["123", "456"])
+    items_id: Optional[list[str]] = Field(None, example=["123", "456"])
+    category_id: Optional[str] = Field(None, example="Category")
+    likes: Optional[list[str]] = Field([], example=["123", "456"])
+    version: Optional[int] = Field(2, example=1)
+    status: Optional[int] = Field(0, example=200)
+    tasks_request: Optional[list[str]] = Field([], example=["task1", "task2"])
+    tasks_notified: Optional[list[str]] = Field([], example=["task1", "task2"])
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: Optional[str] = Field(default="system", example="system")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: str = Field(default="system", example="system")

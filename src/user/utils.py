@@ -9,6 +9,7 @@ def get_password_hash(password: str) -> str:
     try:
         return pwd_context.hash(password)
     except Exception as ex:
+        print("error", ex)
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Error in convert"
         ) from ex

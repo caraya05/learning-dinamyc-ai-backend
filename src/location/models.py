@@ -1,32 +1,25 @@
-import datetime
+from typing import Optional
 
-from sqlalchemy import Column
-from sqlalchemy import String
-from sqlalchemy import Date
-from sqlalchemy import Text
-from sqlalchemy.ext.declarative import declarative_base
+from pydantic import BaseModel
+from pydantic import Field
 
-from utils import generate_uuid
-
-Base = declarative_base()
+from datetime import datetime
 
 
-class AbstractBaseModel(Base):
-    __abstract__ = True
-    id = Column(String, name="id", primary_key=True, default=generate_uuid, index=True)
-    created_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    created_by: str = Column(String, default="system")
-    updated_at: datetime = Column(Date, default=datetime.datetime.utcnow())
-    updated_by: str = Column(String, default="system")
-
-
-class Location(AbstractBaseModel):
-    __tablename__ = "location"
-    title: str = Column(String, unique=True, index=False)
-    description: str = Column(Text, nullable=False)
-    image: str = Column(String, nullable=True)
-    character_id: list[str] = Column(String, nullable=True)
-    game_id: str = Column(String, nullable=False)
-
-    def __repr__(self):
-        return f"<Location {self.title} - {self.game_id}>"
+class Location(BaseModel):
+    title: str = Field(None, example="Location Title")
+    description: Optional[str] = Field(None, example="This is a location description")
+    prompt_user: str = Field(None, example="This is a prompt user")
+    image: Optional[str] = Field(None, example="image.jpg")
+    config: Optional[list[dict]] = Field(None, example="")
+    connections: Optional[dict] = Field(None, example="")
+    sound_id: Optional[str] = Field(None, example="123")
+    sound: Optional[str] = Field(None, example="123")
+    game_id: Optional[str] = Field(None, example="123")
+    status: Optional[int] = Field(0, example=200)
+    tasks_request: Optional[list[str]] = Field([], example=["task1", "task2"])
+    tasks_notified: Optional[list[str]] = Field([], example=["task1", "task2"])
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: str = Field(default="system", example="system")
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: str = Field(default="system", example="system")

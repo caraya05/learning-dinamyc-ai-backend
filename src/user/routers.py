@@ -1,68 +1,99 @@
 from fastapi import APIRouter
 from fastapi import Depends
-from fastapi import Request
 from fastapi import HTTPException
 from fastapi import status
-
+from fastapi import UploadFile
+from fastapi import File
 from fastapi.security import HTTPAuthorizationCredentials
-from fastapi_jwt_auth import AuthJWT
+from uuid import uuid4
 
-from sqlalchemy.orm import Session
+from utils import upload_image
 
-from config import auth_scheme
+from user.services import get_user_by_id_service
+from user.services import create_user_service
+from user.services import update_photo_service
+from user.services import update_attempt_to_create_service
 
-from .services import get_current_user_service
-from .services import create_user_service
-from .services import update_user_service
-from .services import partial_update_user_service
-from .services import update_password_service
+from user.schemas import SchemaRetrieveUser
+from user.schemas import SchemaUser
 
-from .schemas import SchemaRetrieveUser
-from .schemas import SchemaUser
-from .schemas import SchemaUpdateUser
-from .schemas import SchemaPartialUpdateUser
-from .schemas import SchemaUpdatePassword
+from auth.utils import auth_schema
+from auth.auth import auth
+from PIL import Image
+from io import BytesIO
 
 router = APIRouter(prefix="/user", tags=["User"])
 
 
-# Dependency
-def get_db(request: Request):
-    return request.state.db
+@router.post(
+    "/",
+    response_model=SchemaRetrieveUser,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
+async def create_user(user: SchemaUser):
+    """
+    This endpoint creates a new user.
 
+    It expects the user's information in the request body. If the user is successfully created, it returns the user's information.
+    If the user already exists, it raises an HTTPException with status code 400.
 
-# @router.post("/", response_model=SchemaRetrieveUser, status_code=status.HTTP_201_CREATED)
-# async def create_user(user: SchemaUser, db: Session = Depends(get_db)):
-#     """
-#     This endpoint creates a new user.
-#
-#     It expects the user's information in the request body. If the user is successfully created, it returns the user's information.
-#     If the user already exists, it raises an HTTPException with status code 400.
-#
-#     Parameters:
-#     user (SchemaUser): The user's information to be created.
-#     db (Session): Database session for executing queries.
-#
-#     Returns:
-#     SchemaRetrieveUser: The created user's information.
-#
-#     Raises:
-#     HTTPException: If the user already exists, an HTTPException is raised with status code 400.
-#     """
-#     db_user = create_user_service(db=db, user=user)
-#     if db_user:
-#         return db_user
-#     else:
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="User already registered",
-#         )
+    Parameters:
+    user (SchemaUser): The user's information to be created.
+    db (Session): Database session for executing queries.
+
+    Returns:
+    SchemaRetrieveUser: The created user's information.
+
+    Raises:
+    HTTPException: If the user already exists, an HTTPException is raised with status code 400.
+    """
+    db_user = await create_user_service(user=user)
+    if db_user:
+        return db_user
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User already registered",
+        )
+
 
 @router.get("/current-user", response_model=SchemaRetrieveUser)
 async def get_current_user(
-        db: Session = Depends(get_db),
-        Authorize: AuthJWT = Depends(),
-        Token: HTTPAuthorizationCredentials = Depends(auth_scheme),
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves the current user's information.
+
+    It uses JWT for authentication. The JWT token is expected to be provided in the Authorization header.
+
+    Parameters:
+    db (Session): Database session for executing queries.
+    Authorize (AuthJWT): An instance of AuthJWT for handling JWT operations.
+    Token (HTTPAuthorizationCredentials): The JWT token from the Authorization header.
+
+    Returns:
+    SchemaRetrieveUser: The current user's information.
+
+    Raises:
+    HTTPException: If there is an error in getting the user's information, an HTTPException is raised with status code 400.
+    """
+
+    try:
+        return user_db
+    except Exception as ex:
+        # If there is an error, raise an HTTPException
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Error in the getting user"
+        ) from ex
+
+
+@router.get("/{user_id}", response_model=SchemaRetrieveUser)
+async def get_user(
+    user_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves the current user's information.
@@ -83,15 +114,45 @@ async def get_current_user(
 
     try:
         # Check if the JWT token is valid
-        Authorize.jwt_required()
+        # Authorize.jwt_required()
 
         # Retrieve the current user's information
-        return get_current_user_service(db, Authorize.get_raw_jwt())
+        return await get_user_by_id_service(user_id=str(user_id))
     except Exception as ex:
         # If there is an error, raise an HTTPException
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Error in the getting user"
         ) from ex
+
+
+@router.get("/validate-stars/", status_code=status.HTTP_200_OK)
+async def validate_stars(
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    if user_db['stars'] is None or user_db['stars'] <= 0:
+        await update_attempt_to_create_service(str(user_db['_id']))
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Not enough stars")
+    return {"message": "Stars are enough"}
+
+
+# update photo user
+@router.post("/update-photo/", response_model=SchemaRetrieveUser)
+async def update_photo_user(
+    photo: UploadFile = File(...),
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    photo_content = await photo.read()
+
+    url_photo = upload_image(
+        # name_bucket="users",
+        image_content_type=photo_content,
+        file_name=f"user/{uuid4()}.jpg",
+        size=(512, 512),
+    )
+
+    return await update_photo_service(user_id=str(user_db['_id']), photo=url_photo)
 
 
 # @router.put("/{id}", response_model=SchemaRetrieveUser)
@@ -142,52 +203,52 @@ async def get_current_user(
 #         ) from ex
 
 
-@router.patch("/{id}", response_model=SchemaRetrieveUser)
-async def partial_update_user(id: str,
-                              user: SchemaPartialUpdateUser,
-                              db: Session = Depends(get_db),
-                              Authorize: AuthJWT = Depends(),
-                              Token: HTTPAuthorizationCredentials = Depends(auth_scheme)
-                              ):
-    """
-    This endpoint partially updates a user's information.
-
-    It uses JWT for authentication. The JWT token is expected to be provided in the Authorization header.
-    The user's updated information is expected in the request body.
-
-    Parameters:
-    id (str): The id of the user to be updated.
-    user (SchemaPartialUpdateUser): The updated user's information.
-    db (Session): Database session for executing queries.
-    Authorize (AuthJWT): An instance of AuthJWT for handling JWT operations.
-    Token (HTTPAuthorizationCredentials): The JWT token from the Authorization header.
-
-    Returns:
-    SchemaRetrieveUser: The updated user's information.
-
-    Raises:
-    HTTPException: If there is an error in updating the user's information or if the user id does not match the id in the JWT token, an HTTPException is raised with status code 400.
-    """
-    try:
-        # Check if the JWT token is valid
-        Authorize.jwt_required()
-
-        # Retrieve the current user's information
-        user_current = get_current_user_service(db, Authorize.get_raw_jwt())
-
-        # Check if the user id matches the id in the JWT token
-        if not user_current.id == id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Error in the getting user"
-            )
-
-        # Partially update the user's information
-        return partial_update_user_service(db=db, user_id=id, user_update=user)
-    except Exception as ex:
-        # If there is an error, raise an HTTPException
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Error in the getting user"
-        ) from ex
+# @router.patch("/{id}", response_model=SchemaRetrieveUser)
+# async def partial_update_user(id: str,
+#                               user: SchemaPartialUpdateUser,
+#                               db: Session = Depends(get_db),
+#                               Authorize: AuthJWT = Depends(),
+#                               Token: HTTPAuthorizationCredentials = Depends(auth_scheme)
+#                               ):
+#     """
+#     This endpoint partially updates a user's information.
+#
+#     It uses JWT for authentication. The JWT token is expected to be provided in the Authorization header.
+#     The user's updated information is expected in the request body.
+#
+#     Parameters:
+#     id (str): The id of the user to be updated.
+#     user (SchemaPartialUpdateUser): The updated user's information.
+#     db (Session): Database session for executing queries.
+#     Authorize (AuthJWT): An instance of AuthJWT for handling JWT operations.
+#     Token (HTTPAuthorizationCredentials): The JWT token from the Authorization header.
+#
+#     Returns:
+#     SchemaRetrieveUser: The updated user's information.
+#
+#     Raises:
+#     HTTPException: If there is an error in updating the user's information or if the user id does not match the id in the JWT token, an HTTPException is raised with status code 400.
+#     """
+#     try:
+#         # Check if the JWT token is valid
+#         Authorize.jwt_required()
+#
+#         # Retrieve the current user's information
+#         user_current = get_current_user_service(db, Authorize.get_raw_jwt())
+#
+#         # Check if the user id matches the id in the JWT token
+#         if not user_current.id == id:
+#             raise HTTPException(
+#                 status_code=status.HTTP_400_BAD_REQUEST, detail="Error in the getting user"
+#             )
+#
+#         # Partially update the user's information
+#         return partial_update_user_service(db=db, user_id=id, user_update=user)
+#     except Exception as ex:
+#         # If there is an error, raise an HTTPException
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST, detail="Error in the getting user"
+#         ) from ex
 
 
 # @router.post("/update-password", response_model=SchemaRetrieveUser)

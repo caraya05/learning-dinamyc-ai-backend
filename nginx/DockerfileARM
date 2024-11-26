@@ -1,0 +1,9 @@
+FROM arm64v8/nginx:latest
+
+RUN rm /etc/nginx/conf.d/*
+
+COPY local/local-default.conf /etc/nginx/conf.d/
+
+EXPOSE 80
+
+CMD [ "nginx", "-g", "daemon off;" ]
