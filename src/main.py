@@ -144,7 +144,7 @@ admin.include_router(stats_routers.router)
 admin.include_router(game_admin_routers.router_admin)
 admin.include_router(location_admin_routers.router)
 
-admin.include_router(character_admin_routers.router)
+# admin.include_router(character_admin_routers.router)
 
 admin.include_router(game_pending_admin_routers.router)
 
