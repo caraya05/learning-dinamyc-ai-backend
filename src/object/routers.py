@@ -114,20 +114,20 @@ async def update_item(
         )
 
 
-@router.post("/add-item-location/", status_code=status.HTTP_200_OK)
-async def add_item_location(
-        item: SchemaAddItemLocation,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-):
-    """
-    This endpoint adds a object to a location.
-
-    It returns the added object.
-    """
-
-    object_db = await add_item_location_service(item.item_id, item.location_id)
-    return object_db
+# @router.post("/add-item-location/", status_code=status.HTTP_200_OK)
+# async def add_item_location(
+#         item: SchemaAddItemLocation,
+#         user_db: dict = Depends(auth),
+#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+# ):
+#     """
+#     This endpoint adds a object to a location.
+#
+#     It returns the added object.
+#     """
+#
+#     object_db = await add_item_location_service(item.item_id, item.location_id)
+#     return object_db
 
 
 @router.post("/add-edit-characteristic/")

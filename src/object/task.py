@@ -106,6 +106,13 @@ async def generate_conversation_item(prompt_user_dialog: str, object_id: str, us
         #     },
         # )
 
+        if element_state_db["data"].get("locations_id"):
+            locations_array = element_state_db["data"]["locations_id"]
+            locations_array.append(location_id)
+            element_state_db["data"]["locations_id"] = locations_array
+        else:
+            element_state_db["data"]["locations_id"] = [location_id]
+
         interaction_exists = False
 
         if "interaction" not in element_state_db["data"]:

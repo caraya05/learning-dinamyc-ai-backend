@@ -43,11 +43,14 @@ async def get_location_service(*, location_id: str, user_id: str) -> dict:
             element_state_db["_id"] = str(element_state_db["_id"])
 
             if element_state_db["data"].get("sound", None):
-                sound_db = await db['sound'].find_one(
-                    {"_id": ObjectId(element_state_db["data"]["sound"])}
-                )
-                if sound_db:
-                    element_state_db["data"]["sound"] = sound_db["file"]
+                try:
+                    sound_db = await db['sound'].find_one(
+                        {"_id": ObjectId(element_state_db["data"]["sound"])}
+                    )
+                    if sound_db:
+                        element_state_db["data"]["sound"] = sound_db["file"]
+                except Exception as e:
+                    print(f"Error in get sound service: {e}")
             # if location_db["config"]:
             #     user_config_found = False
             #     for config in location_db["config"]:

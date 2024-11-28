@@ -25,6 +25,7 @@ class SchemaStateData(BaseModel):
     prompt_user_dialog: Optional[str] = Field(None, example="Prompt User Dialog")
     type_item: Optional[str] = Field(None, example="type_item")
     image: Optional[str] = Field(None, example="image.jpg")
+    interaction: Optional[list] = Field(None, example={"key": "value"})
     locations_id: Optional[str] = Field(None, example="123")
 
 

@@ -93,7 +93,7 @@ async def get_characters_by_location_service(skip: int = 1, limit: int = 100, lo
     try:
         # characters_locations_db = await db["character_location"].find({"location_id": location_id}).skip(
         #     (skip - 1) * limit).limit(limit).to_list(None)
-        characters_locations_db = await db["state_glic"].find({"data.locations_id": {"$in": [location_id]}}).skip(
+        characters_locations_db = await db["state_glic"].find({"type_element":"character","data.locations_id": {"$in": [location_id]}}).skip(
             (skip - 1) * limit).limit(limit).to_list(None)
         if not characters_locations_db:
             return []
@@ -443,6 +443,7 @@ async def new_interaction_character_service(
         conversation_type: str,
         prompt_user_dialog: str,
         user_id: str,
+        options_dialog: list[dict] = None,
 ):
     character_db = await db["character"].find_one(
         {"_id": ObjectId(character_id)}
@@ -472,7 +473,8 @@ async def new_interaction_character_service(
             _user_id=user_id,
             _state_game_id=state_game['_id'],
             _type_conversation=conversation_type,
-            _prompt_user_dialog=prompt_user_dialog
+            _prompt_user_dialog=prompt_user_dialog,
+            _options_dialog=options_dialog,
         )
         await update_task_service(
             _id=str(task_db["_id"]),

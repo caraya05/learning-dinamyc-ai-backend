@@ -259,6 +259,7 @@ async def generate_interaction_character(
                                                                game_id=new_interaction.game_id,
                                                                conversation_type=new_interaction.conversation_type,
                                                                prompt_user_dialog=new_interaction.prompt_user_dialog,
+                                                               options_dialog=new_interaction.options_dialog,
                                                                user_id=str(user_db.get("_id")),
                                                                character_id=character_id)
         return character_db

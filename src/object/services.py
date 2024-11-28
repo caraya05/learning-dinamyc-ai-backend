@@ -34,16 +34,22 @@ async def get_objects_service(game: str = None,
     """
     try:
         if location:
-            objects_db = (
-                await db["item"]
-                .find({"locations_id": {"$in": [location]}})
-                .skip((skip - 1) * limit)
-                .limit(limit)
-                .to_list(None)
-            )
+            item_locations_db = await db["state_glic"].find(
+                {"type_element": "item", "data.locations_id": {"$in": [location]}}).skip(
+                (skip - 1) * limit).limit(limit).to_list(None)
+            if not item_locations_db:
+                return [], 0
+            objects_db= []
+            for item_location_db in item_locations_db:
+                objects_db_ = (
+                    await db["item"].find_one({"_id": ObjectId(item_location_db["element_id"])}))
+                if objects_db_:
+                    objects_db_["_id"] = str(objects_db["_id"])
+                    objects_db_["state_game"] = [item_location_db]
+                    objects_db.append(objects_db)
             count_objects = (
-                await db["item"]
-                .count_documents({"locations_id": {"$in": [location]}})
+                await db["state_glic"].count_documents(
+                    {"type_element": "item", "data.locations_id": {"$in": [location]}})
             )
         elif game:
             objects_db = (
@@ -72,17 +78,23 @@ async def get_objects_service(game: str = None,
         if objects_db:
             for object_db in objects_db:
                 object_db["_id"] = str(object_db["_id"])
-                item_characteristics = await db["object_location"].find(
-                    {"item_id": object_db["_id"]}).to_list(None)
-                if item_characteristics:
-                    for item_characteristic in item_characteristics:
-                        del item_characteristic["_id"]
-                        del item_characteristic["item_id"]
-                        del item_characteristic["updated_at"]
-                        del item_characteristic["updated_by"]
-                        del item_characteristic["created_at"]
-                        del item_characteristic["created_by"]
-                    object_db["characteristics"] = item_characteristics
+                element_state_db = await db["state_glic"].find_one(
+                    {"element_id": object_db["_id"]}
+                )
+                if element_state_db:
+                    element_state_db["_id"] = str(element_state_db["_id"])
+                    object_db["state_game"] = [element_state_db]
+                # item_characteristics = await db["object_location"].find(
+                #     {"item_id": object_db["_id"]}).to_list(None)
+                # if item_characteristics:
+                #     for item_characteristic in item_characteristics:
+                #         del item_characteristic["_id"]
+                #         del item_characteristic["item_id"]
+                #         del item_characteristic["updated_at"]
+                #         del item_characteristic["updated_by"]
+                #         del item_characteristic["created_at"]
+                #         del item_characteristic["created_by"]
+                #     object_db["characteristics"] = item_characteristics
         return objects_db, count_objects
     except Exception as e:
         print(f"Error in get objects service: {str(e)}")
@@ -102,17 +114,22 @@ async def retrieve_object_service(object_id: str):
                 {"item_id": object_id}
             )
             if object_db:
-                item_characteristics = await db["object_location"].find(
-                    {"item_id": object_id}).to_list(None)
-                if item_characteristics:
-                    for i in range(len(item_characteristics)):
-                        del item_characteristics[i]["_id"]
-                        del item_characteristics[i]["item_id"]
-                        del item_characteristics[i]["updated_at"]
-                        del item_characteristics[i]["updated_by"]
-                        del item_characteristics[i]["created_at"]
-                        del item_characteristics[i]["created_by"]
-                    object_db["characteristics"] = item_characteristics
+                element_state_db = await db["state_glic"].find_one(
+                    {"element_id": object_id}
+                )
+                element_state_db["_id"] = str(element_state_db["_id"])
+                object_db["state_game"] = [element_state_db]
+                # item_characteristics = await db["object_location"].find(
+                #     {"item_id": object_id}).to_list(None)
+                # if item_characteristics:
+                #     for i in range(len(item_characteristics)):
+                #         del item_characteristics[i]["_id"]
+                #         del item_characteristics[i]["item_id"]
+                #         del item_characteristics[i]["updated_at"]
+                #         del item_characteristics[i]["updated_by"]
+                #         del item_characteristics[i]["created_at"]
+                #         del item_characteristics[i]["created_by"]
+                #     object_db["characteristics"] = item_characteristics
             return object_db
     except Exception as e:
         print(f"Error in retrieve object service: {str(e)}")

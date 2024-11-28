@@ -18,7 +18,8 @@ async def async_generate_voice_task(_game_id,
                                     _state_game_id: str,
                                     _location_id: str,
                                     _type_conversation: str,
-                                    _prompt_user_dialog: str):
+                                    _prompt_user_dialog: str,
+                                    _options_dialog: list = None):
 
     await update_task_service(_id=_task_id, _status="pending")
 
@@ -36,7 +37,8 @@ async def async_generate_voice_task(_game_id,
                                                      state_game=_state_game_id,
                                                      location_id=_location_id,
                                                      type_conversation=_type_conversation,
-                                                     prompt_user_dialog=_prompt_user_dialog)
+                                                     prompt_user_dialog=_prompt_user_dialog,
+                                                     options_dialog=_options_dialog)
     if not voice_generated:
         await update_task_service(
             _id=_task_id, _status="failed", _message="Error voice not generated"

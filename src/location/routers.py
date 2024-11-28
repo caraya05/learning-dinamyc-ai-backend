@@ -106,6 +106,7 @@ async def get_location(
             )
     else:
         try:
+
             location_db = await get_location_service(
                 location_id=location_id, user_id=str(user_db['_id'])
             )

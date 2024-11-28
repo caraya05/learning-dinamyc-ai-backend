@@ -188,7 +188,8 @@ def generate_voice_character_task(_game_id,
                                   _location_id: str = None,
                                   _state_game_id: str = None,
                                   _type_conversation: str = None,
-                                  _prompt_user_dialog: str = None):
+                                  _prompt_user_dialog: str = None,
+                                  _options_dialog: list = None):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
@@ -197,7 +198,7 @@ def generate_voice_character_task(_game_id,
 
     return loop.run_until_complete(
         async_generate_voice_task(_game_id, _character_id, _user_id, _task_id, _state_game_id, _location_id,
-                                  _type_conversation, _prompt_user_dialog))
+                                  _type_conversation, _prompt_user_dialog, _options_dialog))
 
 
 @celery.task(name="generate_item_task")
