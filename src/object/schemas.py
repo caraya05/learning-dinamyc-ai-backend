@@ -19,6 +19,23 @@ class ResponseModelStr(BaseModel):
     id: str = Field(alias="_id")
 
 
+class SchemaStateData(BaseModel):
+    name: str = Field(None, example="Object Name")
+    prompt_user: str = Field(None, example="Prompt User")
+    prompt_user_dialog: Optional[str] = Field(None, example="Prompt User Dialog")
+    type_item: Optional[str] = Field(None, example="type_item")
+    image: Optional[str] = Field(None, example="image.jpg")
+    interaction: Optional[list] = Field(None, example={"key": "value"})
+    locations_id: Optional[str] = Field(None, example="123")
+
+
+
+class SchemaStateLocation(BaseModel):
+    order: Optional[int] = Field(None, example=1)
+    state: Optional[str] = Field(None, example="state")
+    data: Optional[SchemaStateData] = Field(None, example={})
+
+
 class SchemaObject(BaseModel):
     """
     Schema for a objective.
@@ -48,6 +65,8 @@ class SchemaCreateObject(BaseModel):
     prompt_user: str
     type_item: Optional[str] = None
     prompt_user_dialog: Optional[str] = None
+    game_id: Optional[str] = None
+    location_id: Optional[str] = None
 
 class SchemaPartialUpdateObject(SchemaCreateObject):
     """
@@ -74,20 +93,16 @@ class SchemaRetrieveObject(ResponseModel):
     title (str): The title of the objective.
     description (str): The description of the objective.
     """
-    name: str
-    prompt_user: str
-    image: Optional[str] = None
-    type_item: Optional[str] = None
-    prompt_user_dialog: Optional[str] = None
-    conversation : Optional[list] = None
-    characteristics: Optional[list] = None
+    game_id: Optional[str] = None
     task_id: Optional[str] = None
+    status: Optional[int] = 1
+    state_game: Optional[list[SchemaStateLocation]] = []
 
     class Config:
         orm_mode = True
 
 
-class SchemaRetrieveObjectStr(SchemaCreateObject, ResponseModelStr):
+class SchemaRetrieveObjectStr( ResponseModelStr):
     """
     Schema for retrieving a objective.
 
@@ -96,6 +111,10 @@ class SchemaRetrieveObjectStr(SchemaCreateObject, ResponseModelStr):
     title (str): The title of the objective.
     description (str): The description of the objective.
     """
+    game_id: Optional[str] = None
+    task_id: Optional[str] = None
+    status: Optional[int] = 1
+    state_game: Optional[list[SchemaStateLocation]] = []
 
     class Config:
         orm_mode = True
@@ -149,6 +168,7 @@ class ObjectLocationModel(BaseModel):
 class SchemaUpdatedObjectLocation(BaseModel):
     item_id: str = Field(...)
     location_id: str = Field(...)
+    game_id: str = Field(...)
     characteristics: dict = Field(...)
 
 
@@ -159,3 +179,9 @@ class SchemaAddItemLocation(BaseModel):
 class SchemaAddItemGame(BaseModel):
     game_id: str = Field(..., example="game_id")
     item_id: str = Field(..., example="character_id")
+
+
+class SchemaNewInteractionItem(BaseModel):
+    location_id: str = Field(..., example="location_id")
+    game_id: str = Field(..., example="game_id")
+    prompt_user_dialog: str = Field(..., example="prompt_user_dialog")
