@@ -8,7 +8,7 @@ from core.database import db
 from character.services import get_characters_by_location_service
 from location.models import Location
 from location.models import LocationGLIC
-from location.schemas import SchemaCreateLocation
+from location.schemas import SchemaCreateLocation, SchemaStateLocation
 from location.schemas import SchemaPartialUpdateLocation
 from state_game.services import get_state_game_by_game_id
 from state_glic.services import create_state_glic
