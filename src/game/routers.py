@@ -355,88 +355,88 @@ async def create_game(
         )
 
 
-@router.post("/add-item", status_code=status.HTTP_200_OK)
-async def add_item_game(
-        data: SchemaAddItem,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-):
-    """
-    This endpoint adds an item to a game.
-
-    It returns the game's information.
-    """
-
-    try:
-        return await add_items_game_service(data.game_id, data.item_id)
-
-    except Exception as e:
-        print(f"Error adding item game: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Item not added",
-        )
+#
 
 
-@router.post("/add-character", status_code=status.HTTP_200_OK)
-async def add_character_game(
-        data: SchemaAddCharacter,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-):
-    """
-    This endpoint adds a character to a game.
+# @router.post("/add-character", status_code=status.HTTP_200_OK)
+# async def add_character_game(
+#         data: SchemaAddCharacter,
+#         user_db: dict = Depends(auth),
+#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),@router.post("/add-item", status_code=status.HTTP_200_OK)
+# # async def add_item_game(
+# #         data: SchemaAddItem,
+# #         user_db: dict = Depends(auth),
+# #         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+# # ):
+# #     """
+# #     This endpoint adds an item to a game.
+# #
+# #     It returns the game's information.
+# #     """
+# #
+# #     try:
+# #         return await add_items_game_service(data.game_id, data.item_id)
+# #
+# #     except Exception as e:
+# #         print(f"Error adding item game: {str(e)}")
+# #         raise HTTPException(
+# #             status_code=status.HTTP_400_BAD_REQUEST,
+# #             detail="Item not added",
+# #         )
+# ):
+#     """
+#     This endpoint adds a character to a game.
+#
+#     It returns the game's information.
+#     """
+#
+#     try:
+#         location_db = await db['character_location'].find_one({'character_id': data.character_id})
+#         if not location_db:
+#             raise HTTPException(
+#                 status_code=status.HTTP_400_BAD_REQUEST,
+#                 detail="Location not found",
+#             )
+#         if character_game := await add_characters_game_service(
+#                 game_id=data.game_id,
+#                 characters_id=data.character_id,
+#                 location_id=location_db['location_id'],
+#                 user_id=str(user_db.get("_id")),
+#         ):
+#             return "Character added"
+#
+#
+    # except HTTPException as e:
+    #     print(f"Error adding character game: {e.detail}")
+    #     raise HTTPException(
+    #         status_code=e.status_code,
+    #         detail=e.detail,
+    #     )
 
-    It returns the game's information.
-    """
 
-    try:
-        location_db = await db['character_location'].find_one({'character_id': data.character_id})
-        if not location_db:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Location not found",
-            )
-        if character_game := await add_characters_game_service(
-                game_id=data.game_id,
-                characters_id=data.character_id,
-                location_id=location_db['location_id'],
-                user_id=str(user_db.get("_id")),
-        ):
-            return "Character added"
-
-
-    except HTTPException as e:
-        print(f"Error adding character game: {e.detail}")
-        raise HTTPException(
-            status_code=e.status_code,
-            detail=e.detail,
-        )
-
-
-@router.post("/add-location", status_code=status.HTTP_200_OK)
-async def add_location_game(
-        data: SchemaAddLocation,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-):
-    """
-    This endpoint adds a location to a game.
-
-    It returns the game's information.
-    """
-
-    try:
-        if location_game := await add_locations_game_service(data.game_id, data.location_id):
-            # generate_context_new_location.delay(data.game_id, data.location_id)
-            return "Location added"
-
-    except Exception as e:
-        print(f"Error adding location game: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Location not added",
-        )
+# @router.post("/add-location", status_code=status.HTTP_200_OK)
+# async def add_location_game(
+#         data: SchemaAddLocation,
+#         user_db: dict = Depends(auth),
+#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+# ):
+#     """
+#     This endpoint adds a location to a game.
+#
+#     It returns the game's information.
+#     """
+#
+#     try:
+#         if location_game := await add_locations_game_service(data.game_id, data.location_id):
+#             # generate_context_new_location.delay(data.game_id, data.location_id)
+#             return "Location added"
+#
+#     except Exception as e:
+#         print(f"Error adding location game: {str(e)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Location not added",
+#         )
 
 
 @router.get("/publish/{game_id}", status_code=status.HTTP_200_OK)

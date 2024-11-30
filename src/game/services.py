@@ -16,10 +16,13 @@ from game.utils import get_history
 from game.utils import get_category_game_ai
 from game.utils import get_synopsis
 from object.services import get_item_by_location_service
+from state_glic.services import create_state_glic
 from task.services import create_task_service, update_task_service
 
 from celery_worker import generate_image_cover_game_task, generate_voice_character_task
 # from celery_worker import generate_context_new_character_task
+
+from state_game.services import create_state_game, get_state_game_by_game_id
 
 from utils import upload_image
 
@@ -254,6 +257,11 @@ async def create_game_v2_service(user_id: str):
             version=2,
         )
         if game_created := await db['game'].insert_one(game_db.dict()):
+            # Crear el estado inicial del juego
+            # TODO: Comentar cuando se tenga el servicio de tareas
+            await create_state_game(
+                game_id=str(game_created.inserted_id), order=1, created_by=user_id
+            )
             return await db['game'].find_one({'_id': game_created.inserted_id})
     except Exception as e:
         print(f"Error creating game service: {str(e)}")
@@ -264,12 +272,11 @@ async def create_game_v2_service(user_id: str):
 
 
 async def add_characters_game_service(
-    game_id: str, characters_id: str, location_id: str, user_id: str
+    game_id: str, characters_id: str, location_id: str, user_id: str, type_conversation: str, prompt_user_dialog: str
 ):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db:
-            await db['character'].update_one({'_id': ObjectId(characters_id)}, {'$set': {'game_id': game_id}})
             if game_db.get('characters_id'):
                 game_db["characters_id"].append(characters_id)
             else:
@@ -277,7 +284,14 @@ async def add_characters_game_service(
             game_updated = await db['game'].update_one(
                 {'_id': ObjectId(game_id)}, {'$set': game_db}
             )
-            # TODO: descomentar cuando se tenga el servicio de tareas
+
+            await db['character'].update_one(
+                {'_id': ObjectId(characters_id)},
+                {'$set': {'game_id': game_id}}
+            )
+
+            state_game = await get_state_game_by_game_id(game_id)
+
             if game_updated:
                 task_db = await create_task_service(
                     _task_id="",
@@ -291,8 +305,11 @@ async def add_characters_game_service(
                     _task_id=str(task_db['_id']),
                     _game_id=game_id,
                     _character_id=characters_id,
-                    # _location_id=location_id,
+                    _location_id=location_id,
                     _user_id=user_id,
+                    _state_game_id=state_game['_id'],
+                    _type_conversation=type_conversation,
+                    _prompt_user_dialog=prompt_user_dialog
                 )
                 await update_task_service(
                     _id=str(task_db["_id"]),
@@ -311,7 +328,6 @@ async def add_locations_game_service(game_id: str, locations_id: str):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db:
-            await db['location'].update_one({'_id': ObjectId(locations_id)}, {'$set': {'game_id': game_id}})
             if game_db.get('locations_id'):
                 game_db["locations_id"].append(locations_id)
             else:
