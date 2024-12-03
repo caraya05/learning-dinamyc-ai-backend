@@ -9,6 +9,7 @@ from pydantic import Field
 from core.database import db
 
 from gpt_ai.utils import openai_generator
+from state_game.services import get_state_game_by_game_id
 
 from task.services import update_task_service
 
@@ -27,20 +28,27 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
             return True
         first_location = None
         first_character = None
+
+        state_game_db = await get_state_game_by_game_id(_game_id)
+
         if game_db.get('locations_id'):
-            first_location = await db['location'].find_one(
-                {'_id': ObjectId(game_db['locations_id'][0])}
-            )
+            # first_location = await db['location'].find_one(
+            #     {'_id': ObjectId(game_db['locations_id'][0])}
+            # )
+
+            first_location_state = await db['state_glic'].find_one({'element_id': game_db['locations_id'][0], 'state': state_game_db['_id'], 'type_element': 'location'})
         if game_db.get('characters_id'):
-            first_character = await db['character'].find_one(
-                {'_id': ObjectId(game_db['characters_id'][0])}
-            )
+            # first_character = await db['character'].find_one(
+            #     {'_id': ObjectId(game_db['characters_id'][0])}
+            # )
+
+            first_character_state = await db['state_glic'].find_one({'element_id': game_db['characters_id'][0], 'state': state_game_db['_id'], 'type_element': 'character'})
         if not first_location or not first_character:
             return False
         prompt = (
             f"Generate a image in 3D animation style of extraordinary quality for the game "
-            f"{game_db['title']} featuring the character {first_character['prompt_user']}"
-            f" in the location {first_location['prompt_user']}. The scene should depict an "
+            f"{game_db['title']} featuring the character {first_character_state['data']['prompt_user']}"
+            f" in the location {first_location_state['data']['prompt_user']}. The scene should depict an "
             f"action-packed moment that captures the essence of the game. with content in vertical."
         )
         # for attempt in range(3):

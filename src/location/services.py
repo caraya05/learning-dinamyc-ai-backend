@@ -332,18 +332,24 @@ async def get_all_location_service(user_id: str, skip: int = 1, limit: int = 10)
         if not locations:
             return locations, 0
         for i in range(len(locations)):
+            print(locations[i])
             locations[i]["_id"] = str(locations[i]["_id"])
             element_state_db = await db['state_glic'].find_one(
-                {"element_id": locations[i]["_id"]}
+                {"element_id": locations[i]["_id"], "type_element": "location"}
             )
             if element_state_db:
                 element_state_db["_id"] = str(element_state_db["_id"])
                 if element_state_db["data"].get("sound", None):
-                    sound_db = await db['sound'].find_one(
-                        {"_id": ObjectId(element_state_db["data"]["sound"])}
-                    )
-                    if sound_db:
-                        element_state_db["data"]["sound"] = sound_db["file"]
+                    try:
+                        sound_db = await db['sound'].find_one(
+                            {"_id": ObjectId(element_state_db["data"]["sound"])}
+                        )
+                        if sound_db:
+                            element_state_db["data"]["sound"] = sound_db["file"]
+                    except Exception as e:
+                        print(f"Error in get sound service: {e}")
+                        element_state_db["data"]["sound"] = None
+                        pass
                 locations[i]["state_game"] = [element_state_db]
 
         count_characters = await db["location"].count_documents({"created_by": user_id})

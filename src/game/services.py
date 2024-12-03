@@ -91,7 +91,7 @@ async def get_game_service(game_id: str):
 
 
 async def get_games_service(
-    *, skip: int = 1, limit: int = 100, user_id: str = None, games_id: list = None
+        *, skip: int = 1, limit: int = 100, user_id: str = None, games_id: list = None
 ):
     if user_id:
         games_query = {'created_by': user_id, 'version': 2}
@@ -115,7 +115,7 @@ async def get_games_service(
 
 
 async def update_partial_game_service(
-    game_id: str, game_update: SchemaPartialUpdateGame, user_id: str
+        game_id: str, game_update: SchemaPartialUpdateGame, user_id: str
 ):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
@@ -271,51 +271,50 @@ async def create_game_v2_service(user_id: str):
         )
 
 
-async def add_characters_game_service(
-    game_id: str, characters_id: str, location_id: str, user_id: str, type_conversation: str, prompt_user_dialog: str
-):
+async def add_characters_game_service(game_id: str, character_id: str):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db:
             if game_db.get('characters_id'):
-                game_db["characters_id"].append(characters_id)
+                game_db["characters_id"].append(character_id)
             else:
-                game_db["characters_id"] = [characters_id]
+                game_db["characters_id"] = [character_id]
             game_updated = await db['game'].update_one(
                 {'_id': ObjectId(game_id)}, {'$set': game_db}
             )
 
-            await db['character'].update_one(
-                {'_id': ObjectId(characters_id)},
-                {'$set': {'game_id': game_id}}
-            )
+            # await db['character'].update_one(
+            #     {'_id': ObjectId(character_id)},
+            #     {'$set': {'game_id': game_id}}
+            # )
 
-            state_game = await get_state_game_by_game_id(game_id)
-
-            if game_updated:
-                task_db = await create_task_service(
-                    _task_id="",
-                    _user_id=user_id,
-                    _task_data={},
-                    _element_id=characters_id,
-                    _element_type="character",
-                    _process="generate_voice_character_game",
-                )
-                task_celery = generate_voice_character_task.delay(
-                    _task_id=str(task_db['_id']),
-                    _game_id=game_id,
-                    _character_id=characters_id,
-                    _location_id=location_id,
-                    _user_id=user_id,
-                    _state_game_id=state_game['_id'],
-                    _type_conversation=type_conversation,
-                    _prompt_user_dialog=prompt_user_dialog
-                )
-                await update_task_service(
-                    _id=str(task_db["_id"]),
-                    _task_id=task_celery.id,
-                )
-            return await db['game'].find_one({'_id': ObjectId(game_id)})
+            # state_game = await get_state_game_by_game_id(game_id)
+            #
+            # if game_updated:
+            #     task_db = await create_task_service(
+            #         _task_id="",
+            #         _user_id=user_id,
+            #         _task_data={},
+            #         _element_id=characters_id,
+            #         _element_type="character",
+            #         _process="generate_voice_character_game",
+            #     )
+            #     task_celery = generate_voice_character_task.delay(
+            #         _task_id=str(task_db['_id']),
+            #         _game_id=game_id,
+            #         _character_id=characters_id,
+            #         _location_id=location_id,
+            #         _user_id=user_id,
+            #         _state_game_id=state_game['_id'],
+            #         _type_conversation=type_conversation,
+            #         _prompt_user_dialog=prompt_user_dialog
+            #     )
+            #     await update_task_service(
+            #         _id=str(task_db["_id"]),
+            #         _task_id=task_celery.id,
+            #     )
+            # return await db['game'].find_one({'_id': ObjectId(game_id)})
+            return True
     except Exception as e:
         print(f"Error adding characters game service: {str(e)}")
         raise HTTPException(
@@ -335,8 +334,10 @@ async def add_locations_game_service(game_id: str, locations_id: str):
             game_updated = await db['game'].update_one(
                 {'_id': ObjectId(game_id)}, {'$set': game_db}
             )
-            if game_updated.modified_count:
-                return await db['game'].find_one({'_id': ObjectId(game_id)})
+
+            return True
+            # if game_updated.modified_count:
+            #     return await db['game'].find_one({'_id': ObjectId(game_id)})
     except Exception as e:
         print(f"Error adding locations game service: {str(e)}")
         raise HTTPException(
@@ -360,16 +361,16 @@ async def add_items_game_service(game_id: str, items_id: str):
             )
 
             # Check and update games_id array
-            item_db = await db['item'].find_one({'_id': ObjectId(items_id)})
-            if item_db.get('games_id'):
-                item_db['games_id'].append(game_id)
-            else:
-                item_db['games_id'] = [game_id]
+            # item_db = await db['item'].find_one({'_id': ObjectId(items_id)})
+            # if item_db.get('games_id'):
+            #     item_db['games_id'].append(game_id)
+            # else:
+            #     item_db['games_id'] = [game_id]
 
-            await db['item'].update_one(
-                {'_id': ObjectId(items_id)}, {'$set': {'games_id': item_db['games_id']}}
-            )
-            return "Item added to game"
+            # await db['item'].update_one(
+            #     {'_id': ObjectId(items_id)}, {'$set': {'games_id': item_db['games_id']}}
+            # )
+            return True
     except Exception as e:
         print(f"Error adding items game service: {str(e)}")
         raise HTTPException(
@@ -379,7 +380,7 @@ async def add_items_game_service(game_id: str, items_id: str):
 
 
 async def change_character_principal_game_service(
-    game_id: str, character_principal: str, user_id: str
+        game_id: str, character_principal: str, user_id: str
 ):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
@@ -465,11 +466,11 @@ async def get_game_v2_service(game_id: str):
                 for location in game_db['locations']:
                     location["_id"] = str(location["_id"])
                     if location_characters := await get_characters_by_location_service(
-                        location_id=str(location['_id'])
+                            location_id=str(location['_id'])
                     ):
                         location['characters'] = location_characters
                     if location_items := await get_item_by_location_service(
-                        location_id=str(location['_id'])
+                            location_id=str(location['_id'])
                     ):
                         location['items'] = location_items
             else:
@@ -545,7 +546,7 @@ async def get_characters_game_publish_service(game_id: str):
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db and game_db.get('published'):
             if games_published_db := await db['published_game'].find_one(
-                {'_id': ObjectId(game_db['published'])}
+                    {'_id': ObjectId(game_db['published'])}
             ):
                 return games_published_db['game']['characters']
     except Exception as e:
@@ -561,7 +562,7 @@ async def get_character_game_publish_service(game_id: str, character_id: str):
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db and game_db.get('published'):
             if games_published_db := await db['published_game'].find_one(
-                {'_id': ObjectId(game_db['published'])}
+                    {'_id': ObjectId(game_db['published'])}
             ):
                 for character in games_published_db['game']['characters']:
                     if character['_id'] == character_id:
@@ -579,7 +580,7 @@ async def get_locations_game_publish_service(game_id: str):
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db and game_db.get('published'):
             if games_published_db := await db['published_game'].find_one(
-                {'_id': ObjectId(game_db['published'])}
+                    {'_id': ObjectId(game_db['published'])}
             ):
                 return games_published_db['game']['locations']
     except Exception as e:
@@ -595,7 +596,7 @@ async def get_location_game_publish_service(game_id: str, location_id: str):
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db and game_db.get('published'):
             if games_published_db := await db['published_game'].find_one(
-                {'_id': ObjectId(game_db['published'])}
+                    {'_id': ObjectId(game_db['published'])}
             ):
                 for location in games_published_db['game']['locations']:
                     if location['_id'] == location_id:
@@ -726,9 +727,9 @@ async def get_games_of_reviewer(user_id: str):
     try:
         print(f"Getting games of reviewer: {user_id}")
         if (
-            games_pending_db := await db['published_game']
-            .find({'reviewer': user_id, 'status': 1})
-            .to_list(None)
+                games_pending_db := await db['published_game']
+                        .find({'reviewer': user_id, 'status': 1})
+                        .to_list(None)
         ):
             print(f"Games pending: {games_pending_db}")
             return [ObjectId(game['game_id']) for game in games_pending_db]

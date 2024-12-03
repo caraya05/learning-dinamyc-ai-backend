@@ -26,6 +26,7 @@ class SchemaStateData(BaseModel):
     image: Optional[str] = Field(None, example="image.jpg")
     configuration: Optional[dict] = Field(None, example="")
     connections: Optional[dict] = Field(None, example="")
+    environment: Optional[dict] = Field(None, example="{}")
     sound: Optional[str] = Field(None, example="123")
 
 
