@@ -3,6 +3,7 @@ from datetime import datetime
 from bson import ObjectId
 from fastapi import HTTPException
 from fastapi import status
+from openai import BaseModel
 
 from celery_worker import generate_character_task, update_character_task, generate_voice_character_task
 from celery_worker import generate_image_character_task
@@ -13,6 +14,7 @@ from character.schemas import SchemaCreateCharacter
 from character.schemas import CharacterLocationModel
 
 from core.database import db
+from gpt_ai.utils import openai_generator
 from state_game.services import get_state_game_by_game_id
 from state_glic.services import create_state_glic, get_list_state_glic_by_element_id
 
@@ -43,7 +45,7 @@ async def get_characters_service(skip: int = 1, limit: int = 100, game_id: str =
         #         detail="Characters not found",
         #     )
         characters_db = await db["character"].find(
-            {"game_id":game_id}).skip((skip - 1) * limit).limit(
+            {"game_id": game_id}).skip((skip - 1) * limit).limit(
             limit).to_list(None)
         for i in characters_db:
             i["_id"] = str(i["_id"])
@@ -93,7 +95,8 @@ async def get_characters_by_location_service(skip: int = 1, limit: int = 100, lo
     try:
         # characters_locations_db = await db["character_location"].find({"location_id": location_id}).skip(
         #     (skip - 1) * limit).limit(limit).to_list(None)
-        characters_locations_db = await db["state_glic"].find({"type_element":"character","data.locations_id": {"$in": [location_id]}}).skip(
+        characters_locations_db = await db["state_glic"].find(
+            {"type_element": "character", "data.locations_id": {"$in": [location_id]}}).skip(
             (skip - 1) * limit).limit(limit).to_list(None)
         if not characters_locations_db:
             return []
@@ -126,6 +129,16 @@ async def create_character_service(character: SchemaCreateCharacter,
         character_db.created_by = user_id
         character_db.updated_by = user_id
         character_created = await db["character"].insert_one(character_db.dict())
+
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if game_db:
+            if game_db.get('characters_id'):
+                game_db["characters_id"].append(str(character_created.inserted_id))
+            else:
+                game_db["characters_id"] = [str(character_created.inserted_id)]
+            await db['game'].update_one(
+                {'_id': ObjectId(game_id)}, {'$set': game_db}
+            )
 
         character_db_state = CharacterGLIC(**character.dict())
 
@@ -201,6 +214,7 @@ async def update_character_service(
         character_id: str,
         user_id: str,
         name: str = None,
+        options_dialog: dict= None,
         prompt_user: str = None,
         dialog: str = None,
         type_dialog: str = None,
@@ -236,6 +250,7 @@ async def update_character_service(
         character_state_db["data"]["prompt_user"] = prompt_user
         character_state_db["data"]["prompt_user_dialog"] = dialog
         character_state_db["data"]["conversation_type"] = type_dialog
+        character_state_db["data"]["options_dialog"] = options_dialog
 
         await db["state_glic"].update_one(
             {"_id": character_state_db["_id"]},
@@ -495,3 +510,83 @@ async def new_interaction_character_service(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Interaction not created",
         )
+
+
+class SchemaResponseOpenAnswer(BaseModel):
+    response_answer: str
+    audio: str
+
+
+async def answer_open_question_service(location_id: str,
+                                       character_id: str,
+                                       prompt_user_answer: str,
+                                       user_id: str):
+    character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+    if not character_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found",
+        )
+
+    state_element_db = await db["state_glic"].find_one(
+        {"element_id": character_id, "type_element": "character"}
+    )
+
+    if not state_element_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="State element not found",
+        )
+
+    criteria = {}
+    for location in state_element_db['data']['interaction']:
+        if location["location_id"] == location_id:
+            criteria["question"] = location["options_dialog"]["prompt_user_question"][-1]["dialog"]
+
+            options_answer = []
+            for criteria_db in location["options_dialog"]["options"]:
+                options_answer.append({
+                    "criteria_evaluated": criteria_db["prompt_user_guideline"],
+                    "response_criteria": criteria_db["prompt_user_answer"]["dialog"],
+                })
+
+            criteria["options_answer"] = options_answer
+
+    response = await openai_generator.generate_gpt(
+        content_prompt=[
+            {
+                "role": "system",
+                "content": f"Eres un evaluador de respuestas de preguntas abiertas, "
+                           f"por favor evalúa la respuesta que da el usuario, respecto a un pregunta teniendo encuenta"
+                           f" la un criteria a evaluar y dando la respuesta de las opciones que tienes en criterios y respuestas",
+            },
+            {
+                "role": "system",
+                "content": f"pregunta: {str(criteria['question'])}"
+                           f"criterios a evaluar y respuestas: {criteria['options_answer']}",
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"respuesta del usuario: {prompt_user_answer}",
+                    },
+                ],
+            },
+        ],
+        model="gpt-4o-mini-2024-07-18",
+        max_tokens=4096,
+        response_format=SchemaResponseOpenAnswer,
+        user_id=user_id,
+        type_generation="validate_open_answer",
+    )
+
+    print(response)
+
+    return {
+        "detail": {
+            "response_answer": response.response_answer,
+            "audio": response.audio,
+        }
+    }

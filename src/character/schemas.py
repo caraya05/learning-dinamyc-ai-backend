@@ -21,6 +21,26 @@ class ResponseModelStr(BaseModel):
     id: str = Field(alias="_id")
 
 
+class SchemaOption(BaseModel):
+    prompt_user_option: str = Field(..., example="prompt_user_option")
+    prompt_user_answer: str = Field(..., example="prompt_user_answer")
+
+
+class SchemaOptionMultiple(BaseModel):
+    prompt_user_question: str = Field(..., example="prompt_user_question")
+    options: list[SchemaOption] = Field(..., example=[{"key": "value"}])
+
+
+class SchemaOpenQuestion(BaseModel):
+    prompt_user_guideline: str = Field(..., example="prompt_user_question")
+    prompt_user_answer: str = Field(..., example="prompt_user_answer")
+
+
+class SchemaOpenAnswer(BaseModel):
+    prompt_user_question: str = Field(..., example="prompt_user_question")
+    options: list[SchemaOpenQuestion] = Field(..., example=[{"key": "value"}])
+
+
 class SchemaStateData(BaseModel):
     title: str = Field(None, example="Location Title")
     description: Optional[str] = Field(None, example="This is a location description")
@@ -35,7 +55,6 @@ class SchemaStateItem(BaseModel):
     order: Optional[int] = Field(None, example=1)
     state: Optional[str] = Field(None, example="state")
     data: Optional[SchemaStateData] = Field(None, example={})
-
 
 
 class SchemaDataCharacter(BaseModel):
@@ -68,6 +87,7 @@ class SchemaCreateCharacter(BaseModel):
     prompt_user: str = Field(..., example="prompt_user")
     prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
     conversation_type: str = Field(..., example="conversation_type")
+    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(None, example={"key": "value"})
     game_id: Optional[str] = Field(None, example="location_id")
     location_id: Optional[str] = Field(None, example="location_id")
 
@@ -98,6 +118,7 @@ class SchemaUpdateCharacterCollection(BaseModel):
     prompt_user: Optional[str] = Field(None, example="prompt_user")
     prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
     conversation_type: Optional[str] = Field(None, example="conversation_type")
+    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(None, example={"key": "value"})
     location_id: Optional[str] = Field(None, example="location_id")
     game_id: Optional[str] = Field(None, example="game_id")
 
@@ -128,7 +149,7 @@ class SchemaNewInteraction(BaseModel):
     game_id: str = Field(..., example="game_id")
     conversation_type: str = Field(..., example="conversation_type")
     prompt_user_dialog: str = Field(..., example="prompt_user_dialog")
-    options_dialog: Optional[list[dict]] = Field(..., example=[{"key": "value"}])
+    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(None, example={"key": "value"})
 
 
 class CharacterLocationModel(BaseModel):

@@ -14,7 +14,8 @@ from character.schemas import SchemaCreateCharacter
 from character.schemas import SchemaRetrieveCharacter
 from character.schemas import SchemaListCharacter
 
-from character.services import get_character_service, get_characters_service, new_interaction_character_service
+from character.services import get_character_service, get_characters_service, new_interaction_character_service, \
+    answer_open_question_service
 from character.services import generate_image_character_service
 from character.services import create_character_service
 from character.services import delete_character_service
@@ -231,6 +232,7 @@ async def partial_update_character(
         character_db = await update_character_service(
             character_id=character_id,
             name=character_update.name,
+            options_dialog=character_update.options_dialog,
             prompt_user=character_update.prompt_user,
             user_id=str(user_db.get("_id")),
             type_dialog=character_update.conversation_type,
@@ -279,3 +281,25 @@ async def delete_character(
 ):
     await delete_character_service(character_id=character_id)
     return status.HTTP_204_NO_CONTENT
+
+
+@router.post("/answer/open-question/{character_id}/{location_id}/")
+async def answer_open_question(
+        character_id: str,
+        location_id: str,
+        answer: dict ={"prompt_user_answer":""},
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    try:
+        character_db = await answer_open_question_service(character_id=character_id,
+                                                          location_id=location_id,
+                                                          prompt_user_answer=answer["prompt_user_answer"],
+                                                          user_id=str(user_db.get("_id")))
+        return character_db
+    except Exception as e:
+        print(f"error in get character: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not found",
+        )

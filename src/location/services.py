@@ -74,7 +74,7 @@ async def get_location_service(*, location_id: str, user_id: str) -> dict:
             location_db["state_game"] = [element_state_db]
 
             if characters_db := await get_characters_by_location_service(
-                skip=1, limit=100, location_id=location_id
+                    skip=1, limit=100, location_id=location_id
             ):
                 location_db["characters"] = characters_db
 
@@ -129,11 +129,22 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str):
     """
     Create a location.
     """
+
     try:
         location_schema = Location(**location.dict())
         location_schema.created_by = user_id
         location_schema.updated_by = user_id
         location_created = await db['location'].insert_one(location_schema.dict())
+
+        game_db = await db['game'].find_one({'_id': ObjectId(location.game_id)})
+        if game_db:
+            if game_db.get('locations_id'):
+                game_db["locations_id"].append(str(location_created.inserted_id))
+            else:
+                game_db["locations_id"] = [str(location_created.inserted_id)]
+            await db['game'].update_one(
+                {'_id': ObjectId(location.game_id)}, {'$set': game_db}
+            )
 
         location_db_state = LocationGLIC(**location.dict())
 
@@ -148,7 +159,6 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str):
                 created_by=user_id,
                 data=location_db_state.dict(),
             )
-
 
         task_db = await create_task_service(
             _task_id="",
@@ -184,7 +194,7 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str):
 
 
 async def partial_update_location_service(
-    *, location_id: str, location: SchemaPartialUpdateLocation, user_id: str,
+        *, location_id: str, location: SchemaPartialUpdateLocation, user_id: str,
 ):
     """
     Partially update a location.
@@ -201,7 +211,6 @@ async def partial_update_location_service(
     element_state_db = await db['state_glic'].find_one(
         {"element_id": location_id, "state": state_game_db["_id"]}
     )
-
 
     if location.title and location.title != element_state_db["data"]["title"]:
         title_or_prompt_user_changed = True
@@ -253,7 +262,8 @@ async def partial_update_location_service(
             )
 
             location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
-            if title_or_prompt_user_changed  or ( not config_edited and not connect_edited and title_or_prompt_user_changed):
+            if title_or_prompt_user_changed or (
+                    not config_edited and not connect_edited and title_or_prompt_user_changed):
                 task_db = await create_task_service(
                     _task_id="",
                     _user_id=user_id,
@@ -263,7 +273,8 @@ async def partial_update_location_service(
                     _process="update_location",
                 )
                 task_celery = generate_location_task.delay(
-                    _location_id=location_id, _user_id=user_id, _task_id=str(task_db["_id"]), _sate_game_id=state_game_db["_id"]
+                    _location_id=location_id, _user_id=user_id, _task_id=str(task_db["_id"]),
+                    _sate_game_id=state_game_db["_id"]
                 )
                 await update_task_service(
                     _id=str(task_db["_id"]),
@@ -323,12 +334,12 @@ async def generate_image_location_service(location_id: str, user_id: str):
 
 async def get_all_location_service(user_id: str, skip: int = 1, limit: int = 10):
     try:
-        locations  = await (db["location"]
-                               .find({"created_by": user_id})
-                               .sort("created_at", -1)
-                               .skip((skip - 1) * limit)
-                               .limit(limit)
-                               .to_list(None))
+        locations = await (db["location"]
+                           .find({"created_by": user_id})
+                           .sort("created_at", -1)
+                           .skip((skip - 1) * limit)
+                           .limit(limit)
+                           .to_list(None))
         if not locations:
             return locations, 0
         for i in range(len(locations)):

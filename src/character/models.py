@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from character.enums import TypeCharacter
 from character.enums import GenderCharacter
 from character.enums import TypeConversation
+from character.schemas import SchemaOpenAnswer, SchemaOptionMultiple
 
 
 class Character(BaseModel):
@@ -38,4 +39,6 @@ class CharacterGLIC(BaseModel):
     conversation: Optional[list[dict]] = Field([], example=[{"key": "value"}])
     type: Optional[str] = Field(None, example=TypeCharacter.NPC)
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
+    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(None, example={"key": "value"})
+
 
