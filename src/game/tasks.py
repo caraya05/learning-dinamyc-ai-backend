@@ -31,8 +31,8 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
             print("Image already exists for the game.")
             return True
 
-        first_location = None
-        first_character = None
+        first_location_state = None
+        first_character_state = None
 
         print(f"Fetching state game for game ID: {_game_id}")
         state_game_db = await get_state_game_by_game_id(_game_id)
@@ -48,7 +48,7 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
             first_character_state = await db['state_glic'].find_one({'element_id': game_db['characters_id'][0], 'state': state_game_db['_id'], 'type_element': 'character'})
             print(f"First character state data: {first_character_state}")
 
-        if not first_location or not first_character:
+        if not first_location_state or not first_character_state:
             print("First location or first character not found.")
             return False
 
