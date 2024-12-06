@@ -23,35 +23,43 @@ class SchemaResponseImage(BaseModel):
 
 async def generate_cover_image_game(_user_id: str, _game_id: str):
     try:
+        print(f"Fetching game with ID: {_game_id}")
         game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
+        print(f"Game data: {game_db}")
+
         if game_db['image']:
+            print("Image already exists for the game.")
             return True
+
         first_location = None
         first_character = None
 
+        print(f"Fetching state game for game ID: {_game_id}")
         state_game_db = await get_state_game_by_game_id(_game_id)
+        print(f"State game data: {state_game_db}")
 
         if game_db.get('locations_id'):
-            # first_location = await db['location'].find_one(
-            #     {'_id': ObjectId(game_db['locations_id'][0])}
-            # )
-
+            print(f"Fetching state for first location with ID: {game_db['locations_id'][0]}")
             first_location_state = await db['state_glic'].find_one({'element_id': game_db['locations_id'][0], 'state': state_game_db['_id'], 'type_element': 'location'})
-        if game_db.get('characters_id'):
-            # first_character = await db['character'].find_one(
-            #     {'_id': ObjectId(game_db['characters_id'][0])}
-            # )
+            print(f"First location state data: {first_location_state}")
 
+        if game_db.get('characters_id'):
+            print(f"Fetching state for first character with ID: {game_db['characters_id'][0]}")
             first_character_state = await db['state_glic'].find_one({'element_id': game_db['characters_id'][0], 'state': state_game_db['_id'], 'type_element': 'character'})
+            print(f"First character state data: {first_character_state}")
+
         if not first_location or not first_character:
+            print("First location or first character not found.")
             return False
+
         prompt = (
             f"Generate a image in 3D animation style of extraordinary quality for the game "
             f"{game_db['title']} featuring the character {first_character_state['data']['prompt_user']}"
             f" in the location {first_location_state['data']['prompt_user']}. The scene should depict an "
             f"action-packed moment that captures the essence of the game. with content in vertical."
         )
-        # for attempt in range(3):
+        print(f"Generated prompt: {prompt}")
+
         response_image = await openai_generator.generate_image(
             prompt=prompt,
             quality="hd",
@@ -59,40 +67,16 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
             user_id=_user_id,
             type_generation="generate image cover game",
         )
-        # response_identify = await openai_generator.generate_gpt( content_prompt=[
-        #         {
-        #             "role": "system",
-        #             "content": "Eres un verificador de imagenes, que puede detectar si contenido de una imagen esta en vertical u horizontal."
-        #                        "response con true si el contenido es vertical o false si es horizontal.",
-        #         },
-        #         {
-        #             "role": "user",
-        #             "content": [
-        #                 {"type": "image_url", "image_url": {"url": response_image}},
-        #             ],
-        #         },
-        #     ],
-        #     max_tokens=4096,
-        #     model="gpt-4o-mini",
-        #     response_format=SchemaResponseImage,
-        #     user_id=_user_id,
-        #     type_generation="identify image",
-        # )
+        print(f"Generated image URL: {response_image}")
 
-        # if response_identify.response_vertical:
         image = upload_image(
             url_image=response_image, file_name=f"covers/{uuid4()}.jpg", size=(512, 896)
         )
+        print(f"Uploaded image URL: {image}")
+
         await db['game'].update_one({'_id': ObjectId(_game_id)}, {'$set': {'image': image}})
+        print("Game image updated successfully.")
         return True
-        # else:
-        #     prompt = (
-        #         f"Generate a image in 3D animation style of extraordinary quality for the game "
-        #         f"{game_db['title']} featuring the character {first_character['prompt_user']}"
-        #         f" in the location {first_location['prompt_user']}. The scene should depict an "
-        #         f"action-packed moment that captures the essence of the game, with content in vertical."
-        #     )
-        # return True
 
     except Exception as e:
         print(f"Error Cover Image: {str(e)}")
