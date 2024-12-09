@@ -111,7 +111,7 @@ async def get_characters_by_location_service(skip: int = 1, limit: int = 100, lo
             if not character_db:
                 return []
             character_location["_id"] = str(character_location["_id"])
-            character_db["state_game"] = characters_locations_db
+            character_db["state_game"] = [character_location]
             character_db["_id"] = str(character_db["_id"])
             characters_db.append(character_db)
         except Exception as e:
