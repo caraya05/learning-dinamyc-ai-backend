@@ -138,6 +138,7 @@ async def generate_voice_character(game_id, character_id: str, user_id: str, loc
                         "data": character_state_db["data"],
                     }}
                 )
+            return True
 
         if type_conversation == "option_multiple":
 
@@ -184,8 +185,7 @@ async def generate_voice_character(game_id, character_id: str, user_id: str, loc
                         "data": character_state_db["data"],
                     }}
                 )
-
-
+            return True
         if type_conversation == "open_question":
 
             character_state_db = await db["state_glic"].find_one({"_id": ObjectId(character_state_db["_id"])})
