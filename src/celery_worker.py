@@ -215,7 +215,7 @@ def generate_item_task(_item_id: str, _user_id: str, _task_id: str, _location_id
 
 
 @celery.task(name="updated_item_task")
-def updated_item_task(_item_id: str, _user_id: str, _task_id: str, _updated_prompt_user: bool, _updated_dialog: bool):
+def updated_item_task(_item_id: str, _user_id: str, _task_id: str, _updated_prompt_user: bool, _updated_dialog: bool, _state_game_id: str = None, _location_id: str = None):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
@@ -223,7 +223,7 @@ def updated_item_task(_item_id: str, _user_id: str, _task_id: str, _updated_prom
         asyncio.set_event_loop(loop)
 
     return loop.run_until_complete(
-        async_updated_item(_item_id, _user_id, _task_id, _updated_prompt_user, _updated_dialog))
+        async_updated_item(_item_id, _user_id, _task_id, _updated_prompt_user, _updated_dialog, _state_game_id, _location_id))
 
 
 @celery.task(name="generate_new_interaction_item_task")

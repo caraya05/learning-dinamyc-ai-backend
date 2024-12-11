@@ -26,6 +26,7 @@ from character import routers as character_routers
 from voice import routers as voice_routers
 from shortener import routers as shortener_routers
 from task import routers as task_routers
+from state_game import routers as state_game_routers
 from contextlib import asynccontextmanager
 from config import settings
 
@@ -84,6 +85,7 @@ app.include_router(object_routers.router, prefix="/v1/api")
 app.include_router(prompt_routers.router, prefix="/v1/api")
 app.include_router(user_routers.router, prefix="/v1/api")
 # app.include_router(weapon_routers.router2, prefix="/v2/api")
+app.include_router(state_game_routers.router, prefix="/v1/api")
 app.include_router(shortener_routers.router, prefix="/v1/api")
 app.include_router(voice_routers.router, prefix="/v1/api")
 app.include_router(user_ws_routers.router, prefix="")

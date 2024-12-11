@@ -187,7 +187,7 @@ async def async_generate_item(item_id: str, _user_id: str, _task_id: str, _locat
 
 
 async def async_updated_item(item_id: str, _user_id: str, _task_id: str, updated_prompt_user: bool,
-                             updated_dialog: bool):
+                             updated_dialog: bool, state_game_id: str, _location_id: str):
     await update_task_service(_id=_task_id, _status="pending")
 
     item_db = await db['item'].find_one({"_id": ObjectId(item_id)})
@@ -200,7 +200,7 @@ async def async_updated_item(item_id: str, _user_id: str, _task_id: str, updated
         return f"Item not found {item_id}"
     if updated_prompt_user:
 
-        image_item = await generate_image_item(item_db["prompt_user"], item_id, _user_id)
+        image_item = await generate_image_item(item_db["prompt_user"], item_id, _user_id,state_game_id)
 
         if not image_item:
             await update_task_service(
@@ -211,7 +211,7 @@ async def async_updated_item(item_id: str, _user_id: str, _task_id: str, updated
             return f"Error in generate image item"
 
     if updated_dialog:
-        conversation_item = await generate_conversation_item(item_db["prompt_user_dialog"], item_id, _user_id)
+        conversation_item = await generate_conversation_item(item_db["prompt_user_dialog"], item_id, _user_id, state_game_id, _location_id)
         if not conversation_item:
             await update_task_service(
                 _id=_task_id,

@@ -7,7 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from auth.auth import auth
 from auth.utils import auth_schema
 
-from character.schemas import SchemaUpdateCharacterCollection, SchemaNewInteraction
+from character.schemas import SchemaUpdateCharacterCollection, SchemaNewInteraction, SchemaDeactivateCharacter
 from character.schemas import SchemaAddCharacterLocation
 from character.schemas import SchemaUpdatedCharacterLocation
 from character.schemas import SchemaCreateCharacter
@@ -15,7 +15,7 @@ from character.schemas import SchemaRetrieveCharacter
 from character.schemas import SchemaListCharacter
 
 from character.services import get_character_service, get_characters_service, new_interaction_character_service, \
-    answer_open_question_service
+    answer_open_question_service, deactivate_character_service
 from character.services import generate_image_character_service
 from character.services import create_character_service
 from character.services import delete_character_service
@@ -209,6 +209,7 @@ async def add_edit_characteristic(
                 character_id=character.character_id,
                 location_id=character.location_id,
                 game_id=character.game_id,
+                state_game=character.state_game,
                 characteristics=character.characteristics,
                 user_id=str(user_db.get("_id")),
         ):
@@ -239,6 +240,7 @@ async def partial_update_character(
             dialog=character_update.prompt_user_dialog,
             game_id=character_update.game_id,
             location_id=character_update.location_id,
+            state_game=character_update.state_game,
         )
         return character_db
     except Exception as e:
@@ -263,6 +265,7 @@ async def generate_interaction_character(
                                                                prompt_user_dialog=new_interaction.prompt_user_dialog,
                                                                options_dialog=new_interaction.options_dialog,
                                                                user_id=str(user_db.get("_id")),
+                                                               state_game=new_interaction.state_game,
                                                                character_id=character_id)
         return character_db
     except Exception as e:
@@ -287,7 +290,8 @@ async def delete_character(
 async def answer_open_question(
         character_id: str,
         location_id: str,
-        answer: dict ={"prompt_user_answer":""},
+        answer: dict = {"prompt_user_answer": "",
+                        "state_game": ""},
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
@@ -295,8 +299,30 @@ async def answer_open_question(
         character_db = await answer_open_question_service(character_id=character_id,
                                                           location_id=location_id,
                                                           prompt_user_answer=answer["prompt_user_answer"],
-                                                          user_id=str(user_db.get("_id")))
+                                                          user_id=str(user_db.get("_id")),
+                                                          state_game=answer["state_game"])
+
         return character_db
+    except Exception as e:
+        print(f"error in get character: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not found",
+        )
+
+
+@router.post("/disable/{character_id}/")
+async def disable_character(
+        character_id: str,
+        character: SchemaDeactivateCharacter,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    try:
+        character_db = await deactivate_character_service(
+            character_id=character_id, state_game=character.state_game, active=character.is_active
+        )
+        return {"message": "Location disabled or enabled"}
     except Exception as e:
         print(f"error in get character: {str(e)}")
         raise HTTPException(

@@ -67,6 +67,7 @@ class SchemaCreateObject(BaseModel):
     prompt_user_dialog: Optional[str] = None
     game_id: Optional[str] = None
     location_id: Optional[str] = None
+    state_game: Optional[str] = None
 
 class SchemaPartialUpdateObject(SchemaCreateObject):
     """
@@ -150,6 +151,9 @@ class SchemaCreateItem(BaseModel):
     prompt_user: str
     type_item: Optional[str] = None
     prompt_user_dialog: Optional[str] = None
+    game_id: Optional[str] = None
+    state_game: Optional[str] = None
+    location_id: Optional[str] = None
 
 
 class ObjectLocationModel(BaseModel):
@@ -169,6 +173,7 @@ class SchemaUpdatedObjectLocation(BaseModel):
     item_id: str = Field(...)
     location_id: str = Field(...)
     game_id: str = Field(...)
+    state_game: Optional[str] = Field(None)
     characteristics: dict = Field(...)
 
 
@@ -185,3 +190,16 @@ class SchemaNewInteractionItem(BaseModel):
     location_id: str = Field(..., example="location_id")
     game_id: str = Field(..., example="game_id")
     prompt_user_dialog: str = Field(..., example="prompt_user_dialog")
+    state_game: Optional[str] = Field(None)
+
+
+class SchemaDeactivateItem(BaseModel):
+    """
+    Schema for deactivating a location.
+
+    Attributes:
+    status (int): The status of the location.
+    """
+
+    is_active:bool = Field(False, example=False)
+    state_game: str = Field(None, example="state_game")

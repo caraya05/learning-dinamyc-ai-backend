@@ -10,7 +10,7 @@ from location.models import Location
 from location.models import LocationGLIC
 from location.schemas import SchemaCreateLocation, SchemaStateLocation
 from location.schemas import SchemaPartialUpdateLocation
-from state_game.services import get_state_game_by_game_id
+from state_game.services import get_state_game_by_game_id, get_state_game_by_id
 from state_glic.services import create_state_glic
 from task.services import create_task_service, update_task_service
 
@@ -148,14 +148,17 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str):
 
         location_db_state = LocationGLIC(**location.dict())
 
-        state_game = await get_state_game_by_game_id(location.game_id)
+        if location.state_game:
+            state_game = await get_state_game_by_id(location.state_game)
+        else:
+            state_game = await get_state_game_by_game_id(location.game_id)
 
         if state_game:
             await create_state_glic(
                 element_id=str(location_created.inserted_id),
                 type_element="location",
                 state=state_game["_id"],
-                order=1,
+                order=state_game["order"],
                 created_by=user_id,
                 data=location_db_state.dict(),
             )
@@ -206,7 +209,10 @@ async def partial_update_location_service(
 
     location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
 
-    state_game_db = await get_state_game_by_game_id(location.game_id)
+    if location.state_game:
+        state_game_db = await get_state_game_by_id(location.state_game)
+    else:
+        state_game_db = await get_state_game_by_game_id(location.game_id)
 
     element_state_db = await db['state_glic'].find_one(
         {"element_id": location_id, "state": state_game_db["_id"]}
@@ -384,3 +390,26 @@ async def delete_location_service(location_id: str):
     except Exception as e:
         print(f"Error in delete location service: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Location not deleted.")
+
+
+async def deactivate_location_service(location_id: str, state_game: str, active: bool):
+    """
+    Deactivate a location.
+    """
+    try:
+        if location_db := await db['location'].find_one({"_id": ObjectId(location_id)}):
+            location_state_db = await db['state_glic'].find_one(
+                {"element_id": location_id, "type_element": "location", "state": state_game}
+            )
+
+            if not location_state_db:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="State not found.")
+
+            location_state_db["data"]["is_active"] = active
+            await db['state_glic'].update_one(
+                {"_id": location_state_db["_id"]},
+                {"$set": {"data": location_state_db["data"]}}
+            )
+    except Exception as e:
+        print(f"Error in diactive location service: {e}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Location not diactive.")

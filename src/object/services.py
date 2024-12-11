@@ -13,7 +13,7 @@ from object.models import Object, ObjectGLIC
 
 from object.schemas import SchemaCreateObject, ObjectLocationModel
 from object.schemas import SchemaCreateItem
-from state_game.services import get_state_game_by_game_id
+from state_game.services import get_state_game_by_game_id, get_state_game_by_id
 from state_glic.services import create_state_glic
 from task.services import create_task_service, update_task_service
 
@@ -39,7 +39,7 @@ async def get_objects_service(game: str = None,
                 (skip - 1) * limit).limit(limit).to_list(None)
             if not item_locations_db:
                 return [], 0
-            objects_db= []
+            objects_db = []
             for item_location_db in item_locations_db:
                 objects_db_ = (
                     await db["item"].find_one({"_id": ObjectId(item_location_db["element_id"])}))
@@ -167,17 +167,14 @@ async def create_item_service(schema: SchemaCreateObject, user_id: str):
         schema_object.created_by = user_id
         schema_object.updated_by = user_id
 
-        print(f"schema_object: {schema_object}")
-
         object_state = ObjectGLIC(**schema.dict())
 
         object_created = await db["item"].insert_one(schema_object.dict())
 
-        print(f"object_created: {object_created}")
-
-        state_game = await get_state_game_by_game_id(schema.game_id)
-
-        print(f"state_game: {state_game}")
+        if schema.state_game:
+            state_game = await get_state_game_by_id(schema.state_game)
+        else:
+            state_game = await get_state_game_by_game_id(schema.game_id)
 
         if state_game:
             await create_state_glic(
@@ -231,6 +228,12 @@ async def update_item_service(object_id: str, schema: SchemaCreateItem):
     try:
         updated_prompt_user = False
         updated_dialog = False
+
+        if schema.state_game:
+            state_game = await get_state_game_by_id(schema.state_game)
+        else:
+            state_game = await get_state_game_by_game_id(schema.game_id)
+
         item_db = await db["item"].find_one({"_id": ObjectId(object_id)})
         if schema.name:
             item_db["name"] = schema.name
@@ -260,6 +263,8 @@ async def update_item_service(object_id: str, schema: SchemaCreateItem):
                 _task_id=str(task_db["_id"]),
                 _updated_prompt_user=updated_prompt_user,
                 _updated_dialog=updated_dialog,
+                _state_game_id=state_game['_id'],
+                _location_id=schema.location_id,
             )
             await update_task_service(
                 _id=str(task_db["_id"]),
@@ -333,7 +338,7 @@ async def add_item_location_service(item_id: str, location_id: str):
 
 
 async def add_or_edit_item_characteristic_service(
-        item_id: str, location_id: str, characteristics: dict, user_id: str, game_id: str = None
+        item_id: str, location_id: str, characteristics: dict, user_id: str, game_id: str = None, state_game: str = None
 ):
     """
     Add or edit a characteristic to a object in a location.
@@ -353,7 +358,10 @@ async def add_or_edit_item_characteristic_service(
     #         },
     #     )
 
-    state_game_id = await get_state_game_by_game_id(game_id)
+    if state_game:
+        state_game_id = await get_state_game_by_id(state_game)
+    else:
+        state_game_id = await get_state_game_by_game_id(game_id)
 
     element_state_db = await db["state_glic"].find_one(
         {"element_id": item_id, "state": state_game_id["_id"]}
@@ -437,19 +445,22 @@ async def get_all_object_service(user_id: str, skip: int = 1, limit: int = 10):
 
 
 async def new_interaction_item_service(location_id: str, game_id: str, item_id: str, prompt_user_dialog: str,
-                                       user_id: str):
+                                       user_id: str, state_game: str = None):
     """
     Generate a interaction for a object.
     """
 
-    item_db = await db["item"].find_one({"_id": ObjectId(item_db)})
+    item_db = await db["item"].find_one({"_id": ObjectId(item_id)})
     if not item_db:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Item or location not found",
         )
 
-    state_game = await get_state_game_by_game_id(game_id)
+    if state_game:
+        state_game = await get_state_game_by_id(state_game)
+    else:
+        state_game = await get_state_game_by_game_id(game_id)
 
     try:
         task_db = await create_task_service(
@@ -487,4 +498,40 @@ async def new_interaction_item_service(location_id: str, game_id: str, item_id: 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Interaction not created",
+        )
+
+
+async def deactivate_item_service(item_id: str,state_game:str, active: bool):
+    """
+    Deactivate a object.
+    """
+    try:
+        item_db = await db["item"].find_one({"_id": ObjectId(item_id)})
+        if not item_db:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Item not found",
+            )
+
+        state_game_db = await db["state_glic"].find_one(
+            {"element_id": item_id, "state": state_game}
+        )
+        if not state_game_db:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="State game not found",
+            )
+
+        state_game_db["data"]["active"] = active
+        await db["state_glic"].update_one(
+            {"_id": state_game_db["_id"]},
+            {"$set": {"data": state_game_db["data"]}}
+        )
+
+        return "Item deactivated"
+    except Exception as e:
+        print(f"Error in deactivate item service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Item not deactivated",
         )

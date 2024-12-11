@@ -9,12 +9,12 @@ from auth.utils import auth_schema
 from game.services import get_locations_game_publish_service
 from game.services import get_location_game_publish_service
 
-from location.schemas import SchemaListLocation
+from location.schemas import SchemaListLocation, SchemaDeactivateLocation
 from location.schemas import SchemaRetrieveLocation
 from location.schemas import SchemaCreateLocation
 from location.schemas import SchemaPartialUpdateLocation
 
-from location.services import get_locations_v2_service, get_all_location_service
+from location.services import get_locations_v2_service, get_all_location_service, deactivate_location_service
 from location.services import generate_image_location_service
 from location.services import get_location_service
 from location.services import create_location_service
@@ -30,10 +30,10 @@ router = APIRouter(prefix="/location", tags=["Location"])
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
 async def get_locations(
-    game_id: str = None,
-    publish: bool = False,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_id: str = None,
+        publish: bool = False,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves all locations.
@@ -75,10 +75,10 @@ async def get_locations(
 
 @router.get("/{location_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveLocation)
 async def get_location(
-    location_id: str,
-    publish: bool = False,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        location_id: str,
+        publish: bool = False,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves a location.
@@ -119,6 +119,7 @@ async def get_location(
                 detail="Location not found",
             )
 
+
 @router.get("/me/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
 async def get_locations_all(
         user_db: dict = Depends(auth),
@@ -133,7 +134,8 @@ async def get_locations_all(
     """
 
     try:
-        locations_db, count_locations = await get_all_location_service(skip=page, limit=count, user_id=str(user_db['_id']))
+        locations_db, count_locations = await get_all_location_service(skip=page, limit=count,
+                                                                       user_id=str(user_db['_id']))
 
         for location in locations_db:
             location["_id"] = str(location["_id"])
@@ -147,11 +149,12 @@ async def get_locations_all(
             detail="Locations not found",
         )
 
+
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveLocation)
 async def create_location(
-    schema: SchemaCreateLocation,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        schema: SchemaCreateLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint creates a location.
@@ -177,10 +180,10 @@ async def create_location(
     "/{location_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveLocation
 )
 async def partial_update_location(
-    location_id: str,
-    schema: SchemaPartialUpdateLocation,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        location_id: str,
+        schema: SchemaPartialUpdateLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint partially updates a location.
@@ -232,3 +235,30 @@ async def partial_update_location(
 #             status_code=status.HTTP_400_BAD_REQUEST,
 #             detail="Location not updated",
 #         )
+
+
+@router.post("/disable/{location_id}", status_code=status.HTTP_200_OK)
+async def disable_location(
+        location_id: str,
+        location: SchemaDeactivateLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint disables a location.
+
+    It expects the location's id in the request path.
+    If the location is successfully disabled, it returns a success message.
+    """
+    try:
+        location_db = await deactivate_location_service(
+            location_id=location_id, state_game=location.state_game, active=location.is_active
+        )
+        return {"message": "Location disabled or enabled"}
+
+    except Exception as e:
+        print(f"Error in disable location: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Location not disabled",
+        )

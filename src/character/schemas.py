@@ -90,6 +90,7 @@ class SchemaCreateCharacter(BaseModel):
     options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(None, example={"key": "value"})
     game_id: Optional[str] = Field(None, example="location_id")
     location_id: Optional[str] = Field(None, example="location_id")
+    state_game: Optional[str] = Field(None, example="state_game")
 
 
 class SchemaRetrieveCharacter(ResponseModel):
@@ -121,6 +122,7 @@ class SchemaUpdateCharacterCollection(BaseModel):
     options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(None, example={"key": "value"})
     location_id: Optional[str] = Field(None, example="location_id")
     game_id: Optional[str] = Field(None, example="game_id")
+    state_game: Optional[str] = Field(None, example="state_game")
 
 
 class SchemaPartialUpdateCharacter(BaseModel):
@@ -150,6 +152,7 @@ class SchemaNewInteraction(BaseModel):
     conversation_type: str = Field(..., example="conversation_type")
     prompt_user_dialog: str = Field(..., example="prompt_user_dialog")
     options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(None, example={"key": "value"})
+    state_game: Optional[str] = Field(None, example="state_game")
 
 
 class CharacterLocationModel(BaseModel):
@@ -170,4 +173,17 @@ class SchemaUpdatedCharacterLocation(BaseModel):
     character_id: str = Field(...)
     location_id: str = Field(...)
     game_id: str = Field(...)
+    state_game: Optional[str] = Field(None)
     characteristics: Dict[str, str] = Field(...)
+
+
+class SchemaDeactivateCharacter(BaseModel):
+    """
+    Schema for deactivating a location.
+
+    Attributes:
+    status (int): The status of the location.
+    """
+
+    is_active:bool = Field(False, example=False)
+    state_game: str = Field(None, example="state_game")

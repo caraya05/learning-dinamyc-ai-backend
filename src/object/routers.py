@@ -8,14 +8,14 @@ from fastapi.security import HTTPAuthorizationCredentials
 from auth.auth import auth
 from auth.utils import auth_schema
 
-from object.schemas import SchemaListObject, SchemaNewInteractionItem
+from object.schemas import SchemaListObject, SchemaNewInteractionItem, SchemaDeactivateItem
 from object.schemas import SchemaCreateItem
 from object.schemas import SchemaUpdatedObjectLocation
 from object.schemas import SchemaAddItemLocation
 from object.schemas import SchemaRetrieveObject
 from object.schemas import SchemaCreateObject
 
-from object.services import get_objects_service, new_interaction_item_service
+from object.services import get_objects_service, new_interaction_item_service, deactivate_item_service
 from object.services import create_item_service
 from object.services import update_item_service
 from object.services import add_item_location_service
@@ -144,7 +144,7 @@ async def add_edit_characteristic(
 
     try:
         object_db = await add_or_edit_item_characteristic_service(
-            item.item_id, item.location_id, item.characteristics, str(user_db.get("_id")), item.game_id
+            item.item_id, item.location_id, item.characteristics, str(user_db.get("_id")), item.game_id, item.state_game
         )
         return object_db
 
@@ -173,5 +173,26 @@ async def generate_interaction_item(
                                                    game_id=new_interaction.game_id,
                                                    item_id=item_id,
                                                    prompt_user_dialog=new_interaction.prompt_user_dialog,
-                                                   user_id=str(user_db.get("_id")))
+                                                   user_id=str(user_db.get("_id")),
+                                                   state_game=new_interaction.state_game)
     return object_db
+
+
+@router.post("/disable/{item_id}/")
+async def disable_character(
+        item_id: str,
+        item: SchemaDeactivateItem,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    try:
+        character_db = await deactivate_item_service(
+            item_id=item_id, state_game=item.state_game, active=item.is_active
+        )
+        return {"message": "Location disabled or enabled"}
+    except Exception as e:
+        print(f"error in get character: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not found",
+        )

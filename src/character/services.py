@@ -15,7 +15,7 @@ from character.schemas import CharacterLocationModel
 
 from core.database import db
 from gpt_ai.utils import openai_generator
-from state_game.services import get_state_game_by_game_id
+from state_game.services import get_state_game_by_game_id, get_state_game_by_id
 from state_glic.services import create_state_glic, get_list_state_glic_by_element_id
 
 from task.services import create_task_service
@@ -142,14 +142,17 @@ async def create_character_service(character: SchemaCreateCharacter,
 
         character_db_state = CharacterGLIC(**character.dict())
 
-        state_game = await get_state_game_by_game_id(game_id)
+        if character.state_game:
+            state_game = await get_state_game_by_id(character.state_game)
+        else:
+            state_game = await get_state_game_by_game_id(game_id)
 
         if state_game:
             await create_state_glic(
                 element_id=str(character_created.inserted_id),
                 type_element="character",
                 state=state_game['_id'],
-                order=1,
+                order=state_game['order'],
                 created_by=user_id,
                 data=character_db_state.dict(),
             )
@@ -214,18 +217,23 @@ async def update_character_service(
         character_id: str,
         user_id: str,
         name: str = None,
-        options_dialog: dict= None,
+        options_dialog: dict = None,
         prompt_user: str = None,
         dialog: str = None,
         type_dialog: str = None,
         game_id: str = None,
         location_id: str = None,
+        state_game: str = None
 ):
     name_or_prompt_user_changed = False
     dialog_changed = False
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
 
-    state_game = await get_state_game_by_game_id(game_id)
+    if not state_game:
+        state_game = await get_state_game_by_game_id(game_id)
+    else:
+        state_game = await get_state_game_by_id(state_game)
+
     character_state_db = await db["state_glic"].find_one(
         {"element_id": character_id, "state": state_game["_id"]}
     )
@@ -397,13 +405,16 @@ async def add_character_to_location_service(character_id: str, location_id: str)
 
 
 async def add_or_edit_character_location(
-        character_id: str, location_id: str, game_id: str, characteristics: dict, user_id: str
+        character_id: str, location_id: str, game_id: str, characteristics: dict, user_id: str, state_game: str = None
 ):
     existing_entry = await db["character_location"].find_one(
         {"character_id": character_id, "location_id": location_id}
     )
 
-    state_game_id = await get_state_game_by_game_id(game_id)
+    if not state_game:
+        state_game_id = await get_state_game_by_game_id(game_id)
+    else:
+        state_game_id = await get_state_game_by_id(state_game)
 
     element_state_db = await db["state_glic"].find_one(
         {"element_id": character_id, "state": state_game_id["_id"]}
@@ -459,6 +470,7 @@ async def new_interaction_character_service(
         prompt_user_dialog: str,
         user_id: str,
         options_dialog: list[dict] = None,
+        state_game: str = None
 ):
     character_db = await db["character"].find_one(
         {"_id": ObjectId(character_id)}
@@ -469,7 +481,10 @@ async def new_interaction_character_service(
             detail="Character not found",
         )
 
-    state_game = await get_state_game_by_game_id(game_id)
+    if not state_game:
+        state_game = await get_state_game_by_game_id(game_id)
+    else:
+        state_game = await get_state_game_by_id(state_game)
 
     try:
         task_db = await create_task_service(
@@ -520,7 +535,8 @@ class SchemaResponseOpenAnswer(BaseModel):
 async def answer_open_question_service(location_id: str,
                                        character_id: str,
                                        prompt_user_answer: str,
-                                       user_id: str):
+                                       user_id: str,
+                                       state_game: str = None):
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
     if not character_db:
         raise HTTPException(
@@ -529,7 +545,7 @@ async def answer_open_question_service(location_id: str,
         )
 
     state_element_db = await db["state_glic"].find_one(
-        {"element_id": character_id, "type_element": "character"}
+        {"element_id": character_id, "type_element": "character", "state": state_game}
     )
 
     if not state_element_db:
@@ -582,11 +598,38 @@ async def answer_open_question_service(location_id: str,
         type_generation="validate_open_answer",
     )
 
-    print(response)
-
     return {
         "detail": {
             "response_answer": response.response_answer,
             "audio": response.audio,
         }
     }
+
+
+async def deactivate_character_service(character_id: str, state_game:str, active:bool):
+    try:
+        if character_db := await db["character"].find_one({"_id": ObjectId(character_id)}):
+            state_element_db = await db["state_glic"].find_one(
+                {"element_id": character_id, "type_element": "character", "state": state_game}
+            )
+
+            if not state_element_db:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="State element not found",
+                )
+
+            state_element_db["data"]["is_activate"] = active
+
+            await db["state_glic"].update_one(
+                {"_id": state_element_db["_id"]},
+                {"$set": {"data": state_element_db["data"]}},
+            )
+
+            return "Location deactivated successfully"
+    except Exception as e:
+        print(f"Error in deactivate location service: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Location not deactivated.",
+        )

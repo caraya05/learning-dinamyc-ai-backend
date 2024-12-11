@@ -49,6 +49,7 @@ class SchemaCreateLocation(BaseModel):
     title: Optional[str]
     prompt_user: Optional[str]
     game_id: Optional[str]
+    state_game: Optional[str]
 
 
 class SchemaPartialUpdateLocation(BaseModel):
@@ -66,6 +67,8 @@ class SchemaPartialUpdateLocation(BaseModel):
     configuration: Optional[dict]
     connections: Optional[dict]
     game_id: Optional[str]
+    state_game: Optional[str]
+
 
 
 class SchemaRetrieveLocation(ResponseModel):
@@ -120,3 +123,15 @@ class SchemaListLocation(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class SchemaDeactivateLocation(BaseModel):
+    """
+    Schema for deactivating a location.
+
+    Attributes:
+    status (int): The status of the location.
+    """
+
+    is_active:bool = Field(False, example=False)
+    state_game: str = Field(None, example="state_game")

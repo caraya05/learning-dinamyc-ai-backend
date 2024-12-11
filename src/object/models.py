@@ -21,3 +21,4 @@ class ObjectGLIC(BaseModel):
     type_item: Optional[str] = Field(None, example="type_item")
     image: Optional[str] = Field(None, example="image.jpg")
     locations_id: Optional[str] = Field(None, example="123")
+    is_active: bool = Field(default=True, example=True)

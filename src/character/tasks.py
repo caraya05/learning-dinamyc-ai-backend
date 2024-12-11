@@ -112,22 +112,25 @@ async def generate_voice_character(game_id, character_id: str, user_id: str, loc
                                                     _location_id=location_id,
                                                     _state_game_id=state_game)
         if type_conversation != "none" and type_conversation != "option_multiple" and type_conversation != "open_question":
-            character_state_db = await db["state_glic"].find_one({"_id": ObjectId(character_state_db["_id"])})
+            character_state_db = await db["state_glic"].find_one({"_id": character_state_db["_id"]})
             if character_state_db["data"]["interaction"]:
                 for i in range(len(character_state_db["data"]["interaction"])):
                     if character_state_db["data"]["interaction"][i]["location_id"] == location_id and \
                             character_state_db["data"]["interaction"][i]["state_game"] == state_game:
                         for j in range(len(character_state_db["data"]["interaction"][i]["conversation"])):
-                            character_state_db = await db["state_glic"].find_one(
-                                {"element_id": character_state_db["data"]["interaction"][i]["conversation"][j][
-                                    'id_character'], "state": state_game}
-                            )
-                            audio = await generate_audio(
-                                text=character_state_db["data"]["interaction"][i]["conversation"][j]["dialog"],
-                                voice_id=character_state_db["data"]["voice_id"],
-                                user_id=user_id,
-                            )
-                            character_state_db["data"]["interaction"][i]["conversation"][j]["audio"] = audio
+                            character_state_db_ = await db["state_glic"].find_one({"element_id": character_state_db["data"]["interaction"][i]["conversation"][j]['id_character'], "state": state_game})
+
+                            try:
+                                audio = await generate_audio(
+                                    text=character_state_db["data"]["interaction"][i]["conversation"][j]["dialog"],
+                                    voice_id=character_state_db_["data"]["voice_id"],
+                                    user_id=user_id,
+                                )
+
+                                character_state_db["data"]["interaction"][i]["conversation"][j]["audio"] = audio
+                            except Exception as e:
+                                print(f"Error in generate voice service: {str(e)}")
+                                pass
 
                 await db["state_glic"].update_one(
                     {"_id": character_state_db["_id"]},
@@ -145,25 +148,25 @@ async def generate_voice_character(game_id, character_id: str, user_id: str, loc
                             character_state_db["data"]["interaction"][i]["state_game"] == state_game:
                         for j in range(len(
                                 character_state_db["data"]["interaction"][i]["options_dialog"]["prompt_user_question"])):
-                            character_state_db = await db["state_glic"].find_one(
+                            character_state_db_ = await db["state_glic"].find_one(
                                 {"element_id": character_state_db["data"]["interaction"][i]["options_dialog"]["prompt_user_question"][j]['id_character'], "state": state_game}
                             )
                             audio = await generate_audio(
                                 text=character_state_db["data"]["interaction"][i]["options_dialog"]["prompt_user_question"][j]["dialog"],
-                                voice_id=character_state_db["data"]["voice_id"],
+                                voice_id=character_state_db_["data"]["voice_id"],
                                 user_id=user_id,
                             )
                             character_state_db["data"]["interaction"][i]["options_dialog"]["prompt_user_question"][j][
                                 "audio"] = audio
                         for j in range(len(character_state_db["data"]["interaction"][i]["options_dialog"]["options"])):
-                            # character_state_db = await db["state_glic"].find_one(
-                            #     {"element_id":character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j][
-                            #              'prompt_user_option'][
-                            #              'id_character'], "state": state_game}
-                            # )
+                            character_state_db_ = await db["state_glic"].find_one(
+                                {"element_id":character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j][
+                                         'prompt_user_option'][
+                                         'id_character'], "state": state_game}
+                            )
                             audio = await generate_audio(
                                 text=character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j]["prompt_user_option"]["dialog"],
-                                voice_id=character_state_db["data"]["voice_id"],
+                                voice_id=character_state_db_["data"]["voice_id"],
                                 user_id=user_id,
                             )
                             character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j]['prompt_user_option']["audio"] = audio
@@ -191,20 +194,23 @@ async def generate_voice_character(game_id, character_id: str, user_id: str, loc
                     if character_state_db["data"]["interaction"][i]["location_id"] == location_id and \
                             character_state_db["data"]["interaction"][i]["state_game"] == state_game:
                         for j in range(len(character_state_db["data"]["interaction"][i]["options_dialog"]["prompt_user_question"])):
-                            character_state_db = await db["state_glic"].find_one(
+                            character_state_db_ = await db["state_glic"].find_one(
                                 {"element_id": character_state_db["data"]["interaction"][i]["options_dialog"]["prompt_user_question"][j]['id_character'], "state": state_game}
                             )
                             audio = await generate_audio(
                                 text=character_state_db["data"]["interaction"][i]["options_dialog"]["prompt_user_question"][j]["dialog"],
-                                voice_id=character_state_db["data"]["voice_id"],
+                                voice_id=character_state_db_["data"]["voice_id"],
                                 user_id=user_id,
                             )
                             character_state_db["data"]["interaction"][i]["options_dialog"]["prompt_user_question"][j]["audio"] = audio
 
                         for j in range(len(character_state_db["data"]["interaction"][i]["options_dialog"]["options"])):
+                            character_state_db_ = await db["state_glic"].find_one(
+                                {"element_id": character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j]["prompt_user_answer"]['id_character'], "state": state_game}
+                            )
                             audio = await generate_audio(
                                 text=character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j]["prompt_user_answer"]["dialog"],
-                                voice_id=character_state_db["data"]["voice_id"],
+                                voice_id=character_state_db_["data"]["voice_id"],
                                 user_id=user_id,
                             )
                             character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j]['prompt_user_answer']["audio"] = audio
