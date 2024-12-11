@@ -322,7 +322,7 @@ async def disable_character(
         character_db = await deactivate_character_service(
             character_id=character_id, state_game=character.state_game, active=character.is_active
         )
-        return {"message": "Location disabled or enabled"}
+        return {"message": character_db}
     except Exception as e:
         print(f"error in get character: {str(e)}")
         raise HTTPException(

@@ -254,7 +254,7 @@ async def disable_location(
         location_db = await deactivate_location_service(
             location_id=location_id, state_game=location.state_game, active=location.is_active
         )
-        return {"message": "Location disabled or enabled"}
+        return {"message": location_db}
 
     except Exception as e:
         print(f"Error in disable location: {str(e)}")

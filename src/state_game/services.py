@@ -22,16 +22,16 @@ async def create_state_game(game_id: str, order: int, created_by: str) -> dict:
     result = await db["state_game"].insert_one(state_game)
     state_game["_id"] = str(result.inserted_id)
 
-    all_state_game_elements = await db["state_glic"].find({"data.game_id": game_id, "order": 1 }).to_list(length=1000)
-
-    if len(all_state_game_elements) > 0:
-        for i in range(len(all_state_game_elements)):
-            state_game_element = all_state_game_elements[i]
-            state_game_element["state"] = str(result.inserted_id)
-            state_game_element["order"] = order
-            state_game_element["updated_at"] = datetime.utcnow()
-            state_game_element["updated_by"] = created_by
-            await db["state_game"].insert_one(state_game_element)
+    # all_state_game_elements = await db["state_glic"].find({"data.game_id": game_id, "order": 1 }).to_list(length=1000)
+    #
+    # if len(all_state_game_elements) > 0:
+    #     for i in range(len(all_state_game_elements)):
+    #         state_game_element = all_state_game_elements[i]
+    #         state_game_element["state"] = str(result.inserted_id)
+    #         state_game_element["order"] = order
+    #         state_game_element["updated_at"] = datetime.utcnow()
+    #         state_game_element["updated_by"] = created_by
+    #         await db["state_game"].insert_one(state_game_element)
 
     return state_game
 

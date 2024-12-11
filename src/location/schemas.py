@@ -27,6 +27,7 @@ class SchemaStateData(BaseModel):
     configuration: Optional[dict] = Field(None, example="")
     connections: Optional[dict] = Field(None, example="")
     environment: Optional[dict] = Field(None, example="{}")
+    is_active: Optional[bool] = Field(None, example=True)
     sound: Optional[str] = Field(None, example="123")
 
 
@@ -34,7 +35,6 @@ class SchemaStateLocation(BaseModel):
     order: Optional[int] = Field(None, example=1)
     state: Optional[str] = Field(None, example="state")
     data: Optional[SchemaStateData] = Field(None, example={})
-
 
 
 class SchemaCreateLocation(BaseModel):
@@ -68,7 +68,6 @@ class SchemaPartialUpdateLocation(BaseModel):
     connections: Optional[dict]
     game_id: Optional[str]
     state_game: Optional[str]
-
 
 
 class SchemaRetrieveLocation(ResponseModel):
@@ -133,5 +132,5 @@ class SchemaDeactivateLocation(BaseModel):
     status (int): The status of the location.
     """
 
-    is_active:bool = Field(False, example=False)
+    is_active: bool = Field(False, example=False)
     state_game: str = Field(None, example="state_game")

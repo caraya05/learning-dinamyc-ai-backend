@@ -36,42 +36,42 @@ async def get_location_service(*, location_id: str, user_id: str) -> dict:
     """
     try:
         if location_db := await db['location'].find_one({"_id": ObjectId(location_id)}):
+            element_state_db = await db['state_glic'].find({"element_id": location_id}).to_list(None)
 
-            element_state_db = await db['state_glic'].find_one(
-                {"element_id": location_id}
-            )
-            element_state_db["_id"] = str(element_state_db["_id"])
+            for i in range(len(element_state_db)):
+                element_state_db[i]["_id"] = str(element_state_db[i]["_id"])
 
-            if element_state_db["data"].get("sound", None):
-                try:
-                    sound_db = await db['sound'].find_one(
-                        {"_id": ObjectId(element_state_db["data"]["sound"])}
-                    )
-                    if sound_db:
-                        element_state_db["data"]["sound"] = sound_db["file"]
-                except Exception as e:
-                    print(f"Error in get sound service: {e}")
-            # if location_db["config"]:
-            #     user_config_found = False
-            #     for config in location_db["config"]:
-            #         if config["user"] == user_id:
-            #             location_db["configuration"] = config["config"]
-            #             user_config_found = True
-            #             break
-            #     if not user_config_found and location_db["config"]:
-            #         location_db["configuration"] = location_db["config"][0]["config"]
-            #
-            # if location_db.get("connect", None):
-            #     user_connect_found = False
-            #     for connect in location_db["connect"]:
-            #         if connect["user"] == user_id:
-            #             location_db["connections"] = connect["connect"]
-            #             user_connect_found = True
-            #             break
-            #     if not user_connect_found and location_db["connect"]:
-            #         location_db["connections"] = location_db["connect"][0]["connect"]
-            # element_state_db = SchemaStateLocation(**element_state_db["data"])
-            location_db["state_game"] = [element_state_db]
+                if element_state_db[i]["data"].get("sound", None):
+                    try:
+                        sound_db = await db['sound'].find_one(
+                            {"_id": ObjectId(element_state_db[i]["data"]["sound"])}
+                        )
+                        if sound_db:
+                            element_state_db[i]["data"]["sound"] = sound_db["file"]
+                    except Exception as e:
+                        print(f"Error in get sound service: {e}")
+                        pass
+                # if location_db["config"]:
+                #     user_config_found = False
+                #     for config in location_db["config"]:
+                #         if config["user"] == user_id:
+                #             location_db["configuration"] = config["config"]
+                #             user_config_found = True
+                #             break
+                #     if not user_config_found and location_db["config"]:
+                #         location_db["configuration"] = location_db["config"][0]["config"]
+                #
+                # if location_db.get("connect", None):
+                #     user_connect_found = False
+                #     for connect in location_db["connect"]:
+                #         if connect["user"] == user_id:
+                #             location_db["connections"] = connect["connect"]
+                #             user_connect_found = True
+                #             break
+                #     if not user_connect_found and location_db["connect"]:
+                #         location_db["connections"] = location_db["connect"][0]["connect"]
+                # element_state_db = SchemaStateLocation(**element_state_db["data"])
+            location_db["state_game"] = element_state_db
 
             if characters_db := await get_characters_by_location_service(
                     skip=1, limit=100, location_id=location_id
@@ -398,18 +398,41 @@ async def deactivate_location_service(location_id: str, state_game: str, active:
     """
     try:
         if location_db := await db['location'].find_one({"_id": ObjectId(location_id)}):
-            location_state_db = await db['state_glic'].find_one(
+            state_element_db = await db['state_glic'].find_one(
                 {"element_id": location_id, "type_element": "location", "state": state_game}
             )
 
-            if not location_state_db:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="State not found.")
+            if not state_element_db:
+                state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
 
-            location_state_db["data"]["is_active"] = active
+                state_element_db = await db["state_glic"].find_one(
+                    {"element_id": location_id, "type_element": "location", "order": (state_game_db["order"] - 1)})
+
+                if not state_element_db:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="State element not found",
+                    )
+
+                state_element_db['data']['is_active'] = active
+
+                state_element_db = await create_state_glic(
+                    element_id=str(location_id),
+                    type_element="location",
+                    state=str(state_game_db['_id']),
+                    order=state_game_db['order'],
+                    created_by=state_game_db['created_by'],
+                    data=state_element_db['data'])
+
+                return "Location deactivated / activate successfully"
+
+            state_element_db["data"]["is_active"] = active
             await db['state_glic'].update_one(
-                {"_id": location_state_db["_id"]},
-                {"$set": {"data": location_state_db["data"]}}
+                {"_id": state_element_db["_id"]},
+                {"$set": {"data": state_element_db["data"]}}
             )
+
+            return "Location deactivated / activate successfully"
     except Exception as e:
         print(f"Error in diactive location service: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Location not diactive.")

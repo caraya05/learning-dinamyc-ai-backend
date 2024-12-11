@@ -606,7 +606,7 @@ async def answer_open_question_service(location_id: str,
     }
 
 
-async def deactivate_character_service(character_id: str, state_game:str, active:bool):
+async def deactivate_character_service(character_id: str, state_game: str, active: bool):
     try:
         if character_db := await db["character"].find_one({"_id": ObjectId(character_id)}):
             state_element_db = await db["state_glic"].find_one(
@@ -614,19 +614,37 @@ async def deactivate_character_service(character_id: str, state_game:str, active
             )
 
             if not state_element_db:
-                raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="State element not found",
-                )
+                state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
 
-            state_element_db["data"]["is_activate"] = active
+                state_element_db = await db["state_glic"].find_one(
+                    {"element_id": character_id, "type_element": "character", "order": (state_game_db["order"] - 1)})
 
+                if not state_element_db:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="State element not found",
+                    )
+
+                state_element_db['data']['is_active'] = active
+                state_element_db['data']['interaction'] = []
+
+                state_element_db = await create_state_glic(
+                    element_id=str(character_id),
+                    type_element="character",
+                    state=state_game_db['_id'],
+                    order=state_game_db['order'],
+                    created_by=state_game_db['created_by'],
+                    data=state_element_db['data'])
+
+                return "Character deactivated / activate successfully"
+
+            state_element_db['data']['is_active'] = active
             await db["state_glic"].update_one(
                 {"_id": state_element_db["_id"]},
                 {"$set": {"data": state_element_db["data"]}},
             )
 
-            return "Location deactivated successfully"
+            return "Character deactivated / activate successfully"
     except Exception as e:
         print(f"Error in deactivate location service: {e}")
         raise HTTPException(
