@@ -7,7 +7,8 @@ from fastapi.security import HTTPAuthorizationCredentials
 from auth.auth import auth
 from auth.utils import auth_schema
 
-from character.schemas import SchemaUpdateCharacterCollection, SchemaNewInteraction, SchemaDeactivateCharacter
+from character.schemas import SchemaUpdateCharacterCollection, SchemaNewInteraction, SchemaDeactivateCharacter, \
+    SchemaResponseQuestionOpen
 from character.schemas import SchemaAddCharacterLocation
 from character.schemas import SchemaUpdatedCharacterLocation
 from character.schemas import SchemaCreateCharacter
@@ -290,17 +291,16 @@ async def delete_character(
 async def answer_open_question(
         character_id: str,
         location_id: str,
-        answer: dict = {"prompt_user_answer": "",
-                        "state_game": ""},
+        answer: SchemaResponseQuestionOpen,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
         character_db = await answer_open_question_service(character_id=character_id,
                                                           location_id=location_id,
-                                                          prompt_user_answer=answer["prompt_user_answer"],
+                                                          prompt_user_answer=answer.prompt_user_answer,
                                                           user_id=str(user_db.get("_id")),
-                                                          state_game=answer["state_game"])
+                                                          state_game=answer.state_game)
 
         return character_db
     except Exception as e:

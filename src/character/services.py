@@ -543,9 +543,10 @@ async def answer_open_question_service(location_id: str,
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Character not found",
         )
-
+    if not state_game:
+        state_game = await get_state_game_by_game_id(character_db["game_id"])
     state_element_db = await db["state_glic"].find_one(
-        {"element_id": character_id, "type_element": "character", "state": state_game}
+        {"element_id": character_id, "type_element": "character", "state": state_game["_id"]}
     )
 
     if not state_element_db:

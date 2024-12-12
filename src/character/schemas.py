@@ -188,3 +188,8 @@ class SchemaDeactivateCharacter(BaseModel):
 
     is_active:bool = Field(False, example=False)
     state_game: str = Field(None, example="state_game")
+
+
+class SchemaResponseQuestionOpen(BaseModel):
+    prompt_user_answer: str = Field(..., example="prompt_user_answer")
+    state_game: Optional[str] = Field(None, example="state_game")
