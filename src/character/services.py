@@ -542,7 +542,6 @@ async def answer_open_question_service(location_id: str,
                                        state_game: str = None):
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
 
-    print(f"character_db: {character_db}")
     if not character_db:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -557,7 +556,6 @@ async def answer_open_question_service(location_id: str,
         {"element_id": character_id, "state": state_game}
     )
 
-    print(f"state_element_db: {state_element_db}")
 
     if not state_element_db:
         raise HTTPException(
