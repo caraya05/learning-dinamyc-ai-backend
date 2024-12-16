@@ -4,6 +4,7 @@ from bson import ObjectId
 from fastapi import HTTPException
 from fastapi import status
 from openai import BaseModel
+from pyasn1_modules.rfc3279 import primeCurve
 from pydantic import Field
 
 from celery_worker import generate_character_task, update_character_task, generate_voice_character_task
@@ -540,6 +541,8 @@ async def answer_open_question_service(location_id: str,
                                        user_id: str,
                                        state_game: str = None):
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+
+    print(f"character_db: {character_db}")
     if not character_db:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -551,8 +554,10 @@ async def answer_open_question_service(location_id: str,
         state_game = state_game["_id"]
 
     state_element_db = await db["state_glic"].find_one(
-        {"element_id": character_id, "type_element": "character", "state": state_game}
+        {"element_id": character_id, "state": state_game}
     )
+
+    print(f"state_element_db: {state_element_db}")
 
     if not state_element_db:
         raise HTTPException(
@@ -577,6 +582,8 @@ async def answer_open_question_service(location_id: str,
                         })
 
                 criteria["options_answer"] = options_answer
+
+        print(f"criteria: {criteria}")
 
         response = await openai_generator.generate_gpt(
             content_prompt=[
@@ -609,6 +616,7 @@ async def answer_open_question_service(location_id: str,
             type_generation="validate_open_answer",
         )
 
+        print(f"response: {response}")
 
         return {
             "detail": {

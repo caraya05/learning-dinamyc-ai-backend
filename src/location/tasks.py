@@ -169,13 +169,13 @@ async def identify_location_sound(_location_id: str, _user_id: str, _state_game_
         response_sound = await openai_generator.generate_gpt(
             content_prompt=[
                 {
+                  "role": "system",
+                    "content": "eres un identicador de sonidos para locaciones, con la siquiente image y descripcion de una locacion, escoje uno de los "
+                                    "sonidos de la lista que se escucharia en este lugar, no incluyas o crees sonidos que no esten en la lista.",
+                },
+                {
                     "role": "user",
                     "content": [
-                        {
-                            "type": "text",
-                            "text": "con la siquiente image y descripcion de una locacion, escoje uno de los "
-                                    "sonidos de la lista que se escucharia en este lugar",
-                        },
                         {"type": "text", "text": f"Listado de sonidos: {str_sounds}"},
                         {
                             "type": "text",
