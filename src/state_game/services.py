@@ -40,12 +40,25 @@ async def get_state_game_by_game_id(game_id: str) -> dict:
     state_game = await db["state_game"].find_one({"game_id": game_id, "order": 1})
     if state_game:
         state_game["_id"] = str(state_game["_id"])
+        print("state_game", state_game)
         return state_game
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="StateGame not found"
     )
+
+
+async def get_state_game_by_element_id(element_id: str) -> dict:
+    state_game = await db["state_game"].find_one({"element_id": element_id, "order": 1})
+    if state_game:
+        state_game["_id"] = str(state_game["_id"])
+        return state_game
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="StateGame not found"
+    )
+
 
 async def get_state_game_by_id(state_game_id: str) -> dict:
     state_game = await db["state_game"].find_one({"_id": ObjectId(state_game_id)})
@@ -58,7 +71,8 @@ async def get_state_game_by_id(state_game_id: str) -> dict:
         detail="StateGame not found"
     )
 
-async  def get_states_game_by_game_id(game_id: str) -> list:
+
+async def get_states_game_by_game_id(game_id: str) -> list:
     states_game = await db["state_game"].find({"game_id": game_id}).to_list(length=1000)
     for state_game in states_game:
         state_game["_id"] = str(state_game["_id"])

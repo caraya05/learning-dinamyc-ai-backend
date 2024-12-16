@@ -4,6 +4,7 @@ from bson import ObjectId
 from fastapi import HTTPException
 from fastapi import status
 from openai import BaseModel
+from pydantic import Field
 
 from celery_worker import generate_character_task, update_character_task, generate_voice_character_task
 from celery_worker import generate_image_character_task
@@ -15,7 +16,7 @@ from character.schemas import CharacterLocationModel
 
 from core.database import db
 from gpt_ai.utils import openai_generator
-from state_game.services import get_state_game_by_game_id, get_state_game_by_id
+from state_game.services import get_state_game_by_game_id, get_state_game_by_id, get_state_game_by_element_id
 from state_glic.services import create_state_glic, get_list_state_glic_by_element_id
 
 from task.services import create_task_service
@@ -528,8 +529,9 @@ async def new_interaction_character_service(
 
 
 class SchemaResponseOpenAnswer(BaseModel):
-    response_answer: str
-    audio: str
+    response_criteria: str = Field(description="Response answer")
+    audio: str = Field(description="Audio")
+    reason: str = Field(description="Reason")
 
 
 async def answer_open_question_service(location_id: str,
@@ -543,10 +545,13 @@ async def answer_open_question_service(location_id: str,
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Character not found",
         )
+
     if not state_game:
         state_game = await get_state_game_by_game_id(character_db["game_id"])
+        state_game = state_game["_id"]
+
     state_element_db = await db["state_glic"].find_one(
-        {"element_id": character_id, "type_element": "character", "state": state_game["_id"]}
+        {"element_id": character_id, "type_element": "character", "state": state_game}
     )
 
     if not state_element_db:
@@ -555,56 +560,68 @@ async def answer_open_question_service(location_id: str,
             detail="State element not found",
         )
 
-    criteria = {}
-    for location in state_element_db['data']['interaction']:
-        if location["location_id"] == location_id:
-            criteria["question"] = location["options_dialog"]["prompt_user_question"][-1]["dialog"]
+    try:
 
-            options_answer = []
-            for criteria_db in location["options_dialog"]["options"]:
-                options_answer.append({
-                    "criteria_evaluated": criteria_db["prompt_user_guideline"],
-                    "response_criteria": criteria_db["prompt_user_answer"]["dialog"],
-                })
+        criteria = {}
+        for location in state_element_db['data']['interaction']:
+            if location["location_id"] == location_id:
+                criteria["question"] = location["options_dialog"]["prompt_user_question"][-1]["dialog"]
 
-            criteria["options_answer"] = options_answer
+                options_answer = []
+                for criteria_db in location["options_dialog"]["options"]:
+                    if criteria_db["prompt_user_guideline"] and criteria_db["prompt_user_answer"]:
+                        options_answer.append({
+                            "criteria_evaluated": criteria_db["prompt_user_guideline"],
+                            "response_criteria": criteria_db["prompt_user_answer"]["dialog"],
+                            "audio": criteria_db["prompt_user_answer"]["audio"]
+                        })
 
-    response = await openai_generator.generate_gpt(
-        content_prompt=[
-            {
-                "role": "system",
-                "content": f"Eres un evaluador de respuestas de preguntas abiertas, "
-                           f"por favor evalúa la respuesta que da el usuario, respecto a un pregunta teniendo encuenta"
-                           f" la un criteria a evaluar y dando la respuesta de las opciones que tienes en criterios y respuestas",
-            },
-            {
-                "role": "system",
-                "content": f"pregunta: {str(criteria['question'])}"
-                           f"criterios a evaluar y respuestas: {criteria['options_answer']}",
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"respuesta del usuario: {prompt_user_answer}",
-                    },
-                ],
-            },
-        ],
-        model="gpt-4o-mini-2024-07-18",
-        max_tokens=4096,
-        response_format=SchemaResponseOpenAnswer,
-        user_id=user_id,
-        type_generation="validate_open_answer",
-    )
+                criteria["options_answer"] = options_answer
 
-    return {
-        "detail": {
-            "response_answer": response.response_answer,
-            "audio": response.audio,
+        response = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": f"Eres un evaluador de respuestas de preguntas abiertas, "
+                               f"por favor evalúa la respuesta que da el usuario, respecto a un pregunta teniendo encuenta"
+                               f" la un criteria a evaluar y dando la respuesta de las opciones que tienes en criterios y respuestas,"
+                               f"no te puedes salir de las opciones que tienes en criterios y respuestas",
+                },
+                {
+                    "role": "system",
+                    "content": f"pregunta: {criteria['question']}"
+                               f"criterios a evaluar y respuestas: {criteria['options_answer']}",
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"respuesta del usuario: {prompt_user_answer}",
+                        },
+                    ],
+                },
+            ],
+            model="gpt-4o-mini-2024-07-18",
+            max_tokens=4096,
+            response_format=SchemaResponseOpenAnswer,
+            user_id=user_id,
+            type_generation="validate_open_answer",
+        )
+
+
+        return {
+            "detail": {
+                "response_answer": response.response_criteria,
+                "audio": response.audio,
+            }
         }
-    }
+    except Exception as e:
+        print(f"Error in answer open question service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Answer not generated",
+        )
 
 
 async def deactivate_character_service(character_id: str, state_game: str, active: bool):
