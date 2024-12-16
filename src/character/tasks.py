@@ -700,7 +700,7 @@ async def generate_option_character(_game_id, _character_id, _user_id, _location
             #     type_generation="create_monologue_character",
             # )
 
-            conversation_ =  {"id_character": str(character_other_db["_id"]), "dialog": element_state_db['data']['options_dialog']['options'][option]['prompt_user_option'], "audio": None}
+            conversation_ =  {"id_character": str(character_principal_db["_id"]), "dialog": element_state_db['data']['options_dialog']['options'][option]['prompt_user_option'], "audio": None}
 
             element_state_db["data"]['options_dialog']['options'][option]['prompt_user_option'] = conversation_
 
