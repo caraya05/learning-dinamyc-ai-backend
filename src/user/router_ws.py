@@ -95,6 +95,7 @@ async def websocket_endpoint(
             task_request = None
             try:
                 task_request = await asyncio.wait_for(websocket.receive_json(), timeout=1.0)
+                print("task_request time", task_request)
             except asyncio.TimeoutError as e:
                 pass
             await asyncio.sleep(0.5)
@@ -158,6 +159,7 @@ async def websocket_endpoint(
                                 )
             else:
                 task_db = await get_task_pending_service(user_id)
+                print("task_db no time", task_db)
                 if task_db:
                     created_at = task_db.get("created_at")
                     if created_at:
