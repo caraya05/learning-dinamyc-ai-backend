@@ -81,11 +81,13 @@ async def websocket_endpoint(
     await manager.connect(websocket)
     valid_token = await is_token_valid(token)
     if not valid_token:
+        print("Invalid token")
         manager.disconnect(websocket)
         # await manager.send_personal_message({"detail": "Invalid token"}, websocket)
         return None
     user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
     if not user_db:
+        print("User not found")
         manager.disconnect(websocket)
         # await manager.send_personal_message({"detail": "User not found"}, websocket)
         return None
