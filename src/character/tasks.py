@@ -1171,7 +1171,7 @@ async def async_update_character_task(_character_id, _user_id, _task_id, _game_i
             )
             return "Error in generate character body type"
         response_image = await generate_image_character_face(
-            _character_id=_character_id, _user_id=_user_id
+            _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
         )
         if not response_image:
             await update_task_service(
