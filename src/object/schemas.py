@@ -26,7 +26,7 @@ class SchemaStateData(BaseModel):
     type_item: Optional[str] = Field(None, example="type_item")
     image: Optional[str] = Field(None, example="image.jpg")
     interaction: Optional[list] = Field(None, example={"key": "value"})
-    locations_id: Optional[str] = Field(None, example="123")
+    location_id: Optional[str] = Field(None, example="123")
     is_active: Optional[bool] = Field(None, example=True)
 
 
@@ -98,7 +98,7 @@ class SchemaRetrieveObject(ResponseModel):
     game_id: Optional[str] = None
     task_id: Optional[str] = None
     status: Optional[int] = 1
-    state_game: Optional[list[SchemaStateLocation]] = []
+    state_game: Optional[list[SchemaStateLocation]]
 
     class Config:
         orm_mode = True
