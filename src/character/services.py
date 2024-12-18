@@ -38,17 +38,15 @@ async def get_character_service(character_id: str):
     return character_db
 
 
-async def get_characters_service(skip: int = 1, limit: int = 100, game_id: str = None):
+async def get_characters_service(skip: int = 1, limit: int = 100, game_id: str = None, user_id: str = None):
     try:
-        # game_db = await db["game"].find_one({"_id": ObjectId(game_id)})
-        # if not game_db.get("characters_id"):
-        #     raise HTTPException(
-        #         status_code=status.HTTP_404_NOT_FOUND,
-        #         detail="Characters not found",
-        #     )
-        characters_db = await db["character"].find(
-            {"game_id": game_id}).skip((skip - 1) * limit).limit(
-            limit).to_list(None)
+
+        if not game_id:
+            characters_db = await db["character"].find({"created_by": user_id}).skip((skip - 1) * limit).limit(limit).to_list(None)
+
+        else:
+            characters_db = await db["character"].find({"game_id": game_id}).skip((skip - 1) * limit).limit(limit).to_list(None)
+            print(f"characters_db: {characters_db}")
         for i in characters_db:
             i["_id"] = str(i["_id"])
             i["state_game"] = await get_list_state_glic_by_element_id(i["_id"])
@@ -227,7 +225,6 @@ async def update_character_service(
         location_id: str = None,
         state_game: str = None
 ):
-
     name_or_prompt_user_changed = False
     dialog_changed = False
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
@@ -567,7 +564,6 @@ async def answer_open_question_service(location_id: str,
     state_element_db = await db["state_glic"].find_one(
         {"element_id": character_id, "state": state_game}
     )
-
 
     if not state_element_db:
         raise HTTPException(
