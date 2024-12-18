@@ -23,7 +23,8 @@ class SchemaCreateEvent(BaseModel):
     name: str = Field(..., example="Event Name")
     prompt_user_image: str = Field(..., example="prompt_user_image.jpg")
     prompt_user_text: str = Field(..., example="prompt_user_test")
-    conversation_type: str = Field(..., example="conversation_type")
+    type_conversation: str = Field(..., example="conversation_type")
+    character_id: str = Field(..., example="character_id")
     option_number: int = Field(..., example=1)
     state_game_init: str = Field(..., example="state_game")
     location_state_game_init: str = Field(..., example="location_state_game")
@@ -34,7 +35,8 @@ class SchemaUpdateEvent(BaseModel):
     name: str = Field(..., example="Event Name")
     prompt_user_image: str = Field(..., example="prompt_user_image.jpg")
     prompt_user_text: str = Field(..., example="prompt_user_test")
-    conversation_type: str = Field(..., example="conversation_type")
+    character_id: str = Field(..., example="character_id")
+    type_conversation: str = Field(..., example="conversation_type")
     option_number: int = Field(..., example=1)
     state_game_init: str = Field(..., example="state_game")
     state_game_end: str = Field(..., example="state_game")
@@ -43,10 +45,11 @@ class SchemaUpdateEvent(BaseModel):
 
 
 class SchemaRetrieveEvent(BaseModel):
+    id: PyObjectId = Field(alias="_id")
     name: str = Field(..., example="Event Name")
     prompt_user_image: str = Field(..., example="prompt_user_image.jpg")
     prompt_user_text: str = Field(..., example="prompt_user_test")
-    conversation_type: str = Field(..., example="conversation_type")
+    type_conversation: str = Field(None, example="conversation_type")
     option_number: int = Field(..., example=1)
     state_game_init: str = Field(..., example="state_game")
     state_game_end: Optional[str] = Field(..., example="state_game")
@@ -59,7 +62,7 @@ class SchemaRetrieveEvent(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     updated_by: str = Field(default="system", example="system")
     game_id: str = Field(..., example="game_id")
-    id: PyObjectId = Field(alias="_id")
+    character_id: str = Field(None, example="character_id")
 
     class Config:
         json_encoders = {ObjectId: str}

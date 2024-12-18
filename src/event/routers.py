@@ -39,7 +39,7 @@ async def get_events(game_id: str = None,
     return await get_events_service(game_id=game_id)
 
 
-@router.put("/{event_id}", response_model=SchemaRetrieveEvent)
+@router.patch("/{event_id}", response_model=SchemaRetrieveEvent)
 async def update_event(event_id: str,
                        event: SchemaUpdateEvent,
                        user_db: dict = Depends(auth),

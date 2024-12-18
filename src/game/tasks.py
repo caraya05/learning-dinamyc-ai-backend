@@ -1,4 +1,3 @@
-import asyncio
 from uuid import uuid4
 
 from bson import ObjectId
@@ -14,7 +13,6 @@ from state_game.services import get_state_game_by_game_id
 from task.services import update_task_service
 
 from utils import upload_image
-from voice.task import generate_voice_character
 
 
 class SchemaResponseImage(BaseModel):

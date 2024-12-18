@@ -227,29 +227,44 @@ async def update_character_service(
         location_id: str = None,
         state_game: str = None
 ):
+
     name_or_prompt_user_changed = False
     dialog_changed = False
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+    try:
 
-    if not state_game:
-        state_game = await get_state_game_by_game_id(game_id)
-    else:
-        state_game = await get_state_game_by_id(state_game)
+        if not state_game:
+            print(f"game_id: {game_id}")
+            state_game = await get_state_game_by_game_id(game_id)
+            print(f"state_game: {state_game}")
+        else:
+            state_game = await get_state_game_by_id(state_game)
 
-    character_state_db = await db["state_glic"].find_one(
-        {"element_id": character_id, "state": state_game["_id"]}
-    )
+        print(f"state_game: {state_game}")
 
-    if prompt_user != character_state_db['data']["prompt_user"]:
-        name_or_prompt_user_changed = True
+        character_state_db = await db["state_glic"].find_one(
+            {"element_id": character_id, "state": state_game["_id"]}
+        )
 
-    if dialog != character_state_db['data']["prompt_user_dialog"]:
-        dialog_changed = True
+        if prompt_user != character_state_db['data']["prompt_user"]:
+            name_or_prompt_user_changed = True
 
-    if type_dialog != character_state_db['data']["conversation_type"]:
-        dialog_changed = True
+        if dialog != character_state_db['data']["prompt_user_dialog"]:
+            dialog_changed = True
+
+        if type_dialog != character_state_db['data']["conversation_type"]:
+            dialog_changed = True
+
+    except Exception as e:
+        print(f"1 Error in update character service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not updated",
+        )
 
     try:
+        print(f"character_db: {character_db}")
+
         update_fields = {"updated_at": datetime.utcnow()}
         if name is not None:
             update_fields["name"] = name
@@ -272,7 +287,6 @@ async def update_character_service(
             game_db = await db["game"].find_one({"characters_id": {"$in": [character_id]}})
             if game_db:
                 character_db["game_id"] = str(game_db["_id"])
-
         if name_or_prompt_user_changed:
             task_db = await create_task_service(
                 _task_id="",

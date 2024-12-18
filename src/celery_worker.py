@@ -3,6 +3,7 @@ import os
 
 from celery import Celery
 
+from event.tasks import async_generate_image_event
 from location.tasks import async_generate_location_task
 from location.tasks import async_generate_image_location_task
 
@@ -202,7 +203,8 @@ def generate_voice_character_task(_game_id,
 
 
 @celery.task(name="generate_item_task")
-def generate_item_task(_item_id: str, _user_id: str, _task_id: str, _location_id: str = None, _state_game_id: str = None,
+def generate_item_task(_item_id: str, _user_id: str, _task_id: str, _location_id: str = None,
+                       _state_game_id: str = None,
                        _game_id: str = None):
     try:
         loop = asyncio.get_event_loop()
@@ -215,7 +217,8 @@ def generate_item_task(_item_id: str, _user_id: str, _task_id: str, _location_id
 
 
 @celery.task(name="updated_item_task")
-def updated_item_task(_item_id: str, _user_id: str, _task_id: str, _updated_prompt_user: bool, _updated_dialog: bool, _state_game_id: str = None, _location_id: str = None):
+def updated_item_task(_item_id: str, _user_id: str, _task_id: str, _updated_prompt_user: bool, _updated_dialog: bool,
+                      _state_game_id: str = None, _location_id: str = None):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
@@ -223,7 +226,8 @@ def updated_item_task(_item_id: str, _user_id: str, _task_id: str, _updated_prom
         asyncio.set_event_loop(loop)
 
     return loop.run_until_complete(
-        async_updated_item(_item_id, _user_id, _task_id, _updated_prompt_user, _updated_dialog, _state_game_id, _location_id))
+        async_updated_item(_item_id, _user_id, _task_id, _updated_prompt_user, _updated_dialog, _state_game_id,
+                           _location_id))
 
 
 @celery.task(name="generate_new_interaction_item_task")
@@ -239,3 +243,24 @@ def generate_new_interaction_item_task(_task_id: str, _item_id: str, _prompt_use
     return loop.run_until_complete(
         async_generate_new_interaction_item(_task_id, _item_id, _prompt_user_dialog, _state_game_id, location_id,
                                             _user_id))
+
+
+@celery.task(name="generate_image_event_task")
+def generate_image_event_task(game_id: str, event_id: str, state_game: str, user_id: str, prompt_user_image: str,
+                              task_id: str):
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    return loop.run_until_complete(
+        async_generate_image_event(
+            _game_id=game_id,
+            _event_id=event_id,
+            _state_game=state_game,
+            _user_id=user_id,
+            _prompt_user_image=prompt_user_image,
+            _task_id=task_id
+        )
+    )
