@@ -53,19 +53,6 @@ async def generate_image_event(game_id: str, event_id: str, state_game: str, use
         print("Error state game element not found")
         return False
 
-    for i in range(len(state_game_element["data"]["interaction"])):
-        if state_game_element["data"]["interaction"][i]["location_id"] == event_db["location_state_game_init"] and \
-                state_game_element["data"]["interaction"][i]["state_game"] == event_db["state_game_init"]:
-            if state_game_element["data"]["interaction"][i]["type_conversation"] == event_db["type_conversation"]:
-                if event_db["type_conversation"] in ["open_question", "option_multiple"]:
-                    state_game_element["data"]["interaction"][i]["options_dialog"]["options"][
-                        event_db["option_number"]]["event_id"] = event_id
-                    await db["state_glic"].update_one({"element_id": event_db["character_id"]},
-                                                      {"$set": state_game_element})
-                if event_db["type_conversation"] in ["one_way", "two_way"]:
-                    state_game_element["data"]["interaction"][i]["event_id"] = event_id
-                    await db["state_glic"].update_one({"element_id": event_db["character_id"]},
-                                                      {"$set": state_game_element})
 
     response_prompt_image = await openai_generator.generate_gpt(
         content_prompt=[

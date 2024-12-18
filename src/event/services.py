@@ -20,9 +20,9 @@ async def create_event_service(event: SchemaCreateEvent, user_id: str):
         name=event.name,
         prompt_user_image=event.prompt_user_image,
         prompt_user_text=event.prompt_user_text,
-        type_conversation=event.type_conversation,
-        option_number=event.option_number,
-        character_id=event.character_id,
+        type_conversation=None,
+        option_number=None,
+        character_id=None,
         character_principal="",
         state_game_init=event.state_game_init,
         state_game_end=None,
@@ -93,6 +93,8 @@ async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id:
     brand = False
     if event_db["prompt_user_image"] != event.prompt_user_image:
         brand = True
+
+
 
     event_db["name"] = event.name
     event_db["prompt_user_image"] = event.prompt_user_image

@@ -263,8 +263,6 @@ async def update_character_service(
         )
 
     try:
-        print(f"character_db: {character_db}")
-
         update_fields = {"updated_at": datetime.utcnow()}
         if name is not None:
             update_fields["name"] = name
