@@ -76,7 +76,16 @@ async def get_states_game_by_game_id(game_id: str) -> list:
     states_game = await db["state_game"].find({"game_id": game_id}).to_list(length=1000)
     for state_game in states_game:
         state_game["_id"] = str(state_game["_id"])
-    return states_game
+        location_state_game = await db["event"].find_one(
+            {"state_game_end": state_game["_id"]},
+            sort=[("created_at", -1)]
+        )
+        if location_state_game:
+            print("location_state_game", location_state_game)
+            state_game["location_id"] = location_state_game["location_state_game_end"]
+        else:
+            state_game["location_id"] = None
+        return states_game
 
 
 async def get_order_new_state_game(game_id: str) -> int:

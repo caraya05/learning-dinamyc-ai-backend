@@ -25,6 +25,7 @@ class SchemaStateGameCreate(BaseModel):
 class SchemaStateGameRetrieve(ResponseModelStr):
     game_id: str = Field(None, example="game_id")
     order: int = Field(None, example=1)
+    location_id: str = Field(None, example="location_id")
 
 
 class SchemaStateGameList(BaseModel):
