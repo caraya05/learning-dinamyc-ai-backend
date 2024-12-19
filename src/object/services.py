@@ -32,24 +32,34 @@ async def get_objects_service(game: str = None,
     """
     Get a list of objects.
     """
+    objects_db = []
+
     try:
         if location:
             item_locations_db = await db["state_glic"].find(
-                {"type_element": "item", "data.locations_id": {"$in": [location]}}).skip(
+                {"type_element": "item", "data.location_id": {"$in": [location]}}).skip(
                 (skip - 1) * limit).limit(limit).to_list(None)
             if not item_locations_db:
                 return [], 0
-            objects_db = []
             for item_location_db in item_locations_db:
                 objects_db_ = (
                     await db["item"].find_one({"_id": ObjectId(item_location_db["element_id"])}))
                 if objects_db_:
-                    objects_db_["_id"] = str(objects_db["_id"])
-                    objects_db_["state_game"] = [item_location_db]
-                    objects_db.append(objects_db)
+                    objects_db_["_id"] = str(objects_db_["_id"])
+                    # array_state_game = await db["state_glic"].find(
+                    #     {"element_id": objects_db_["_id"]}).to_list(None)
+                    # if array_state_game:
+                    #     for a in array_state_game:
+                    #         a["_id"] = str(a["_id"])
+                    #
+                    #     objects_db_["state_game"] = array_state_game
+                    # else:
+                    #     objects_db_["state_game"] = []
+                    # print("llego aca")
+                    objects_db.append(objects_db_)
             count_objects = (
                 await db["state_glic"].count_documents(
-                    {"type_element": "item", "data.locations_id": {"$in": [location]}})
+                    {"type_element": "item", "data.location_id": {"$in": [location]}})
             )
         elif game:
             objects_db = (
@@ -78,12 +88,14 @@ async def get_objects_service(game: str = None,
         if objects_db:
             for object_db in objects_db:
                 object_db["_id"] = str(object_db["_id"])
-                element_state_db = await db["state_glic"].find_one(
+                elements_state_db = await db["state_glic"].find(
                     {"element_id": object_db["_id"]}
-                )
-                if element_state_db:
-                    element_state_db["_id"] = str(element_state_db["_id"])
-                    object_db["state_game"] = [element_state_db]
+                ).to_list(None)
+                if elements_state_db:
+                    for element_state_db in elements_state_db:
+                        element_state_db["_id"] = str(element_state_db["_id"])
+
+                object_db["state_game"] = elements_state_db
                 # item_characteristics = await db["object_location"].find(
                 #     {"item_id": object_db["_id"]}).to_list(None)
                 # if item_characteristics:
@@ -95,6 +107,8 @@ async def get_objects_service(game: str = None,
                 #         del item_characteristic["created_at"]
                 #         del item_characteristic["created_by"]
                 #     object_db["characteristics"] = item_characteristics
+
+        print(objects_db)
         return objects_db, count_objects
     except Exception as e:
         print(f"Error in get objects service: {str(e)}")
