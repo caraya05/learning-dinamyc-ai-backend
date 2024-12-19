@@ -101,18 +101,11 @@ async def get_characters(
     else:
         try:
             if game_id:
-                characters_db = await get_characters_service(
-                    game_id=game_id, skip=1, limit=200
-                )
-                print(characters_db)
+                characters_db = await get_characters_service(game_id=game_id, skip=1, limit=200)
             elif location_id:
-                characters_db = await get_characters_by_location_service(
-                    skip=1, limit=200, location_id=location_id
-                )
-                print(characters_db)
+                characters_db = await get_characters_by_location_service(skip=1, limit=200, location_id=location_id)
             else:
                 characters_db = await get_characters_service(skip=1, limit=200, user_id=str(user_db.get("_id")))
-                print(characters_db)
             for i in characters_db:
                 i["_id"] = str(i["_id"])
             return SchemaListCharacter(results=characters_db, count=len(characters_db))

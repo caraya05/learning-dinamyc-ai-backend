@@ -46,7 +46,6 @@ async def get_characters_service(skip: int = 1, limit: int = 100, game_id: str =
 
         else:
             characters_db = await db["character"].find({"game_id": game_id}).skip((skip - 1) * limit).limit(limit).to_list(None)
-            print(f"characters_db: {characters_db}")
         for i in characters_db:
             i["_id"] = str(i["_id"])
             i["state_game"] = await get_list_state_glic_by_element_id(i["_id"])
