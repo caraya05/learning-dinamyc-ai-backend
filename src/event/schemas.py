@@ -60,6 +60,7 @@ class SchemaRetrieveEvent(BaseModel):
     updated_by: str = Field(default="system", example="system")
     game_id: str = Field(..., example="game_id")
     character_id: str = Field(None, example="character_id")
+    task_id: str = Field(None, example="task_id")
 
     class Config:
         json_encoders = {ObjectId: str}
