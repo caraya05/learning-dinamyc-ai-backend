@@ -126,8 +126,9 @@ async def async_generate_image_event(_game_id: str, _event_id: str, _state_game:
     print("response_image_event", response_image_event)
 
     if not response_image_event:
+        print("error", response_image_event)
         await update_task_service(_id=_task_id, _status="failed")
         return "Error generating image event"
-
+    print("paso", response_image_event)
     await update_task_service(_id=_task_id, _status="completed")
     return "Image event generated successfully"

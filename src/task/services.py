@@ -1,3 +1,4 @@
+import traceback
 from datetime import datetime
 
 from pytz import timezone
@@ -89,6 +90,7 @@ async def update_task_service(
             )
         return await db["task"].find_one({"_id": ObjectId(_id)})
     except Exception as e:
+        traceback.print_exc()
         print("Error in update task", e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Task not updated {str(e)}")
 
