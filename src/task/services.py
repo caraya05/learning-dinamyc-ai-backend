@@ -12,12 +12,12 @@ from core.database import db
 
 
 async def create_task_service(
-    _task_id: str,
-    _user_id: str,
-    _task_data: dict,
-    _element_id: str,
-    _element_type: str,
-    _process: str,
+        _task_id: str,
+        _user_id: str,
+        _task_data: dict,
+        _element_id: str,
+        _element_type: str,
+        _process: str,
 ):
     try:
         date_now = datetime.now(timezone('UTC'))
@@ -45,12 +45,12 @@ async def create_task_service(
 
 
 async def update_task_service(
-    _id: str,
-    _task_id: str = None,
-    _status: str = None,
-    _data: dict = None,
-    _message: str = None,
-    _was_notified: bool = False,
+        _id: str,
+        _task_id: str = None,
+        _status: str = None,
+        _data: dict = None,
+        _message: str = None,
+        _was_notified: bool = False,
 ):
     try:
         update_fields = {}
@@ -76,7 +76,7 @@ async def update_task_service(
         _query = {}
         if _status == "completed":
             _query["status"] = 2
-            if isinstance(element_db["tasks_notified"], list):
+            if isinstance(element_db.get("tasks_notified", None), list):
                 element_db["tasks_notified"].append(_id)
                 _query["tasks_notified"] = element_db["tasks_notified"]
         elif _status == "failed":
@@ -93,7 +93,6 @@ async def update_task_service(
         traceback.print_exc()
         print("Error in update task", e)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Task not updated {str(e)}")
-
 
 
 async def get_task_pending_service(user_id: str, ids: str = None, is_list: bool = False):
