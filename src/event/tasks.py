@@ -98,9 +98,11 @@ async def generate_image_event(game_id: str, event_id: str, state_game: str, use
             size=(512, 896),
         )
 
-        event_db["image"] = image_generated
+        # event_db["image"] = image_generated
 
-        await db["event"].update_one({"_id": ObjectId(event_id)}, {"$set": event_db})
+        print("event_db", image_generated)
+
+        await db["event"].update_one({"_id": ObjectId(event_id)}, {"$set": {"image": image_generated}})
 
         return True
     except Exception as e:
@@ -120,6 +122,8 @@ async def async_generate_image_event(_game_id: str, _event_id: str, _state_game:
         user_id=_user_id,
         prompt_user_image=_prompt_user_image,
     )
+
+    print("response_image_event", response_image_event)
 
     if not response_image_event:
         await update_task_service(_id=_task_id, _status="failed")
