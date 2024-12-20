@@ -1,5 +1,5 @@
 from bson import ObjectId
-
+import traceback
 from task.services import update_task_service
 from utils import upload_image
 from openai import BaseModel
@@ -16,92 +16,97 @@ class SchemaPromptImage(BaseModel):
 
 
 async def generate_image_event(game_id: str, event_id: str, state_game: str, user_id: str, prompt_user_image: str):
-    event_db = await db["event"].find_one({"_id": ObjectId(event_id)})
-    if not event_db:
-        print("Error event not found")
+    try:
+        event_db = await db["event"].find_one({"_id": ObjectId(event_id)})
+        if not event_db:
+            print("Error event not found")
+            return False
+
+        game_db = await db["game"].find_one({"_id": ObjectId(game_id)})
+        if not game_db:
+            print("Error game not found")
+            return False
+
+        state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
+        if not state_game_db:
+            print("Error state game not found")
+            return False
+
+        character_principal_state_game = await db["state_glic"].find_one({"element_id": game_db["character_principal"]})
+        if not character_principal_state_game:
+            print("Error character principal not found")
+            return False
+
+        characters_state_game = await db["state_glic"].find(
+            {"data.game_id": game_id, "state": state_game}).to_list(None)
+        if not characters_state_game:
+            print("Error characters not found")
+            return False
+
+        locations_state_game = await db["state_glic"].find(
+            {"data.game_id": game_id, "state": state_game}).to_list(None)
+        if not locations_state_game:
+            print("Error locations not found")
+            return False
+
+        # state_game_element = await db["state_glic"].find_one({"element_id": event_db["character_id"]})
+        # if not state_game_element:
+        #     print("Error state game element not found")
+        #     return False
+
+
+        response_prompt_image = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": f"Eres un diseñador de videojuegos y te han encargado crear una imagen de portada en estilo de "
+                               f"animación 3D de calidad extraordinaria para el juego {game_db['title']}"
+                               f" con el personaje {character_principal_state_game['data']['prompt_user']}. La escena debe representar un momento lleno de acción"
+                               f" que capture la esencia del juego."
+                               f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen."
+                },
+                {
+                    "role": "assistant",
+                    "content": f"Game: {game_db['title']}\n"
+                               f"Character Principal: {character_principal_state_game['data']['prompt_user']}\n"
+                               f"Characters: {characters_state_game}\n"
+                               f"Locations: {locations_state_game}\n"
+                },
+                {
+                    "role": "user",
+                    "content": [{"type": "text", "text": prompt_user_image}]
+                }
+            ],
+            model="gpt-4o-mini-2024-07-18",
+            max_tokens=4096,
+            response_format=SchemaPromptImage,
+            type_generation="create_prompt_image",
+            user_id=user_id,
+        )
+
+        response_image = await openai_generator.generate_image(
+            prompt=response_prompt_image.prompt_user_image,
+            quality="hd",
+            size="1024x1792",
+            user_id=user_id,
+            type_generation="generate image cover game",
+        )
+
+        image_generated = upload_image(
+            url_image=response_image,
+            file_name=f"event/{uuid4()}.jpg",
+            size=(512, 896),
+        )
+
+        event_db["image"] = image_generated
+
+        await db["event"].update_one({"_id": ObjectId(event_id)}, {"$set": event_db})
+
+        return True
+    except Exception as e:
+        print("Error in generate image event", e)
+        traceback.print_exc()
         return False
-
-    game_db = await db["game"].find_one({"_id": ObjectId(game_id)})
-    if not game_db:
-        print("Error game not found")
-        return False
-
-    state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
-    if not state_game_db:
-        print("Error state game not found")
-        return False
-
-    character_principal_state_game = await db["state_glic"].find_one({"element_id": game_db["character_principal"]})
-    if not character_principal_state_game:
-        print("Error character principal not found")
-        return False
-
-    characters_state_game = await db["state_glic"].find(
-        {"data.game_id": game_id, "state": state_game}).to_list(None)
-    if not characters_state_game:
-        print("Error characters not found")
-        return False
-
-    locations_state_game = await db["state_glic"].find(
-        {"data.game_id": game_id, "state": state_game}).to_list(None)
-    if not locations_state_game:
-        print("Error locations not found")
-        return False
-
-    state_game_element = await db["state_glic"].find_one({"element_id": event_db["character_id"]})
-    if not state_game_element:
-        print("Error state game element not found")
-        return False
-
-
-    response_prompt_image = await openai_generator.generate_gpt(
-        content_prompt=[
-            {
-                "role": "system",
-                "content": f"Eres un diseñador de videojuegos y te han encargado crear una imagen de portada en estilo de "
-                           f"animación 3D de calidad extraordinaria para el juego {game_db['title']}"
-                           f" con el personaje {character_principal_state_game['data']['prompt_user']}. La escena debe representar un momento lleno de acción"
-                           f" que capture la esencia del juego."
-                           f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen."
-            },
-            {
-                "role": "assistant",
-                "content": f"Game: {game_db['title']}\n"
-                           f"Character Principal: {character_principal_state_game['data']['prompt_user']}\n"
-                           f"Characters: {characters_state_game}\n"
-                           f"Locations: {locations_state_game}\n"
-            },
-            {
-                "role": "user",
-                "content": [{"type": "text", "text": prompt_user_image}]
-            }
-        ],
-        model="gpt-4o-mini-2024-07-18",
-        max_tokens=4096,
-        response_format=SchemaPromptImage,
-        type_generation="create_prompt_image",
-        user_id=user_id,
-    )
-
-    response_image = await openai_generator.generate_image(
-        prompt=response_prompt_image.prompt_user_image,
-        quality="hd",
-        size="1024x1792",
-        user_id=user_id,
-        type_generation="generate image cover game",
-    )
-
-    image_generated = upload_image(
-        url_image=response_image,
-        file_name=f"event/{uuid4()}.jpg",
-        size=(512, 896),
-    )
-
-    event_db["image"] = image_generated
-
-    await db["event"].update_one({"_id": ObjectId(event_id)}, {"$set": event_db})
-
-    return True
 
 
 async def async_generate_image_event(_game_id: str, _event_id: str, _state_game: str, _user_id: str,
