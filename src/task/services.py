@@ -93,6 +93,7 @@ async def update_task_service(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Task not updated {str(e)}")
 
 
+
 async def get_task_pending_service(user_id: str, ids: str = None, is_list: bool = False):
     try:
         query = {"was_notified": False, "user_id": user_id}

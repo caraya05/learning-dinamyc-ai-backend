@@ -54,7 +54,7 @@ async def create_event_service(event: SchemaCreateEvent, user_id: str):
         state_game=event.state_game_init,
         user_id=user_id,
         prompt_user_image=event.prompt_user_image,
-        task_id=task_db["_id"],
+        task_id=str(task_db["_id"]),
     )
 
     await update_task_service(
