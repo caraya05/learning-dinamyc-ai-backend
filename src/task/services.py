@@ -81,7 +81,7 @@ async def update_task_service(
                 _query["tasks_notified"] = element_db["tasks_notified"]
         elif _status == "failed":
             _query["status"] = 3
-            if isinstance(element_db["tasks_notified"], list):
+            if isinstance(element_db.get("tasks_notified", None), list):
                 element_db["tasks_notified"].append(_id)
                 _query["tasks_notified"] = element_db["tasks_notified"]
         if _query != {}:

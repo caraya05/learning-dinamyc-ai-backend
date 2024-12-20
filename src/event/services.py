@@ -129,7 +129,7 @@ async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id:
             state_game=event_db["state_game_init"],
             user_id=user_id,
             prompt_user_image=event_db["prompt_user_image"],
-            task_id=task_db["_id"],
+            task_id=str(task_db["_id"]),
         )
 
         await update_task_service(
