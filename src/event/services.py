@@ -96,20 +96,27 @@ async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id:
 
 
 
-    event_db["name"] = event.name
-    event_db["prompt_user_image"] = event.prompt_user_image
-    event_db["prompt_user_text"] = event.prompt_user_text
-    event_db["type_conversation"] = event.type_conversation
-    event_db["option_number"] = event.option_number
-    event_db["state_game_init"] = event.state_game_init
-    event_db["state_game_end"] = event.state_game_end
-    event_db["location_state_game_init"] = event.location_state_game_init
-    event_db["location_state_game_end"] = event.location_state_game_end
-    event_db["image"] = generate_image
-    event_db["updated_by"] = user_id
-    event_db["updated_at"] = datetime.utcnow()
+    # event_db["name"] = event.name
+    # event_db["prompt_user_image"] = event.prompt_user_image
+    # event_db["prompt_user_text"] = event.prompt_user_text
+    # event_db["type_conversation"] = event.type_conversation
+    # event_db["option_number"] = event.option_number
+    # event_db["state_game_init"] = event.state_game_init
+    # event_db["state_game_end"] = event.state_game_end
+    # event_db["location_state_game_init"] = event.location_state_game_init
+    # event_db["location_state_game_end"] = event.location_state_game_end
+    # event_db["image"] = generate_image
+    # event_db["updated_by"] = user_id
+    # event_db["updated_at"] = datetime.utcnow()
 
-    await db["event"].update_one({"_id": ObjectId(event_id)}, {"$set": event_db})
+    await db["event"].update_one({"_id": ObjectId(event_id)}, {"$set": {
+        "type_conversation": event.type_conversation,
+        "option_number": event.option_number,
+        "state_game_end": event.state_game_end,
+        "location_state_game_end": event.location_state_game_end,
+        "character_id": event.character_id,
+        "updated_at": datetime.utcnow(),
+    }})
     event_db = await db["event"].find_one({"_id": ObjectId(event_id)})
     event_db["_id"] = str(event_db["_id"])
 
