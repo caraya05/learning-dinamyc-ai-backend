@@ -69,16 +69,17 @@ async def get_list_state_glic_by_element_id(element_id: str) -> list:
             if state_glic[j]["type_element"] == "character":
                 if state_glic[j]["data"].get("interaction", None):
                     for i in range(len(state_glic[j]["data"]["interaction"])):
-                        if state_glic[j]["data"]["interaction"][i].get("conversation_type", None):
-                            if state_glic[j]["data"]["interaction"][i]["conversation_type"] in ["one_way", "two_way"]:
+                        print(state_glic[j]["data"]["interaction"][i])
+                        if state_glic[j]["data"]["interaction"][i].get("type_conversation", None):
+                            if state_glic[j]["data"]["interaction"][i]["type_conversation"] in ["one_way", "two_way"]:
                                 event_db = await db["event"].find_one({
                                     "game_id": state_glic[j]["data"]["game_id"],
                                     "character_id": state_glic[j]["element_id"],
                                     "state_game_init": state_glic[j]["state"],
                                     "location_state_game_init": state_glic[j]["data"]["interaction"][i]["location_id"],
-                                    "type_conversation": state_glic[j]["data"]["interaction"][i]["conversation_type"]
+                                    "type_conversation": state_glic[j]["data"]["interaction"][i]["type_conversation"]
                                 })
-                                if event_db["conversation_type"] in ["one_way", "two_way"]:
+                                if event_db["type_conversation"] in ["one_way", "two_way"]:
                                     state_glic[j]["data"]["interaction"][i]["event_id"] = str(event_db["_id"])
                             if state_glic[j]["data"]["interaction"][i]["type_conversation"] in ["open_question", "option_multiple"]:
                                 for k in range(len(state_glic[j]["data"]["interaction"][i]["options_dialog"]["options"])):
