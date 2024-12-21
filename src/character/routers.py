@@ -55,6 +55,8 @@ async def get_character(
             character_db = await get_character_game_publish_service(
                 character_id=character_id, game_id=game_id
             )
+
+            print(character_db)
             return character_db
         except Exception as e:
             print(f"error in get character: {str(e)}")

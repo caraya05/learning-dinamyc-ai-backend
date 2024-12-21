@@ -33,6 +33,7 @@ async def get_character_service(character_id: str):
         )
 
     character_db["_id"] = str(character_db["_id"])
+    print(f"character_db: {character_db}")
     character_db["state_game"] = await get_list_state_glic_by_element_id(character_id)
 
     return character_db

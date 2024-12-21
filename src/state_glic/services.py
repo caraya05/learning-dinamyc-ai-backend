@@ -61,6 +61,7 @@ async def updated_state_glic_by_element_id(element_id: str, state: str, data) ->
 
 import traceback
 
+
 async def get_list_state_glic_by_element_id(element_id: str) -> list:
     try:
         state_glic = await db["state_glic"].find({"element_id": element_id}).to_list(length=1000)
@@ -79,22 +80,26 @@ async def get_list_state_glic_by_element_id(element_id: str) -> list:
                                     "location_state_game_init": state_glic[j]["data"]["interaction"][i]["location_id"],
                                     "type_conversation": state_glic[j]["data"]["interaction"][i]["type_conversation"]
                                 })
-                                if event_db["type_conversation"] in ["one_way", "two_way"]:
+                                if event_db and event_db["type_conversation"] in ["one_way", "two_way"]:
                                     state_glic[j]["data"]["interaction"][i]["event_id"] = str(event_db["_id"])
-                            if state_glic[j]["data"]["interaction"][i]["type_conversation"] in ["open_question", "option_multiple"]:
-                                for k in range(len(state_glic[j]["data"]["interaction"][i]["options_dialog"]["options"])):
+                            if state_glic[j]["data"]["interaction"][i]["type_conversation"] in ["open_question",
+                                                                                                "option_multiple"]:
+                                for k in range(
+                                        len(state_glic[j]["data"]["interaction"][i]["options_dialog"]["options"])):
                                     event_db = await db["event"].find_one({
                                         "game_id": state_glic[j]["data"]["game_id"],
                                         "character_id": state_glic[j]["element_id"],
                                         "state_game_init": state_glic[j]["state"],
-                                        "location_state_game_init": state_glic[j]["data"]["interaction"][i]["location_id"],
+                                        "location_state_game_init": state_glic[j]["data"]["interaction"][i][
+                                            "location_id"],
                                         "option_number": k,
-                                        "type_conversation": state_glic[j]["data"]["interaction"][i]["conversation_type"]
+                                        "type_conversation": state_glic[j]["data"]["interaction"][i][
+                                            "conversation_type"]
                                     })
-                                    if event_db:
-                                        if event_db["type_conversation"] in ["open_question", "option_multiple"]:
-                                            state_glic[j]["data"]["interaction"][i]["options_dialog"]["options"][
-                                                event_db["option_number"]]["event_id"] = str(event_db["_id"])
+                                    if event_db and event_db["type_conversation"] in ["open_question",
+                                                                                      "option_multiple"]:
+                                        state_glic[j]["data"]["interaction"][i]["options_dialog"]["options"][
+                                            event_db["option_number"]]["event_id"] = str(event_db["_id"])
         return state_glic
     except Exception as e:
         print(f"Error: {str(e)}")
