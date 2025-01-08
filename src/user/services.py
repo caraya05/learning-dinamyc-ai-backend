@@ -217,7 +217,7 @@ async def disable_user_service(user_id: str, section: str):
                 status_code=status.HTTP_400_BAD_REQUEST, detail="User without stars"
             )
 
-        stars_disabled = 1 if section in {"character", "place", "location", "item"} else 0
+        stars_disabled = 1 if section in {"character", "place", "location", "item", "event"} else 0
 
         await register_daily_record_service(
             user_id=section,

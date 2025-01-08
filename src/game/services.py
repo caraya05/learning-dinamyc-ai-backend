@@ -6,29 +6,27 @@ from fastapi import HTTPException
 from starlette import status
 
 from uuid import uuid4
-from category.services import get_categories_service
+
 from character.services import get_characters_by_location_service
 
-from game.schemas import SchemaCreateGame, SchemaUpdateGameV2
+from game.schemas import SchemaUpdateGameV2
 from game.schemas import SchemaPartialUpdateGame
 
 from game.models import Game
-from game.utils import get_history
-from game.utils import get_category_game_ai
-from game.utils import get_synopsis
-from object.services import get_item_by_location_service
-from state_glic.services import create_state_glic
-from task.services import create_task_service, update_task_service
 
-from celery_worker import generate_image_cover_game_task, generate_voice_character_task
+from object.services import get_item_by_location_service
+
+from task.services import create_task_service
+from task.services import update_task_service
+
+from celery_worker import generate_image_cover_game_task
 # from celery_worker import generate_context_new_character_task
 
-from state_game.services import create_state_game, get_state_game_by_game_id
+from state_game.services import create_state_game
 
 from utils import upload_image
 
 from core.database import db
-
 
 async def get_game_service(game_id: str):
     try:

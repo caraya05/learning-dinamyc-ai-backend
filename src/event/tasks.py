@@ -107,7 +107,7 @@ async def generate_image_event(game_id: str, event_id: str, state_game: str, use
         return True
     except Exception as e:
         print("Error in generate image event", e)
-        traceback.print_exc()
+        print(traceback.format_exc())
         return False
 
 

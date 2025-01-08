@@ -4,10 +4,11 @@ from bson import ObjectId
 from fastapi import HTTPException
 from fastapi import status
 from openai import BaseModel
-from pyasn1_modules.rfc3279 import primeCurve
 from pydantic import Field
 
-from celery_worker import generate_character_task, update_character_task, generate_voice_character_task
+from celery_worker import generate_character_task
+from celery_worker import update_character_task
+from celery_worker import generate_voice_character_task
 from celery_worker import generate_image_character_task
 
 from character.models import Character
@@ -17,11 +18,14 @@ from character.schemas import CharacterLocationModel
 
 from core.database import db
 from gpt_ai.utils import openai_generator
-from state_game.services import get_state_game_by_game_id, get_state_game_by_id, get_state_game_by_element_id
-from state_glic.services import create_state_glic, get_list_state_glic_by_element_id
+from state_game.services import get_state_game_by_game_id
+from state_game.services import get_state_game_by_id
+from state_glic.services import create_state_glic
+from state_glic.services import get_list_state_glic_by_element_id
 
 from task.services import create_task_service
 from task.services import update_task_service
+from user.services import validate_star_user_service, disable_user_service
 
 
 async def get_character_service(character_id: str):
@@ -125,6 +129,24 @@ async def create_character_service(character: SchemaCreateCharacter,
                                    user_id: str,
                                    game_id: str):
     try:
+
+        response_moderation_prompt_user = await openai_generator.moderation_text(text=character.prompt_user,user_id=user_id)
+        if response_moderation_prompt_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Prompt user not allowed",
+            )
+
+        response_moderation_dialog = await openai_generator.moderation_text(text=character.prompt_user_dialog,user_id=user_id)
+        if response_moderation_dialog:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Dialog not allowed",
+            )
+
+        await validate_star_user_service(user_id=user_id)
+        await  disable_user_service(user_id=user_id, section="character")
+
         character_db = Character(**character.dict())
         character_db.created_by = user_id
         character_db.updated_by = user_id
@@ -225,19 +247,32 @@ async def update_character_service(
         location_id: str = None,
         state_game: str = None
 ):
+
+    moderation_prompt_user = await openai_generator.moderation_text(text=prompt_user, user_id=user_id)
+    if moderation_prompt_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prompt user not allowed",
+        )
+
+    moderation_dialog = await openai_generator.moderation_text(text=dialog, user_id=user_id)
+    if moderation_dialog:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Dialog not allowed",
+        )
+
+    await validate_star_user_service(user_id=user_id)
+    await  disable_user_service(user_id=user_id, section="character")
+
     name_or_prompt_user_changed = False
     dialog_changed = False
-    character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
     try:
 
         if not state_game:
-            print(f"game_id: {game_id}")
             state_game = await get_state_game_by_game_id(game_id)
-            print(f"state_game: {state_game}")
         else:
             state_game = await get_state_game_by_id(state_game)
-
-        print(f"state_game: {state_game}")
 
         character_state_db = await db["state_glic"].find_one(
             {"element_id": character_id, "state": state_game["_id"]}

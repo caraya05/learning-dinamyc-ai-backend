@@ -1,4 +1,5 @@
 import random
+import traceback
 from uuid import uuid4
 
 from bson import ObjectId
@@ -246,6 +247,7 @@ async def generate_voice_character(game_id, character_id: str, user_id: str, loc
                 )
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in generate voice service: {str(e)}")
         return False
 
@@ -287,6 +289,7 @@ async def generate_image_character_face(_character_id, _user_id, _state_game_id)
 
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in get images character service: {str(e)}")
         return False
 
@@ -400,6 +403,7 @@ async def generate_character_body_type(_character_id, _user_id, _state_game_id):
 
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in get character body type service: {str(e)}")
         return False
 
@@ -453,6 +457,7 @@ async def generate_character_description(_character_id, _user_id, _state_game_id
 
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in get character description service: {str(e)}")
         return False
 
@@ -562,6 +567,7 @@ async def generate_conversation_character(_game_id, _character_id, _user_id, _lo
 
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in generating character conversation: {str(e)}")
         return False
 
@@ -600,6 +606,7 @@ async def identify_prompt_conversation(_prompt_dialog, _user_id):
         )
         return response
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in generating character conversation: {str(e)}")
         return False
 
@@ -693,6 +700,7 @@ async def generate_option_character(_game_id, _character_id, _user_id, _location
             element_state_db["data"]['options_dialog']['prompt_user_question'] = conversation_
 
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in generating character option (question): {str(e)}")
         return False
 
@@ -798,6 +806,7 @@ async def generate_option_character(_game_id, _character_id, _user_id, _location
 
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in generating character conversation: {str(e)}")
         return False
 
@@ -965,6 +974,7 @@ async def generate_open_question_character(_game_id, _character_id, _user_id, _l
 
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in generating character conversation: {str(e)}")
         return False
 
@@ -1041,6 +1051,7 @@ async def generate_monologue_character(_game_id, _character_id, _user_id, _locat
 
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in generating character monologue: {str(e)}")
         return False
 
@@ -1071,6 +1082,7 @@ async def generate_language_detection(_text, _user_id):
 
         return response.response
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in generating language detection: {str(e)}")
         return "english"
 

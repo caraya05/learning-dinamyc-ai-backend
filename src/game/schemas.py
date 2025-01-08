@@ -44,6 +44,7 @@ class SchemaRetrieveGameStr(ResponseModelStr):
     category_id: Optional[str] | None = Field(None, example="category of the game")
     synopsis: Optional[str] = Field(..., example="synopsis og the game")
     image: Optional[str] = Field(..., example="photo", decimal_places=None)
+    image_minimalist: Optional[str] = Field(..., example="photo", decimal_places=None)
     image_background: Optional[str] = Field(..., example="photo background", decimal_places=None)
     summary: Optional[str] = Field(..., example="summary of the game")
     created_at: datetime

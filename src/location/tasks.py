@@ -1,3 +1,4 @@
+import traceback
 from uuid import uuid4
 
 from bson import ObjectId
@@ -84,6 +85,7 @@ async def generate_environment_location(_location_id: str, _user_id: str, _state
 
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in generate environment location: {e}")
         return False
 
@@ -154,6 +156,7 @@ async def generate_location_description(_location_id: str, _user_id: str, state_
         # )
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in generate location description: {e}")
         return False
 
@@ -203,6 +206,7 @@ async def identify_location_sound(_location_id: str, _user_id: str, _state_game_
 
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in identify location sound: {e}")
         return False
 
@@ -269,6 +273,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in generate location image: {e}")
         return False
 

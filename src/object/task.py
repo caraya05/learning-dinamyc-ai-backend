@@ -1,5 +1,5 @@
 from uuid import uuid4
-
+import traceback
 from bson import ObjectId
 from pydantic import BaseModel, Field
 
@@ -43,6 +43,7 @@ async def generate_image_item(prompt_user: str, object_id: str, user_id: str, st
 
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in generate image: {str(e)}")
         return False
 
@@ -141,6 +142,7 @@ async def generate_conversation_item(prompt_user_dialog: str, object_id: str, us
 
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in generate conversation: {str(e)}")
         return False
 

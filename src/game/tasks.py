@@ -1,4 +1,5 @@
 from uuid import uuid4
+import  traceback
 
 from bson import ObjectId
 
@@ -23,8 +24,8 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
 
-        if game_db['image']:
-            return True
+        # if game_db['image']:
+        #     return True
 
         first_location_state = None
         first_character_state = None
@@ -55,14 +56,21 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
             type_generation="generate image cover game",
         )
 
+
         image = upload_image(
             url_image=response_image, file_name=f"covers/{uuid4()}.jpg", size=(512, 896)
         )
 
-        await db['game'].update_one({'_id': ObjectId(_game_id)}, {'$set': {'image': image}})
+        image_minimalist = upload_image(
+            url_image=response_image, file_name=f"covers/{uuid4()}_minimalist.jpg", size=(171, 299)
+        )
+
+        await db['game'].update_one({'_id': ObjectId(_game_id)}, {'$set': {'image': image,
+                                                                           'image_minimalist': image_minimalist}})
         return True
 
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error Cover Image: {str(e)}")
         return False
 
@@ -110,6 +118,7 @@ async def generate_context_init_game(_game_id: str, _user_id: str):
         )
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error generating story: {str(e)}")
         return False
 
@@ -208,6 +217,7 @@ async def generate_context_new_character(
         )
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error generating story: {str(e)}")
         return False
 
@@ -240,6 +250,7 @@ async def generate_game_summary(game_id: str, user_id: str):
         )
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error generating summary: {str(e)}")
         return False
 
@@ -285,6 +296,7 @@ async def identify_category_game(game_id: str, user_id: str):
         )
         return True
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error generating category: {str(e)}")
         return False
 

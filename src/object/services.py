@@ -1,27 +1,32 @@
 from datetime import datetime
-from uuid import uuid4
-
 from bson import ObjectId
-from dill import objects
 from fastapi import HTTPException
-from redis.commands.search.reducers import count
-
-from core.database import db
 from starlette import status
 
-from object.models import Object, ObjectGLIC
+from core.database import db
 
-from object.schemas import SchemaCreateObject, ObjectLocationModel
+from object.models import Object
+from object.models import ObjectGLIC
+
+from object.schemas import SchemaCreateObject
+from object.schemas import ObjectLocationModel
 from object.schemas import SchemaCreateItem
-from state_game.services import get_state_game_by_game_id, get_state_game_by_id
+
+from state_game.services import get_state_game_by_game_id
+from state_game.services import get_state_game_by_id
 from state_glic.services import create_state_glic
-from task.services import create_task_service, update_task_service
+
+from task.services import create_task_service
+from task.services import update_task_service
+from user.services import validate_star_user_service, disable_user_service
 
 # from object.schemas import SchemaPartialUpdateObject
 
-from utils import upload_image, delete_image
+from gpt_ai.utils import openai_generator
 
-from celery_worker import generate_item_task, updated_item_task, generate_new_interaction_item_task
+from celery_worker import generate_item_task
+from celery_worker import updated_item_task
+from celery_worker import generate_new_interaction_item_task
 
 
 async def get_objects_service(game: str = None,
@@ -176,6 +181,30 @@ async def create_item_service(schema: SchemaCreateObject, user_id: str):
     """
     Create a new object.
     """
+
+    moderation_prompt_user = await openai_generator.moderation_text(
+        text=schema.prompt_user,
+        user_id=user_id,
+    )
+    if moderation_prompt_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prompt user not allowed",
+        )
+
+    moderation_prompt_user_dialog = await openai_generator.moderation_text(
+        text=schema.prompt_user_dialog,
+        user_id=user_id,
+    )
+    if moderation_prompt_user_dialog:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prompt user dialog not allowed",
+        )
+
+    await validate_star_user_service(user_id=user_id)
+    await  disable_user_service(user_id=user_id, section="item")
+
     try:
         schema_object = Object(**schema.dict())
         schema_object.created_by = user_id

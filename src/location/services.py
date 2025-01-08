@@ -2,17 +2,27 @@ from bson import ObjectId
 from fastapi import HTTPException
 from starlette import status
 
-from celery_worker import generate_location_task, generate_image_location_task
+from celery_worker import generate_location_task
+from celery_worker import generate_image_location_task
 from core.database import db
 
 from character.services import get_characters_by_location_service
+
 from location.models import Location
 from location.models import LocationGLIC
-from location.schemas import SchemaCreateLocation, SchemaStateLocation
+from location.schemas import SchemaCreateLocation
 from location.schemas import SchemaPartialUpdateLocation
-from state_game.services import get_state_game_by_game_id, get_state_game_by_id
+
+from state_game.services import get_state_game_by_game_id
+from state_game.services import get_state_game_by_id
+
 from state_glic.services import create_state_glic
-from task.services import create_task_service, update_task_service
+
+from task.services import create_task_service
+from task.services import update_task_service
+
+from gpt_ai.utils import openai_generator
+from user.services import validate_star_user_service, disable_user_service
 
 
 async def get_locations_service(*, game_id: str, skip: int = 0, limit: int = 100):
@@ -130,6 +140,19 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str):
     Create a location.
     """
 
+    moderation_prompt_user = await openai_generator.moderation_text(
+        text=location.prompt_user,
+        user_id=user_id,
+    )
+    if moderation_prompt_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prompt user not allowed",
+        )
+
+    await validate_star_user_service(user_id=user_id)
+    await  disable_user_service(user_id=user_id, section="location")
+
     try:
         location_schema = Location(**location.dict())
         location_schema.created_by = user_id
@@ -202,6 +225,19 @@ async def partial_update_location_service(
     """
     Partially update a location.
     """
+
+    moderation_prompt_user = await openai_generator.moderation_text(
+        text=location.prompt_user,
+        user_id=user_id,
+    )
+    if moderation_prompt_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Prompt user not allowed",
+        )
+
+    await validate_star_user_service(user_id=user_id)
+    await  disable_user_service(user_id=user_id, section="location")
 
     title_or_prompt_user_changed = False
     config_edited = False

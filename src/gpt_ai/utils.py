@@ -4,6 +4,7 @@ import pytz
 from fastapi import HTTPException
 
 from openai import AsyncClient as OpenAI
+from openai import BaseModel
 from openai import APIConnectionError
 from openai import RateLimitError
 from openai import APIStatusError
@@ -15,7 +16,6 @@ from openai import ConflictError
 from openai import BadRequestError
 from openai import AuthenticationError
 from openai import APITimeoutError
-from openai.lib import ResponseFormatT
 
 from config import settings
 
@@ -159,7 +159,7 @@ class OpenAIGenerator:
     async def generate_gpt(
         self,
         content_prompt: list[dict],
-        response_format: ResponseFormatT,
+        response_format: BaseModel,
         type_generation: str = "",
         max_tokens: int = 1000,
         model: str = "gpt-4o",
@@ -198,6 +198,35 @@ class OpenAIGenerator:
                 type_generation=type_generation,
                 user_id=None,
             )
+
+    async def moderation_text(self, text: str, model: str = "omni-moderation-latest", user_id: str = None):
+        try:
+            response = await self.client.moderations.create(
+                model=model,
+                input=text
+            )
+
+            await store_response(
+                response=response,
+                prompt=text,
+                model=model,
+                type_generation="moderation_text",
+                user_id=user_id,
+            )
+
+            return response.results[0].flagged
+
+        except Exception as e:
+            print(f"Error in moderation_text: {str(e)}")
+            await handle_exception(
+                e=e,
+                prompt=text,
+                model=model,
+                type_generation="moderation_text",
+                user_id=user_id,
+            )
+
+            return None
 
 
 openai_generator = OpenAIGenerator()

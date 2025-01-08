@@ -10,12 +10,40 @@ from event.models import Event
 
 from event.schemas import SchemaCreateEvent
 from event.schemas import SchemaUpdateEvent
-from task.services import create_task_service, update_task_service
+from task.services import create_task_service
+from task.services import update_task_service
+
+from gpt_ai.utils import openai_generator
 
 from celery_worker import generate_image_event_task
+from user.services import validate_star_user_service
+from user.services import disable_user_service
 
 
 async def create_event_service(event: SchemaCreateEvent, user_id: str):
+    moderation_user_text = await openai_generator.moderation_text(
+        text=event.prompt_user_text,
+        user_id=user_id,
+    )
+    if moderation_user_text:
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The text is not allowed"
+        )
+
+    moderation_user_image = await openai_generator.moderation_text(
+        text=event.prompt_user_image,
+        user_id=user_id,
+    )
+    if moderation_user_image:
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The image is not allowed"
+        )
+
+    await validate_star_user_service(user_id=user_id)
+    await  disable_user_service(user_id=user_id, section="event")
+
     event_schema = Event(
         name=event.name,
         prompt_user_image=event.prompt_user_image,
@@ -85,6 +113,30 @@ async def get_events_service(game_id: str):
 
 
 async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id: str):
+
+    moderation_user_text = await openai_generator.moderation_text(
+        text=event.prompt_user_text,
+        user_id=user_id,
+    )
+    if moderation_user_text:
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The text is not allowed"
+        )
+
+    moderation_user_image = await openai_generator.moderation_text(
+        text=event.prompt_user_image,
+        user_id=user_id,
+    )
+    if moderation_user_image:
+        return HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The image is not allowed"
+        )
+
+    await validate_star_user_service(user_id=user_id)
+    await  disable_user_service(user_id=user_id, section="event")
+
     event_db = await db["event"].find_one({"_id": ObjectId(event_id)})
     if not event_db:
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
@@ -93,8 +145,6 @@ async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id:
     brand = False
     if event_db["prompt_user_image"] != event.prompt_user_image:
         brand = True
-
-
 
     # event_db["name"] = event.name
     # event_db["prompt_user_image"] = event.prompt_user_image
