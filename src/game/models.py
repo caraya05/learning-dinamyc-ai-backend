@@ -12,6 +12,7 @@ class Game(BaseModel):
     summary: Optional[str] = Field(None, example="This is a game summary")
     character_principal: Optional[str] = Field(None, example="Character principal")
     image: Optional[str] = Field(None, example="image.jpg")
+    image_minimalist: Optional[str] = Field(None, example="image.jpg")
     image_background: Optional[str] = Field(None, example="background.jpg")
     prompt_image: Optional[str] = Field(None, example="prompt.jpg")
     characters_id: Optional[list[str]] = Field(None, example=["123", "456"])
