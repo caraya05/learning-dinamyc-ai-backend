@@ -41,6 +41,7 @@ jobs:
           git pull origin develop
           make dev-build
           make dev-up-pro
+        timeout: 800
 
     - name: Send Inline Telegram Message (End)
       if: success()
