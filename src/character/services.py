@@ -129,20 +129,20 @@ async def create_character_service(character: SchemaCreateCharacter,
                                    user_id: str,
                                    game_id: str):
     try:
-
-        response_moderation_prompt_user = await openai_generator.moderation_text(text=character.prompt_user,user_id=user_id)
-        if response_moderation_prompt_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Prompt user not allowed",
-            )
-
-        response_moderation_dialog = await openai_generator.moderation_text(text=character.prompt_user_dialog,user_id=user_id)
-        if response_moderation_dialog:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Dialog not allowed",
-            )
+        if character.prompt_user:
+            response_moderation_prompt_user = await openai_generator.moderation_text(text=character.prompt_user,user_id=user_id)
+            if response_moderation_prompt_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Prompt user not allowed",
+                )
+        if character.prompt_user_dialog:
+            response_moderation_dialog = await openai_generator.moderation_text(text=character.prompt_user_dialog,user_id=user_id)
+            if response_moderation_dialog:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Dialog not allowed",
+                )
 
         await validate_star_user_service(user_id=user_id)
         await  disable_user_service(user_id=user_id, section="character")
@@ -247,20 +247,20 @@ async def update_character_service(
         location_id: str = None,
         state_game: str = None
 ):
-
-    moderation_prompt_user = await openai_generator.moderation_text(text=prompt_user, user_id=user_id)
-    if moderation_prompt_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Prompt user not allowed",
-        )
-
-    moderation_dialog = await openai_generator.moderation_text(text=dialog, user_id=user_id)
-    if moderation_dialog:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Dialog not allowed",
-        )
+    if prompt_user:
+        moderation_prompt_user = await openai_generator.moderation_text(text=prompt_user, user_id=user_id)
+        if moderation_prompt_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Prompt user not allowed",
+            )
+    if dialog:
+        moderation_dialog = await openai_generator.moderation_text(text=dialog, user_id=user_id)
+        if moderation_dialog:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Dialog not allowed",
+            )
 
     await validate_star_user_service(user_id=user_id)
     await  disable_user_service(user_id=user_id, section="character")

@@ -181,26 +181,26 @@ async def create_item_service(schema: SchemaCreateObject, user_id: str):
     """
     Create a new object.
     """
-
-    moderation_prompt_user = await openai_generator.moderation_text(
-        text=schema.prompt_user,
-        user_id=user_id,
-    )
-    if moderation_prompt_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Prompt user not allowed",
+    if schema.prompt_user:
+        moderation_prompt_user = await openai_generator.moderation_text(
+            text=schema.prompt_user,
+            user_id=user_id,
         )
-
-    moderation_prompt_user_dialog = await openai_generator.moderation_text(
-        text=schema.prompt_user_dialog,
-        user_id=user_id,
-    )
-    if moderation_prompt_user_dialog:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Prompt user dialog not allowed",
+        if moderation_prompt_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Prompt user not allowed",
+            )
+    if schema.prompt_user_dialog:
+        moderation_prompt_user_dialog = await openai_generator.moderation_text(
+            text=schema.prompt_user_dialog,
+            user_id=user_id,
         )
+        if moderation_prompt_user_dialog:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Prompt user dialog not allowed",
+            )
 
     await validate_star_user_service(user_id=user_id)
     await  disable_user_service(user_id=user_id, section="item")
