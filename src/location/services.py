@@ -225,19 +225,19 @@ async def partial_update_location_service(
     """
     Partially update a location.
     """
-
-    moderation_prompt_user = await openai_generator.moderation_text(
-        text=location.prompt_user,
-        user_id=user_id,
-    )
-    if moderation_prompt_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Prompt user not allowed",
+    if location.prompt_user:
+        moderation_prompt_user = await openai_generator.moderation_text(
+            text=location.prompt_user,
+            user_id=user_id,
         )
+        if moderation_prompt_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Prompt user not allowed",
+            )
 
-    await validate_star_user_service(user_id=user_id)
-    await  disable_user_service(user_id=user_id, section="location")
+        await validate_star_user_service(user_id=user_id)
+        await  disable_user_service(user_id=user_id, section="location")
 
     title_or_prompt_user_changed = False
     config_edited = False
