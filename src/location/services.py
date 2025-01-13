@@ -1,3 +1,5 @@
+import traceback
+
 from bson import ObjectId
 from fastapi import HTTPException
 from starlette import status
@@ -112,18 +114,23 @@ async def get_locations_v2_service(*, game_id: str, skip: int = 0, limit: int = 
 
         for i in range(len(locations)):
             locations[i]["_id"] = str(locations[i]["_id"])
-            element_state_db = await db['state_glic'].find_one(
+            element_state_db = await db['state_glic'].find(
                 {"element_id": locations[i]["_id"]}
-            )
+            ).to_list(None)
             if element_state_db:
-                element_state_db["_id"] = str(element_state_db["_id"])
-                if element_state_db["data"].get("sound", None):
-                    sound_db = await db['sound'].find_one(
-                        {"_id": ObjectId(element_state_db["data"]["sound"])}
-                    )
-                    if sound_db:
-                        element_state_db["data"]["sound"] = sound_db["file"]
-                locations[i]["state_game"] = [element_state_db]
+                for i in range(len(element_state_db)):
+                    element_state_db[i]["_id"] = str(element_state_db[i]["_id"])
+                    if element_state_db[i]["data"].get("sound", None):
+                        try:
+                            sound_db = await db['sound'].find_one(
+                                {"_id": ObjectId(element_state_db[i]["data"]["sound"])}
+                            )
+                            if sound_db:
+                                element_state_db[i]["data"]["sound"] = sound_db["file"]
+                        except Exception as e:
+                            print(e)
+                            pass
+                locations[i]["state_game"] = element_state_db
 
         count_locations = await db['location'].count_documents(
             {"game_id": game_id}
@@ -131,6 +138,7 @@ async def get_locations_v2_service(*, game_id: str, skip: int = 0, limit: int = 
 
         return locations, count_locations
     except Exception as e:
+        print(traceback.print_exc())
         print(f"Error in get locations service: {e}")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Locations not found.")
 
