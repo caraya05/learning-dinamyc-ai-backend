@@ -118,15 +118,15 @@ async def get_locations_v2_service(*, game_id: str, skip: int = 0, limit: int = 
                 {"element_id": locations[i]["_id"]}
             ).to_list(None)
             if element_state_db:
-                for i in range(len(element_state_db)):
-                    element_state_db[i]["_id"] = str(element_state_db[i]["_id"])
-                    if element_state_db[i]["data"].get("sound", None):
+                for j in range(len(element_state_db)):
+                    element_state_db[j]["_id"] = str(element_state_db[j]["_id"])
+                    if element_state_db[j]["data"].get("sound", None):
                         try:
                             sound_db = await db['sound'].find_one(
-                                {"_id": ObjectId(element_state_db[i]["data"]["sound"])}
+                                {"_id": ObjectId(element_state_db[j]["data"]["sound"])}
                             )
                             if sound_db:
-                                element_state_db[i]["data"]["sound"] = sound_db["file"]
+                                element_state_db[j]["data"]["sound"] = sound_db["file"]
                         except Exception as e:
                             print(e)
                             pass
