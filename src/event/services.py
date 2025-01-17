@@ -26,7 +26,7 @@ async def create_event_service(event: SchemaCreateEvent, user_id: str):
         user_id=user_id,
     )
     if moderation_user_text:
-        return HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="The text is not allowed"
         )
@@ -36,7 +36,7 @@ async def create_event_service(event: SchemaCreateEvent, user_id: str):
         user_id=user_id,
     )
     if moderation_user_image:
-        return HTTPException(
+        raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="The image is not allowed"
         )
@@ -121,7 +121,7 @@ async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id:
             user_id=user_id,
         )
         if moderation_user_text:
-            return HTTPException(
+            raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="The text is not allowed"
             )
@@ -131,7 +131,7 @@ async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id:
             user_id=user_id,
         )
         if moderation_user_image:
-            return HTTPException(
+            raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="The image is not allowed"
             )

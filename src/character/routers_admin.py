@@ -9,6 +9,7 @@ from auth.utils import auth_schema
 
 from character.schemas_admin import SchemaAdminUpdateCharacter
 from character.schemas_admin import SchemaAdminCreateCharacter
+from character.schemas_admin import SchemaAdminStateCharacters
 
 from character.services_admin import get_character_service_admin
 from character.services_admin import get_characters_service_admin
@@ -77,7 +78,7 @@ async def update_character(
     try:
         character_db = await update_character_service_admin(character_id=character_id, character=character,
                                                             user_id=str(user_db["_id"]))
-        return character_db
+        return "Character updated"
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -139,3 +139,19 @@ def delete_image(file_name: str, name_bucket: str = 'backend'):
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error deleting image",
         )
+
+
+def update_nested_dict(target, source):
+    for key, value in source.items():
+        if isinstance(value, dict):
+            target[key] = update_nested_dict(target.get(key, {}), value)
+        elif isinstance(value, list):
+            if key not in target:
+                target[key] = []
+            target[key] = [
+                update_nested_dict(target[key][i] if i < len(target[key]) else {}, item) if isinstance(item, dict) else item
+                for i, item in enumerate(value)
+            ]
+        else:
+            target[key] = value
+    return target

@@ -109,6 +109,16 @@ async def get_games_service(
         .limit(limit)
         .to_list(None)
     )
+    # for i in range(len(games_db)):
+    #     if games_db[i]["image"]:
+    #         if not games_db[i].get("image_minimalist", None):
+    #             image_minimalist = upload_image(
+    #                 url_image=games_db[i]["image"], file_name=f"covers/{uuid4()}_minimalist.jpg", size=(171, 299)
+    #             )
+    #             await db["game"].update_one(
+    #                 {"_id": games_db[i]["_id"]}, {"$set": {"image_minimalist": image_minimalist}}
+    #             )
+    #             games_db[i]["image_minimalist"] = image_minimalist
     count_games = await db['game'].count_documents(games_query)
     return games_db, count_games
 

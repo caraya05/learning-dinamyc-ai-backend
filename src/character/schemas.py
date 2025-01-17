@@ -83,6 +83,8 @@ class SchemaStateLocation(BaseModel):
     data: Optional[SchemaDataCharacter] = Field(None, example={})
 
 
+
+
 class SchemaCreateCharacter(BaseModel):
     name: str = Field(..., max_length=100, example="Jhon Doe")
     prompt_user: str = Field(..., example="prompt_user")

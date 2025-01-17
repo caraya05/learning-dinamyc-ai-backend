@@ -23,6 +23,7 @@ from object import routers as object_routers
 from location import routers as location_routers
 from location import routers_admin as location_admin_routers
 from character import routers as character_routers
+from character import routers_admin as character_admin_routers
 from voice import routers as voice_routers
 from shortener import routers as shortener_routers
 from task import routers as task_routers
@@ -148,7 +149,7 @@ admin.include_router(stats_routers.router)
 admin.include_router(game_admin_routers.router_admin)
 admin.include_router(location_admin_routers.router)
 
-# admin.include_router(character_admin_routers.router)
+admin.include_router(character_admin_routers.router)
 
 admin.include_router(game_pending_admin_routers.router)
 
