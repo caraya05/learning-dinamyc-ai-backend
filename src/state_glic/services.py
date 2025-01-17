@@ -86,6 +86,8 @@ async def get_list_state_glic_by_element_id(element_id: str) -> list:
                                                                                                 "option_multiple"]:
                                 for k in range(
                                         len(state_glic[j]["data"]["interaction"][i]["options_dialog"]["options"])):
+                                    type_conversation = state_glic[j]["data"]["interaction"][i]["conversation_type"] if \
+                                        state_glic[j]["data"]["interaction"][i].get("conversation_type", None) else state_glic[j]["data"]["interaction"][i].get("type_conversation", None)
                                     event_db = await db["event"].find_one({
                                         "game_id": state_glic[j]["data"]["game_id"],
                                         "character_id": state_glic[j]["element_id"],
@@ -93,8 +95,7 @@ async def get_list_state_glic_by_element_id(element_id: str) -> list:
                                         "location_state_game_init": state_glic[j]["data"]["interaction"][i][
                                             "location_id"],
                                         "option_number": k,
-                                        "type_conversation": state_glic[j]["data"]["interaction"][i][
-                                            "conversation_type"]
+                                        "type_conversation": type_conversation
                                     })
                                     if event_db and event_db["type_conversation"] in ["open_question",
                                                                                       "option_multiple"]:
