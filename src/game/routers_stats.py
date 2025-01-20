@@ -229,9 +229,9 @@ async def amount_of_created(
         .to_list(None)
     )
 
-    amount_objects = len(await db["object"].find(query).to_list(None))
+    amount_objects = len(await db["item"].find(query).to_list(None))
     objects_created_date = (
-        await db["object"]
+        await db["item"]
         .aggregate(
             [
                 {"$match": query},
@@ -249,7 +249,7 @@ async def amount_of_created(
         .to_list(None)
     )
     objects_unique_created_by = (
-        await db["object"]
+        await db["item"]
         .aggregate(
             [
                 {"$match": query},

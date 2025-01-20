@@ -62,7 +62,7 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
         )
 
         image_minimalist = upload_image(
-            url_image=response_image, file_name=f"covers/{uuid4()}_minimalist.jpg", size=(171, 299)
+            url_image=response_image, file_name=f"covers/{uuid4()}_minimalist.jpg", size=(256, 448)
         )
 
         await db['game'].update_one({'_id': ObjectId(_game_id)}, {'$set': {'image': image,

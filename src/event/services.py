@@ -145,7 +145,7 @@ async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id:
 
     generate_image = event_db["image"]
     brand = False
-    if event_db["prompt_user_image"] != event.prompt_user_image:
+    if event_db["prompt_user_image"] != None and event_db["prompt_user_image"] != event.prompt_user_image:
         brand = True
 
     # event_db["name"] = event.name

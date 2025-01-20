@@ -26,27 +26,79 @@ router = APIRouter(prefix="/game-pending", tags=["Game Pending"])
 
 @router.get("/", status_code=status.HTTP_200_OK)
 async def get_pending_games(
-    user_db: dict = Depends(auth_admin), Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+        user_db: dict = Depends(auth_admin), Token: HTTPAuthorizationCredentials = Depends(auth_schema)
 ):
-    games_db = await db["published_game"].find().sort({"created_at": -1}).to_list(None)
+    games_db = await db["published_game"].aggregate([
+        {
+            "$lookup": {
+                "from": "game",
+                "let": {"gameId": {"$toObjectId": "$game_id"}},
+                "pipeline": [
+                    {"$match": {"$expr": {"$eq": ["$_id", "$$gameId"]}}},
+                ],
+                "as": "game"
+            }
+        },
+        {
+            "$lookup": {
+                "from": "user",
+                "let": {"userId": {"$toObjectId": "$created_by"}},
+                "pipeline": [
+                    {"$match": {"$expr": {"$eq": ["$_id", "$$userId"]}}},
+                ],
+                "as": "user"
+            }
+        },
+        {
+            "$lookup": {
+                "from": "user",
+                "let": {"reviewerId": {"$toObjectId": "$reviewer"}},
+                "pipeline": [
+                    {"$match": {"$expr": {"$eq": ["$_id", "$$reviewerId"]}}},
+                ],
+                "as": "reviewer"
+            }
+        },
+        {
+            "$unwind": {
+                "path": "$game",
+                "preserveNullAndEmptyArrays": True
+            }
+        },
+        {
+            "$unwind": {
+                "path": "$reviewer",
+                "preserveNullAndEmptyArrays": True
+            }
+        },
+        {
+            "$unwind": {
+                "path": "$user",
+                "preserveNullAndEmptyArrays": True
+            }
+        },
+
+        {
+            "$sort": {"created_at": -1}
+        }
+    ]).to_list(None)
+
     for game in games_db:
         game["_id"] = str(game["_id"])
-        game["game"] = await get_game_v2_service(game["game_id"])
         game["game"]["_id"] = str(game["game"]["_id"])
-        user_game = game.get("created_by") if "created_by" in game else game.get("updated_by")
-        user_db = await db["user"].find_one({"_id": ObjectId(user_game)})
-        game["user"] = user_db["email"]
+        if game.get("user"):
+            game["user"] = game["user"]["email"]
         if game.get("reviewer"):
-            user_db = await db["user"].find_one({"_id": ObjectId(game["reviewer"])})
-            game["reviewer"] = user_db["email"]
+            game["reviewer"] = game["reviewer"]["email"]
+
     return games_db
 
 
 @router.get("/{game_id}", status_code=status.HTTP_200_OK)
 async def get_pending_game(
-    game_id: str,
-    user_db: dict = Depends(auth_admin),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_id: str,
+        user_db: dict = Depends(auth_admin),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     if game_db is None:
@@ -57,10 +109,6 @@ async def get_pending_game(
     game_db["game"] = await get_game_v2_service(game_db["game_id"])
     game_db["game"]["_id"] = str(game_db["game"]["_id"])
 
-    # game_db["game"]["locations"][0]["characters"] *= 10
-    # game_db["game"]["locations"] *= 10
-    # game_db["game"]["characters"] *= 10
-
     for location in game_db["game"]["locations"]:
         if location.get("sound_id"):
             sound_db = await get_sound_service(location["sound_id"])
@@ -70,9 +118,9 @@ async def get_pending_game(
 
 @router.get("/publish/{game_id}", status_code=status.HTTP_200_OK)
 async def publish_game(
-    game_id: str,
-    user_db: dict = Depends(auth_admin),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_id: str,
+        user_db: dict = Depends(auth_admin),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     published_game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     if game_db := await get_game_v2_service(published_game_db["game_id"]):
@@ -104,10 +152,10 @@ class SchemaUpdateGamePublish(BaseModel):
 
 @router.patch("/reject/{game_id}", status_code=status.HTTP_200_OK)
 async def reject_game(
-    game_id: str,
-    data: SchemaUpdateGamePublish,
-    user_db: dict = Depends(auth_admin),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_id: str,
+        data: SchemaUpdateGamePublish,
+        user_db: dict = Depends(auth_admin),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     published_game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     published_game_db["reviewed_at"] = datetime.utcnow()
@@ -125,10 +173,10 @@ async def reject_game(
 
 @router.patch("/review/{game_id}", status_code=status.HTTP_200_OK)
 async def reviewer_game(
-    game_id: str,
-    data: SchemaUpdateGamePublish,
-    user_db: dict = Depends(auth_admin),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_id: str,
+        data: SchemaUpdateGamePublish,
+        user_db: dict = Depends(auth_admin),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     published_game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     published_game_db["reviewed_at"] = datetime.utcnow()
@@ -146,10 +194,10 @@ async def reviewer_game(
 
 @router.patch("/update/{game_id}", status_code=status.HTTP_200_OK)
 async def update_game(
-    game_id: str,
-    data: SchemaUpdateGamePublish,
-    user_db: dict = Depends(auth_admin),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_id: str,
+        data: SchemaUpdateGamePublish,
+        user_db: dict = Depends(auth_admin),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     published_game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     published_game_db["updated_at"] = datetime.utcnow()
