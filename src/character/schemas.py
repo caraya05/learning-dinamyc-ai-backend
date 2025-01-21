@@ -59,7 +59,7 @@ class SchemaStateItem(BaseModel):
 
 
 class SchemaDataCharacter(BaseModel):
-    name: str = Field(..., example="Character Name")
+    name: str = Field(None, example="Character Name")
     description: Optional[str] = Field(None, example="This is a character")
     description_shoulder_up: Optional[str] = Field(None, example="This is a character")
     is_active: bool = Field(default=True, example=True)
@@ -97,10 +97,13 @@ class SchemaCreateCharacter(BaseModel):
 
 
 class SchemaRetrieveCharacter(ResponseModel):
-    game_id: Optional[str] = Field(..., example="game_id")
+    game_id: Optional[str] = Field(None, example="game_id")
     task_id: Optional[str] = Field(None, example="task_db")
     status: Optional[str] = Field(1, example="status")
-    state_game: Optional[list[SchemaStateLocation]] = Field([], example=["state_game"])
+    state_game: Optional[list[SchemaStateLocation]] = Field(None, example=["state_game"])
+
+    class Config:
+        orm_mode = True
 
 
 class SchemaRetrieveCharacterStr(ResponseModelStr):

@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from fastapi import status
 from fastapi.security import HTTPAuthorizationCredentials
 
+import traceback
 from auth.auth import auth
 from auth.utils import auth_schema
 
@@ -245,6 +246,7 @@ async def partial_update_character(
         )
         return character_db
     except Exception as e:
+        print(traceback.print_exc())
         print(f"error in partial update character: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

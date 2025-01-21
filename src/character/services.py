@@ -1,3 +1,4 @@
+import traceback
 from datetime import datetime
 
 from bson import ObjectId
@@ -288,11 +289,14 @@ async def update_character_service(
             dialog_changed = True
 
     except Exception as e:
+        print(traceback.format_exc())
         print(f"1 Error in update character service: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Character not updated",
         )
+
+    print(f"character_state_db: {character_state_db}")
 
     try:
         update_fields = {"updated_at": datetime.utcnow()}
@@ -301,11 +305,16 @@ async def update_character_service(
         if prompt_user is not None:
             update_fields["prompt_user"] = prompt_user
 
-        character_state_db["data"]["name"] = name
-        character_state_db["data"]["prompt_user"] = prompt_user
-        character_state_db["data"]["prompt_user_dialog"] = dialog
-        character_state_db["data"]["conversation_type"] = type_dialog
-        character_state_db["data"]["options_dialog"] = options_dialog
+        if name is not None:
+            character_state_db["data"]["name"] = name
+        if prompt_user is not None:
+            character_state_db["data"]["prompt_user"] = prompt_user
+        if dialog is not None:
+            character_state_db["data"]["prompt_user_dialog"] = dialog
+        if type_dialog is not None:
+            character_state_db["data"]["conversation_type"] = type_dialog
+        if options_dialog is not None:
+            character_state_db["data"]["options_dialog"] = options_dialog
 
         await db["state_glic"].update_one(
             {"_id": character_state_db["_id"]},
@@ -317,7 +326,7 @@ async def update_character_service(
             game_db = await db["game"].find_one({"characters_id": {"$in": [character_id]}})
             if game_db:
                 character_db["game_id"] = str(game_db["_id"])
-        if name_or_prompt_user_changed:
+        if name_or_prompt_user_changed or dialog_changed:
             task_db = await create_task_service(
                 _task_id="",
                 _user_id=user_id,
@@ -347,7 +356,10 @@ async def update_character_service(
             character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
             character_db["task_id"] = str(task_db["_id"])
             character_db["state_game"] = await get_list_state_glic_by_element_id(character_id)
+            print(character_db)
             return character_db
+        character_db["state_game"] = await get_list_state_glic_by_element_id(character_id)
+        return character_db
     except Exception as e:
         print(f"Error in update character service: {str(e)}")
         raise HTTPException(
