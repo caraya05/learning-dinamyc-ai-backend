@@ -20,14 +20,16 @@ class ResponseModelStr(BaseModel):
 
 
 class SchemaCreateEvent(BaseModel):
-    name: str = Field(..., example="Event Name")
-    prompt_user_image: str = Field(..., example="prompt_user_image.jpg")
-    prompt_user_text: str = Field(..., example="prompt_user_test")
-    state_game_init: str = Field(..., example="state_game")
-    option_number: Optional[int] = Field(None, example=1)
-    type_conversation: Optional[str] = Field(None, example="conversation_type")
+    name: Optional[str] = Field(None, example="Event Name")
+    prompt_user_image: Optional[str] = Field(None, example="prompt_user_image.jpg")
+    prompt_user_text: Optional[str] = Field(None, example="prompt_user_test")
     character_id: Optional[str] = Field(None, example="character_id")
+    type_conversation: Optional[str] = Field(None, example="conversation_type")
+    option_number: Optional[int] = Field(None, example=1)
+    state_game_init: Optional[str] = Field(None, example="state_game")
+    state_game_end: Optional[str] = Field(None, example="state_game")
     location_state_game_init: Optional[str] = Field(None, example="location_state_game")
+    location_state_game_end: Optional[str] = Field(None, example="location_state_game")
     game_id: str = Field(..., example="game_id")
 
 
