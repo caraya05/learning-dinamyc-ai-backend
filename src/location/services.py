@@ -449,8 +449,26 @@ async def deactivate_location_service(location_id: str, state_game: str, active:
             if not state_element_db:
                 state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
 
-                state_element_db = await db["state_glic"].find_one(
-                    {"element_id": location_id, "type_element": "location", "order": (state_game_db["order"] - 1)})
+                print("state_game_db", state_game_db)
+
+                order = state_game_db["order"] - 1
+                state_element_db = None
+
+                while order >= 1:
+                    state_element_db = await db["state_glic"].find_one(
+                        {"element_id": location_id, "type_element": "location", "order": order}
+                    )
+                    if state_element_db:
+                        break
+                    order -= 1
+
+                if not state_element_db:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="State element not found"
+                    )
+
+                print(state_element_db)
 
                 if not state_element_db:
                     raise HTTPException(
@@ -478,5 +496,6 @@ async def deactivate_location_service(location_id: str, state_game: str, active:
 
             return "Location deactivated / activate successfully"
     except Exception as e:
+        print(traceback.print_exc())
         print(f"Error in diactive location service: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Location not diactive.")
