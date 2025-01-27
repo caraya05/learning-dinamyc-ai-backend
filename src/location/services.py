@@ -479,6 +479,7 @@ async def deactivate_location_service(location_id: str, state_game: str, active:
                 state_element_db['data']['is_active'] = active
 
                 state_element_db["data"]["config"] = None
+                state_element_db["data"]["configuration"] = None
                 state_element_db["data"]["connections"] = None
 
                 state_element_db = await create_state_glic(
