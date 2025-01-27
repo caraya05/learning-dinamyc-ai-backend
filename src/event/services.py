@@ -161,14 +161,22 @@ async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id:
     # event_db["updated_by"] = user_id
     # event_db["updated_at"] = datetime.utcnow()
 
-    await db["event"].update_one({"_id": ObjectId(event_id)}, {"$set": {
-        "type_conversation": event.type_conversation,
-        "option_number": event.option_number,
-        "state_game_end": event.state_game_end,
-        "location_state_game_end": event.location_state_game_end,
-        "character_id": event.character_id,
+    update_data = {
         "updated_at": datetime.utcnow(),
-    }})
+    }
+
+    if event.type_conversation:
+        update_data["type_conversation"] = event.type_conversation
+    if event.option_number:
+        update_data["option_number"] = event.option_number
+    if event.state_game_end:
+        update_data["state_game_end"] = event.state_game_end
+    if event.location_state_game_end:
+        update_data["location_state_game_end"] = event.location_state_game_end
+    if event.character_id:
+        update_data["character_id"] = event.character_id
+
+    await db["event"].update_one({"_id": ObjectId(event_id)}, {"$set": update_data})
     event_db = await db["event"].find_one({"_id": ObjectId(event_id)})
     event_db["_id"] = str(event_db["_id"])
 
