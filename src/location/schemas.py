@@ -62,12 +62,12 @@ class SchemaPartialUpdateLocation(BaseModel):
     image (Optional[str]): The image of the location.
     """
 
-    title: Optional[str]
-    prompt_user: Optional[str]
-    configuration: Optional[dict]
-    connections: Optional[dict]
-    game_id: Optional[str]
-    state_game: Optional[str]
+    title: Optional[str] = Field(None, example="Location Title")
+    prompt_user: Optional[str] = Field(None, example="This is a prompt user")
+    configuration: Optional[dict] = Field(None, example="")
+    connections: Optional[dict] = Field(None, example="")
+    game_id: Optional[str] = Field(None, example="game_id")
+    state_game: Optional[str] = Field(None, example="state_game")
 
 
 class SchemaRetrieveLocation(ResponseModel):
