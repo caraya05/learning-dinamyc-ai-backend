@@ -33,6 +33,7 @@ async def create_task_service(
                 "created_at": date_now.astimezone(timezone('America/Bogota')),
                 "reported_at": None,
                 "was_notified": False,
+                "status_updated": 0,
             }
         )
         await db[_element_type].update_one({"_id": ObjectId(_element_id)}, {"$set": {"status": 1}})
@@ -51,6 +52,7 @@ async def update_task_service(
         _data: dict = None,
         _message: str = None,
         _was_notified: bool = False,
+        _status_updated: int = 0,
 ):
     try:
         update_fields = {}
@@ -65,6 +67,8 @@ async def update_task_service(
             update_fields["reported_at"] = datetime.now(timezone('UTC')).astimezone(
                 timezone('America/Bogota')
             )
+        if _status_updated != 0:
+            update_fields["status_updated"] = _status_updated
         if _message:
             update_fields["message"] = _message
         if update_fields:

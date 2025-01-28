@@ -116,6 +116,7 @@ async def websocket_endpoint(
                                             "error": task_celery.result,
                                             "element_id": str(task_db["element_id"]),
                                             "element_type": task_db["element_type"],
+                                            "status_updated": task_db["status_updated"],
                                             "status": 3,
                                         },
                                         websocket,
@@ -132,6 +133,7 @@ async def websocket_endpoint(
                                             "task_id": str(task_db["_id"]),
                                             "element_id": str(task_db["element_id"]),
                                             "element_type": task_db["element_type"],
+                                            "status_updated": task_db["status_updated"],
                                             "status": 2,
                                         },
                                         websocket,
@@ -149,6 +151,7 @@ async def websocket_endpoint(
                                         "element_id": str(task_db["element_id"]),
                                         "element_type": task_db["element_type"],
                                         "error": task_celery.result,
+                                        "status_updated": task_db["status_updated"],
                                         "status": 3,
                                     },
                                     websocket,
@@ -161,13 +164,14 @@ async def websocket_endpoint(
                 if task_db:
                     created_at = task_db.get("created_at")
                     if created_at:
-                        if datetime.utcnow() - created_at > timedelta(hours=1):
+                        if datetime.utcnow() - created_at > timedelta(minutes=6):
                             await manager.send_personal_message(
                                 {
                                     "detail": "Task failed due to timeout",
                                     "task_id": str(task_db["_id"]),
                                     "element_id": str(task_db["element_id"]),
                                     "element_type": task_db["element_type"],
+                                    "status_updated": task_db["status_updated"],
                                     "status": 3,
                                 },
                                 websocket
@@ -187,6 +191,7 @@ async def websocket_endpoint(
                                         "error": task_celery.result,
                                         "element_id": str(task_db["element_id"]),
                                         "element_type": task_db["element_type"],
+                                        "status_updated": task_db["status_updated"],
                                         "status": 3,
                                     },
                                     websocket
@@ -201,6 +206,7 @@ async def websocket_endpoint(
                                         "task_id": str(task_db["_id"]),
                                         "element_id": str(task_db["element_id"]),
                                         "element_type": task_db["element_type"],
+                                        "status_updated": task_db["status_updated"],
                                         "status": 2,
                                     },
                                     websocket
@@ -216,6 +222,7 @@ async def websocket_endpoint(
                                     "element_id": str(task_db["element_id"]),
                                     "element_type": task_db["element_type"],
                                     "error": task_celery.result,
+                                    "status_updated": task_db["status_updated"],
                                     "status": 3,
                                 },
                                 websocket
@@ -231,6 +238,7 @@ async def websocket_endpoint(
                                         "task_id": str(task_db["_id"]),
                                         "element_id": str(task_db["element_id"]),
                                         "element_type": task_db["element_type"],
+                                        "status_updated": task_db["status_updated"],
                                         "status": 2,
                                     },
                                     websocket
@@ -245,6 +253,7 @@ async def websocket_endpoint(
                                         "task_id": str(task_db["_id"]),
                                         "element_id": str(task_db["element_id"]),
                                         "element_type": task_db["element_type"],
+                                        "status_updated": task_db["status_updated"],
                                         "status": 3,
                                     },
                                     websocket

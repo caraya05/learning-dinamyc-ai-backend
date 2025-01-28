@@ -252,12 +252,20 @@ async def generate_voice_character(game_id, character_id: str, user_id: str, loc
         return False
 
 
-async def generate_image_character_face(_character_id, _user_id, _state_game_id):
+async def generate_image_character_face(_character_id, _user_id, _state_game_id) -> tuple:
     try:
         _character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
 
         character_state_db = await db["state_glic"].find_one(
             {"element_id": _character_id, "state": _state_game_id})
+
+        validate_prompt = await openai_generator.moderation_text(text=f"Genera una imagen cuadrada en vista frontal de {character_state_db['data']['prompt_user']},"
+                   " de ojos vivos, rasgos faciales exagerados y expresivos, de la "
+                   "cintura para arriba, en estilo 3D Cel-shaded que Imita el aspecto "
+                   "de los dibujos animados 2D, utilizando colores planos pero vivos y "
+                   f"contornos marcados. Con fondo Blanco.", user_id=_user_id)
+        if not validate_prompt:
+            return False, "Prompt not allowed"
 
         image_face = await openai_generator.generate_image(
             prompt=f"Genera una imagen cuadrada en vista frontal de {character_state_db['data']['prompt_user']},"
@@ -287,11 +295,11 @@ async def generate_image_character_face(_character_id, _user_id, _state_game_id)
                                               }
                                           })
 
-        return True
+        return True, "Image generated successfully"
     except Exception as e:
         print(traceback.format_exc())
         print(f"Error in get images character service: {str(e)}")
-        return False
+        return False, "Error in generate image character"
 
 
 class SchemaSelectBodyType(BaseModel):
@@ -1118,16 +1126,17 @@ async def async_generate_character_task(_character_id,
             _id=_task_id, _status="failed", _message="Error in generate character body type"
         )
         return "Error in generate character body type"
-    response_image = await generate_image_character_face(
+    response_image, message = await generate_image_character_face(
         _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
     )
     if not response_image:
         await update_task_service(
             _id=_task_id,
             _status="failed",
-            _message="Error in generate image character face service",
+            _message=message,
+            _status_updated=1,
         )
-        return "Error in generate image character face service "
+        return message
 
     element_state_db = await db["state_glic"].find_one(
         {"element_id": _character_id, "state": _state_game_id}
@@ -1171,27 +1180,36 @@ async def async_update_character_task(_character_id, _user_id, _task_id, _game_i
         )
         if not response_description:
             await update_task_service(
-                _id=_task_id, _status="failed", _message="Error in generate character description"
+                _id=_task_id,
+                _status="failed",
+                _message="Error in generate character description"
             )
             return "Error in generate character description"
         response_body_type = await generate_character_body_type(
-            _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
+            _character_id=_character_id,
+            _user_id=_user_id,
+            _state_game_id=_state_game_id
         )
         if not response_body_type:
             await update_task_service(
-                _id=_task_id, _status="failed", _message="Error in generate character body type"
+                _id=_task_id,
+                _status="failed",
+                _message="Error in generate character body type"
             )
             return "Error in generate character body type"
-        response_image = await generate_image_character_face(
-            _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
+        response_image, message = await generate_image_character_face(
+            _character_id=_character_id,
+            _user_id=_user_id,
+            _state_game_id=_state_game_id
         )
         if not response_image:
             await update_task_service(
                 _id=_task_id,
                 _status="failed",
-                _message="Error in generate image character face service",
+                _message=message,
+                _status_updated=1,
             )
-            return "Error in generate image character face service "
+            return message
 
     if _updated_voice:
         element_state_db = await db["state_glic"].find_one(
@@ -1210,12 +1228,17 @@ async def async_update_character_task(_character_id, _user_id, _task_id, _game_i
                                                              "prompt_user_dialog"])
         if not voice_generated:
             await update_task_service(
-                _id=_task_id, _status="failed", _message="Error voice not generated"
+                _id=_task_id,
+                _status="failed",
+                _message="Error voice not generated",
+                _status_updated=1,
             )
             return "Error voice not generated"
 
     await update_task_service(
-        _id=_task_id, _status="completed", _message="Character updated successfully"
+        _id=_task_id,
+        _status="completed",
+        _message="Character updated successfully",
     )
 
     return "Character updated successfully"

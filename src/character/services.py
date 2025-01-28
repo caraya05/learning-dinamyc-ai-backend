@@ -48,10 +48,12 @@ async def get_characters_service(skip: int = 1, limit: int = 100, game_id: str =
     try:
 
         if not game_id:
-            characters_db = await db["character"].find({"created_by": user_id}).skip((skip - 1) * limit).limit(limit).to_list(None)
+            characters_db = await db["character"].find({"created_by": user_id}).skip((skip - 1) * limit).limit(
+                limit).to_list(None)
 
         else:
-            characters_db = await db["character"].find({"game_id": game_id}).skip((skip - 1) * limit).limit(limit).to_list(None)
+            characters_db = await db["character"].find({"game_id": game_id}).skip((skip - 1) * limit).limit(
+                limit).to_list(None)
         for i in characters_db:
             i["_id"] = str(i["_id"])
             i["state_game"] = await get_list_state_glic_by_element_id(i["_id"])
@@ -131,14 +133,16 @@ async def create_character_service(character: SchemaCreateCharacter,
                                    game_id: str):
     try:
         if character.prompt_user:
-            response_moderation_prompt_user = await openai_generator.moderation_text(text=character.prompt_user,user_id=user_id)
+            response_moderation_prompt_user = await openai_generator.moderation_text(text=character.prompt_user,
+                                                                                     user_id=user_id)
             if response_moderation_prompt_user:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Prompt user not allowed",
                 )
         if character.prompt_user_dialog:
-            response_moderation_dialog = await openai_generator.moderation_text(text=character.prompt_user_dialog,user_id=user_id)
+            response_moderation_dialog = await openai_generator.moderation_text(text=character.prompt_user_dialog,
+                                                                                user_id=user_id)
             if response_moderation_dialog:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -248,27 +252,24 @@ async def update_character_service(
         location_id: str = None,
         state_game: str = None
 ):
-    if prompt_user:
-        moderation_prompt_user = await openai_generator.moderation_text(text=prompt_user, user_id=user_id)
-        if moderation_prompt_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Prompt user not allowed",
-            )
-    if dialog:
-        moderation_dialog = await openai_generator.moderation_text(text=dialog, user_id=user_id)
-        if moderation_dialog:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Dialog not allowed",
-            )
-
-    await validate_star_user_service(user_id=user_id)
-    await  disable_user_service(user_id=user_id, section="character")
-
-    name_or_prompt_user_changed = False
-    dialog_changed = False
     try:
+        if prompt_user:
+            moderation_prompt_user = await openai_generator.moderation_text(text=prompt_user, user_id=user_id)
+            if moderation_prompt_user:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Prompt user not allowed",
+                )
+        if dialog:
+            moderation_dialog = await openai_generator.moderation_text(text=dialog, user_id=user_id)
+            if moderation_dialog:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Dialog not allowed",
+                )
+
+        await validate_star_user_service(user_id=user_id)
+        await disable_user_service(user_id=user_id, section="character")
 
         if not state_game:
             state_game = await get_state_game_by_game_id(game_id)
@@ -279,26 +280,15 @@ async def update_character_service(
             {"element_id": character_id, "state": state_game["_id"]}
         )
 
-        if prompt_user != character_state_db['data']["prompt_user"]:
-            name_or_prompt_user_changed = True
-
-        if dialog != character_state_db['data']["prompt_user_dialog"]:
-            dialog_changed = True
-
-        if type_dialog != character_state_db['data']["conversation_type"]:
-            dialog_changed = True
-
-    except Exception as e:
-        print(traceback.format_exc())
-        print(f"1 Error in update character service: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Character not updated",
+        name_or_prompt_user_changed = (
+                prompt_user and prompt_user != character_state_db['data']["prompt_user"]
         )
 
-    print(f"character_state_db: {character_state_db}")
+        dialog_changed = (
+                (dialog and dialog != character_state_db['data']["prompt_user_dialog"]) or
+                (type_dialog and type_dialog != character_state_db['data']["conversation_type"])
+        )
 
-    try:
         update_fields = {"updated_at": datetime.utcnow()}
         if name is not None:
             update_fields["name"] = name
@@ -356,17 +346,16 @@ async def update_character_service(
             character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
             character_db["task_id"] = str(task_db["_id"])
             character_db["state_game"] = await get_list_state_glic_by_element_id(character_id)
-            print(character_db)
             return character_db
         character_db["state_game"] = await get_list_state_glic_by_element_id(character_id)
         return character_db
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in update character service: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Character not updated",
         )
-
 
 async def generate_image_character_service(character_id: str, user_id: str):
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})

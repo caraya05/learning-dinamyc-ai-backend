@@ -16,6 +16,14 @@ async def generate_image_item(prompt_user: str, object_id: str, user_id: str, st
     try:
         prompt_db_image_object = await get_prompt_by_category_service('image_object')
         prompt_object = prompt_db_image_object.get("description").replace("x_object", prompt_user)
+
+        validate_prompt = await openai_generator.moderation_text(
+            text=prompt_object
+        )
+
+        if validate_prompt:
+            return False, "Prompt not allowed"
+
         image_item = await openai_generator.generate_image(
             prompt=prompt_object,
             quality="hd",
@@ -41,11 +49,11 @@ async def generate_image_item(prompt_user: str, object_id: str, user_id: str, st
             }
         })
 
-        return True
+        return True, "Image item generated successfully"
     except Exception as e:
         print(traceback.format_exc())
         print(f"Error in generate image: {str(e)}")
-        return False
+        return False , "Error in generate image item"
 
 
 class SchemaCharacterConversation(BaseModel):
@@ -162,15 +170,16 @@ async def async_generate_item(item_id: str, _user_id: str, _task_id: str, _locat
             _message="Item not found {item_id}",
         )
         return f"Item not found {item_id}"
-    image_item = await generate_image_item(element_state_db["data"]["prompt_user"], item_id, _user_id, _state_game_id)
+    image_item, message = await generate_image_item(element_state_db["data"]["prompt_user"], item_id, _user_id, _state_game_id)
 
     if not image_item:
         await update_task_service(
             _id=_task_id,
             _status="failed",
-            _message="Error in generate image item",
+            _message=message,
+            _status_updated=1,
         )
-        return f"Error in generate image item"
+        return message
 
     conversation_item = await generate_conversation_item(element_state_db["data"]["prompt_user_dialog"], item_id,
                                                          _user_id, _state_game_id, _location_id)
@@ -202,15 +211,16 @@ async def async_updated_item(item_id: str, _user_id: str, _task_id: str, updated
         return f"Item not found {item_id}"
     if updated_prompt_user:
 
-        image_item = await generate_image_item(item_db["prompt_user"], item_id, _user_id,state_game_id)
+        image_item, message = await generate_image_item(item_db["prompt_user"], item_id, _user_id,state_game_id)
 
         if not image_item:
             await update_task_service(
                 _id=_task_id,
                 _status="failed",
-                _message="Error in generate image item",
+                _message=message,
+                _status_updated=1,
             )
-            return f"Error in generate image item"
+            return message
 
     if updated_dialog:
         conversation_item = await generate_conversation_item(item_db["prompt_user_dialog"], item_id, _user_id, state_game_id, _location_id)

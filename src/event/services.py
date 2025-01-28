@@ -113,97 +113,90 @@ async def get_events_service(game_id: str):
 
 
 async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id: str):
-
-    if event.prompt_user_text:
-
-        moderation_user_text = await openai_generator.moderation_text(
-            text=event.prompt_user_text,
-            user_id=user_id,
-        )
-        if moderation_user_text:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="The text is not allowed"
+    try:
+        if event.prompt_user_text:
+            moderation_user_text = await openai_generator.moderation_text(
+                text=event.prompt_user_text,
+                user_id=user_id,
             )
-    if event.prompt_user_image:
-        moderation_user_image = await openai_generator.moderation_text(
-            text=event.prompt_user_image,
-            user_id=user_id,
-        )
-        if moderation_user_image:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="The image is not allowed"
+            if moderation_user_text:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="The text is not allowed"
+                )
+        if event.prompt_user_image:
+            moderation_user_image = await openai_generator.moderation_text(
+                text=event.prompt_user_image,
+                user_id=user_id,
             )
+            if moderation_user_image:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="The image is not allowed"
+                )
 
         await validate_star_user_service(user_id=user_id)
-        await  disable_user_service(user_id=user_id, section="event")
+        await disable_user_service(user_id=user_id, section="event")
 
-    event_db = await db["event"].find_one({"_id": ObjectId(event_id)})
-    if not event_db:
-        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
+        event_db = await db["event"].find_one({"_id": ObjectId(event_id)})
+        if not event_db:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Event not found")
 
-    generate_image = event_db["image"]
-    brand = False
-    if event_db["prompt_user_image"] != None and event_db["prompt_user_image"] != event.prompt_user_image:
-        brand = True
+        generate_image = event_db["image"]
+        brand = False
+        if event.prompt_user_image and event_db["prompt_user_image"] != event.prompt_user_image:
+            brand = True
 
-    # event_db["name"] = event.name
-    # event_db["prompt_user_image"] = event.prompt_user_image
-    # event_db["prompt_user_text"] = event.prompt_user_text
-    # event_db["type_conversation"] = event.type_conversation
-    # event_db["option_number"] = event.option_number
-    # event_db["state_game_init"] = event.state_game_init
-    # event_db["state_game_end"] = event.state_game_end
-    # event_db["location_state_game_init"] = event.location_state_game_init
-    # event_db["location_state_game_end"] = event.location_state_game_end
-    # event_db["image"] = generate_image
-    # event_db["updated_by"] = user_id
-    # event_db["updated_at"] = datetime.utcnow()
+        update_data = {
+            "updated_at": datetime.utcnow(),
+        }
 
-    update_data = {
-        "updated_at": datetime.utcnow(),
-    }
+        if event.type_conversation:
+            update_data["type_conversation"] = event.type_conversation
+        if event.option_number:
+            update_data["option_number"] = event.option_number
+        if event.state_game_end:
+            update_data["state_game_end"] = event.state_game_end
+        if event.location_state_game_end:
+            update_data["location_state_game_end"] = event.location_state_game_end
+        if event.character_id:
+            update_data["character_id"] = event.character_id
 
-    if event.type_conversation:
-        update_data["type_conversation"] = event.type_conversation
-    if event.option_number:
-        update_data["option_number"] = event.option_number
-    if event.state_game_end:
-        update_data["state_game_end"] = event.state_game_end
-    if event.location_state_game_end:
-        update_data["location_state_game_end"] = event.location_state_game_end
-    if event.character_id:
-        update_data["character_id"] = event.character_id
+        await db["event"].update_one({"_id": ObjectId(event_id)}, {"$set": update_data})
+        event_db = await db["event"].find_one({"_id": ObjectId(event_id)})
+        event_db["_id"] = str(event_db["_id"])
 
-    await db["event"].update_one({"_id": ObjectId(event_id)}, {"$set": update_data})
-    event_db = await db["event"].find_one({"_id": ObjectId(event_id)})
-    event_db["_id"] = str(event_db["_id"])
+        if brand:
+            task_db = await create_task_service(
+                _task_id="",
+                _user_id=user_id,
+                _task_data={},
+                _element_id=event_id,
+                _element_type="event",
+                _process="generate_event_image",
+            )
 
-    if brand:
-        task_db = await create_task_service(
-            _task_id="",
-            _user_id=user_id,
-            _task_data={},
-            _element_id=event_id,
-            _element_type="event",
-            _process="generate_event_image",
+            task_celery = generate_image_event_task.delay(
+                game_id=event_db["game_id"],
+                event_id=event_id,
+                state_game=event_db["state_game_init"],
+                user_id=user_id,
+                prompt_user_image=event_db["prompt_user_image"],
+                task_id=str(task_db["_id"]),
+            )
+
+            await update_task_service(
+                _id=str(task_db["_id"]),
+                _task_id=task_celery.id,
+            )
+
+            event_db["task_id"] = str(task_db["_id"])
+
+        return event_db
+    except Exception as e:
+        print(traceback.format_exc())
+        print(f"Error in update event service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Event not updated",
         )
-
-        task_celery = generate_image_event_task.delay(
-            game_id=event_db["game_id"],
-            event_id=event_id,
-            state_game=event_db["state_game_init"],
-            user_id=user_id,
-            prompt_user_image=event_db["prompt_user_image"],
-            task_id=str(task_db["_id"]),
-        )
-
-        await update_task_service(
-            _id=str(task_db["_id"]),
-            _task_id=task_celery.id,
-        )
-
-        event_db["task_id"] = str(task_db["_id"])
-
-    return event_db

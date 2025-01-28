@@ -25,35 +25,52 @@ async def generate_image_event(game_id: str, event_id: str, state_game: str, use
         game_db = await db["game"].find_one({"_id": ObjectId(game_id)})
         if not game_db:
             print("Error game not found")
-            return False
+            return False, "Game not found"
 
         state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
         if not state_game_db:
             print("Error state game not found")
-            return False
+            return False, "State game not found"
 
         character_principal_state_game = await db["state_glic"].find_one({"element_id": game_db["character_principal"]})
         if not character_principal_state_game:
             print("Error character principal not found")
-            return False
+            return False, "Character principal not found"
 
         characters_state_game = await db["state_glic"].find(
             {"data.game_id": game_id, "state": state_game}).to_list(None)
         if not characters_state_game:
             print("Error characters not found")
-            return False
+            return False, "Characters not found"
 
         locations_state_game = await db["state_glic"].find(
             {"data.game_id": game_id, "state": state_game}).to_list(None)
         if not locations_state_game:
             print("Error locations not found")
-            return False
+            return False, "Locations not found"
 
         # state_game_element = await db["state_glic"].find_one({"element_id": event_db["character_id"]})
         # if not state_game_element:
         #     print("Error state game element not found")
         #     return False
 
+        validate_prompt = await openai_generator.moderation_text(
+            text=f"Eres un diseñador de videojuegos y te han encargado crear una imagen de portada en estilo de "
+                 f"animación 3D de calidad extraordinaria para el juego {game_db['title']}"
+                 f" con el personaje {character_principal_state_game['data']['prompt_user']}. La escena debe representar un momento lleno de acción"
+                 f" que capture la esencia del juego."
+                 f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen."
+                 f" {prompt_user_image}"
+                 f"Game: {game_db['title']}\n"
+                 f"Character Principal: {character_principal_state_game['data']['prompt_user']}\n"
+                 f"Characters: {characters_state_game}\n"
+                 f"Locations: {locations_state_game}\n"
+            ,
+        )
+
+        if validate_prompt:
+            print("Error validate prompt")
+            return False, "Prompt no allowed"
 
         response_prompt_image = await openai_generator.generate_gpt(
             content_prompt=[
@@ -84,6 +101,13 @@ async def generate_image_event(game_id: str, event_id: str, state_game: str, use
             user_id=user_id,
         )
 
+        validate_prompt = await openai_generator.moderation_text(
+            text=response_prompt_image.prompt_user_image,
+        )
+
+        if validate_prompt:
+            return False, "Prompt no allowed"
+
         response_image = await openai_generator.generate_image(
             prompt=response_prompt_image.prompt_user_image,
             quality="hd",
@@ -100,22 +124,20 @@ async def generate_image_event(game_id: str, event_id: str, state_game: str, use
 
         # event_db["image"] = image_generated
 
-        print("event_db", image_generated)
-
         await db["event"].update_one({"_id": ObjectId(event_id)}, {"$set": {"image": image_generated}})
 
-        return True
+        return True, "Image event generated successfully"
     except Exception as e:
         print("Error in generate image event", e)
         print(traceback.format_exc())
-        return False
+        return False, "Error in generate image event"
 
 
 async def async_generate_image_event(_game_id: str, _event_id: str, _state_game: str, _user_id: str,
                                      _prompt_user_image: str, _task_id: str):
     await update_task_service(_id=_task_id, _status="pending")
 
-    response_image_event = await generate_image_event(
+    response_image_event, message = await generate_image_event(
         game_id=_game_id,
         event_id=_event_id,
         state_game=_state_game,
@@ -123,12 +145,15 @@ async def async_generate_image_event(_game_id: str, _event_id: str, _state_game:
         prompt_user_image=_prompt_user_image,
     )
 
-    print("response_image_event", response_image_event)
-
     if not response_image_event:
-        print("error", response_image_event)
-        await update_task_service(_id=_task_id, _status="failed", _message="Error generating image event")
-        return "Error generating image event"
+        await update_task_service(_id=_task_id,
+                                  _status="failed",
+                                  _message=message,
+                                  _status_updated=1,
+                                  )
+        return message
     print("paso", response_image_event)
-    await update_task_service(_id=_task_id, _status="completed", _message="Image event generated successfully")
+    await update_task_service(_id=_task_id,
+                              _status="completed",
+                              _message="Image event generated successfully")
     return "Image event generated successfully"

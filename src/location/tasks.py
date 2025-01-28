@@ -172,9 +172,9 @@ async def identify_location_sound(_location_id: str, _user_id: str, _state_game_
         response_sound = await openai_generator.generate_gpt(
             content_prompt=[
                 {
-                  "role": "system",
+                    "role": "system",
                     "content": "eres un identicador de sonidos para locaciones, con la siquiente image y descripcion de una locacion, escoje uno de los "
-                                    "sonidos de la lista que se escucharia en este lugar, no incluyas o crees sonidos que no esten en la lista.",
+                               "sonidos de la lista que se escucharia en este lugar, no incluyas o crees sonidos que no esten en la lista.",
                 },
                 {
                     "role": "user",
@@ -245,6 +245,11 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
             type_generation="text generation location image",
             user_id=_user_id,
         )
+
+        validate_prompt = await openai_generator.moderation_text(text=new_prompt.response, user_id=_user_id)
+        if validate_prompt:
+            return False, "Prompt not allowed"
+
         image_location = await openai_generator.generate_image(
             prompt=new_prompt.response,
             quality="hd",
@@ -271,11 +276,11 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
             }
         })
 
-        return True
+        return True, "Image generated successfully"
     except Exception as e:
         print(traceback.format_exc())
         print(f"Error in generate location image: {e}")
-        return False
+        return False, "Error in generate location image"
 
 
 async def async_generate_location_task(_location_id: str, _user_id: str, _task_id: str, _state_game_id: str):
@@ -302,12 +307,12 @@ async def async_generate_location_task(_location_id: str, _user_id: str, _task_i
             _id=_task_id, _status="failed", _message="Error in identify location sound service."
         )
         return "Error in identify location sound service."
-    response_image = await generate_location_image(_location_id, _user_id, _state_game_id)
+    response_image, message = await generate_location_image(_location_id, _user_id, _state_game_id)
     if not response_image:
         await update_task_service(
-            _id=_task_id, _status="failed", _message="Error in generate location image service."
+            _id=_task_id, _status="failed", _message=message, _status_updated=1
         )
-        return "Error in generate location image service."
+        return message
     response_environment = await generate_environment_location(_location_id, _user_id, _state_game_id)
     if not response_environment:
         await update_task_service(
@@ -332,12 +337,12 @@ async def async_generate_image_location_task(_location_id: str, _user_id: str, _
             _message=f"Error can't find location with id {_location_id}",
         )
         return f"Error can't find location with id {_location_id}"
-    response_image = await generate_location_image(_location_id, _user_id)
+    response_image, message = await generate_location_image(_location_id, _user_id)
     if not response_image:
         await update_task_service(
-            _id=_task_id, _status="failed", _message="Error in generate location image service."
+            _id=_task_id, _status="failed", _message=message, _status_updated=1
         )
-        return "Error in generate location image service."
+        return message
     response_environment = await generate_environment_location(_location_id, _user_id)
     if not response_environment:
         await update_task_service(

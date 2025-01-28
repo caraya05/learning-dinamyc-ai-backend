@@ -1,4 +1,5 @@
 import time
+import traceback
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi import Request

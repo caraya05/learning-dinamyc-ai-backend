@@ -468,8 +468,6 @@ async def deactivate_location_service(location_id: str, state_game: str, active:
                         detail="State element not found"
                     )
 
-                print(state_element_db)
-
                 if not state_element_db:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,

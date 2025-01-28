@@ -5,6 +5,9 @@ from fastapi import status
 from fastapi.security import HTTPAuthorizationCredentials
 
 import traceback
+
+from pydantic import BaseModel
+
 from auth.auth import auth
 from auth.utils import auth_schema
 
@@ -29,6 +32,9 @@ from character.services import update_character_service
 
 from game.services import get_character_game_publish_service
 from game.services import get_location_game_publish_service
+
+
+from gpt_ai.utils import openai_generator
 
 from user.services import disable_user_service
 
@@ -327,6 +333,46 @@ async def disable_character(
         return {"message": character_db}
     except Exception as e:
         print(f"error in get character: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Character not found",
+        )
+
+class SchemaResponsePromptOpen(BaseModel):
+    response: str
+@router.post("/test-prompt/")
+async def test_prompt(
+        prompt: str,
+):
+    try:
+
+        # response = await openai_generator.moderation_text(text=prompt)
+        # if response:
+        #     return {"response": "Prompt is not allowed"}
+        try:
+            # response = await openai_generator.generate_gpt(content_prompt=[
+            #     {
+            #         "role": "user",
+            #         "content": [
+            #             {
+            #                 "type": "text",
+            #                 "text": f"Prompt: {prompt}",
+            #             },
+            #         ],
+            #     },
+            # ],
+            # response_format=SchemaResponsePromptOpen)
+            response = await openai_generator.generate_image(prompt=prompt)
+            return {"response": response}
+
+        except Exception as e:
+            print(f"error in get character: {e}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=e,
+            )
+    except Exception as e:
+        print(f"error in get character 2: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Character not found",
