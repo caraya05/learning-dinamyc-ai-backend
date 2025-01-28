@@ -95,37 +95,28 @@ async def get_characters_by_location_service(skip: int = 1, limit: int = 100, lo
         location_db = await db["location"].find_one({"_id": ObjectId(location_id)})
         if not location_db:
             return []
-    except Exception as e:
-        print(f"Error finding location: {str(e)}")
-        return []
 
-    try:
-        # characters_locations_db = await db["character_location"].find({"location_id": location_id}).skip(
-        #     (skip - 1) * limit).limit(limit).to_list(None)
         characters_locations_db = await db["state_glic"].find(
-            {"type_element": "character", "data.locations_id": {"$in": [location_id]}}).skip(
-            (skip - 1) * limit).limit(limit).to_list(None)
+            {"type_element": "character", "data.locations_id": {"$in": [location_id]}}
+        ).skip((skip - 1) * limit).limit(limit).to_list(None)
         if not characters_locations_db:
             return []
-    except Exception as e:
-        print(f"Error finding character locations: {str(e)}")
-        return []
 
-    characters_db = []
-    for character_location in characters_locations_db:
-        try:
-            character_db = await db["character"].find_one({"_id": ObjectId(character_location["element_id"])})
-            if not character_db:
-                return []
-            character_location["_id"] = str(character_location["_id"])
-            character_db["state_game"] = [character_location]
+        character_ids = [ObjectId(character_location["element_id"]) for character_location in characters_locations_db]
+        characters_db = await db["character"].find({"_id": {"$in": character_ids}}).to_list(None)
+
+        for character_db in characters_db:
             character_db["_id"] = str(character_db["_id"])
-            characters_db.append(character_db)
-        except Exception as e:
-            print(f"Error finding character: {str(e)}")
-            return []
+            character_db["state_game"] = [
+                character_location for character_location in characters_locations_db
+                if character_location["element_id"] == str(character_db["_id"])
+            ]
 
-    return characters_db
+        return characters_db
+
+    except Exception as e:
+        print(f"Error in get_characters_by_location_service: {str(e)}")
+        return []
 
 
 async def create_character_service(character: SchemaCreateCharacter,
