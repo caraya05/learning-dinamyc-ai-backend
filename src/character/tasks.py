@@ -264,7 +264,7 @@ async def generate_image_character_face(_character_id, _user_id, _state_game_id)
                    "cintura para arriba, en estilo 3D Cel-shaded que Imita el aspecto "
                    "de los dibujos animados 2D, utilizando colores planos pero vivos y "
                    f"contornos marcados. Con fondo Blanco.", user_id=_user_id)
-        if not validate_prompt:
+        if validate_prompt:
             return False, "Prompt not allowed"
 
         image_face = await openai_generator.generate_image(
