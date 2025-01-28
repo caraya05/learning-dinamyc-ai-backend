@@ -224,7 +224,7 @@ class OpenAIGenerator:
                 content_prompt=content_prompt,
                 response_format=SchemaResponseModerator,
                 type_generation="moderation_text",
-                max_tokens=100,
+                max_tokens=4000,
                 user_id=user_id,
             )
 
