@@ -324,21 +324,28 @@ async def partial_update_location_service(
                 )
                 task_celery = generate_location_task.delay(
                     _location_id=location_id, _user_id=user_id, _task_id=str(task_db["_id"]),
-                    _sate_game_id=state_game_db["_id"]
+                    _state_game_id=state_game_db["_id"]
                 )
                 await update_task_service(
                     _id=str(task_db["_id"]),
                     _task_id=task_celery.id,
                 )
-                location_db["tasks_request"] = location_db["tasks_request"].append(str(task_db["_id"]))
+                if location_db["tasks_request"] is None:
+                    location_db["tasks_request"] = []
+
+                location_db["tasks_request"].append(str(task_db["_id"]))
+
                 await db['location'].update_one(
                     {"_id": ObjectId(location_id)},
                     {"$set": {"tasks_request": location_db["tasks_request"]}},
                 )
                 location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
                 location_db["task_id"] = str(task_db["_id"])
+            element_state_db = await db['state_glic'].find({"element_id": location_id}).to_list(None)
+            location_db["state_game"] = element_state_db
             return location_db
     except Exception as e:
+        print(traceback.print_exc())
         print(f"Error in partial update location service: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Location not updated.")
 
