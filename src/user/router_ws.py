@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 from datetime import datetime, timedelta
 
 from bson import ObjectId
@@ -21,6 +22,7 @@ from celery_worker import celery
 
 router = APIRouter(prefix="/ws/user", tags=["User"])
 
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: list[WebSocket] = []
@@ -41,7 +43,6 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
-
 
 
 # @router.post("/create-task")
@@ -74,9 +75,9 @@ manager = ConnectionManager()
 
 @router.websocket("/{user_id}")
 async def websocket_endpoint(
-    websocket: WebSocket,
-    user_id: str,
-    token: str,
+        websocket: WebSocket,
+        user_id: str,
+        token: str,
 ):
     await manager.connect(websocket)
     valid_token = await is_token_valid(token)
@@ -171,7 +172,7 @@ async def websocket_endpoint(
                                     "task_id": str(task_db["_id"]),
                                     "element_id": str(task_db["element_id"]),
                                     "element_type": task_db["element_type"],
-                                    "status_updated": task_db["status_updated"],
+                                    "status_updated": task_db.get("status_updated", 0),
                                     "status": 3,
                                 },
                                 websocket
@@ -263,8 +264,10 @@ async def websocket_endpoint(
                                 )
 
     except WebSocketException as e:
+        print(traceback.format_exc())
         manager.disconnect(websocket)
         # await manager.send_personal_message({"detail": "disconnected"}, websocket)
     except WebSocketDisconnect as e:
+        print(traceback.format_exc())
         manager.disconnect(websocket)
         # await manager.send_personal_message({"detail": "disconnected"}, websocket)
