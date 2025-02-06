@@ -1,6 +1,9 @@
 import traceback
 from datetime import datetime
 
+import random
+import string
+
 from bson import ObjectId
 from fastapi import HTTPException
 from starlette import status
@@ -28,9 +31,71 @@ from utils import upload_image
 
 from core.database import db
 
+
 async def get_game_service(game_id: str):
     try:
         if game_db := await db['game'].find_one({'_id': ObjectId(game_id)}):
+
+            if game_db.get('locations_id'):
+                game_db['locations'] = (
+                    await db['location']
+                    .find(
+                        {
+                            '_id': {
+                                '$in': [
+                                    ObjectId(location_id) for location_id in game_db['locations_id']
+                                ]
+                            }
+                        }
+                    )
+                    .to_list(None)
+                )
+            else:
+                game_db['locations'] = []
+
+            if game_db.get('characters_id'):
+                game_db['characters'] = (
+                    await db['character']
+                    .find(
+                        {
+                            '_id': {
+                                '$in': [
+                                    ObjectId(character_id)
+                                    for character_id in game_db['characters_id']
+                                ]
+                            }
+                        }
+                    )
+                    .to_list(None)
+                )
+            else:
+                game_db['characters'] = []
+
+            if game_db.get('items_id'):
+                game_db['items'] = (
+                    await db['item']
+                    .find({'_id': {'$in': [ObjectId(item_id) for item_id in game_db['items_id']]}})
+                    .to_list(None)
+                )
+            else:
+                game_db['items'] = []
+
+            del game_db['locations_id']
+            del game_db['characters_id']
+            del game_db['items_id']
+
+            return game_db
+    except Exception as e:
+        print(f"Error getting game service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+
+
+async def get_game_by_code_access_service(code_access: str):
+    try:
+        if game_db := await db['game'].find_one({'code_access': code_access}):
 
             if game_db.get('locations_id'):
                 game_db['locations'] = (
@@ -258,12 +323,24 @@ async def update_likes_game_service(game_id: str, user_id: str):
         )
 
 
+async def generate_code_access_game_service():
+    while True:
+        code = ''.join(random.choices(string.ascii_lowercase, k=2) + random.choices(string.digits, k=2))
+        code = ''.join(random.sample(code, len(code)))  # Shuffle the characters
+
+        existing_code = await db['game'].find_one({'code_access': code})
+
+        if not existing_code:
+            return code
+
+
 async def create_game_v2_service(user_id: str):
     try:
         game_db = Game(
             updated_by=user_id,
             created_by=user_id,
             version=2,
+            code_access=await generate_code_access_game_service(),
         )
         if game_created := await db['game'].insert_one(game_db.dict()):
             # Crear el estado inicial del juego

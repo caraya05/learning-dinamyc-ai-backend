@@ -22,6 +22,7 @@ class Game(BaseModel):
     likes: Optional[list[str]] = Field([], example=["123", "456"])
     version: Optional[int] = Field(2, example=1)
     status: Optional[int] = Field(0, example=200)
+    code_access: Optional[str] = Field(None, example="123456")
     tasks_request: Optional[list[str]] = Field([], example=["task1", "task2"])
     tasks_notified: Optional[list[str]] = Field([], example=["task1", "task2"])
     created_at: datetime = Field(default_factory=datetime.utcnow)

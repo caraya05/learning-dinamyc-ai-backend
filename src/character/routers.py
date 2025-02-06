@@ -338,42 +338,42 @@ async def disable_character(
             detail="Character not found",
         )
 
-class SchemaResponsePromptOpen(BaseModel):
-    response: str
-@router.post("/test-prompt/")
-async def test_prompt(
-        prompt: str,
-):
-    try:
-
-        # response = await openai_generator.moderation_text(text=prompt)
-        # if response:
-        #     return {"response": "Prompt is not allowed"}
-        try:
-            # response = await openai_generator.generate_gpt(content_prompt=[
-            #     {
-            #         "role": "user",
-            #         "content": [
-            #             {
-            #                 "type": "text",
-            #                 "text": f"Prompt: {prompt}",
-            #             },
-            #         ],
-            #     },
-            # ],
-            # response_format=SchemaResponsePromptOpen)
-            response = await openai_generator.generate_image(prompt=prompt)
-            return {"response": response}
-
-        except Exception as e:
-            print(f"error in get character: {e}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=e,
-            )
-    except Exception as e:
-        print(f"error in get character 2: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Character not found",
-        )
+# class SchemaResponsePromptOpen(BaseModel):
+#     response: str
+# @router.post("/test-prompt/")
+# async def test_prompt(
+#         prompt: str,
+# ):
+#     try:
+#
+#         # response = await openai_generator.moderation_text(text=prompt)
+#         # if response:
+#         #     return {"response": "Prompt is not allowed"}
+#         try:
+#             # response = await openai_generator.generate_gpt(content_prompt=[
+#             #     {
+#             #         "role": "user",
+#             #         "content": [
+#             #             {
+#             #                 "type": "text",
+#             #                 "text": f"Prompt: {prompt}",
+#             #             },
+#             #         ],
+#             #     },
+#             # ],
+#             # response_format=SchemaResponsePromptOpen)
+#             response = await openai_generator.generate_image(prompt=prompt)
+#             return {"response": response}
+#
+#         except Exception as e:
+#             print(f"error in get character: {e}")
+#             raise HTTPException(
+#                 status_code=status.HTTP_400_BAD_REQUEST,
+#                 detail=e,
+#             )
+#     except Exception as e:
+#         print(f"error in get character 2: {str(e)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Character not found",
+#         )
