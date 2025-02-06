@@ -11,7 +11,7 @@ class Event(BaseModel):
     prompt_user_text: str = Field(..., example="prompt_user_test")
     type_conversation: Optional[str] = Field(None, example="conversation_type")
     character_id: Optional[str] = Field(None, example="character_id")
-    option_number: Optional[str] = Field(None, example=1)
+    option_number: Optional[int] = Field(None, example=1)
     character_principal: str = Field(..., example="character_principal")
     state_game_init: str = Field(..., example="state_game")
     state_game_end: Optional[str] = Field(None, example="state_game")
