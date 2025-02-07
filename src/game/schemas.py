@@ -52,6 +52,7 @@ class SchemaRetrieveGameStr(ResponseModelStr):
     created_by: str
     likes: list[str] = Field([], example=["123", "456"])
     plays: int = Field(0, example=0)
+    last_date_played: Optional[datetime] = Field(None, example=datetime.utcnow())
     status: Optional[int] = Field(1, example="status")
     reject_note: Optional[str] = Field(None, example="reject_note")
     published_at: Optional[datetime] = Field(None, example=datetime.utcnow())

@@ -16,6 +16,7 @@ from game.schemas import SchemaUpdateGameV2
 from game.schemas import SchemaPartialUpdateGame
 
 from game.models import Game
+from game.utils import last_date_played_game_util, get_first_5_records_by_user
 
 from object.services import get_item_by_location_service
 
@@ -597,30 +598,49 @@ async def get_my_games_v2_service(user_id: str, skip: int = 0, limit: int = 100)
     try:
         # print(f"Getting my games v2 service", user_id)
         # start_date = datetime(2024, 7, 23).replace(hour=0, minute=0, second=0, microsecond=0)
-
+        games_query = {'created_by': user_id, 'version': 2}
         games_db = await (
             db['game']
-            .find({'created_by': user_id, 'version': 2})
+            .find(games_query)
             .sort('created_at', -1)
             .skip((skip - 1) * limit)
             .limit(limit)
             .to_list(None)
         )
 
-        count_games = await db['game'].count_documents({'created_by': user_id, 'version': 2})
+        count_games = await db['game'].count_documents(games_query)
 
-        if games_to_review := await get_games_of_reviewer(user_id):
-            print(f"Games to review: {games_to_review}")
+        games_to_review = await get_games_of_reviewer(user_id)
+        if games_to_review:
             games_db_2 = await db['game'].find({'_id': {'$in': games_to_review}}).to_list(None)
             for game in games_db_2:
                 game['created_at'] = datetime.utcnow()
-            games_db += games_db_2
+            games_db.extend(games_db_2)
             games_db = sorted(games_db, key=lambda x: x['created_at'], reverse=True)
             count_games += len(games_to_review)
 
         return games_db, count_games
     except Exception as e:
         print(f"Error getting my games service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Games not found",
+        )
+
+
+async def get_games_played_recent_service(user_id: str):
+    try:
+        games_played = await get_first_5_records_by_user(user_id)
+        if games_played:
+            games_db = await db['game'].find(
+                {'_id': {'$in': [ObjectId(game['game_id']) for game in games_played]}}
+            ).to_list(None)
+
+            for game in games_db:
+                game['created_at'] = games_played[0]['created_at']
+            return games_db
+    except Exception as e:
+        print(f"Error getting games played recent service: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Games not found",

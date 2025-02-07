@@ -24,7 +24,7 @@ from game.schemas import SchemaAddItem
 from game.schemas import SchemaAddCharacter
 from game.schemas import SchemaAddLocation
 
-from game.services import get_game_service, get_game_by_code_access_service
+from game.services import get_game_service, get_game_by_code_access_service, get_games_played_recent_service
 from game.services import create_game_v2_service
 from game.services import change_character_principal_game_service
 from game.services import get_game_v2_service
@@ -37,7 +37,7 @@ from game.services import add_items_game_service
 from game.services import add_locations_game_service
 from game.services import add_characters_game_service
 
-from game.utils import number_players_have_played_game_util
+from game.utils import number_players_have_played_game_util, last_date_played_game_util
 
 # from celery_worker import generate_context_new_location
 
@@ -857,6 +857,8 @@ async def my_games(
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
         page: int = 1,
         count: int = 10,
+        most_played: bool = False,
+        recent: bool = False,
 ):
     """
     This endpoint retrieves all games created by the user.
@@ -872,6 +874,7 @@ async def my_games(
         for game in games_db:
             game["_id"] = str(game["_id"])
             game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
+            # game["last_date_played"] = await last_date_played_game_util(str(game["_id"]))
             game_published = await db['published_game'].find_one({'game_id': str(game["_id"])})
             if not game_published:
                 game["status"] = 0
@@ -879,6 +882,23 @@ async def my_games(
             else:
                 game["status"] = game_published["status"]
                 game["reject_note"] = game_published["return_note"]
+
+        if most_played:
+            games_db = sorted(games_db, key=lambda x: x["plays"], reverse=True)
+
+        if recent:
+            games_db = await get_games_played_recent_service(user_id=str(user.get("_id")))
+            for game in games_db:
+                game["_id"] = str(game["_id"])
+                game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
+                game_published = await db['published_game'].find_one({'game_id': str(game["_id"])})
+                if not game_published:
+                    game["status"] = 0
+                    game["reject_note"] = None
+                else:
+                    game["status"] = game_published["status"]
+                    game["reject_note"] = game_published["return_note"]
+            count_pages = 1
 
         return SchemaListGame(
             results=games_db, count=len(games_db), page=page, total_pages=count_pages // count + 1
@@ -890,6 +910,8 @@ async def my_games(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Games not found",
         )
+
+
 
 
 @router.get("/my-games-in-progress/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
