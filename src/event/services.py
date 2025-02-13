@@ -151,6 +151,10 @@ async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id:
             "updated_at": datetime.utcnow(),
         }
 
+        if event.prompt_user_text:
+            update_data["prompt_user_text"] = event.prompt_user_text
+        if event.prompt_user_image:
+            update_data["prompt_user_image"] = event.prompt_user_image
         if event.type_conversation:
             update_data["type_conversation"] = event.type_conversation
         if event.option_number:

@@ -674,6 +674,7 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
 
             if not state_element_db:
                 state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
+                state_game_db["_id"] = str(state_game_db["_id"])
 
                 state_element_db = await db["state_glic"].find_one(
                     {"element_id": character_id, "type_element": "character", "order": (state_game_db["order"] - 1)})
@@ -705,6 +706,7 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
 
             return "Character deactivated / activate successfully"
     except Exception as e:
+        print(traceback.print_exc())
         print(f"Error in deactivate location service: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
