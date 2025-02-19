@@ -148,8 +148,8 @@ class SchemaCreateItem(BaseModel):
     image (Optional[str]): The image of the objective.
     """
 
-    name: str
-    prompt_user: str
+    name: Optional[str] = None
+    prompt_user: Optional[str] = None
     type_item: Optional[str] = None
     prompt_user_dialog: Optional[str] = None
     game_id: Optional[str] = None
