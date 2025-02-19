@@ -299,7 +299,7 @@ async def update_item_service(object_id: str, schema: SchemaCreateItem):
             element_state_db["data"]["name"] = schema.name
         if schema.prompt_user:
             if element_state_db["data"]["prompt_user"] != schema.prompt_user:
-                element_state_db["data"] = True
+                updated_prompt_user = True
             element_state_db["data"]["prompt_user"] = schema.prompt_user
         if schema.prompt_user_dialog:
             if element_state_db["data"]["prompt_user_dialog"] != schema.prompt_user_dialog:
@@ -337,6 +337,8 @@ async def update_item_service(object_id: str, schema: SchemaCreateItem):
 
             object_db = await db["item"].find_one({"_id": ObjectId(object_id)})
             object_db["task_id"] = str(task_db["_id"])
+            object_db["state_game"] = await db["state_glic"].find(
+                {"element_id": object_id}).to_list(None)
             return object_db
 
         return await db["item"].find_one({"_id": ObjectId(object_id)})
