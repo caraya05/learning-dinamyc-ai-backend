@@ -456,7 +456,6 @@ async def deactivate_location_service(location_id: str, state_game: str, active:
             if not state_element_db:
                 state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
 
-                print("state_game_db", state_game_db)
 
                 order = state_game_db["order"] - 1
                 state_element_db = None

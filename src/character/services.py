@@ -348,6 +348,7 @@ async def update_character_service(
             detail="Character not updated",
         )
 
+
 async def generate_image_character_service(character_id: str, user_id: str):
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
     try:
@@ -674,15 +675,22 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
 
             if not state_element_db:
                 state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
-                state_game_db["_id"] = str(state_game_db["_id"])
 
-                state_element_db = await db["state_glic"].find_one(
-                    {"element_id": character_id, "type_element": "character", "order": (state_game_db["order"] - 1)})
+                order = state_game_db["order"] - 1
+                state_element_db = None
+
+                while order >= 1:
+                    state_element_db = await db["state_glic"].find_one(
+                        {"element_id": character_id, "type_element": "character", "order": order}
+                    )
+                    if state_element_db:
+                        break
+                    order -= 1
 
                 if not state_element_db:
                     raise HTTPException(
                         status_code=status.HTTP_404_NOT_FOUND,
-                        detail="State element not found",
+                        detail="State element not found"
                     )
 
                 state_element_db['data']['is_active'] = active
@@ -691,24 +699,25 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
                 state_element_db = await create_state_glic(
                     element_id=str(character_id),
                     type_element="character",
-                    state=state_game_db['_id'],
+                    state=str(state_game_db['_id']),
                     order=state_game_db['order'],
                     created_by=state_game_db['created_by'],
-                    data=state_element_db['data'])
+                    data=state_element_db['data']
+                )
 
                 return "Character deactivated / activate successfully"
 
             state_element_db['data']['is_active'] = active
             await db["state_glic"].update_one(
                 {"_id": state_element_db["_id"]},
-                {"$set": {"data": state_element_db["data"]}},
+                {"$set": {"data": state_element_db["data"]}}
             )
 
             return "Character deactivated / activate successfully"
     except Exception as e:
         print(traceback.print_exc())
-        print(f"Error in deactivate location service: {e}")
+        print(f"Error in deactivate character service: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Location not deactivated.",
+            detail="Character not deactivated."
         )

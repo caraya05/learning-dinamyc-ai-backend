@@ -1,3 +1,4 @@
+import traceback
 from datetime import datetime
 from bson import ObjectId
 from fastapi import HTTPException
@@ -544,9 +545,9 @@ async def new_interaction_item_service(location_id: str, game_id: str, item_id: 
         )
 
 
-async def deactivate_item_service(item_id: str,state_game:str, active: bool):
+async def deactivate_item_service(item_id: str, state_game: str, active: bool):
     """
-    Deactivate a object.
+    Deactivate an object.
     """
     try:
         item_db = await db["item"].find_one({"_id": ObjectId(item_id)})
@@ -556,25 +557,55 @@ async def deactivate_item_service(item_id: str,state_game:str, active: bool):
                 detail="Item not found",
             )
 
-        state_game_db = await db["state_glic"].find_one(
-            {"element_id": item_id, "state": state_game}
+        state_element_db = await db["state_glic"].find_one(
+            {"element_id": item_id, "type_element": "item", "state": state_game}
         )
-        if not state_game_db:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="State game not found",
+
+        if not state_element_db:
+            state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
+
+            order = state_game_db["order"] - 1
+            state_element_db = None
+
+            while order >= 1:
+                state_element_db = await db["state_glic"].find_one(
+                    {"element_id": item_id, "type_element": "item", "order": order}
+                )
+                if state_element_db:
+                    break
+                order -= 1
+
+            if not state_element_db:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="State element not found"
+                )
+
+            state_element_db['data']['active'] = active
+            state_element_db['data']['interaction'] = []
+
+            state_element_db = await create_state_glic(
+                element_id=str(item_id),
+                type_element="item",
+                state=str(state_game_db['_id']),
+                order=state_game_db['order'],
+                created_by=state_game_db['created_by'],
+                data=state_element_db['data']
             )
 
-        state_game_db["data"]["active"] = active
+            return "Item deactivated / activated successfully"
+
+        state_element_db['data']['active'] = active
         await db["state_glic"].update_one(
-            {"_id": state_game_db["_id"]},
-            {"$set": {"data": state_game_db["data"]}}
+            {"_id": state_element_db["_id"]},
+            {"$set": {"data": state_element_db["data"]}}
         )
 
-        return "Item deactivated"
+        return "Item deactivated / activated successfully"
     except Exception as e:
-        print(f"Error in deactivate item service: {str(e)}")
+        print(traceback.print_exc())
+        print(f"Error in deactivate item service: {e}")
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Item not deactivated",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Item not deactivated."
         )
