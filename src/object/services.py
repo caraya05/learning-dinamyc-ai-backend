@@ -278,20 +278,38 @@ async def update_item_service(object_id: str, schema: SchemaCreateItem):
         else:
             state_game = await get_state_game_by_game_id(schema.game_id)
 
+        if not state_game:
+            state_game = await get_state_game_by_game_id(schema.game_id)
+
+        if not state_game:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="State game not found")
+
         item_db = await db["item"].find_one({"_id": ObjectId(object_id)})
+        element_state_db = await db['state_glic'].find_one(
+            {"element_id": object_id, "state": state_game["_id"]}
+        )
+        if not item_db or not element_state_db:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Item not found",
+            )
         if schema.name:
-            item_db["name"] = schema.name
+            element_state_db["data"]["name"] = schema.name
         if schema.prompt_user:
-            if item_db["prompt_user"] != schema.prompt_user:
-                updated_prompt_user = True
-            item_db["prompt_user"] = schema.prompt_user
+            if element_state_db["data"]["prompt_user"] != schema.prompt_user:
+                element_state_db["data"] = True
+            element_state_db["data"]["prompt_user"] = schema.prompt_user
         if schema.prompt_user_dialog:
-            if item_db["prompt_user_dialog"] != schema.prompt_user_dialog:
+            if element_state_db["data"]["prompt_user_dialog"] != schema.prompt_user_dialog:
                 updated_dialog = True
-            item_db["prompt_user_dialog"] = schema.prompt_user_dialog
+            element_state_db["data"]["prompt_user_dialog"] = schema.prompt_user_dialog
 
         item_db["updated_at"] = datetime.utcnow()
         await db["item"].update_one({"_id": ObjectId(object_id)}, {"$set": item_db})
+        await db["state_glic"].update_one({"_id": element_state_db["_id"]},
+                                          {"$set": {"data": element_state_db["data"]}})
         if updated_dialog or updated_prompt_user:
             task_db = await create_task_service(
                 _task_id="",
@@ -324,6 +342,7 @@ async def update_item_service(object_id: str, schema: SchemaCreateItem):
         return await db["item"].find_one({"_id": ObjectId(object_id)})
 
     except Exception as e:
+        print(traceback.print_exc())
         print(f"Error in update object service: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
