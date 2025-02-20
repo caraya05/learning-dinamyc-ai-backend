@@ -67,7 +67,7 @@ async def retrieve_object(
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveObject)
 async def create_object(
-        object_: SchemaCreateObject,
+        object_: SchemaCreasteObject,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
