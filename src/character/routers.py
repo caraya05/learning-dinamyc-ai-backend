@@ -241,7 +241,7 @@ async def partial_update_character(
         character_db = await update_character_service(
             character_id=character_id,
             name=character_update.name,
-            options_dialog=character_update.options_dialog,
+            options_dialog=character_update.options_dialog.dict() if character_update.options_dialog else None,
             prompt_user=character_update.prompt_user,
             user_id=str(user_db.get("_id")),
             type_dialog=character_update.conversation_type,

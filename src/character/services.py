@@ -285,6 +285,7 @@ async def update_character_service(
             update_fields["name"] = name
         if prompt_user is not None:
             update_fields["prompt_user"] = prompt_user
+        print(f"character_state_db 123: {character_state_db['data']}")
 
         if name is not None:
             character_state_db["data"]["name"] = name
@@ -297,10 +298,12 @@ async def update_character_service(
         if options_dialog is not None:
             character_state_db["data"]["options_dialog"] = options_dialog
 
+        print(f"character_state_db: {character_state_db['data']}")
         await db["state_glic"].update_one(
             {"_id": character_state_db["_id"]},
             {"$set": {"data": character_state_db["data"]}},
         )
+
         character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
 
         if not character_db["game_id"]:
