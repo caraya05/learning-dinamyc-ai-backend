@@ -345,7 +345,7 @@ async def generate_character_body_type(_character_id, _user_id, _state_game_id):
                     "role": "system",
                     "content": "Eres un identificador de genero y tipo de cuerpo de un personaje, "
                                "los generos son: man, woman o null, los tipos de cuerpo son: "
-                               " adult, child o animal",
+                               " adult, child o animal, no te debes salir de estos generos y tipos de cuerpo.",
                 },
                 {
                     "role": "user",
