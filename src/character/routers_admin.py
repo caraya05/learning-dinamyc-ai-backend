@@ -19,11 +19,11 @@ from character.services_admin import update_character_service_admin
 router = APIRouter(prefix='/character', tags=['Character'])
 
 
-@router.get("/{character_id}",status_code=status.HTTP_200_OK)
+@router.get("/{character_id}", status_code=status.HTTP_200_OK)
 async def get_character(
-        character_id: str,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    character_id: str,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
         character_db = await get_character_service_admin(character_id=character_id)
@@ -37,10 +37,10 @@ async def get_character(
 
 @router.get("/", status_code=status.HTTP_200_OK)
 async def get_characters(
-        skip: int = 1,
-        limit: int = 100,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    skip: int = 1,
+    limit: int = 100,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
         characters_db = await get_characters_service_admin(skip=skip, limit=limit)
@@ -54,12 +54,14 @@ async def get_characters(
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_character(
-        character: SchemaAdminCreateCharacter,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    character: SchemaAdminCreateCharacter,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
-        character_db = await create_character_service_admin(character=character, user_id=str(user_db["_id"]))
+        character_db = await create_character_service_admin(
+            character=character, user_id=str(user_db["_id"])
+        )
         return character_db
     except Exception as e:
         raise HTTPException(
@@ -70,14 +72,15 @@ async def create_character(
 
 @router.put("/{character_id}", status_code=status.HTTP_200_OK)
 async def update_character(
-        character_id: str,
-        character: SchemaAdminUpdateCharacter,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    character_id: str,
+    character: SchemaAdminUpdateCharacter,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
-        character_db = await update_character_service_admin(character_id=character_id, character=character,
-                                                            user_id=str(user_db["_id"]))
+        character_db = await update_character_service_admin(
+            character_id=character_id, character=character, user_id=str(user_db["_id"])
+        )
         return "Character updated"
     except Exception as e:
         raise HTTPException(

@@ -149,7 +149,11 @@ def update_nested_dict(target, source):
             if key not in target:
                 target[key] = []
             target[key] = [
-                update_nested_dict(target[key][i] if i < len(target[key]) else {}, item) if isinstance(item, dict) else item
+                (
+                    update_nested_dict(target[key][i] if i < len(target[key]) else {}, item)
+                    if isinstance(item, dict)
+                    else item
+                )
                 for i, item in enumerate(value)
             ]
         else:

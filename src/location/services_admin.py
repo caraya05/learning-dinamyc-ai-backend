@@ -19,15 +19,23 @@ async def get_locations_service_admin():
                 "from": "state_glic",
                 "let": {"location_id": {"$toString": "$_id"}},
                 "pipeline": [
-                    {"$match": {"$expr": {"$and": [{"$eq": ["$element_id", "$$location_id"]},
-                                                   {"$eq": ["$type_element", "location"]}]}}},
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$and": [
+                                    {"$eq": ["$element_id", "$$location_id"]},
+                                    {"$eq": ["$type_element", "location"]},
+                                ]
+                            }
+                        }
+                    },
                     {"$addFields": {"_id": {"$toString": "$_id"}}},
-                    {"$limit": 1}
+                    {"$limit": 1},
                 ],
-                "as": "data"
+                "as": "data",
             }
         },
-        {"$unwind": {"path": "$data", "preserveNullAndEmptyArrays": True}}
+        {"$unwind": {"path": "$data", "preserveNullAndEmptyArrays": True}},
     ]
 
     locations_db = await db["location"].aggregate(pipeline).to_list(None)
@@ -47,11 +55,19 @@ async def get_location_service_admin(location_id: str):
                     "from": "state_glic",
                     "let": {"location_id": {"$toString": "$_id"}},
                     "pipeline": [
-                        {"$match": {"$expr": {"$and": [{"$eq": ["$element_id", "$$location_id"]},
-                                                       {"$eq": ["$type_element", "location"]}]}}},
-                        {"$addFields": {"_id": {"$toString": "$_id"}}}
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$and": [
+                                        {"$eq": ["$element_id", "$$location_id"]},
+                                        {"$eq": ["$type_element", "location"]},
+                                    ]
+                                }
+                            }
+                        },
+                        {"$addFields": {"_id": {"$toString": "$_id"}}},
                     ],
-                    "as": "data"
+                    "as": "data",
                 }
             },
         ]
@@ -86,7 +102,9 @@ async def get_location_service_admin(location_id: str):
         )
 
 
-async def update_location_service_admin(location_id: str, location: SchemaUpdateLocation, user_id: str):
+async def update_location_service_admin(
+    location_id: str, location: SchemaUpdateLocation, user_id: str
+):
     try:
         location_db = await db["location"].find_one({"_id": ObjectId(location_id)})
         if not location_db:
@@ -98,17 +116,17 @@ async def update_location_service_admin(location_id: str, location: SchemaUpdate
         location = location.dict()
         state = location["state"]
         del location["state"]
-        element_state_db = await db["state_glic"].find_one({
-            "element_id": location_id,
-            "type_element": "location",
-            "state": state
-        })
+        element_state_db = await db["state_glic"].find_one(
+            {"element_id": location_id, "type_element": "location", "state": state}
+        )
         location_db["updated_at"] = datetime.utcnow()
         location_db["updated_by"] = user_id
         await db["location"].update_one({"_id": ObjectId(location_id)}, {"$set": location})
 
         data_updated = update_nested_dict(element_state_db["data"], location)
-        await db["state_glic"].update_one({"_id": element_state_db["_id"]}, {"$set": {"data": data_updated}})
+        await db["state_glic"].update_one(
+            {"_id": element_state_db["_id"]}, {"$set": {"data": data_updated}}
+        )
 
         return True
     except Exception as e:

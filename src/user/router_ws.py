@@ -75,34 +75,34 @@ manager = ConnectionManager()
 
 @router.websocket("/{user_id}")
 async def websocket_endpoint(
-        websocket: WebSocket,
-        user_id: str,
-        token: str,
+    websocket: WebSocket,
+    user_id: str,
+    token: str,
 ):
-    await manager.connect(websocket)
-    valid_token = await is_token_valid(token)
-    if not valid_token:
-        manager.disconnect(websocket)
-        # await manager.send_personal_message({"detail": "Invalid token"}, websocket)
-        return None
-    user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
-    if not user_db:
-        manager.disconnect(websocket)
-        # await manager.send_personal_message({"detail": "User not found"}, websocket)
-        return None
-    await websocket.send_json({"detail": "Connected to websocket"})
     try:
+        await manager.connect(websocket)
+        valid_token = await is_token_valid(token)
+        if not valid_token:
+            await manager.send_personal_message({"detail": "Invalid token"}, websocket)
+            manager.disconnect(websocket)
+            return None
+        user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
+        if not user_db:
+            await manager.send_personal_message({"detail": "User not found"}, websocket)
+            manager.disconnect(websocket)
+            return None
+        await websocket.send_json({"detail": "Connected to websocket"})
         while True:
             task_request = None
             try:
                 task_request = await asyncio.wait_for(websocket.receive_json(), timeout=1.0)
-            except asyncio.TimeoutError as e:
+            except asyncio.TimeoutError:
                 pass
+            except WebSocketDisconnect:
+                break
             await asyncio.sleep(0.5)
             if task_request:
                 tasks = task_request.get("task", [])
-                # if not isinstance(tasks, list):
-                #     tasks = [tasks]
                 for task_id in tasks:
                     task_db = await get_task_pending_service(user_id=user_id, ids=task_id)
                     if task_db:
@@ -166,20 +166,61 @@ async def websocket_endpoint(
                     created_at = task_db.get("created_at")
                     if created_at:
                         if datetime.utcnow() - created_at > timedelta(minutes=6):
-                            await manager.send_personal_message(
-                                {
-                                    "detail": "Task failed due to timeout",
-                                    "task_id": str(task_db["_id"]),
-                                    "element_id": str(task_db["element_id"]),
-                                    "element_type": task_db["element_type"],
-                                    "status_updated": task_db.get("status_updated", 0),
-                                    "status": 3,
-                                },
-                                websocket
-                            )
-                            await update_task_service(
-                                _id=str(task_db["_id"]), _status="failed", _was_notified=True
-                            )
+                            task_celery = AsyncResult(task_db["task_id"], app=celery)
+                            if task_celery.state == "SUCCESS" or task_db["status"] == "completed":
+                                if "Error" in task_celery.result or "error" in task_db["message"]:
+                                    await manager.send_personal_message(
+                                        {
+                                            "detail": "Task failed, notified out of time",
+                                            "task_id": str(task_db["_id"]),
+                                            "error": task_celery.result,
+                                            "element_id": str(task_db["element_id"]),
+                                            "element_type": task_db["element_type"],
+                                            "status_updated": task_db["status_updated"],
+                                            "status": 3,
+                                        },
+                                        websocket,
+                                    )
+                                    await update_task_service(
+                                        _id=str(task_db["_id"]),
+                                        _status="failed",
+                                        _was_notified=True,
+                                    )
+                                    continue  # Skip further processing for this task
+                                else:
+                                    await manager.send_personal_message(
+                                        {
+                                            "detail": "Task completed, notified out of time",
+                                            "task_id": str(task_db["_id"]),
+                                            "element_id": str(task_db["element_id"]),
+                                            "element_type": task_db["element_type"],
+                                            "status_updated": task_db["status_updated"],
+                                            "status": 2,
+                                        },
+                                        websocket,
+                                    )
+                                    await update_task_service(
+                                        _id=str(task_db["_id"]),
+                                        _status="completed",
+                                        _was_notified=True,
+                                    )
+                                    continue  # Skip further processing for this task
+                            else:
+                                await manager.send_personal_message(
+                                    {
+                                        "detail": "Task failed due to timeout",
+                                        "task_id": str(task_db["_id"]),
+                                        "element_id": str(task_db["element_id"]),
+                                        "element_type": task_db["element_type"],
+                                        "status_updated": task_db.get("status_updated", 0),
+                                        "status": 3,
+                                    },
+                                    websocket,
+                                )
+                                await update_task_service(
+                                    _id=str(task_db["_id"]), _status="failed", _was_notified=True
+                                )
+                                continue  # Skip further processing for this task
                             continue  # Skip further processing for this task
                     if task_db.get("task_id", None):
                         task_celery = AsyncResult(task_db["task_id"], app=celery)
@@ -195,7 +236,7 @@ async def websocket_endpoint(
                                         "status_updated": task_db["status_updated"],
                                         "status": 3,
                                     },
-                                    websocket
+                                    websocket,
                                 )
                                 await update_task_service(
                                     _id=str(task_db["_id"]), _status="failed", _was_notified=True
@@ -210,7 +251,7 @@ async def websocket_endpoint(
                                         "status_updated": task_db["status_updated"],
                                         "status": 2,
                                     },
-                                    websocket
+                                    websocket,
                                 )
                                 await update_task_service(
                                     _id=str(task_db["_id"]), _status="completed", _was_notified=True
@@ -226,7 +267,7 @@ async def websocket_endpoint(
                                     "status_updated": task_db["status_updated"],
                                     "status": 3,
                                 },
-                                websocket
+                                websocket,
                             )
                             await update_task_service(
                                 _id=str(task_db["_id"]), _status="failed", _was_notified=True
@@ -242,7 +283,7 @@ async def websocket_endpoint(
                                         "status_updated": task_db["status_updated"],
                                         "status": 2,
                                     },
-                                    websocket
+                                    websocket,
                                 )
                                 await update_task_service(
                                     _id=str(task_db["_id"]), _status="completed", _was_notified=True
@@ -257,7 +298,7 @@ async def websocket_endpoint(
                                         "status_updated": task_db["status_updated"],
                                         "status": 3,
                                     },
-                                    websocket
+                                    websocket,
                                 )
                                 await update_task_service(
                                     _id=str(task_db["_id"]), _status="failed", _was_notified=True
@@ -265,9 +306,8 @@ async def websocket_endpoint(
 
     except WebSocketException as e:
         print(traceback.format_exc())
+        await manager.send_personal_message({"detail": "WebSocket error"}, websocket)
         manager.disconnect(websocket)
-        # await manager.send_personal_message({"detail": "disconnected"}, websocket)
     except WebSocketDisconnect as e:
         print(traceback.format_exc())
         manager.disconnect(websocket)
-        # await manager.send_personal_message({"detail": "disconnected"}, websocket)

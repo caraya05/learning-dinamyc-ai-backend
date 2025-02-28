@@ -1,4 +1,3 @@
-
 from bson import ObjectId
 from pydantic import BaseModel
 from pydantic import Field
@@ -17,7 +16,6 @@ class ResponseModelStr(BaseModel):
     id: str = Field(alias="_id")
 
 
-
 class SchemaStateGameCreate(BaseModel):
     game_id: str = Field(None, example="game_id")
 
@@ -31,6 +29,3 @@ class SchemaStateGameRetrieve(ResponseModelStr):
 class SchemaStateGameList(BaseModel):
     results: list[SchemaStateGameRetrieve]
     count: int = Field(None, example=1)
-
-
-

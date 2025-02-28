@@ -16,7 +16,7 @@ async def create_state_game(game_id: str, order: int, created_by: str) -> dict:
         created_at=datetime.utcnow(),
         created_by=created_by,
         updated_at=datetime.utcnow(),
-        updated_by=created_by
+        updated_by=created_by,
     ).dict()
 
     result = await db["state_game"].insert_one(state_game)
@@ -43,10 +43,7 @@ async def get_state_game_by_game_id(game_id: str) -> dict:
         print("state_game", state_game)
         return state_game
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="StateGame not found"
-    )
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="StateGame not found")
 
 
 async def get_state_game_by_element_id(element_id: str) -> dict:
@@ -54,10 +51,7 @@ async def get_state_game_by_element_id(element_id: str) -> dict:
     if state_game:
         state_game["_id"] = str(state_game["_id"])
         return state_game
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="StateGame not found"
-    )
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="StateGame not found")
 
 
 async def get_state_game_by_id(state_game_id: str) -> dict:
@@ -66,10 +60,7 @@ async def get_state_game_by_id(state_game_id: str) -> dict:
         state_game["_id"] = str(state_game["_id"])
         return state_game
 
-    raise HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="StateGame not found"
-    )
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="StateGame not found")
 
 
 async def get_states_game_by_game_id(game_id: str) -> list:
@@ -77,8 +68,7 @@ async def get_states_game_by_game_id(game_id: str) -> list:
     for state_game in states_game:
         state_game["_id"] = str(state_game["_id"])
         location_state_game = await db["event"].find_one(
-            {"state_game_end": state_game["_id"]},
-            sort=[("created_at", -1)]
+            {"state_game_end": state_game["_id"]}, sort=[("created_at", -1)]
         )
         if location_state_game:
             state_game["location_id"] = location_state_game["location_state_game_end"]

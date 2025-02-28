@@ -22,13 +22,22 @@ class SchemaVoiceIdentification(BaseModel):
     genre: str = Field(..., description="Genre of the voice according to the description")
 
 
-async def generate_voice_character(game_id, character_id: str, user_id: str, location_id: str, state_game: str,
-                                   type_conversation: str, prompt_user_dialog: str, options_dialog: dict = None):
+async def generate_voice_character(
+    game_id,
+    character_id: str,
+    user_id: str,
+    location_id: str,
+    state_game: str,
+    type_conversation: str,
+    prompt_user_dialog: str,
+    options_dialog: dict = None,
+):
     try:
         voice = {}
         character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
         character_state_db = await db["state_glic"].find_one(
-            {"element_id": character_id, "state": state_game})
+            {"element_id": character_id, "state": state_game}
+        )
         if not character_db.get("voice_id") or not character_state_db["data"].get("voice_id"):
             variants_voices = await get_variants_service()
             response_generated = await openai_generator.generate_gpt(
@@ -36,7 +45,7 @@ async def generate_voice_character(game_id, character_id: str, user_id: str, loc
                     {
                         "role": "system",
                         "content": "Utilizando la siguiente descripción, identificar la voz que mejor se ajuste a la descripción. "
-                                   f"Respondiendo con la edad y género de la voz,",
+                        f"Respondiendo con la edad y género de la voz,",
                     },
                     {
                         "role": "assistant",
@@ -45,7 +54,7 @@ async def generate_voice_character(game_id, character_id: str, user_id: str, loc
                     {
                         "role": "user",
                         "content": f"Descripción del personaje: {character_state_db['data']['description']}"
-                                   f"Genero del personaje: {character_state_db['data']['genre']}",
+                        f"Genero del personaje: {character_state_db['data']['genre']}",
                     },
                 ],
                 response_format=SchemaVoiceIdentification,
@@ -82,168 +91,248 @@ async def generate_voice_character(game_id, character_id: str, user_id: str, loc
             character_state_db["data"]["locations_id"] = [location_id]
         await db["state_glic"].update_one(
             {"_id": character_state_db["_id"]},
-            {"$set": {
-                "data": character_state_db["data"],
-            }},
+            {
+                "$set": {
+                    "data": character_state_db["data"],
+                }
+            },
         )
 
         if type_conversation == "one_way":
-            await generate_monologue_character(_game_id=game_id,
-                                               _character_id=character_id,
-                                               _user_id=user_id,
-                                               _location_id=location_id,
-                                               _state_game_id=state_game)
+            await generate_monologue_character(
+                _game_id=game_id,
+                _character_id=character_id,
+                _user_id=user_id,
+                _location_id=location_id,
+                _state_game_id=state_game,
+            )
         if type_conversation == "two_way":
-            await generate_conversation_character(_game_id=game_id,
-                                                  _character_id=character_id,
-                                                  _user_id=user_id,
-                                                  _location_id=location_id,
-                                                  _state_game_id=state_game)
+            await generate_conversation_character(
+                _game_id=game_id,
+                _character_id=character_id,
+                _user_id=user_id,
+                _location_id=location_id,
+                _state_game_id=state_game,
+            )
         if type_conversation == "option_multiple":
-            await generate_option_character(_game_id=game_id,
-                                            _character_id=character_id,
-                                            _user_id=user_id,
-                                            _location_id=location_id,
-                                            _state_game_id=state_game)
+            await generate_option_character(
+                _game_id=game_id,
+                _character_id=character_id,
+                _user_id=user_id,
+                _location_id=location_id,
+                _state_game_id=state_game,
+            )
 
         if type_conversation == "open_question":
-            await generate_open_question_character(_game_id=game_id,
-                                                   _character_id=character_id,
-                                                   _user_id=user_id,
-                                                   _location_id=location_id,
-                                                   _state_game_id=state_game)
-        if type_conversation != "none" and type_conversation != "option_multiple" and type_conversation != "open_question":
+            await generate_open_question_character(
+                _game_id=game_id,
+                _character_id=character_id,
+                _user_id=user_id,
+                _location_id=location_id,
+                _state_game_id=state_game,
+            )
+        if (
+            type_conversation != "none"
+            and type_conversation != "option_multiple"
+            and type_conversation != "open_question"
+        ):
             character_state_db = await db["state_glic"].find_one({"_id": character_state_db["_id"]})
             if character_state_db["data"]["interaction"]:
                 for i in range(len(character_state_db["data"]["interaction"])):
-                    if character_state_db["data"]["interaction"][i]["location_id"] == location_id and \
-                            character_state_db["data"]["interaction"][i]["state_game"] == state_game:
-                        for j in range(len(character_state_db["data"]["interaction"][i]["conversation"])):
-                            character_state_db_ = await db["state_glic"].find_one({"element_id":
-                                                                                       character_state_db["data"][
-                                                                                           "interaction"][i][
-                                                                                           "conversation"][j][
-                                                                                           'id_character'],
-                                                                                   "state": state_game})
+                    if (
+                        character_state_db["data"]["interaction"][i]["location_id"] == location_id
+                        and character_state_db["data"]["interaction"][i]["state_game"] == state_game
+                    ):
+                        for j in range(
+                            len(character_state_db["data"]["interaction"][i]["conversation"])
+                        ):
+                            character_state_db_ = await db["state_glic"].find_one(
+                                {
+                                    "element_id": character_state_db["data"]["interaction"][i][
+                                        "conversation"
+                                    ][j]['id_character'],
+                                    "state": state_game,
+                                }
+                            )
 
                             try:
                                 audio = await generate_audio(
-                                    text=character_state_db["data"]["interaction"][i]["conversation"][j]["dialog"],
+                                    text=character_state_db["data"]["interaction"][i][
+                                        "conversation"
+                                    ][j]["dialog"],
                                     voice_id=character_state_db_["data"]["voice_id"],
                                     user_id=user_id,
                                 )
 
-                                character_state_db["data"]["interaction"][i]["conversation"][j]["audio"] = audio
+                                character_state_db["data"]["interaction"][i]["conversation"][j][
+                                    "audio"
+                                ] = audio
                             except Exception as e:
                                 print(f"Error in generate voice service: {str(e)}")
                                 pass
 
                 await db["state_glic"].update_one(
                     {"_id": character_state_db["_id"]},
-                    {"$set": {
-                        "data": character_state_db["data"],
-                    }}
+                    {
+                        "$set": {
+                            "data": character_state_db["data"],
+                        }
+                    },
                 )
             return True
 
         if type_conversation == "option_multiple":
 
-            character_state_db = await db["state_glic"].find_one({"_id": ObjectId(character_state_db["_id"])})
+            character_state_db = await db["state_glic"].find_one(
+                {"_id": ObjectId(character_state_db["_id"])}
+            )
             if character_state_db["data"]["interaction"]:
                 for i in range(len(character_state_db["data"]["interaction"])):
-                    if character_state_db["data"]["interaction"][i]["location_id"] == location_id and \
-                            character_state_db["data"]["interaction"][i]["state_game"] == state_game:
-                        for j in range(len(
+                    if (
+                        character_state_db["data"]["interaction"][i]["location_id"] == location_id
+                        and character_state_db["data"]["interaction"][i]["state_game"] == state_game
+                    ):
+                        for j in range(
+                            len(
                                 character_state_db["data"]["interaction"][i]["options_dialog"][
-                                    "prompt_user_question"])):
+                                    "prompt_user_question"
+                                ]
+                            )
+                        ):
                             character_state_db_ = await db["state_glic"].find_one(
-                                {"element_id": character_state_db["data"]["interaction"][i]["options_dialog"][
-                                    "prompt_user_question"][j]['id_character'], "state": state_game}
+                                {
+                                    "element_id": character_state_db["data"]["interaction"][i][
+                                        "options_dialog"
+                                    ]["prompt_user_question"][j]['id_character'],
+                                    "state": state_game,
+                                }
                             )
                             audio = await generate_audio(
-                                text=
-                                character_state_db["data"]["interaction"][i]["options_dialog"]["prompt_user_question"][
-                                    j]["dialog"],
+                                text=character_state_db["data"]["interaction"][i]["options_dialog"][
+                                    "prompt_user_question"
+                                ][j]["dialog"],
                                 voice_id=character_state_db_["data"]["voice_id"],
                                 user_id=user_id,
                             )
-                            character_state_db["data"]["interaction"][i]["options_dialog"]["prompt_user_question"][j][
-                                "audio"] = audio
-                        for j in range(len(character_state_db["data"]["interaction"][i]["options_dialog"]["options"])):
+                            character_state_db["data"]["interaction"][i]["options_dialog"][
+                                "prompt_user_question"
+                            ][j]["audio"] = audio
+                        for j in range(
+                            len(
+                                character_state_db["data"]["interaction"][i]["options_dialog"][
+                                    "options"
+                                ]
+                            )
+                        ):
                             character_state_db_ = await db["state_glic"].find_one(
-                                {"element_id":
-                                     character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j][
-                                         'prompt_user_option'][
-                                         'id_character'], "state": state_game}
+                                {
+                                    "element_id": character_state_db["data"]["interaction"][i][
+                                        "options_dialog"
+                                    ]["options"][j]['prompt_user_option']['id_character'],
+                                    "state": state_game,
+                                }
                             )
                             audio = await generate_audio(
-                                text=character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j][
-                                    "prompt_user_option"]["dialog"],
+                                text=character_state_db["data"]["interaction"][i]["options_dialog"][
+                                    "options"
+                                ][j]["prompt_user_option"]["dialog"],
                                 voice_id=character_state_db_["data"]["voice_id"],
                                 user_id=user_id,
                             )
-                            character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j][
-                                'prompt_user_option']["audio"] = audio
+                            character_state_db["data"]["interaction"][i]["options_dialog"][
+                                "options"
+                            ][j]['prompt_user_option']["audio"] = audio
 
                             audio = await generate_audio(
-                                text=character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j][
-                                    "prompt_user_answer"]["dialog"],
+                                text=character_state_db["data"]["interaction"][i]["options_dialog"][
+                                    "options"
+                                ][j]["prompt_user_answer"]["dialog"],
                                 voice_id=character_state_db["data"]["voice_id"],
                                 user_id=user_id,
                             )
-                            character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j][
-                                'prompt_user_answer']["audio"] = audio
+                            character_state_db["data"]["interaction"][i]["options_dialog"][
+                                "options"
+                            ][j]['prompt_user_answer']["audio"] = audio
 
                 await db["state_glic"].update_one(
                     {"_id": character_state_db["_id"]},
-                    {"$set": {
-                        "data": character_state_db["data"],
-                    }}
+                    {
+                        "$set": {
+                            "data": character_state_db["data"],
+                        }
+                    },
                 )
             return True
         if type_conversation == "open_question":
 
-            character_state_db = await db["state_glic"].find_one({"_id": ObjectId(character_state_db["_id"])})
+            character_state_db = await db["state_glic"].find_one(
+                {"_id": ObjectId(character_state_db["_id"])}
+            )
             if character_state_db["data"]["interaction"]:
                 for i in range(len(character_state_db["data"]["interaction"])):
-                    if character_state_db["data"]["interaction"][i]["location_id"] == location_id and \
-                            character_state_db["data"]["interaction"][i]["state_game"] == state_game:
-                        for j in range(len(character_state_db["data"]["interaction"][i]["options_dialog"][
-                                               "prompt_user_question"])):
+                    if (
+                        character_state_db["data"]["interaction"][i]["location_id"] == location_id
+                        and character_state_db["data"]["interaction"][i]["state_game"] == state_game
+                    ):
+                        for j in range(
+                            len(
+                                character_state_db["data"]["interaction"][i]["options_dialog"][
+                                    "prompt_user_question"
+                                ]
+                            )
+                        ):
                             character_state_db_ = await db["state_glic"].find_one(
-                                {"element_id": character_state_db["data"]["interaction"][i]["options_dialog"][
-                                    "prompt_user_question"][j]['id_character'], "state": state_game}
+                                {
+                                    "element_id": character_state_db["data"]["interaction"][i][
+                                        "options_dialog"
+                                    ]["prompt_user_question"][j]['id_character'],
+                                    "state": state_game,
+                                }
                             )
                             audio = await generate_audio(
-                                text=
-                                character_state_db["data"]["interaction"][i]["options_dialog"]["prompt_user_question"][
-                                    j]["dialog"],
+                                text=character_state_db["data"]["interaction"][i]["options_dialog"][
+                                    "prompt_user_question"
+                                ][j]["dialog"],
                                 voice_id=character_state_db_["data"]["voice_id"],
                                 user_id=user_id,
                             )
-                            character_state_db["data"]["interaction"][i]["options_dialog"]["prompt_user_question"][j][
-                                "audio"] = audio
+                            character_state_db["data"]["interaction"][i]["options_dialog"][
+                                "prompt_user_question"
+                            ][j]["audio"] = audio
 
-                        for j in range(len(character_state_db["data"]["interaction"][i]["options_dialog"]["options"])):
+                        for j in range(
+                            len(
+                                character_state_db["data"]["interaction"][i]["options_dialog"][
+                                    "options"
+                                ]
+                            )
+                        ):
                             character_state_db_ = await db["state_glic"].find_one(
-                                {"element_id":
-                                     character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j][
-                                         "prompt_user_answer"]['id_character'], "state": state_game}
+                                {
+                                    "element_id": character_state_db["data"]["interaction"][i][
+                                        "options_dialog"
+                                    ]["options"][j]["prompt_user_answer"]['id_character'],
+                                    "state": state_game,
+                                }
                             )
                             audio = await generate_audio(
-                                text=character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j][
-                                    "prompt_user_answer"]["dialog"],
+                                text=character_state_db["data"]["interaction"][i]["options_dialog"][
+                                    "options"
+                                ][j]["prompt_user_answer"]["dialog"],
                                 voice_id=character_state_db_["data"]["voice_id"],
                                 user_id=user_id,
                             )
-                            character_state_db["data"]["interaction"][i]["options_dialog"]["options"][j][
-                                'prompt_user_answer']["audio"] = audio
+                            character_state_db["data"]["interaction"][i]["options_dialog"][
+                                "options"
+                            ][j]['prompt_user_answer']["audio"] = audio
 
                 await db["state_glic"].update_one(
                     {"_id": character_state_db["_id"]},
-                    {"$set": {
-                        "data": character_state_db["data"],
-                    }}
+                    {
+                        "$set": {
+                            "data": character_state_db["data"],
+                        }
+                    },
                 )
         return True
     except Exception as e:
@@ -257,22 +346,26 @@ async def generate_image_character_face(_character_id, _user_id, _state_game_id)
         _character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
 
         character_state_db = await db["state_glic"].find_one(
-            {"element_id": _character_id, "state": _state_game_id})
+            {"element_id": _character_id, "state": _state_game_id}
+        )
 
-        validate_prompt = await openai_generator.moderation_text(text=f"Genera una imagen cuadrada en vista frontal de {character_state_db['data']['prompt_user']},"
-                   " de ojos vivos, rasgos faciales exagerados y expresivos, de la "
-                   "cintura para arriba, en estilo 3D Cel-shaded que Imita el aspecto "
-                   "de los dibujos animados 2D, utilizando colores planos pero vivos y "
-                   f"contornos marcados. Con fondo Blanco.", user_id=_user_id)
+        validate_prompt = await openai_generator.moderation_text(
+            text=f"Genera una imagen cuadrada en vista frontal de {character_state_db['data']['prompt_user']},"
+            " de ojos vivos, rasgos faciales exagerados y expresivos, de la "
+            "cintura para arriba, en estilo 3D Cel-shaded que Imita el aspecto "
+            "de los dibujos animados 2D, utilizando colores planos pero vivos y "
+            f"contornos marcados. Con fondo Blanco.",
+            user_id=_user_id,
+        )
         if validate_prompt:
             return False, "Prompt not allowed"
 
         image_face = await openai_generator.generate_image(
             prompt=f"Genera una imagen cuadrada en vista frontal de {character_state_db['data']['prompt_user']},"
-                   " de ojos vivos, rasgos faciales exagerados y expresivos, de la "
-                   "cintura para arriba, en estilo 3D Cel-shaded que Imita el aspecto "
-                   "de los dibujos animados 2D, utilizando colores planos pero vivos y "
-                   f"contornos marcados. Con fondo Blanco.",
+            " de ojos vivos, rasgos faciales exagerados y expresivos, de la "
+            "cintura para arriba, en estilo 3D Cel-shaded que Imita el aspecto "
+            "de los dibujos animados 2D, utilizando colores planos pero vivos y "
+            f"contornos marcados. Con fondo Blanco.",
             quality="hd",
             size="1024x1024",
             user_id=_user_id,
@@ -288,12 +381,14 @@ async def generate_image_character_face(_character_id, _user_id, _state_game_id)
 
         character_state_db["data"]["image"] = image_generated
 
-        await db["state_glic"].update_one({"_id": character_state_db["_id"]},
-                                          {"$set":
-                                              {
-                                                  "data": character_state_db["data"],
-                                              }
-                                          })
+        await db["state_glic"].update_one(
+            {"_id": character_state_db["_id"]},
+            {
+                "$set": {
+                    "data": character_state_db["data"],
+                }
+            },
+        )
 
         return True, "Image generated successfully"
     except Exception as e:
@@ -318,13 +413,13 @@ class SchemaCharacterCreate(BaseModel):
         ...,
         example="description",
         description="description to identify the colors that the character has, it is necessary "
-                    "to know the colors of clothes, shoes, hair, skin, eyes and lips",
+        "to know the colors of clothes, shoes, hair, skin, eyes and lips",
     )
     description_shoulder_up: str = Field(
         ...,
         example="description_shoulder_up",
         description="string (15-word description cut from the head to the waist of"
-                    " the character, to generate an image of the character",
+        " the character, to generate an image of the character",
     )
 
 
@@ -337,15 +432,16 @@ class SchemaSelectCharacterType(BaseModel):
 async def generate_character_body_type(_character_id, _user_id, _state_game_id):
     try:
         character_state_db = await db["state_glic"].find_one(
-            {"element_id": _character_id, "state": _state_game_id})
+            {"element_id": _character_id, "state": _state_game_id}
+        )
 
         response_type_genre = await openai_generator.generate_gpt(
             content_prompt=[
                 {
                     "role": "system",
                     "content": "Eres un identificador de genero y tipo de cuerpo de un personaje, "
-                               "los generos son: man, woman o null, los tipos de cuerpo son: "
-                               " adult, child o animal, no te debes salir de estos generos y tipos de cuerpo.",
+                    "los generos son: man, woman o null, los tipos de cuerpo son: "
+                    " adult, child o animal, no te debes salir de estos generos y tipos de cuerpo.",
                 },
                 {
                     "role": "user",
@@ -353,7 +449,7 @@ async def generate_character_body_type(_character_id, _user_id, _state_game_id):
                         {
                             "type": "text",
                             "text": f"nombre del personaje: {character_state_db['data']['name']} y descripción del personaje por "
-                                    f"parte del usuario: {character_state_db['data']['prompt_user']}",
+                            f"parte del usuario: {character_state_db['data']['prompt_user']}",
                         },
                     ],
                 },
@@ -380,7 +476,7 @@ async def generate_character_body_type(_character_id, _user_id, _state_game_id):
                         {
                             "type": "text",
                             "text": f"nombre del personaje: {character_state_db['data']['name']} y descripción del personaje por "
-                                    f"parte del usuario: {character_state_db['data']['prompt_user']}",
+                            f"parte del usuario: {character_state_db['data']['prompt_user']}",
                         },
                         {
                             "type": "text",
@@ -420,14 +516,15 @@ async def generate_character_description(_character_id, _user_id, _state_game_id
     try:
 
         character_state_db = await db["state_glic"].find_one(
-            {"element_id": _character_id, "state": _state_game_id})
+            {"element_id": _character_id, "state": _state_game_id}
+        )
 
         response = await openai_generator.generate_gpt(
             content_prompt=[
                 {
                     "role": "system",
                     "content": "create 3 descriptions for the character, one for the character description, one for the "
-                               "game description and one for the description for the generation of a picture of the character.",
+                    "game description and one for the description for the generation of a picture of the character.",
                 },
                 {
                     "role": "user",
@@ -472,7 +569,11 @@ async def generate_character_description(_character_id, _user_id, _state_game_id
 
 class SchemaCharacterConversation(BaseModel):
     id_character: str = Field(..., example="id_character", description="id of the character")
-    dialog: str = Field(..., example="dialog", description="dialog of the character and be a maximum of 15-30 words.")
+    dialog: str = Field(
+        ...,
+        example="dialog",
+        description="dialog of the character and be a maximum of 15-30 words.",
+    )
 
 
 class SchemaCharacterConversations(BaseModel):
@@ -481,7 +582,9 @@ class SchemaCharacterConversations(BaseModel):
     )
 
 
-async def generate_conversation_character(_game_id, _character_id, _user_id, _location_id, _state_game_id):
+async def generate_conversation_character(
+    _game_id, _character_id, _user_id, _location_id, _state_game_id
+):
     game_db = await db["game"].find_one({"_id": ObjectId(_game_id)})
     character_principal_db = await db["character"].find_one(
         {"_id": ObjectId(game_db["character_principal"])}
@@ -490,20 +593,22 @@ async def generate_conversation_character(_game_id, _character_id, _user_id, _lo
     element_state_db = await db["state_glic"].find_one(
         {"element_id": _character_id, "state": _state_game_id}
     )
-    language_detection = await generate_language_detection(element_state_db['data']['prompt_user_dialog'], _user_id)
+    language_detection = await generate_language_detection(
+        element_state_db['data']['prompt_user_dialog'], _user_id
+    )
     try:
 
         response = await openai_generator.generate_gpt(
             content_prompt=[
                 {
                     "role": "system",
-                    "content": f" You are a character dialogue extractor, according to a text where there is a conversation between two characters as follows. " +
-                               "1. hello. how are you?" +
-                               "2. hello, well how are you?" +
-                               "where 1 is the main character and 2 is the other character, transform it to a"
-                               "replace 1 with the id of the main character and 2 with the id of the other character, "
-                               " conversation according to the json schema and the data provided by the user, and "
-                               f"correct the spelling of the dialogue text in the {language_detection} language.",
+                    "content": f" You are a character dialogue extractor, according to a text where there is a conversation between two characters as follows. "
+                    + "1. hello. how are you?"
+                    + "2. hello, well how are you?"
+                    + "where 1 is the main character and 2 is the other character, transform it to a"
+                    "replace 1 with the id of the main character and 2 with the id of the other character, "
+                    " conversation according to the json schema and the data provided by the user, and "
+                    f"correct the spelling of the dialogue text in the {language_detection} language.",
                 },
                 {
                     "role": "user",
@@ -529,8 +634,10 @@ async def generate_conversation_character(_game_id, _character_id, _user_id, _lo
             user_id=_user_id,
             type_generation="create_conversation_character",
         )
-        conversation_ = [{"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None} for dialog
-                         in response.conversation]
+        conversation_ = [
+            {"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None}
+            for dialog in response.conversation
+        ]
 
         # await db["character"].update_one(
         #     {"_id": ObjectId(str(_character_db["_id"]))},
@@ -547,7 +654,10 @@ async def generate_conversation_character(_game_id, _character_id, _user_id, _lo
             element_state_db["data"]["interaction"] = []
 
         for interaction in element_state_db["data"]["interaction"]:
-            if interaction["location_id"] == _location_id and interaction["state_game"] == _state_game_id:
+            if (
+                interaction["location_id"] == _location_id
+                and interaction["state_game"] == _state_game_id
+            ):
                 interaction["conversation"] = conversation_
                 interaction["prompt_user_dialog"] = element_state_db["data"]["prompt_user_dialog"]
                 interaction["type_conversation"] = "two_way"
@@ -555,13 +665,15 @@ async def generate_conversation_character(_game_id, _character_id, _user_id, _lo
                 break
 
         if not interaction_exists:
-            element_state_db["data"]["interaction"].append({
-                "location_id": _location_id,
-                "state_game": _state_game_id,
-                "type_conversation": "two_way",
-                "prompt_user_dialog": element_state_db["data"]["prompt_user_dialog"],
-                "conversation": conversation_,
-            })
+            element_state_db["data"]["interaction"].append(
+                {
+                    "location_id": _location_id,
+                    "state_game": _state_game_id,
+                    "type_conversation": "two_way",
+                    "prompt_user_dialog": element_state_db["data"]["prompt_user_dialog"],
+                    "conversation": conversation_,
+                }
+            )
 
         element_state_db["data"]["conversation"] = conversation_
 
@@ -571,7 +683,8 @@ async def generate_conversation_character(_game_id, _character_id, _user_id, _lo
                 "$set": {
                     "data": element_state_db["data"],
                 }
-            })
+            },
+        )
 
         return True
     except Exception as e:
@@ -591,10 +704,10 @@ async def identify_prompt_conversation(_prompt_dialog, _user_id):
                 {
                     "role": "system",
                     "content": "Identifica si el texto es una conversación, respondiendo con un valor booleano."
-                               "para saber si es una conversación o no, si tiene la siquiente estructura: "
-                               "1. hello. how are you?" +
-                               "2. hello, well how are you?" +
-                               "es una conversación.",
+                    "para saber si es una conversación o no, si tiene la siquiente estructura: "
+                    "1. hello. how are you?"
+                    + "2. hello, well how are you?"
+                    + "es una conversación.",
                 },
                 {
                     "role": "user",
@@ -619,7 +732,9 @@ async def identify_prompt_conversation(_prompt_dialog, _user_id):
         return False
 
 
-async def generate_option_character(_game_id, _character_id, _user_id, _location_id, _state_game_id):
+async def generate_option_character(
+    _game_id, _character_id, _user_id, _location_id, _state_game_id
+):
     game_db = await db["game"].find_one({"_id": ObjectId(_game_id)})
     character_principal_db = await db["character"].find_one(
         {"_id": ObjectId(game_db["character_principal"])}
@@ -628,25 +743,28 @@ async def generate_option_character(_game_id, _character_id, _user_id, _location
     element_state_db = await db["state_glic"].find_one(
         {"element_id": _character_id, "state": _state_game_id}
     )
-    language_detection = await generate_language_detection(element_state_db['data']['options_dialog'], _user_id)
+    language_detection = await generate_language_detection(
+        element_state_db['data']['options_dialog'], _user_id
+    )
 
     try:
 
         question_ic = await identify_prompt_conversation(
-            element_state_db['data']['options_dialog']["prompt_user_question"], _user_id)
+            element_state_db['data']['options_dialog']["prompt_user_question"], _user_id
+        )
 
         if question_ic.is_conversation:
             response = await openai_generator.generate_gpt(
                 content_prompt=[
                     {
                         "role": "system",
-                        "content": f" You are a character dialogue extractor, according to a text where there is a conversation between two characters as follows. " +
-                                   "1. hello. how are you?" +
-                                   "2. hello, well how are you?" +
-                                   "where 1 is the main character and 2 is the other character, transform it to a"
-                                   "replace 1 with the id of the main character and 2 with the id of the other character, "
-                                   " conversation according to the json schema and the data provided by the user, and "
-                                   f"correct the spelling of the dialogue text in the {language_detection} language.",
+                        "content": f" You are a character dialogue extractor, according to a text where there is a conversation between two characters as follows. "
+                        + "1. hello. how are you?"
+                        + "2. hello, well how are you?"
+                        + "where 1 is the main character and 2 is the other character, transform it to a"
+                        "replace 1 with the id of the main character and 2 with the id of the other character, "
+                        " conversation according to the json schema and the data provided by the user, and "
+                        f"correct the spelling of the dialogue text in the {language_detection} language.",
                     },
                     {
                         "role": "user",
@@ -672,15 +790,17 @@ async def generate_option_character(_game_id, _character_id, _user_id, _location
                 user_id=_user_id,
                 type_generation="create_conversation_character",
             )
-            conversation_ = [{"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None} for dialog
-                             in response.conversation]
+            conversation_ = [
+                {"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None}
+                for dialog in response.conversation
+            ]
             element_state_db["data"]['options_dialog']['prompt_user_question'] = conversation_
         else:
             response = await openai_generator.generate_gpt(
                 content_prompt=[
                     {
                         "role": "system",
-                        "content": f" Correct spelling on the text of dialogue in the {language_detection} language. "
+                        "content": f" Correct spelling on the text of dialogue in the {language_detection} language. ",
                     },
                     {
                         "role": "user",
@@ -688,7 +808,7 @@ async def generate_option_character(_game_id, _character_id, _user_id, _location
                             {
                                 "type": "text",
                                 "text": f"character dialog: {element_state_db['data']['options_dialog']['prompt_user_question']}"
-                                        f"id: {str(character_other_db['_id'])}",
+                                f"id: {str(character_other_db['_id'])}",
                             },
                         ],
                     },
@@ -701,9 +821,13 @@ async def generate_option_character(_game_id, _character_id, _user_id, _location
             )
 
             conversation_ = [
-                {"id_character": str(character_other_db["_id"]), "dialog": dialog.dialog, "audio": None} for
-                dialog
-                in response.conversation]
+                {
+                    "id_character": str(character_other_db["_id"]),
+                    "dialog": dialog.dialog,
+                    "audio": None,
+                }
+                for dialog in response.conversation
+            ]
 
             element_state_db["data"]['options_dialog']['prompt_user_question'] = conversation_
 
@@ -739,11 +863,17 @@ async def generate_option_character(_game_id, _character_id, _user_id, _location
             #     type_generation="create_monologue_character",
             # )
 
-            conversation_ = {"id_character": str(character_principal_db["_id"]),
-                             "dialog": element_state_db['data']['options_dialog']['options'][option][
-                                 'prompt_user_option'], "audio": None}
+            conversation_ = {
+                "id_character": str(character_principal_db["_id"]),
+                "dialog": element_state_db['data']['options_dialog']['options'][option][
+                    'prompt_user_option'
+                ],
+                "audio": None,
+            }
 
-            element_state_db["data"]['options_dialog']['options'][option]['prompt_user_option'] = conversation_
+            element_state_db["data"]['options_dialog']['options'][option][
+                'prompt_user_option'
+            ] = conversation_
 
             # response = await openai_generator.generate_gpt(
             #     content_prompt=[
@@ -769,12 +899,17 @@ async def generate_option_character(_game_id, _character_id, _user_id, _location
             #     type_generation="create_monologue_character",
             # )
 
-            conversation_ = {"id_character": str(character_other_db["_id"]),
-                             "dialog": element_state_db['data']['options_dialog']['options'][option][
-                                 'prompt_user_answer'], "audio": None}
+            conversation_ = {
+                "id_character": str(character_other_db["_id"]),
+                "dialog": element_state_db['data']['options_dialog']['options'][option][
+                    'prompt_user_answer'
+                ],
+                "audio": None,
+            }
 
-            element_state_db["data"]['options_dialog']['options'][option]['prompt_user_answer'] = conversation_
-
+            element_state_db["data"]['options_dialog']['options'][option][
+                'prompt_user_answer'
+            ] = conversation_
 
         except Exception as e:
             print(f"Error in generating character option (answer): {str(e)}")
@@ -786,7 +921,10 @@ async def generate_option_character(_game_id, _character_id, _user_id, _location
         element_state_db["data"]["interaction"] = []
 
     for interaction in element_state_db["data"]["interaction"]:
-        if interaction["location_id"] == _location_id and interaction["state_game"] == _state_game_id:
+        if (
+            interaction["location_id"] == _location_id
+            and interaction["state_game"] == _state_game_id
+        ):
             interaction["options_dialog"] = element_state_db["data"]["options_dialog"]
             interaction["prompt_user_dialog"] = None
             interaction["type_conversation"] = "option_multiple"
@@ -794,13 +932,15 @@ async def generate_option_character(_game_id, _character_id, _user_id, _location
             break
 
     if not interaction_exists:
-        element_state_db["data"]["interaction"].append({
-            "location_id": _location_id,
-            "state_game": _state_game_id,
-            "type_conversation": "option_multiple",
-            "prompt_user_dialog": None,
-            "options_dialog": element_state_db["data"]["options_dialog"],
-        })
+        element_state_db["data"]["interaction"].append(
+            {
+                "location_id": _location_id,
+                "state_game": _state_game_id,
+                "type_conversation": "option_multiple",
+                "prompt_user_dialog": None,
+                "options_dialog": element_state_db["data"]["options_dialog"],
+            }
+        )
 
     try:
 
@@ -810,7 +950,8 @@ async def generate_option_character(_game_id, _character_id, _user_id, _location
                 "$set": {
                     "data": element_state_db["data"],
                 }
-            })
+            },
+        )
 
         return True
     except Exception as e:
@@ -820,7 +961,9 @@ async def generate_option_character(_game_id, _character_id, _user_id, _location
 
 
 #
-async def generate_open_question_character(_game_id, _character_id, _user_id, _location_id, _state_game_id):
+async def generate_open_question_character(
+    _game_id, _character_id, _user_id, _location_id, _state_game_id
+):
     game_db = await db["game"].find_one({"_id": ObjectId(_game_id)})
     character_principal_db = await db["character"].find_one(
         {"_id": ObjectId(game_db["character_principal"])}
@@ -829,25 +972,28 @@ async def generate_open_question_character(_game_id, _character_id, _user_id, _l
     element_state_db = await db["state_glic"].find_one(
         {"element_id": _character_id, "state": _state_game_id}
     )
-    language_detection = await generate_language_detection(element_state_db['data']['options_dialog'], _user_id)
+    language_detection = await generate_language_detection(
+        element_state_db['data']['options_dialog'], _user_id
+    )
 
     try:
 
         question_ic = await identify_prompt_conversation(
-            element_state_db['data']['options_dialog']["prompt_user_question"], _user_id)
+            element_state_db['data']['options_dialog']["prompt_user_question"], _user_id
+        )
 
         if question_ic.is_conversation:
             response = await openai_generator.generate_gpt(
                 content_prompt=[
                     {
                         "role": "system",
-                        "content": f" You are a character dialogue extractor, according to a text where there is a conversation between two characters as follows. " +
-                                   "1. hello. how are you?" +
-                                   "2. hello, well how are you?" +
-                                   "where 1 is the main character and 2 is the other character, transform it to a"
-                                   "replace 1 with the id of the main character and 2 with the id of the other character, "
-                                   " conversation according to the json schema and the data provided by the user, and "
-                                   f"correct the spelling of the dialogue text in the {language_detection} language.",
+                        "content": f" You are a character dialogue extractor, according to a text where there is a conversation between two characters as follows. "
+                        + "1. hello. how are you?"
+                        + "2. hello, well how are you?"
+                        + "where 1 is the main character and 2 is the other character, transform it to a"
+                        "replace 1 with the id of the main character and 2 with the id of the other character, "
+                        " conversation according to the json schema and the data provided by the user, and "
+                        f"correct the spelling of the dialogue text in the {language_detection} language.",
                     },
                     {
                         "role": "user",
@@ -873,8 +1019,10 @@ async def generate_open_question_character(_game_id, _character_id, _user_id, _l
                 user_id=_user_id,
                 type_generation="create_conversation_character",
             )
-            conversation_ = [{"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None} for dialog
-                             in response.conversation]
+            conversation_ = [
+                {"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None}
+                for dialog in response.conversation
+            ]
             element_state_db["data"]['options_dialog']['prompt_user_question'] = conversation_
         else:
             # response = await openai_generator.generate_gpt(
@@ -903,7 +1051,12 @@ async def generate_open_question_character(_game_id, _character_id, _user_id, _l
             # )
 
             conversation_ = [
-                {"id_character": str(character_other_db["_id"]), "dialog": element_state_db['data']['options_dialog']['prompt_user_question'], "audio": None}]
+                {
+                    "id_character": str(character_other_db["_id"]),
+                    "dialog": element_state_db['data']['options_dialog']['prompt_user_question'],
+                    "audio": None,
+                }
+            ]
 
             element_state_db["data"]['options_dialog']['prompt_user_question'] = conversation_
 
@@ -937,12 +1090,17 @@ async def generate_open_question_character(_game_id, _character_id, _user_id, _l
             #     type_generation="create_monologue_character",
             # )
 
-            conversation_ = {"id_character": str(character_other_db["_id"]),
-                             "dialog": element_state_db['data']['options_dialog']['options'][option][
-                                 'prompt_user_answer'], "audio": None}
+            conversation_ = {
+                "id_character": str(character_other_db["_id"]),
+                "dialog": element_state_db['data']['options_dialog']['options'][option][
+                    'prompt_user_answer'
+                ],
+                "audio": None,
+            }
 
-            element_state_db["data"]['options_dialog']['options'][option]['prompt_user_answer'] = conversation_
-
+            element_state_db["data"]['options_dialog']['options'][option][
+                'prompt_user_answer'
+            ] = conversation_
 
         except Exception as e:
             print(f"Error in generating character option (answer): {str(e)}")
@@ -954,7 +1112,10 @@ async def generate_open_question_character(_game_id, _character_id, _user_id, _l
         element_state_db["data"]["interaction"] = []
 
     for interaction in element_state_db["data"]["interaction"]:
-        if interaction["location_id"] == _location_id and interaction["state_game"] == _state_game_id:
+        if (
+            interaction["location_id"] == _location_id
+            and interaction["state_game"] == _state_game_id
+        ):
             interaction["options_dialog"] = element_state_db["data"]["options_dialog"]
             interaction["prompt_user_dialog"] = None
             interaction["type_conversation"] = "open_question"
@@ -962,13 +1123,15 @@ async def generate_open_question_character(_game_id, _character_id, _user_id, _l
             break
 
     if not interaction_exists:
-        element_state_db["data"]["interaction"].append({
-            "location_id": _location_id,
-            "state_game": _state_game_id,
-            "type_conversation": "open_question",
-            "prompt_user_dialog": None,
-            "options_dialog": element_state_db["data"]["options_dialog"],
-        })
+        element_state_db["data"]["interaction"].append(
+            {
+                "location_id": _location_id,
+                "state_game": _state_game_id,
+                "type_conversation": "open_question",
+                "prompt_user_dialog": None,
+                "options_dialog": element_state_db["data"]["options_dialog"],
+            }
+        )
 
     try:
 
@@ -978,7 +1141,8 @@ async def generate_open_question_character(_game_id, _character_id, _user_id, _l
                 "$set": {
                     "data": element_state_db["data"],
                 }
-            })
+            },
+        )
 
         return True
     except Exception as e:
@@ -987,23 +1151,27 @@ async def generate_open_question_character(_game_id, _character_id, _user_id, _l
         return False
 
 
-async def generate_monologue_character(_game_id, _character_id, _user_id, _location_id, _state_game_id):
+async def generate_monologue_character(
+    _game_id, _character_id, _user_id, _location_id, _state_game_id
+):
     # game_db = await db["game"].find_one({"_id": ObjectId(_game_id)})
     character_other_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
     character_state_db = await db["state_glic"].find_one(
-        {"element_id": _character_id, "state": _state_game_id})
+        {"element_id": _character_id, "state": _state_game_id}
+    )
     try:
         # if not character_other_db.get("prompt_user_dialog"):
         #     character_other_db["prompt_user_dialog"] = game_db["history"]
 
-        language_detection = await generate_language_detection(character_state_db["data"]['prompt_user_dialog'],
-                                                               _user_id)
+        language_detection = await generate_language_detection(
+            character_state_db["data"]['prompt_user_dialog'], _user_id
+        )
 
         response = await openai_generator.generate_gpt(
             content_prompt=[
                 {
                     "role": "system",
-                    "content": f" Correct spelling on the text of dialogue in the {language_detection} language. "
+                    "content": f" Correct spelling on the text of dialogue in the {language_detection} language. ",
                 },
                 {
                     "role": "user",
@@ -1011,7 +1179,7 @@ async def generate_monologue_character(_game_id, _character_id, _user_id, _locat
                         {
                             "type": "text",
                             "text": f"character dialog: {character_state_db['data']['prompt_user_dialog']}"
-                                    f"id: {str(character_other_db['_id'])}",
+                            f"id: {str(character_other_db['_id'])}",
                         },
                     ],
                 },
@@ -1023,9 +1191,10 @@ async def generate_monologue_character(_game_id, _character_id, _user_id, _locat
             type_generation="create_monologue_character",
         )
 
-        conversation_ = [{"id_character": str(character_other_db["_id"]), "dialog": dialog.dialog, "audio": None} for
-                         dialog
-                         in response.conversation]
+        conversation_ = [
+            {"id_character": str(character_other_db["_id"]), "dialog": dialog.dialog, "audio": None}
+            for dialog in response.conversation
+        ]
 
         interaction_exists = False
 
@@ -1033,7 +1202,10 @@ async def generate_monologue_character(_game_id, _character_id, _user_id, _locat
             character_state_db["data"]["interaction"] = []
 
         for interaction in character_state_db["data"]["interaction"]:
-            if interaction["location_id"] == _location_id and interaction["state_game"] == _state_game_id:
+            if (
+                interaction["location_id"] == _location_id
+                and interaction["state_game"] == _state_game_id
+            ):
                 interaction["conversation"] = conversation_
                 interaction["prompt_user_dialog"] = character_state_db["data"]["prompt_user_dialog"]
                 interaction["type_conversation"] = "one_way"
@@ -1041,13 +1213,15 @@ async def generate_monologue_character(_game_id, _character_id, _user_id, _locat
                 break
 
         if not interaction_exists:
-            character_state_db["data"]["interaction"].append({
-                "location_id": _location_id,
-                "state_game": _state_game_id,
-                "type_conversation": "one_way",
-                "prompt_user_dialog": character_state_db["data"]["prompt_user_dialog"],
-                "conversation": conversation_,
-            })
+            character_state_db["data"]["interaction"].append(
+                {
+                    "location_id": _location_id,
+                    "state_game": _state_game_id,
+                    "type_conversation": "one_way",
+                    "prompt_user_dialog": character_state_db["data"]["prompt_user_dialog"],
+                    "conversation": conversation_,
+                }
+            )
 
         await db["state_glic"].update_one(
             {"_id": character_state_db["_id"]},
@@ -1055,7 +1229,8 @@ async def generate_monologue_character(_game_id, _character_id, _user_id, _locat
                 "$set": {
                     "data": character_state_db["data"],
                 }
-            })
+            },
+        )
 
         return True
     except Exception as e:
@@ -1095,12 +1270,14 @@ async def generate_language_detection(_text, _user_id):
         return "english"
 
 
-async def async_generate_character_task(_character_id,
-                                        _user_id,
-                                        _task_id,
-                                        _location_id,
-                                        _state_game_id,
-                                        _game_id, ):
+async def async_generate_character_task(
+    _character_id,
+    _user_id,
+    _task_id,
+    _location_id,
+    _state_game_id,
+    _game_id,
+):
     await update_task_service(_id=_task_id, _status="pending")
     character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
     if not character_db:
@@ -1110,9 +1287,9 @@ async def async_generate_character_task(_character_id,
             _message=f"Error can't find character with id {_character_id}",
         )
         return f"Error can't find character with id {_character_id}"
-    response_description = await generate_character_description(_character_id=_character_id,
-                                                                _user_id=_user_id,
-                                                                _state_game_id=_state_game_id)
+    response_description = await generate_character_description(
+        _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
+    )
     if not response_description:
         await update_task_service(
             _id=_task_id, _status="failed", _message="Error in generate character description"
@@ -1142,14 +1319,16 @@ async def async_generate_character_task(_character_id,
         {"element_id": _character_id, "state": _state_game_id}
     )
 
-    voice_generated = await generate_voice_character(game_id=_game_id,
-                                                     character_id=_character_id,
-                                                     user_id=_user_id,
-                                                     state_game=_state_game_id,
-                                                     location_id=_location_id,
-                                                     type_conversation=element_state_db["data"]["conversation_type"],
-                                                     prompt_user_dialog=element_state_db["data"]["prompt_user_dialog"],
-                                                     options_dialog=element_state_db["data"]["options_dialog"])
+    voice_generated = await generate_voice_character(
+        game_id=_game_id,
+        character_id=_character_id,
+        user_id=_user_id,
+        state_game=_state_game_id,
+        location_id=_location_id,
+        type_conversation=element_state_db["data"]["conversation_type"],
+        prompt_user_dialog=element_state_db["data"]["prompt_user_dialog"],
+        options_dialog=element_state_db["data"]["options_dialog"],
+    )
 
     if not voice_generated:
         await update_task_service(
@@ -1163,8 +1342,16 @@ async def async_generate_character_task(_character_id,
     return "Character generate successfully"
 
 
-async def async_update_character_task(_character_id, _user_id, _task_id, _game_id, _updated_data, _updated_voice,
-                                      _state_game_id, _location_id):
+async def async_update_character_task(
+    _character_id,
+    _user_id,
+    _task_id,
+    _game_id,
+    _updated_data,
+    _updated_voice,
+    _state_game_id,
+    _location_id,
+):
     await update_task_service(_id=_task_id, _status="pending")
     if _updated_data:
         character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
@@ -1180,27 +1367,19 @@ async def async_update_character_task(_character_id, _user_id, _task_id, _game_i
         )
         if not response_description:
             await update_task_service(
-                _id=_task_id,
-                _status="failed",
-                _message="Error in generate character description"
+                _id=_task_id, _status="failed", _message="Error in generate character description"
             )
             return "Error in generate character description"
         response_body_type = await generate_character_body_type(
-            _character_id=_character_id,
-            _user_id=_user_id,
-            _state_game_id=_state_game_id
+            _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
         )
         if not response_body_type:
             await update_task_service(
-                _id=_task_id,
-                _status="failed",
-                _message="Error in generate character body type"
+                _id=_task_id, _status="failed", _message="Error in generate character body type"
             )
             return "Error in generate character body type"
         response_image, message = await generate_image_character_face(
-            _character_id=_character_id,
-            _user_id=_user_id,
-            _state_game_id=_state_game_id
+            _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
         )
         if not response_image:
             await update_task_service(
@@ -1216,16 +1395,16 @@ async def async_update_character_task(_character_id, _user_id, _task_id, _game_i
             {"element_id": _character_id, "state": _state_game_id}
         )
 
-        voice_generated = await generate_voice_character(game_id=_game_id,
-                                                         character_id=_character_id,
-                                                         user_id=_user_id,
-                                                         state_game=_state_game_id,
-                                                         options_dialog=element_state_db["data"]["options_dialog"],
-                                                         location_id=_location_id,
-                                                         type_conversation=element_state_db["data"][
-                                                             "conversation_type"],
-                                                         prompt_user_dialog=element_state_db["data"][
-                                                             "prompt_user_dialog"])
+        voice_generated = await generate_voice_character(
+            game_id=_game_id,
+            character_id=_character_id,
+            user_id=_user_id,
+            state_game=_state_game_id,
+            options_dialog=element_state_db["data"]["options_dialog"],
+            location_id=_location_id,
+            type_conversation=element_state_db["data"]["conversation_type"],
+            prompt_user_dialog=element_state_db["data"]["prompt_user_dialog"],
+        )
         if not voice_generated:
             await update_task_service(
                 _id=_task_id,

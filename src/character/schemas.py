@@ -83,14 +83,14 @@ class SchemaStateLocation(BaseModel):
     data: Optional[SchemaDataCharacter] = Field(None, example={})
 
 
-
-
 class SchemaCreateCharacter(BaseModel):
     name: str = Field(..., max_length=100, example="Jhon Doe")
     prompt_user: str = Field(..., example="prompt_user")
     prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
     conversation_type: str = Field(..., example="conversation_type")
-    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(None, example={"key": "value"})
+    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(
+        None, example={"key": "value"}
+    )
     game_id: Optional[str] = Field(None, example="location_id")
     location_id: Optional[str] = Field(None, example="location_id")
     state_game: Optional[str] = Field(None, example="state_game")
@@ -125,7 +125,9 @@ class SchemaUpdateCharacterCollection(BaseModel):
     prompt_user: Optional[str] = Field(None, example="prompt_user")
     prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
     conversation_type: Optional[str] = Field(None, example="conversation_type")
-    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(None, example={"key": "value"})
+    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(
+        None, example={"key": "value"}
+    )
     location_id: Optional[str] = Field(None, example="location_id")
     game_id: Optional[str] = Field(None, example="game_id")
     state_game: Optional[str] = Field(None, example="state_game")
@@ -157,7 +159,9 @@ class SchemaNewInteraction(BaseModel):
     game_id: str = Field(..., example="game_id")
     conversation_type: str = Field(..., example="conversation_type")
     prompt_user_dialog: str = Field(..., example="prompt_user_dialog")
-    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(None, example={"key": "value"})
+    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(
+        None, example={"key": "value"}
+    )
     state_game: Optional[str] = Field(None, example="state_game")
 
 
@@ -191,7 +195,7 @@ class SchemaDeactivateCharacter(BaseModel):
     status (int): The status of the location.
     """
 
-    is_active:bool = Field(False, example=False)
+    is_active: bool = Field(False, example=False)
     state_game: str = Field(None, example="state_game")
 
 

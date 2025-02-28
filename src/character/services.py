@@ -44,16 +44,28 @@ async def get_character_service(character_id: str):
     return character_db
 
 
-async def get_characters_service(skip: int = 1, limit: int = 100, game_id: str = None, user_id: str = None):
+async def get_characters_service(
+    skip: int = 1, limit: int = 100, game_id: str = None, user_id: str = None
+):
     try:
 
         if not game_id:
-            characters_db = await db["character"].find({"created_by": user_id}).skip((skip - 1) * limit).limit(
-                limit).to_list(None)
+            characters_db = (
+                await db["character"]
+                .find({"created_by": user_id})
+                .skip((skip - 1) * limit)
+                .limit(limit)
+                .to_list(None)
+            )
 
         else:
-            characters_db = await db["character"].find({"game_id": game_id}).skip((skip - 1) * limit).limit(
-                limit).to_list(None)
+            characters_db = (
+                await db["character"]
+                .find({"game_id": game_id})
+                .skip((skip - 1) * limit)
+                .limit(limit)
+                .to_list(None)
+            )
         for i in characters_db:
             i["_id"] = str(i["_id"])
             i["state_game"] = await get_list_state_glic_by_element_id(i["_id"])
@@ -90,25 +102,35 @@ async def get_all_character_service(user_id: str, skip: int = 1, limit: int = 10
         )
 
 
-async def get_characters_by_location_service(skip: int = 1, limit: int = 100, location_id: str = None):
+async def get_characters_by_location_service(
+    skip: int = 1, limit: int = 100, location_id: str = None
+):
     try:
         location_db = await db["location"].find_one({"_id": ObjectId(location_id)})
         if not location_db:
             return []
 
-        characters_locations_db = await db["state_glic"].find(
-            {"type_element": "character", "data.locations_id": {"$in": [location_id]}}
-        ).skip((skip - 1) * limit).limit(limit).to_list(None)
+        characters_locations_db = (
+            await db["state_glic"]
+            .find({"type_element": "character", "data.locations_id": {"$in": [location_id]}})
+            .skip((skip - 1) * limit)
+            .limit(limit)
+            .to_list(None)
+        )
         if not characters_locations_db:
             return []
 
-        character_ids = [ObjectId(character_location["element_id"]) for character_location in characters_locations_db]
+        character_ids = [
+            ObjectId(character_location["element_id"])
+            for character_location in characters_locations_db
+        ]
         characters_db = await db["character"].find({"_id": {"$in": character_ids}}).to_list(None)
 
         for character_db in characters_db:
             character_db["_id"] = str(character_db["_id"])
             character_db["state_game"] = [
-                character_location for character_location in characters_locations_db
+                character_location
+                for character_location in characters_locations_db
                 if character_location["element_id"] == str(character_db["_id"])
             ]
 
@@ -119,21 +141,21 @@ async def get_characters_by_location_service(skip: int = 1, limit: int = 100, lo
         return []
 
 
-async def create_character_service(character: SchemaCreateCharacter,
-                                   user_id: str,
-                                   game_id: str):
+async def create_character_service(character: SchemaCreateCharacter, user_id: str, game_id: str):
     try:
         if character.prompt_user:
-            response_moderation_prompt_user = await openai_generator.moderation_text(text=character.prompt_user,
-                                                                                     user_id=user_id)
+            response_moderation_prompt_user = await openai_generator.moderation_text(
+                text=character.prompt_user, user_id=user_id
+            )
             if response_moderation_prompt_user:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Prompt user not allowed",
                 )
         if character.prompt_user_dialog:
-            response_moderation_dialog = await openai_generator.moderation_text(text=character.prompt_user_dialog,
-                                                                                user_id=user_id)
+            response_moderation_dialog = await openai_generator.moderation_text(
+                text=character.prompt_user_dialog, user_id=user_id
+            )
             if response_moderation_dialog:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -141,7 +163,7 @@ async def create_character_service(character: SchemaCreateCharacter,
                 )
 
         await validate_star_user_service(user_id=user_id)
-        await  disable_user_service(user_id=user_id, section="character")
+        await disable_user_service(user_id=user_id, section="character")
 
         character_db = Character(**character.dict())
         character_db.created_by = user_id
@@ -154,9 +176,7 @@ async def create_character_service(character: SchemaCreateCharacter,
                 game_db["characters_id"].append(str(character_created.inserted_id))
             else:
                 game_db["characters_id"] = [str(character_created.inserted_id)]
-            await db['game'].update_one(
-                {'_id': ObjectId(game_id)}, {'$set': game_db}
-            )
+            await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': game_db})
 
         character_db_state = CharacterGLIC(**character.dict())
 
@@ -204,7 +224,9 @@ async def create_character_service(character: SchemaCreateCharacter,
 
         if character_db := await db["character"].find_one({"_id": character_created.inserted_id}):
             character_db["task_id"] = str(task_db["_id"])
-            character_db["state_game"] = await get_list_state_glic_by_element_id(character_created.inserted_id)
+            character_db["state_game"] = await get_list_state_glic_by_element_id(
+                character_created.inserted_id
+            )
             return character_db
     except Exception as e:
         print(f"Error in create character service: {str(e)}")
@@ -232,20 +254,22 @@ async def get_character_leading_role_service(game_id: str):
 
 
 async def update_character_service(
-        character_id: str,
-        user_id: str,
-        name: str = None,
-        options_dialog: dict = None,
-        prompt_user: str = None,
-        dialog: str = None,
-        type_dialog: str = None,
-        game_id: str = None,
-        location_id: str = None,
-        state_game: str = None
+    character_id: str,
+    user_id: str,
+    name: str = None,
+    options_dialog: dict = None,
+    prompt_user: str = None,
+    dialog: str = None,
+    type_dialog: str = None,
+    game_id: str = None,
+    location_id: str = None,
+    state_game: str = None,
 ):
     try:
         if prompt_user:
-            moderation_prompt_user = await openai_generator.moderation_text(text=prompt_user, user_id=user_id)
+            moderation_prompt_user = await openai_generator.moderation_text(
+                text=prompt_user, user_id=user_id
+            )
             if moderation_prompt_user:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -271,21 +295,25 @@ async def update_character_service(
             {"element_id": character_id, "state": state_game["_id"]}
         )
 
+        if not character_state_db:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="State element not found",
+            )
+
         name_or_prompt_user_changed = (
-                prompt_user and prompt_user != character_state_db['data']["prompt_user"]
+            prompt_user and prompt_user != character_state_db['data']["prompt_user"]
         )
 
         dialog_changed = (
-                (dialog and dialog != character_state_db['data']["prompt_user_dialog"]) or
-                (type_dialog and type_dialog != character_state_db['data']["conversation_type"])
-        )
+            dialog and dialog != character_state_db['data']["prompt_user_dialog"]
+        ) or (type_dialog and type_dialog != character_state_db['data']["conversation_type"])
 
         update_fields = {"updated_at": datetime.utcnow()}
         if name is not None:
             update_fields["name"] = name
         if prompt_user is not None:
             update_fields["prompt_user"] = prompt_user
-        print(f"character_state_db 123: {character_state_db['data']}")
 
         if name is not None:
             character_state_db["data"]["name"] = name
@@ -298,7 +326,6 @@ async def update_character_service(
         if options_dialog is not None:
             character_state_db["data"]["options_dialog"] = options_dialog
 
-        print(f"character_state_db: {character_state_db['data']}")
         await db["state_glic"].update_one(
             {"_id": character_state_db["_id"]},
             {"$set": {"data": character_state_db["data"]}},
@@ -321,7 +348,8 @@ async def update_character_service(
             )
             task_celery = update_character_task.delay(
                 _character_id=str(character_id),
-                _user_id=user_id, _task_id=str(task_db["_id"]),
+                _user_id=user_id,
+                _task_id=str(task_db["_id"]),
                 _game_id=character_db["game_id"],
                 _updated_data=name_or_prompt_user_changed,
                 _updated_voice=dialog_changed,
@@ -396,9 +424,9 @@ async def delete_character_service(character_id: str):
     # if character_db['image']:
     #     delete_image(character_db['image'])
     if (
-            character_location_db := await db["character_location"]
-                    .find({"character_id": character_id})
-                    .to_list(None)
+        character_location_db := await db["character_location"]
+        .find({"character_id": character_id})
+        .to_list(None)
     ):
         for character_location in character_location_db:
             await db["character_location"].delete_one({"_id": character_location["_id"]})
@@ -447,7 +475,12 @@ async def add_character_to_location_service(character_id: str, location_id: str)
 
 
 async def add_or_edit_character_location(
-        character_id: str, location_id: str, game_id: str, characteristics: dict, user_id: str, state_game: str = None
+    character_id: str,
+    location_id: str,
+    game_id: str,
+    characteristics: dict,
+    user_id: str,
+    state_game: str = None,
 ):
     existing_entry = await db["character_location"].find_one(
         {"character_id": character_id, "location_id": location_id}
@@ -505,18 +538,16 @@ async def remove_character_location(character_id: str, location_id: str):
 
 
 async def new_interaction_character_service(
-        location_id: str,
-        game_id: str,
-        character_id: str,
-        conversation_type: str,
-        prompt_user_dialog: str,
-        user_id: str,
-        options_dialog: list[dict] = None,
-        state_game: str = None
+    location_id: str,
+    game_id: str,
+    character_id: str,
+    conversation_type: str,
+    prompt_user_dialog: str,
+    user_id: str,
+    options_dialog: list[dict] = None,
+    state_game: str = None,
 ):
-    character_db = await db["character"].find_one(
-        {"_id": ObjectId(character_id)}
-    )
+    character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
     if not character_db:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -575,11 +606,13 @@ class SchemaResponseOpenAnswer(BaseModel):
     reason: str = Field(description="Reason")
 
 
-async def answer_open_question_service(location_id: str,
-                                       character_id: str,
-                                       prompt_user_answer: str,
-                                       user_id: str,
-                                       state_game: str = None):
+async def answer_open_question_service(
+    location_id: str,
+    character_id: str,
+    prompt_user_answer: str,
+    user_id: str,
+    state_game: str = None,
+):
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
 
     if not character_db:
@@ -607,16 +640,20 @@ async def answer_open_question_service(location_id: str,
         criteria = {}
         for location in state_element_db['data']['interaction']:
             if location["location_id"] == location_id:
-                criteria["question"] = location["options_dialog"]["prompt_user_question"][-1]["dialog"]
+                criteria["question"] = location["options_dialog"]["prompt_user_question"][-1][
+                    "dialog"
+                ]
 
                 options_answer = []
                 for criteria_db in location["options_dialog"]["options"]:
                     if criteria_db["prompt_user_guideline"] and criteria_db["prompt_user_answer"]:
-                        options_answer.append({
-                            "criteria_evaluated": criteria_db["prompt_user_guideline"],
-                            "response_criteria": criteria_db["prompt_user_answer"]["dialog"],
-                            "audio": criteria_db["prompt_user_answer"]["audio"]
-                        })
+                        options_answer.append(
+                            {
+                                "criteria_evaluated": criteria_db["prompt_user_guideline"],
+                                "response_criteria": criteria_db["prompt_user_answer"]["dialog"],
+                                "audio": criteria_db["prompt_user_answer"]["audio"],
+                            }
+                        )
 
                 criteria["options_answer"] = options_answer
 
@@ -627,14 +664,14 @@ async def answer_open_question_service(location_id: str,
                 {
                     "role": "system",
                     "content": f"Eres un evaluador de respuestas de preguntas abiertas, "
-                               f"por favor evalúa la respuesta que da el usuario, respecto a un pregunta teniendo encuenta"
-                               f" la un criteria a evaluar y dando la respuesta de las opciones que tienes en criterios y respuestas,"
-                               f"no te puedes salir de las opciones que tienes en criterios y respuestas",
+                    f"por favor evalúa la respuesta que da el usuario, respecto a un pregunta teniendo encuenta"
+                    f" la un criteria a evaluar y dando la respuesta de las opciones que tienes en criterios y respuestas,"
+                    f"no te puedes salir de las opciones que tienes en criterios y respuestas",
                 },
                 {
                     "role": "system",
                     "content": f"pregunta: {criteria['question']}"
-                               f"criterios a evaluar y respuestas: {criteria['options_answer']}",
+                    f"criterios a evaluar y respuestas: {criteria['options_answer']}",
                 },
                 {
                     "role": "user",
@@ -692,8 +729,7 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
 
                 if not state_element_db:
                     raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND,
-                        detail="State element not found"
+                        status_code=status.HTTP_404_NOT_FOUND, detail="State element not found"
                     )
 
                 state_element_db['data']['is_active'] = active
@@ -705,15 +741,14 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
                     state=str(state_game_db['_id']),
                     order=state_game_db['order'],
                     created_by=state_game_db['created_by'],
-                    data=state_element_db['data']
+                    data=state_element_db['data'],
                 )
 
                 return "Character deactivated / activate successfully"
 
             state_element_db['data']['is_active'] = active
             await db["state_glic"].update_one(
-                {"_id": state_element_db["_id"]},
-                {"$set": {"data": state_element_db["data"]}}
+                {"_id": state_element_db["_id"]}, {"$set": {"data": state_element_db["data"]}}
             )
 
             return "Character deactivated / activate successfully"
@@ -721,6 +756,5 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
         print(traceback.print_exc())
         print(f"Error in deactivate character service: {e}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Character not deactivated."
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Character not deactivated."
         )

@@ -24,6 +24,7 @@ from task.services import create_task_service
 from task.services import update_task_service
 
 from celery_worker import generate_image_cover_game_task
+
 # from celery_worker import generate_context_new_character_task
 
 from state_game.services import create_state_game
@@ -156,7 +157,7 @@ async def get_game_by_code_access_service(code_access: str):
 
 
 async def get_games_service(
-        *, skip: int = 1, limit: int = 100, user_id: str = None, games_id: list = None
+    *, skip: int = 1, limit: int = 100, user_id: str = None, games_id: list = None
 ):
     if user_id:
         games_query = {'created_by': user_id, 'version': 2}
@@ -190,7 +191,7 @@ async def get_games_service(
 
 
 async def update_partial_game_service(
-        game_id: str, game_update: SchemaPartialUpdateGame, user_id: str
+    game_id: str, game_update: SchemaPartialUpdateGame, user_id: str
 ):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
@@ -326,7 +327,9 @@ async def update_likes_game_service(game_id: str, user_id: str):
 
 async def generate_code_access_game_service():
     while True:
-        code = ''.join(random.choices(string.ascii_lowercase, k=2) + random.choices(string.digits, k=2))
+        code = ''.join(
+            random.choices(string.ascii_lowercase, k=2) + random.choices(string.digits, k=2)
+        )
         code = ''.join(random.sample(code, len(code)))  # Shuffle the characters
 
         existing_code = await db['game'].find_one({'code_access': code})
@@ -467,7 +470,7 @@ async def add_items_game_service(game_id: str, items_id: str):
 
 
 async def change_character_principal_game_service(
-        game_id: str, character_principal: str, user_id: str
+    game_id: str, character_principal: str, user_id: str
 ):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
@@ -553,11 +556,11 @@ async def get_game_v2_service(game_id: str):
                 for location in game_db['locations']:
                     location["_id"] = str(location["_id"])
                     if location_characters := await get_characters_by_location_service(
-                            location_id=str(location['_id'])
+                        location_id=str(location['_id'])
                     ):
                         location['characters'] = location_characters
                     if location_items := await get_item_by_location_service(
-                            location_id=str(location['_id'])
+                        location_id=str(location['_id'])
                     ):
                         location['items'] = location_items
             else:
@@ -632,9 +635,11 @@ async def get_games_played_recent_service(user_id: str):
     try:
         games_played = await get_first_5_records_by_user(user_id)
         if games_played:
-            games_db = await db['game'].find(
-                {'_id': {'$in': [ObjectId(game['game_id']) for game in games_played]}}
-            ).to_list(None)
+            games_db = (
+                await db['game']
+                .find({'_id': {'$in': [ObjectId(game['game_id']) for game in games_played]}})
+                .to_list(None)
+            )
 
             for game in games_db:
                 game['created_at'] = games_played[0]['created_at']
@@ -652,7 +657,7 @@ async def get_characters_game_publish_service(game_id: str):
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db and game_db.get('published'):
             if games_published_db := await db['published_game'].find_one(
-                    {'_id': ObjectId(game_db['published'])}
+                {'_id': ObjectId(game_db['published'])}
             ):
                 return games_published_db['game']['characters']
     except Exception as e:
@@ -668,7 +673,7 @@ async def get_character_game_publish_service(game_id: str, character_id: str):
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db and game_db.get('published'):
             if games_published_db := await db['published_game'].find_one(
-                    {'_id': ObjectId(game_db['published'])}
+                {'_id': ObjectId(game_db['published'])}
             ):
                 for character in games_published_db['game']['characters']:
                     if character['_id'] == character_id:
@@ -686,7 +691,7 @@ async def get_locations_game_publish_service(game_id: str):
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db and game_db.get('published'):
             if games_published_db := await db['published_game'].find_one(
-                    {'_id': ObjectId(game_db['published'])}
+                {'_id': ObjectId(game_db['published'])}
             ):
                 return games_published_db['game']['locations']
     except Exception as e:
@@ -702,7 +707,7 @@ async def get_location_game_publish_service(game_id: str, location_id: str):
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db and game_db.get('published'):
             if games_published_db := await db['published_game'].find_one(
-                    {'_id': ObjectId(game_db['published'])}
+                {'_id': ObjectId(game_db['published'])}
             ):
                 for location in games_published_db['game']['locations']:
                     if location['_id'] == location_id:
@@ -833,9 +838,9 @@ async def get_games_of_reviewer(user_id: str):
     try:
         print(f"Getting games of reviewer: {user_id}")
         if (
-                games_pending_db := await db['published_game']
-                        .find({'reviewer': user_id, 'status': 1})
-                        .to_list(None)
+            games_pending_db := await db['published_game']
+            .find({'reviewer': user_id, 'status': 1})
+            .to_list(None)
         ):
             print(f"Games pending: {games_pending_db}")
             return [ObjectId(game['game_id']) for game in games_pending_db]

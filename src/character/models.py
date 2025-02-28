@@ -39,6 +39,6 @@ class CharacterGLIC(BaseModel):
     conversation: Optional[list[dict]] = Field([], example=[{"key": "value"}])
     type: Optional[str] = Field(None, example=TypeCharacter.NPC)
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
-    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(None, example={"key": "value"})
-
-
+    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(
+        None, example={"key": "value"}
+    )

@@ -26,62 +26,50 @@ router = APIRouter(prefix="/game-pending", tags=["Game Pending"])
 
 @router.get("/", status_code=status.HTTP_200_OK)
 async def get_pending_games(
-        user_db: dict = Depends(auth_admin), Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    user_db: dict = Depends(auth_admin), Token: HTTPAuthorizationCredentials = Depends(auth_schema)
 ):
-    games_db = await db["published_game"].aggregate([
-        {
-            "$lookup": {
-                "from": "game",
-                "let": {"gameId": {"$toObjectId": "$game_id"}},
-                "pipeline": [
-                    {"$match": {"$expr": {"$eq": ["$_id", "$$gameId"]}}},
-                ],
-                "as": "game"
-            }
-        },
-        {
-            "$lookup": {
-                "from": "user",
-                "let": {"userId": {"$toObjectId": "$created_by"}},
-                "pipeline": [
-                    {"$match": {"$expr": {"$eq": ["$_id", "$$userId"]}}},
-                ],
-                "as": "user"
-            }
-        },
-        {
-            "$lookup": {
-                "from": "user",
-                "let": {"reviewerId": {"$toObjectId": "$reviewer"}},
-                "pipeline": [
-                    {"$match": {"$expr": {"$eq": ["$_id", "$$reviewerId"]}}},
-                ],
-                "as": "reviewer"
-            }
-        },
-        {
-            "$unwind": {
-                "path": "$game",
-                "preserveNullAndEmptyArrays": True
-            }
-        },
-        {
-            "$unwind": {
-                "path": "$reviewer",
-                "preserveNullAndEmptyArrays": True
-            }
-        },
-        {
-            "$unwind": {
-                "path": "$user",
-                "preserveNullAndEmptyArrays": True
-            }
-        },
-
-        {
-            "$sort": {"created_at": -1}
-        }
-    ]).to_list(None)
+    games_db = (
+        await db["published_game"]
+        .aggregate(
+            [
+                {
+                    "$lookup": {
+                        "from": "game",
+                        "let": {"gameId": {"$toObjectId": "$game_id"}},
+                        "pipeline": [
+                            {"$match": {"$expr": {"$eq": ["$_id", "$$gameId"]}}},
+                        ],
+                        "as": "game",
+                    }
+                },
+                {
+                    "$lookup": {
+                        "from": "user",
+                        "let": {"userId": {"$toObjectId": "$created_by"}},
+                        "pipeline": [
+                            {"$match": {"$expr": {"$eq": ["$_id", "$$userId"]}}},
+                        ],
+                        "as": "user",
+                    }
+                },
+                {
+                    "$lookup": {
+                        "from": "user",
+                        "let": {"reviewerId": {"$toObjectId": "$reviewer"}},
+                        "pipeline": [
+                            {"$match": {"$expr": {"$eq": ["$_id", "$$reviewerId"]}}},
+                        ],
+                        "as": "reviewer",
+                    }
+                },
+                {"$unwind": {"path": "$game", "preserveNullAndEmptyArrays": True}},
+                {"$unwind": {"path": "$reviewer", "preserveNullAndEmptyArrays": True}},
+                {"$unwind": {"path": "$user", "preserveNullAndEmptyArrays": True}},
+                {"$sort": {"created_at": -1}},
+            ]
+        )
+        .to_list(None)
+    )
 
     for game in games_db:
         game["_id"] = str(game["_id"])
@@ -96,9 +84,9 @@ async def get_pending_games(
 
 @router.get("/{game_id}", status_code=status.HTTP_200_OK)
 async def get_pending_game(
-        game_id: str,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_id: str,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     if game_db is None:
@@ -118,9 +106,9 @@ async def get_pending_game(
 
 @router.get("/publish/{game_id}", status_code=status.HTTP_200_OK)
 async def publish_game(
-        game_id: str,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_id: str,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     published_game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     if game_db := await get_game_v2_service(published_game_db["game_id"]):
@@ -152,10 +140,10 @@ class SchemaUpdateGamePublish(BaseModel):
 
 @router.patch("/reject/{game_id}", status_code=status.HTTP_200_OK)
 async def reject_game(
-        game_id: str,
-        data: SchemaUpdateGamePublish,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_id: str,
+    data: SchemaUpdateGamePublish,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     published_game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     published_game_db["reviewed_at"] = datetime.utcnow()
@@ -173,10 +161,10 @@ async def reject_game(
 
 @router.patch("/review/{game_id}", status_code=status.HTTP_200_OK)
 async def reviewer_game(
-        game_id: str,
-        data: SchemaUpdateGamePublish,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_id: str,
+    data: SchemaUpdateGamePublish,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     published_game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     published_game_db["reviewed_at"] = datetime.utcnow()
@@ -194,10 +182,10 @@ async def reviewer_game(
 
 @router.patch("/update/{game_id}", status_code=status.HTTP_200_OK)
 async def update_game(
-        game_id: str,
-        data: SchemaUpdateGamePublish,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_id: str,
+    data: SchemaUpdateGamePublish,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     published_game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
     published_game_db["updated_at"] = datetime.utcnow()
@@ -219,8 +207,7 @@ router_admin = APIRouter(prefix="/game", tags=["Game"])
 
 @router_admin.get("/", status_code=status.HTTP_200_OK)
 async def get_games(
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    user_db: dict = Depends(auth_admin), Token: HTTPAuthorizationCredentials = Depends(auth_schema)
 ):
     games_db = await get_games_service_admin()
     return games_db
@@ -228,9 +215,9 @@ async def get_games(
 
 @router_admin.get("/{game_id}", status_code=status.HTTP_200_OK)
 async def get_game(
-        game_id: str,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    game_id: str,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     game_db = await get_game_service_admin(game_id)
     if game_db is None:
@@ -240,10 +227,10 @@ async def get_game(
 
 @router_admin.patch("/{game_id}", status_code=status.HTTP_200_OK)
 async def update_game(
-        game_id: str,
-        game: SchemaUpdateGame,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    game_id: str,
+    game: SchemaUpdateGame,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     await update_game_service_admin(game_id, game, str(user_db["_id"]))
     return {"detail": "Game updated"}

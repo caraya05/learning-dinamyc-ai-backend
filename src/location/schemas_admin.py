@@ -27,6 +27,7 @@ class SchemaAdminStateLocation(BaseModel):
     state: str = Field(..., example="state")
     data: SchemaAdminDataLocation = Field(..., example={})
 
+
 class SchemaAdminStateLocations(BaseModel):
     id: str = Field(alias="_id")
     data: SchemaAdminStateLocation = Field(..., example={})

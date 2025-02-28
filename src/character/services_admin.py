@@ -22,13 +22,21 @@ async def get_character_service_admin(character_id: str):
                     "from": "state_glic",
                     "let": {"character_id": {"$toString": "$_id"}},
                     "pipeline": [
-                        {"$match": {"$expr": {"$and": [{"$eq": ["$element_id", "$$character_id"]},
-                                                       {"$eq": ["$type_element", "character"]}]}}},
-                        {"$addFields": {"_id": {"$toString": "$_id"}}}
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$and": [
+                                        {"$eq": ["$element_id", "$$character_id"]},
+                                        {"$eq": ["$type_element", "character"]},
+                                    ]
+                                }
+                            }
+                        },
+                        {"$addFields": {"_id": {"$toString": "$_id"}}},
                     ],
-                    "as": "data"
+                    "as": "data",
                 }
-            }
+            },
         ]
 
         character_db = await db["character"].aggregate(pipeline).to_list(None)
@@ -67,15 +75,23 @@ async def get_characters_service_admin(skip: int = 0, limit: int = 10000):
                 "from": "state_glic",
                 "let": {"character_id": {"$toString": "$_id"}},
                 "pipeline": [
-                    {"$match": {"$expr": {"$and": [{"$eq": ["$element_id", "$$character_id"]},
-                                                   {"$eq": ["$type_element", "character"]}]}}},
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$and": [
+                                    {"$eq": ["$element_id", "$$character_id"]},
+                                    {"$eq": ["$type_element", "character"]},
+                                ]
+                            }
+                        }
+                    },
                     {"$addFields": {"_id": {"$toString": "$_id"}}},
-                    {"$limit": 1}
+                    {"$limit": 1},
                 ],
-                "as": "data"
+                "as": "data",
             }
         },
-        {"$unwind": {"path": "$data", "preserveNullAndEmptyArrays": True}}
+        {"$unwind": {"path": "$data", "preserveNullAndEmptyArrays": True}},
     ]
 
     characters_db = await db["character"].aggregate(pipeline).to_list(None)
@@ -127,9 +143,9 @@ async def create_character_service_admin(character: SchemaAdminCreateCharacter, 
         )
 
 
-async def update_character_service_admin(character_id: str,
-                                         character: SchemaAdminUpdateCharacter,
-                                         user_id: str):
+async def update_character_service_admin(
+    character_id: str, character: SchemaAdminUpdateCharacter, user_id: str
+):
     try:
         character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
         if not character_db:

@@ -30,11 +30,9 @@ from celery_worker import updated_item_task
 from celery_worker import generate_new_interaction_item_task
 
 
-async def get_objects_service(game: str = None,
-                              location: str = None,
-                              user: str = None,
-                              skip: int = 0,
-                              limit: int = 100):
+async def get_objects_service(
+    game: str = None, location: str = None, user: str = None, skip: int = 0, limit: int = 100
+):
     """
     Get a list of objects.
     """
@@ -42,14 +40,19 @@ async def get_objects_service(game: str = None,
 
     try:
         if location:
-            item_locations_db = await db["state_glic"].find(
-                {"type_element": "item", "data.location_id": {"$in": [location]}}).skip(
-                (skip - 1) * limit).limit(limit).to_list(None)
+            item_locations_db = (
+                await db["state_glic"]
+                .find({"type_element": "item", "data.location_id": {"$in": [location]}})
+                .skip((skip - 1) * limit)
+                .limit(limit)
+                .to_list(None)
+            )
             if not item_locations_db:
                 return [], 0
             for item_location_db in item_locations_db:
-                objects_db_ = (
-                    await db["item"].find_one({"_id": ObjectId(item_location_db["element_id"])}))
+                objects_db_ = await db["item"].find_one(
+                    {"_id": ObjectId(item_location_db["element_id"])}
+                )
                 if objects_db_:
                     objects_db_["_id"] = str(objects_db_["_id"])
                     # array_state_game = await db["state_glic"].find(
@@ -63,9 +66,8 @@ async def get_objects_service(game: str = None,
                     #     objects_db_["state_game"] = []
                     # print("llego aca")
                     objects_db.append(objects_db_)
-            count_objects = (
-                await db["state_glic"].count_documents(
-                    {"type_element": "item", "data.location_id": {"$in": [location]}})
+            count_objects = await db["state_glic"].count_documents(
+                {"type_element": "item", "data.location_id": {"$in": [location]}}
             )
         elif game:
             objects_db = (
@@ -75,28 +77,18 @@ async def get_objects_service(game: str = None,
                 .limit(limit)
                 .to_list(None)
             )
-            count_objects = (
-                await db["item"]
-                .count_documents({"games_id": {"$in": [game]}})
-            )
+            count_objects = await db["item"].count_documents({"games_id": {"$in": [game]}})
         else:
             objects_db = (
-                await db["item"]
-                .find({"created_by": user})
-                .skip(skip)
-                .limit(limit)
-                .to_list(None)
+                await db["item"].find({"created_by": user}).skip(skip).limit(limit).to_list(None)
             )
-            count_objects = (
-                await db["item"]
-                .count_documents({"created_by": user})
-            )
+            count_objects = await db["item"].count_documents({"created_by": user})
         if objects_db:
             for object_db in objects_db:
                 object_db["_id"] = str(object_db["_id"])
-                elements_state_db = await db["state_glic"].find(
-                    {"element_id": object_db["_id"]}
-                ).to_list(None)
+                elements_state_db = (
+                    await db["state_glic"].find({"element_id": object_db["_id"]}).to_list(None)
+                )
                 if elements_state_db:
                     for element_state_db in elements_state_db:
                         element_state_db["_id"] = str(element_state_db["_id"])
@@ -134,9 +126,7 @@ async def retrieve_object_service(object_id: str):
                 {"item_id": object_id}
             )
             if object_db:
-                element_state_db = await db["state_glic"].find_one(
-                    {"element_id": object_id}
-                )
+                element_state_db = await db["state_glic"].find_one({"element_id": object_id})
                 element_state_db["_id"] = str(element_state_db["_id"])
                 object_db["state_game"] = [element_state_db]
                 # item_characteristics = await db["object_location"].find(
@@ -204,7 +194,7 @@ async def create_item_service(schema: SchemaCreateObject, user_id: str):
             )
 
     await validate_star_user_service(user_id=user_id)
-    await  disable_user_service(user_id=user_id, section="item")
+    await disable_user_service(user_id=user_id, section="item")
 
     try:
         schema_object = Object(**schema.dict())
@@ -251,8 +241,9 @@ async def create_item_service(schema: SchemaCreateObject, user_id: str):
             _id=str(task_db["_id"]),
             _task_id=task_celery.id,
         )
-        await db["item"].update_one({"_id": object_created.inserted_id},
-                                    {"$set": {"tasks_request": [str(task_db["_id"])]}})
+        await db["item"].update_one(
+            {"_id": object_created.inserted_id}, {"$set": {"tasks_request": [str(task_db["_id"])]}}
+        )
         object_db = await db["item"].find_one({"_id": object_created.inserted_id})
         object_db["task_id"] = str(task_db["_id"])
         return object_db
@@ -283,8 +274,8 @@ async def update_item_service(object_id: str, schema: SchemaCreateItem):
 
         if not state_game:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="State game not found")
+                status_code=status.HTTP_404_NOT_FOUND, detail="State game not found"
+            )
 
         item_db = await db["item"].find_one({"_id": ObjectId(object_id)})
         element_state_db = await db['state_glic'].find_one(
@@ -308,8 +299,9 @@ async def update_item_service(object_id: str, schema: SchemaCreateItem):
 
         item_db["updated_at"] = datetime.utcnow()
         await db["item"].update_one({"_id": ObjectId(object_id)}, {"$set": item_db})
-        await db["state_glic"].update_one({"_id": element_state_db["_id"]},
-                                          {"$set": {"data": element_state_db["data"]}})
+        await db["state_glic"].update_one(
+            {"_id": element_state_db["_id"]}, {"$set": {"data": element_state_db["data"]}}
+        )
         if updated_dialog or updated_prompt_user:
             task_db = await create_task_service(
                 _task_id="",
@@ -332,13 +324,15 @@ async def update_item_service(object_id: str, schema: SchemaCreateItem):
                 _id=str(task_db["_id"]),
                 _task_id=task_celery.id,
             )
-            await db["item"].update_one({"_id": ObjectId(object_id)},
-                                        {"$set": {"tasks_request": [str(task_db["_id"])]}})
+            await db["item"].update_one(
+                {"_id": ObjectId(object_id)}, {"$set": {"tasks_request": [str(task_db["_id"])]}}
+            )
 
             object_db = await db["item"].find_one({"_id": ObjectId(object_id)})
             object_db["task_id"] = str(task_db["_id"])
-            object_db["state_game"] = await db["state_glic"].find(
-                {"element_id": object_id}).to_list(None)
+            object_db["state_game"] = (
+                await db["state_glic"].find({"element_id": object_id}).to_list(None)
+            )
             return object_db
 
         return await db["item"].find_one({"_id": ObjectId(object_id)})
@@ -371,7 +365,9 @@ async def add_item_location_service(item_id: str, location_id: str):
     else:
         item_db["locations_id"] = [location_id]
 
-    await db["item"].update_one({"_id": ObjectId(item_id)}, {"$set": {"locations_id": item_db["locations_id"]}})
+    await db["item"].update_one(
+        {"_id": ObjectId(item_id)}, {"$set": {"locations_id": item_db["locations_id"]}}
+    )
 
     existing_entry = await db["object_location"].find_one(
         {"item_id": item_id, "location_id": location_id}
@@ -403,7 +399,12 @@ async def add_item_location_service(item_id: str, location_id: str):
 
 
 async def add_or_edit_item_characteristic_service(
-        item_id: str, location_id: str, characteristics: dict, user_id: str, game_id: str = None, state_game: str = None
+    item_id: str,
+    location_id: str,
+    characteristics: dict,
+    user_id: str,
+    game_id: str = None,
+    state_game: str = None,
 ):
     """
     Add or edit a characteristic to a object in a location.
@@ -435,8 +436,7 @@ async def add_or_edit_item_characteristic_service(
     element_state_db["data"]["characteristics"] = characteristics
 
     await db["state_glic"].update_one(
-        {"_id": element_state_db["_id"]},
-        {"$set": {"data": element_state_db["data"]}}
+        {"_id": element_state_db["_id"]}, {"$set": {"data": element_state_db["data"]}}
     )
 
     return "Item characteristic updated"
@@ -466,9 +466,9 @@ async def get_item_by_location_service(location_id: str):
         )
     try:
         if (
-                object_locations_db := await db["object_location"]
-                        .find({"location_id": location_id})
-                        .to_list(None)
+            object_locations_db := await db["object_location"]
+            .find({"location_id": location_id})
+            .to_list(None)
         ):
             objects_db = []
             for object_location in object_locations_db:
@@ -509,8 +509,14 @@ async def get_all_object_service(user_id: str, skip: int = 1, limit: int = 10):
         )
 
 
-async def new_interaction_item_service(location_id: str, game_id: str, item_id: str, prompt_user_dialog: str,
-                                       user_id: str, state_game: str = None):
+async def new_interaction_item_service(
+    location_id: str,
+    game_id: str,
+    item_id: str,
+    prompt_user_dialog: str,
+    user_id: str,
+    state_game: str = None,
+):
     """
     Generate a interaction for a object.
     """
@@ -542,7 +548,7 @@ async def new_interaction_item_service(location_id: str, game_id: str, item_id: 
             _location_id=location_id,
             _user_id=user_id,
             _state_game_id=state_game['_id'],
-            _prompt_user_dialog=prompt_user_dialog
+            _prompt_user_dialog=prompt_user_dialog,
         )
 
         await update_task_service(
@@ -598,8 +604,7 @@ async def deactivate_item_service(item_id: str, state_game: str, active: bool):
 
             if not state_element_db:
                 raise HTTPException(
-                    status_code=status.HTTP_404_NOT_FOUND,
-                    detail="State element not found"
+                    status_code=status.HTTP_404_NOT_FOUND, detail="State element not found"
                 )
 
             state_element_db['data']['active'] = active
@@ -611,22 +616,18 @@ async def deactivate_item_service(item_id: str, state_game: str, active: bool):
                 state=str(state_game_db['_id']),
                 order=state_game_db['order'],
                 created_by=state_game_db['created_by'],
-                data=state_element_db['data']
+                data=state_element_db['data'],
             )
 
             return "Item deactivated / activated successfully"
 
         state_element_db['data']['active'] = active
         await db["state_glic"].update_one(
-            {"_id": state_element_db["_id"]},
-            {"$set": {"data": state_element_db["data"]}}
+            {"_id": state_element_db["_id"]}, {"$set": {"data": state_element_db["data"]}}
         )
 
         return "Item deactivated / activated successfully"
     except Exception as e:
         print(traceback.print_exc())
         print(f"Error in deactivate item service: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Item not deactivated."
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Item not deactivated.")

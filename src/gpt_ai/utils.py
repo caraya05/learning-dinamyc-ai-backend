@@ -46,16 +46,22 @@ async def handle_exception(e, prompt, model, type_generation: str, user_id=None)
     #     error_message = f"Another non-200-range status code was received: {str(e.status_code)}"
     #     status_code = e.status_code
     elif isinstance(e, openai.UnprocessableEntityError):
-        error_message = "The request was well-formed but was unable to be followed due to semantic errors."
+        error_message = (
+            "The request was well-formed but was unable to be followed due to semantic errors."
+        )
         status_code = 422
     elif isinstance(e, openai.PermissionDeniedError):
-        error_message = "The request was understood but it has been refused or access is not allowed."
+        error_message = (
+            "The request was understood but it has been refused or access is not allowed."
+        )
         status_code = 403
     elif isinstance(e, openai.NotFoundError):
         error_message = "The requested resource could not be found."
         status_code = 404
     elif isinstance(e, openai.InternalServerError):
-        error_message = "The server encountered an internal error and was unable to complete your request."
+        error_message = (
+            "The server encountered an internal error and was unable to complete your request."
+        )
         status_code = 500
     elif isinstance(e, openai.ConflictError):
         error_message = "The request could not be completed due to a conflict with the current state of the resource."
@@ -130,14 +136,14 @@ class OpenAIGenerator:
         )
 
     async def generate_image(
-            self,
-            prompt: str,
-            model: str = "dall-e-3",
-            count: int = 1,
-            size: str = "1024x1792",
-            quality: str = "standard",
-            user_id: str = None,
-            type_generation: str = None,
+        self,
+        prompt: str,
+        model: str = "dall-e-3",
+        count: int = 1,
+        size: str = "1024x1792",
+        quality: str = "standard",
+        user_id: str = None,
+        type_generation: str = None,
     ):
         try:
             response = await self.client.images.generate(
@@ -165,13 +171,13 @@ class OpenAIGenerator:
             return await handle_exception(e, prompt, model, user_id)
 
     async def generate_gpt(
-            self,
-            content_prompt: list[dict],
-            response_format: BaseModel,
-            type_generation: str = "",
-            max_tokens: int = 1000,
-            model: str = "gpt-4o",
-            user_id: str = None,
+        self,
+        content_prompt: list[dict],
+        response_format: BaseModel,
+        type_generation: str = "",
+        max_tokens: int = 1000,
+        model: str = "gpt-4o",
+        user_id: str = None,
     ):
         try:
             response = await self.client.beta.chat.completions.parse(
@@ -184,7 +190,6 @@ class OpenAIGenerator:
                 top_p=0.8,
                 frequency_penalty=0.6,
                 presence_penalty=0.7,
-
             )
 
             await store_response(
@@ -212,12 +217,9 @@ class OpenAIGenerator:
             content_prompt = [
                 {
                     "role": "system",
-                    "content": "En este prompt se infringe gravemente los derechos de autor de algún personaje? o se está pidiendo generar contenido sexual explícito?"
+                    "content": "En este prompt se infringe gravemente los derechos de autor de algún personaje? o se está pidiendo generar contenido sexual explícito?",
                 },
-                {
-                    "role": "user",
-                    "content": text
-                }
+                {"role": "user", "content": text},
             ]
 
             response = await self.generate_gpt(

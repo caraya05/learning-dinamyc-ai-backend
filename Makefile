@@ -139,3 +139,7 @@ arm-black:
 
 arm-build-bg:
 	docker-compose -f docker-compose-arm.yml build --no-cache celery_worker flower
+
+git:
+	git config  --global user.name "caraya05"
+	git config  --global user.email "carlos.amy375d@gmail.com"

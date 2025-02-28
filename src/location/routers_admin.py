@@ -21,17 +21,16 @@ router = APIRouter(prefix="/location", tags=["Location"])
 
 @router.get("/", status_code=status.HTTP_200_OK)
 async def get_locations(
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    user_db: dict = Depends(auth_admin), Token: HTTPAuthorizationCredentials = Depends(auth_schema)
 ):
     return await get_locations_service_admin()
 
 
 @router.get("/{location_id}", status_code=status.HTTP_200_OK)
 async def get_location(
-        location_id: str,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    location_id: str,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     if location_db := await get_location_service_admin(location_id):
         return location_db
@@ -40,11 +39,13 @@ async def get_location(
 
 @router.put("/{location_id}", status_code=status.HTTP_200_OK)
 async def update_location(
-        location_id: str,
-        location: SchemaUpdateLocation,
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+    location_id: str,
+    location: SchemaUpdateLocation,
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
-    if location_db := await update_location_service_admin(location_id, location, str(user_db["_id"])):
+    if location_db := await update_location_service_admin(
+        location_id, location, str(user_db["_id"])
+    ):
         return location_db
     raise HTTPException(status_code=404, detail="Location not found")

@@ -63,13 +63,15 @@ async def generate_environment_location(_location_id: str, _user_id: str, _state
         # location_environment = response_analyze.dict()
         # location_environment["animals"] = []
 
-        element_state_db = await db["state_glic"].find_one({"element_id": _location_id, "state": _state_game_id})
+        element_state_db = await db["state_glic"].find_one(
+            {"element_id": _location_id, "state": _state_game_id}
+        )
 
         location_environment = {
             "fog_level": "none",
             "light_mode": "directSun",
             "light_intensity": "high",
-            "animals": []
+            "animals": [],
         }
 
         # await db['location'].update_one(
@@ -99,15 +101,13 @@ class SchemaLocationDescription(BaseModel):
     description_floor: str = Field(
         ...,
         title="Description Floor",
-        description="detailed description of the apartment next to a wall"
+        description="detailed description of the apartment next to a wall",
     )
 
 
 class SchemaLocationSound(BaseModel):
     sound_id: str = Field(
-        ...,
-        title="Sound ID",
-        description="Sound ID that most closely resembles the location"
+        ..., title="Sound ID", description="Sound ID that most closely resembles the location"
     )
 
 
@@ -115,7 +115,9 @@ async def generate_location_description(_location_id: str, _user_id: str, state_
     try:
         location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
 
-        element_state_db = await db["state_glic"].find_one({"element_id": _location_id, "state": state_game_id})
+        element_state_db = await db["state_glic"].find_one(
+            {"element_id": _location_id, "state": state_game_id}
+        )
 
         prompt_db_location_place = await get_prompt_by_category_service("location_place")
         prompt_db_location_place["description"] = prompt_db_location_place["description"].replace(
@@ -126,7 +128,7 @@ async def generate_location_description(_location_id: str, _user_id: str, state_
                 {
                     "role": "system",
                     "content": "Eres un personaje en un videojuego de realidad virtual. Estás en un lugar nuevo"
-                               " y necesitas describirlo para que otros jugadores puedan encontrarlo.",
+                    " y necesitas describirlo para que otros jugadores puedan encontrarlo.",
                 },
                 {"role": "user", "content": f"{prompt_db_location_place['description']}"},
             ],
@@ -163,7 +165,9 @@ async def generate_location_description(_location_id: str, _user_id: str, state_
 
 async def identify_location_sound(_location_id: str, _user_id: str, _state_game_id):
     location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
-    element_state_db = await db["state_glic"].find_one({"element_id": _location_id, "state": _state_game_id})
+    element_state_db = await db["state_glic"].find_one(
+        {"element_id": _location_id, "state": _state_game_id}
+    )
     try:
         sounds_db = await get_sounds_service()
         str_sounds = ""
@@ -174,7 +178,7 @@ async def identify_location_sound(_location_id: str, _user_id: str, _state_game_
                 {
                     "role": "system",
                     "content": "eres un identicador de sonidos para locaciones, con la siquiente image y descripcion de una locacion, escoje uno de los "
-                               "sonidos de la lista que se escucharia en este lugar, no incluyas o crees sonidos que no esten en la lista.",
+                    "sonidos de la lista que se escucharia en este lugar, no incluyas o crees sonidos que no esten en la lista.",
                 },
                 {
                     "role": "user",
@@ -185,7 +189,7 @@ async def identify_location_sound(_location_id: str, _user_id: str, _state_game_
                             "text": f"descripcion de la locacion : {element_state_db['data']['description']}",
                         },
                     ],
-                }
+                },
             ],
             model="gpt-4o-mini",
             max_tokens=4096,
@@ -223,21 +227,22 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
     try:
         location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
 
-        element_state_db = await db["state_glic"].find_one({"element_id": _location_id, "state": _state_game_id})
+        element_state_db = await db["state_glic"].find_one(
+            {"element_id": _location_id, "state": _state_game_id}
+        )
 
         prompt_db_image_location = await get_prompt_by_category_service("location_image")
-        content_prompt = f'{prompt_db_image_location["description"]}, {element_state_db["data"]["description"]}'
+        content_prompt = (
+            f'{prompt_db_image_location["description"]}, {element_state_db["data"]["description"]}'
+        )
         new_prompt = await openai_generator.generate_gpt(
             content_prompt=[
                 {
                     "role": "system",
                     "content": "reestructure el prompt para generar la imagen con estilo 3D volumétrico en vista"
-                               " isométrica para un videojuego RPG, con fondo de color solido.",
+                    " isométrica para un videojuego RPG, con fondo de color solido.",
                 },
-                {
-                    "role": "user",
-                    "content": content_prompt
-                },
+                {"role": "user", "content": content_prompt},
             ],
             model="gpt-4o-mini",
             max_tokens=4096,
@@ -246,7 +251,9 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
             user_id=_user_id,
         )
 
-        validate_prompt = await openai_generator.moderation_text(text=new_prompt.response, user_id=_user_id)
+        validate_prompt = await openai_generator.moderation_text(
+            text=new_prompt.response, user_id=_user_id
+        )
         if validate_prompt:
             return False, "Prompt not allowed"
 
@@ -268,13 +275,9 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
         element_state_db["data"]["image"] = image_generated
 
-        await db["state_glic"].update_one({
-            "_id": element_state_db["_id"]
-        }, {
-            "$set": {
-                "data": element_state_db["data"]
-            }
-        })
+        await db["state_glic"].update_one(
+            {"_id": element_state_db["_id"]}, {"$set": {"data": element_state_db["data"]}}
+        )
 
         return True, "Image generated successfully"
     except Exception as e:
@@ -283,7 +286,9 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
         return False, "Error in generate location image"
 
 
-async def async_generate_location_task(_location_id: str, _user_id: str, _task_id: str, _state_game_id: str):
+async def async_generate_location_task(
+    _location_id: str, _user_id: str, _task_id: str, _state_game_id: str
+):
     await update_task_service(_id=_task_id, _status="pending")
     location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
     if not location_db:
@@ -293,7 +298,9 @@ async def async_generate_location_task(_location_id: str, _user_id: str, _task_i
             _message=f"Error can't find location with id {_location_id}",
         )
         return f"Error can't find location with id {_location_id}"
-    response_description = await generate_location_description(_location_id, _user_id, _state_game_id)
+    response_description = await generate_location_description(
+        _location_id, _user_id, _state_game_id
+    )
     if not response_description:
         await update_task_service(
             _id=_task_id,
@@ -313,7 +320,9 @@ async def async_generate_location_task(_location_id: str, _user_id: str, _task_i
             _id=_task_id, _status="failed", _message=message, _status_updated=1
         )
         return message
-    response_environment = await generate_environment_location(_location_id, _user_id, _state_game_id)
+    response_environment = await generate_environment_location(
+        _location_id, _user_id, _state_game_id
+    )
     if not response_environment:
         await update_task_service(
             _id=_task_id,

@@ -29,15 +29,15 @@ def get_voices() -> list:
 
 
 async def generate_audio(
-        text: str,
-        voice_id: str,
-        model_id: str = "eleven_multilingual_v2",
-        stability: float = 0.5,
-        similarity_boost: float = 0.8,
-        style: float = 0.0,
-        use_speaker_boost: bool = True,
-        chunk_size: int = 1024,
-        user_id: str = None,
+    text: str,
+    voice_id: str,
+    model_id: str = "eleven_multilingual_v2",
+    stability: float = 0.5,
+    similarity_boost: float = 0.8,
+    style: float = 0.0,
+    use_speaker_boost: bool = True,
+    chunk_size: int = 1024,
+    user_id: str = None,
 ):
     tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
     headers = {"Accept": "application/json", "xi-api-key": XI_API_KEY}

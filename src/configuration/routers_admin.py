@@ -18,13 +18,15 @@ from pydub import AudioSegment
 router = APIRouter(prefix="/configuration", tags=["Configuration"])
 
 
-@router.post("/upload-file/{section}/section/{format}/format/", )
+@router.post(
+    "/upload-file/{section}/section/{format}/format/",
+)
 async def update_photo_user(
-        section: str,
-        format: str,
-        file: UploadFile = File(...),
-        user_db: dict = Depends(auth_admin),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    section: str,
+    format: str,
+    file: UploadFile = File(...),
+    user_db: dict = Depends(auth_admin),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     file_content = await file.read()
 

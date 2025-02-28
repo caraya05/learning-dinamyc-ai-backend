@@ -27,8 +27,7 @@ async def create_event_service(event: SchemaCreateEvent, user_id: str):
     )
     if moderation_user_text:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="The text is not allowed"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="The text is not allowed"
         )
 
     moderation_user_image = await openai_generator.moderation_text(
@@ -37,12 +36,11 @@ async def create_event_service(event: SchemaCreateEvent, user_id: str):
     )
     if moderation_user_image:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="The image is not allowed"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="The image is not allowed"
         )
 
     await validate_star_user_service(user_id=user_id)
-    await  disable_user_service(user_id=user_id, section="event")
+    await disable_user_service(user_id=user_id, section="event")
 
     event_schema = Event(
         name=event.name,
@@ -121,8 +119,7 @@ async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id:
             )
             if moderation_user_text:
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="The text is not allowed"
+                    status_code=status.HTTP_400_BAD_REQUEST, detail="The text is not allowed"
                 )
         if event.prompt_user_image:
             moderation_user_image = await openai_generator.moderation_text(
@@ -131,8 +128,7 @@ async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id:
             )
             if moderation_user_image:
                 raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="The image is not allowed"
+                    status_code=status.HTTP_400_BAD_REQUEST, detail="The image is not allowed"
                 )
 
         await validate_star_user_service(user_id=user_id)

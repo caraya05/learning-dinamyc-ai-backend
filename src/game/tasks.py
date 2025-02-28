@@ -1,5 +1,5 @@
 from uuid import uuid4
-import  traceback
+import traceback
 
 from bson import ObjectId
 
@@ -33,10 +33,22 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
         state_game_db = await get_state_game_by_game_id(_game_id)
 
         if game_db.get('locations_id'):
-            first_location_state = await db['state_glic'].find_one({'element_id': game_db['locations_id'][0], 'state': state_game_db['_id'], 'type_element': 'location'})
+            first_location_state = await db['state_glic'].find_one(
+                {
+                    'element_id': game_db['locations_id'][0],
+                    'state': state_game_db['_id'],
+                    'type_element': 'location',
+                }
+            )
 
         if game_db.get('characters_id'):
-            first_character_state = await db['state_glic'].find_one({'element_id': game_db['characters_id'][0], 'state': state_game_db['_id'], 'type_element': 'character'})
+            first_character_state = await db['state_glic'].find_one(
+                {
+                    'element_id': game_db['characters_id'][0],
+                    'state': state_game_db['_id'],
+                    'type_element': 'character',
+                }
+            )
 
         if not first_location_state or not first_character_state:
             return False
@@ -56,7 +68,6 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
             type_generation="generate image cover game",
         )
 
-
         image = upload_image(
             url_image=response_image, file_name=f"covers/{uuid4()}.jpg", size=(512, 896)
         )
@@ -65,8 +76,10 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
             url_image=response_image, file_name=f"covers/{uuid4()}_minimalist.jpg", size=(256, 448)
         )
 
-        await db['game'].update_one({'_id': ObjectId(_game_id)}, {'$set': {'image': image,
-                                                                           'image_minimalist': image_minimalist}})
+        await db['game'].update_one(
+            {'_id': ObjectId(_game_id)},
+            {'$set': {'image': image, 'image_minimalist': image_minimalist}},
+        )
         return True
 
     except Exception as e:
@@ -96,15 +109,12 @@ async def generate_context_init_game(_game_id: str, _user_id: str):
             return False
         response_story = await openai_generator.generate_gpt(
             content_prompt=[
-                {
-                    "role": "system",
-                    "content": "You are a short initial story generator."
-                },
+                {"role": "system", "content": "You are a short initial story generator."},
                 {
                     "role": "user",
                     "content": f"Generate the story init for the game, set in the location "
-                               f"{first_location['title']}. The location is described as: {first_location['prompt_user']}. "
-                               f"The main character is {first_character['name']}, described as: {first_character['prompt_user']}.",
+                    f"{first_location['title']}. The location is described as: {first_location['prompt_user']}. "
+                    f"The main character is {first_character['name']}, described as: {first_character['prompt_user']}.",
                 },
             ],
             max_tokens=1000,
@@ -185,7 +195,7 @@ class SchemaResponseStoryNC(BaseModel):
 
 
 async def generate_context_new_character(
-        game_id: str, character_id: str, location_id: str, user_id: str
+    game_id: str, character_id: str, location_id: str, user_id: str
 ):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
@@ -193,18 +203,15 @@ async def generate_context_new_character(
         character_db = await db['character'].find_one({'_id': ObjectId(character_id)})
         response_story = await openai_generator.generate_gpt(
             content_prompt=[
-                {
-                    "role": "system",
-                    "content": "You are a creative story generator."
-                },
+                {"role": "system", "content": "You are a creative story generator."},
                 {
                     "role": "user",
                     "content": f"Continue the story for the game {game_db['title']} with the new character "
-                               f"{character_db['name']} in the location {location_db['title']}. "
-                               f"The current story is: {game_db.get('history', '')}. "
-                               f"The character is described as: {character_db['prompt_user']}. "
-                               f"The location is described as: {location_db['prompt_user']}."
-                }
+                    f"{character_db['name']} in the location {location_db['title']}. "
+                    f"The current story is: {game_db.get('history', '')}. "
+                    f"The character is described as: {character_db['prompt_user']}. "
+                    f"The location is described as: {location_db['prompt_user']}.",
+                },
             ],
             max_tokens=4000,
             model="gpt-4o-2024-08-06",
@@ -235,8 +242,8 @@ async def generate_game_summary(game_id: str, user_id: str):
                 {
                     "role": "user",
                     "content": f"Generate a summary for the following game history: {game_db['history']},"
-                               f"should be a maximum of 200 words. "
-                               f"Respond only with the text of the summary in JSON format: {{'summary': '<summary_text>'}}",
+                    f"should be a maximum of 200 words. "
+                    f"Respond only with the text of the summary in JSON format: {{'summary': '<summary_text>'}}",
                 },
             ],
             max_tokens=500,
@@ -326,42 +333,42 @@ async def async_generate_image_cover_game_task(_game_id: str, _user_id: str, _ta
 
 
 async def async_generate_context_new_character_task(
-        _game_id: str, _character_id: str, _location_id: str, _user_id: str, _task_id: str
+    _game_id: str, _character_id: str, _location_id: str, _user_id: str, _task_id: str
 ):
     await update_task_service(_id=_task_id, _status="pending")
 
-#     game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
-#     while not game_db.get('history'):
-#         await asyncio.sleep(10)
-#         game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
-#
-#     game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
-#     if not game_db['character_principal'] or not game_db['history']:
-#         await update_task_service(
-#             _id=_task_id,
-#             _status="completed",
-#             _message=f"Game {_game_id} doesn't have a principal character or history",
-#         )
-#         return f"Game {_game_id} doesn't have a principal character or history"
-#
-#     # response_story = await generate_context_new_character(
-#     #     _game_id, _character_id, _location_id, _user_id
-#     # )
-#     # if not response_story:
-#     #     await update_task_service(
-#     #         _id=_task_id, _status="failed", _message="Error generating context"
-#     #     )
-#     #     return "Error generating context"
-#     voice_generated = await generate_voice_character(_game_id, _character_id, _user_id)
-#     if not voice_generated:
-#         await update_task_service(
-#             _id=_task_id, _status="failed", _message="Error voice not generated"
-#         )
-#         return "Error voice not generated"
-#     await update_task_service(
-#         _id=_task_id, _status="completed", _message="Story generated successfully"
-#     )
-#
+    #     game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
+    #     while not game_db.get('history'):
+    #         await asyncio.sleep(10)
+    #         game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
+    #
+    #     game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
+    #     if not game_db['character_principal'] or not game_db['history']:
+    #         await update_task_service(
+    #             _id=_task_id,
+    #             _status="completed",
+    #             _message=f"Game {_game_id} doesn't have a principal character or history",
+    #         )
+    #         return f"Game {_game_id} doesn't have a principal character or history"
+    #
+    #     # response_story = await generate_context_new_character(
+    #     #     _game_id, _character_id, _location_id, _user_id
+    #     # )
+    #     # if not response_story:
+    #     #     await update_task_service(
+    #     #         _id=_task_id, _status="failed", _message="Error generating context"
+    #     #     )
+    #     #     return "Error generating context"
+    #     voice_generated = await generate_voice_character(_game_id, _character_id, _user_id)
+    #     if not voice_generated:
+    #         await update_task_service(
+    #             _id=_task_id, _status="failed", _message="Error voice not generated"
+    #         )
+    #         return "Error voice not generated"
+    #     await update_task_service(
+    #         _id=_task_id, _status="completed", _message="Story generated successfully"
+    #     )
+    #
     return "Story generated successfully"
 
 

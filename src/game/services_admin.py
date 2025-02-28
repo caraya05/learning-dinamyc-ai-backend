@@ -29,7 +29,7 @@ async def get_game_service_admin(game_id: str):
     return game_db
 
 
-async def update_game_service_admin(game_id: str, game: SchemaUpdateGame, user_id:str):
+async def update_game_service_admin(game_id: str, game: SchemaUpdateGame, user_id: str):
     if game_db := await get_game_service_admin(game_id):
         for key, value in game.dict().items():
             game_db[key] = value

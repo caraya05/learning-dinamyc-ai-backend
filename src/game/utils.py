@@ -180,13 +180,14 @@ async def last_date_played_game_util(game_id: str, user_id: str):
 
     return last_date_played
 
+
 async def get_first_5_records_by_user(user_id: str):
     pipeline = [
         {"$match": {"user_id": user_id}},
         {"$sort": {"created_at": -1}},
         {"$group": {"_id": "$game_id", "latest_record": {"$first": "$$ROOT"}}},
         {"$replaceRoot": {"newRoot": "$latest_record"}},
-        {"$limit": 5}
+        {"$limit": 5},
     ]
     result = await db['record_game'].aggregate(pipeline).to_list(None)
     return result

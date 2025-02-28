@@ -24,7 +24,11 @@ from game.schemas import SchemaAddItem
 from game.schemas import SchemaAddCharacter
 from game.schemas import SchemaAddLocation
 
-from game.services import get_game_service, get_game_by_code_access_service, get_games_played_recent_service
+from game.services import (
+    get_game_service,
+    get_game_by_code_access_service,
+    get_games_played_recent_service,
+)
 from game.services import create_game_v2_service
 from game.services import change_character_principal_game_service
 from game.services import get_game_v2_service
@@ -50,10 +54,10 @@ router = APIRouter(prefix="/game", tags=["Game"])
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
 async def get_games(
-        user: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-        page: int = 1,
-        count: int = 10,
+    user: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    page: int = 1,
+    count: int = 10,
 ):
     """
     This endpoint retrieves all games.
@@ -125,9 +129,9 @@ async def get_games(
 
 @router.delete("/{game_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_game(
-        game_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint deletes a game.
@@ -259,9 +263,9 @@ async def delete_game(
 
 @router.get("/like/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
 async def like_game(
-        game_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint likes a game.
@@ -282,9 +286,9 @@ async def like_game(
 
 @router.get("/play/{game_id}", status_code=status.HTTP_200_OK)
 async def play_game(
-        game_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint plays a game.
@@ -311,8 +315,8 @@ async def play_game(
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveGame)
 async def create_game(
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint creates a new game.
@@ -406,12 +410,12 @@ async def create_game(
 #             return "Character added"
 #
 #
-    # except HTTPException as e:
-    #     print(f"Error adding character game: {e.detail}")
-    #     raise HTTPException(
-    #         status_code=e.status_code,
-    #         detail=e.detail,
-    #     )
+# except HTTPException as e:
+#     print(f"Error adding character game: {e.detail}")
+#     raise HTTPException(
+#         status_code=e.status_code,
+#         detail=e.detail,
+#     )
 
 
 # @router.post("/add-location", status_code=status.HTTP_200_OK)
@@ -441,9 +445,9 @@ async def create_game(
 
 @router.get("/publish/{game_id}", status_code=status.HTTP_200_OK)
 async def publish_game(
-        game_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint publishes a game.
@@ -553,8 +557,8 @@ async def publish_game(
 
 @router.get("/publish/", status_code=status.HTTP_200_OK)
 async def publish_games(
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint publishes all games.
@@ -567,7 +571,7 @@ async def publish_games(
         games_published = []
         for game in published_games:
             if games_published_db := await db['published_game'].find_one(
-                    {'_id': ObjectId(game['published'])}
+                {'_id': ObjectId(game['published'])}
             ):
                 # print(games_published_db)
                 games_published.append(games_published_db["game"])
@@ -583,11 +587,11 @@ async def publish_games(
 
 @router.get("/publish/categories/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
 async def publish_games(
-        category: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-        page: int = 1,
-        count: int = 10,
+    category: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    page: int = 1,
+    count: int = 10,
 ):
     """
     This endpoint publishes all games.
@@ -618,7 +622,7 @@ async def publish_games(
         games_published = []
         for game in published_games:
             if games_published_db := await db['published_game'].find_one(
-                    {'_id': ObjectId(game['published']), 'status': 2}
+                {'_id': ObjectId(game['published']), 'status': 2}
             ):
                 game["_id"] = str(game["_id"])
                 game["status"] = games_published_db["status"]
@@ -640,9 +644,9 @@ async def publish_games(
 
 @router.get("/unpublish/{game_id}", status_code=status.HTTP_200_OK)
 async def unpublish_game(
-        game_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint unpublishes a game.
@@ -676,9 +680,9 @@ async def unpublish_game(
 
 @router.get("/version-published/{game_id}", status_code=status.HTTP_200_OK)
 async def version_published_game(
-        game_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves the version of a published game.
@@ -702,9 +706,9 @@ async def version_published_game(
 
 @router.post("/character-principal/", status_code=status.HTTP_200_OK)
 async def change_character(
-        data: SchemaChangeCharacter,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    data: SchemaChangeCharacter,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint changes the character of a game.
@@ -714,7 +718,7 @@ async def change_character(
 
     try:
         if game_db := await change_character_principal_game_service(
-                data.game_id, data.character_id, str(user_db.get("_id"))
+            data.game_id, data.character_id, str(user_db.get("_id"))
         ):
             return "Character changed"
 
@@ -728,9 +732,9 @@ async def change_character(
 
 @router.get("/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
 async def get_game(
-        game_id: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_id: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves a game.
@@ -770,11 +774,13 @@ async def get_game(
         )
 
 
-@router.get("/access-code/{access_code}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
+@router.get(
+    "/access-code/{access_code}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame
+)
 async def get_game(
-        access_code: str,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    access_code: str,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves a game.
@@ -816,10 +822,10 @@ async def get_game(
 
 @router.post("/update/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
 async def update_game(
-        game_id: str,
-        data: SchemaUpdateGameV2,
-        user_db: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_id: str,
+    data: SchemaUpdateGameV2,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint updates a game.
@@ -853,12 +859,12 @@ async def update_game(
 
 @router.get("/my-games/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
 async def my_games(
-        user: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-        page: int = 1,
-        count: int = 10,
-        most_played: bool = False,
-        recent: bool = False,
+    user: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    page: int = 1,
+    count: int = 10,
+    most_played: bool = False,
+    recent: bool = False,
 ):
     """
     This endpoint retrieves all games created by the user.
@@ -912,14 +918,12 @@ async def my_games(
         )
 
 
-
-
 @router.get("/my-games-in-progress/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
 async def my_games_in_progress(
-        user: dict = Depends(auth),
-        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-        page: int = 1,
-        count: int = 10,
+    user: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    page: int = 1,
+    count: int = 10,
 ):
     """
     This endpoint retrieves all games created by the user.

@@ -30,7 +30,6 @@ class SchemaStateData(BaseModel):
     is_active: Optional[bool] = Field(None, example=True)
 
 
-
 class SchemaStateLocation(BaseModel):
     order: Optional[int] = Field(None, example=1)
     state: Optional[str] = Field(None, example="state")
@@ -70,6 +69,7 @@ class SchemaCreateObject(BaseModel):
     location_id: Optional[str] = None
     state_game: Optional[str] = None
 
+
 class SchemaPartialUpdateObject(SchemaCreateObject):
     """
     Schema for partially updating a objective.
@@ -95,6 +95,7 @@ class SchemaRetrieveObject(ResponseModel):
     title (str): The title of the objective.
     description (str): The description of the objective.
     """
+
     game_id: Optional[str] = None
     task_id: Optional[str] = None
     status: Optional[int] = 1
@@ -104,7 +105,7 @@ class SchemaRetrieveObject(ResponseModel):
         orm_mode = True
 
 
-class SchemaRetrieveObjectStr( ResponseModelStr):
+class SchemaRetrieveObjectStr(ResponseModelStr):
     """
     Schema for retrieving a objective.
 
@@ -113,6 +114,7 @@ class SchemaRetrieveObjectStr( ResponseModelStr):
     title (str): The title of the objective.
     description (str): The description of the objective.
     """
+
     game_id: Optional[str] = None
     task_id: Optional[str] = None
     status: Optional[int] = 1
@@ -182,6 +184,7 @@ class SchemaAddItemLocation(BaseModel):
     location_id: str = Field(..., example="location_id")
     item_id: str = Field(..., example="character_id")
 
+
 class SchemaAddItemGame(BaseModel):
     game_id: str = Field(..., example="game_id")
     item_id: str = Field(..., example="character_id")
@@ -202,5 +205,5 @@ class SchemaDeactivateItem(BaseModel):
     status (int): The status of the location.
     """
 
-    is_active:bool = Field(False, example=False)
+    is_active: bool = Field(False, example=False)
     state_game: str = Field(None, example="state_game")

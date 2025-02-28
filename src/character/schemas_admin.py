@@ -47,10 +47,12 @@ class SchemaAdminDataCharacter(BaseModel):
     type: Optional[str] = Field(None, example=TypeCharacter.NPC)
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
 
+
 class SchemaAdminStateCharacter(BaseModel):
     order: Optional[int] = Field(None, example=1)
     state: Optional[str] = Field(None, example="state")
     data: Optional[list[SchemaAdminDataCharacter]] = Field(None, example={})
+
 
 class SchemaAdminStateCharacters(BaseModel):
     id: str = Field(alias="_id")

@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from pydantic import Field
 from datetime import datetime
 
+
 class Object(BaseModel):
     game_id: Optional[str] = Field(None, example="123")
     status: Optional[int] = Field(0, example=0)
@@ -13,6 +14,7 @@ class Object(BaseModel):
     created_by: str = Field(default="system", example="system")
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     updated_by: str = Field(default="system", example="system")
+
 
 class ObjectGLIC(BaseModel):
     name: str = Field(None, example="Object Name")
