@@ -24,9 +24,6 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
 
-        # if game_db['image']:
-        #     return True
-
         first_location_state = None
         first_character_state = None
 
@@ -322,10 +319,6 @@ async def async_generate_image_cover_game_task(_game_id: str, _user_id: str, _ta
     if not response_image:
         await update_task_service(_id=_task_id, _status="failed", _message="Error generating image")
         return "Error generating image"
-    # response_context = await generate_context_init_game(_game_id, _user_id)
-    # if not response_context:
-    #     await update_task_service(_id=_task_id, _status="failed", _message="Error generating story")
-    #     return "Error generating story"
     await update_task_service(
         _id=_task_id, _status="completed", _message="Cover image and context generated successfully"
     )

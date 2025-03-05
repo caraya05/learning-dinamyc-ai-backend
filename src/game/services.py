@@ -583,6 +583,29 @@ async def update_game_v2_service(game_id: str, game_update: SchemaUpdateGameV2, 
         if game_db:
             if game_update.title:
                 game_db["title"] = game_update.title
+            if game_update.description:
+                game_db["description"] = game_update.description
+            if game_update.prompt_image:
+                if game_update.prompt_image != game_db.get('prompt_image'):
+                    game_db["prompt_image"] = game_update.prompt_image
+                    task_db = await create_task_service(
+                        _task_id="",
+                        _user_id=user_id,
+                        _task_data={},
+                        _element_id=game_id,
+                        _element_type="game",
+                        _process="generate_cover_image_game",
+                    )
+                    task_celery = generate_image_cover_game_task.delay(
+                        _task_id=str(task_db['_id']),
+                        _game_id=game_id,
+                        _user_id=user_id,
+                    )
+                    await update_task_service(
+                        _id=str(task_db["_id"]),
+                        _task_id=task_celery.id,
+                    )
+                    game_db["task_id"] = str(task_db["_id"])
             game_db["updated_by"] = user_id
             game_updated = await db['game'].update_one(
                 {'_id': ObjectId(game_id)}, {'$set': game_db}

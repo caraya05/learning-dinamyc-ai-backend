@@ -286,6 +286,7 @@ async def generate_interaction_character(
         )
         return character_db
     except Exception as e:
+        print(traceback.format_exc())
         print(f"error in get characters: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

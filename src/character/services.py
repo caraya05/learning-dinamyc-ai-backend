@@ -568,6 +568,9 @@ async def new_interaction_character_service(
             _element_type="character",
             _process="new_interaction_character",
         )
+
+        options_dialog = [ option.dict() for option in options_dialog ]
+
         task_celery = generate_voice_character_task.delay(
             _task_id=str(task_db['_id']),
             _game_id=game_id,
@@ -593,6 +596,7 @@ async def new_interaction_character_service(
         character_db["task_id"] = str(task_db["_id"])
         return character_db
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in new interaction character service: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

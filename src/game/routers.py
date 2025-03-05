@@ -20,9 +20,6 @@ from game.schemas import SchemaRetrieveGame
 from game.schemas import SchemaChangeCharacter
 from game.schemas import SchemaUpdateGameV2
 from game.schemas import SchemaListGame
-from game.schemas import SchemaAddItem
-from game.schemas import SchemaAddCharacter
-from game.schemas import SchemaAddLocation
 
 from game.services import (
     get_game_service,
@@ -37,9 +34,7 @@ from game.services import get_my_games_v2_service
 from game.services import get_games_service
 from game.services import delete_game_service
 from game.services import update_likes_game_service
-from game.services import add_items_game_service
-from game.services import add_locations_game_service
-from game.services import add_characters_game_service
+
 
 from game.utils import number_players_have_played_game_util, last_date_played_game_util
 
