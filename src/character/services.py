@@ -572,7 +572,7 @@ async def new_interaction_character_service(
 
     stage_element_db = await db["state_glic"].update_one({
         "_id": stage_element_db["_id"],
-        "$push": {
+        "$set": {
             "data": stage_element_db["data"]
         }
     })
