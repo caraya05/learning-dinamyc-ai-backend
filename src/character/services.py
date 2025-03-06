@@ -570,12 +570,10 @@ async def new_interaction_character_service(
     stage_element_db['data']['prompt_user_dialog'] = prompt_user_dialog
     stage_element_db['data']['options_dialog'] = options_dialog
 
-    stage_element_db = await db["state_glic"].update_one({
-        "_id": stage_element_db["_id"],
-        "$set": {
-            "data": stage_element_db["data"]
-        }
-    })
+    await db["state_glic"].update_one(
+        {"_id": stage_element_db["_id"]},
+        {"$set": {"data": stage_element_db["data"]}}
+    )
 
     try:
         task_db = await create_task_service(
