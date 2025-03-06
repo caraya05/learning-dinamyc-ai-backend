@@ -566,7 +566,7 @@ async def new_interaction_character_service(
             detail="State element not found",
         )
 
-    options_dialog = [option.dict() for option in options_dialog]
+    options_dialog = [dict(option) for option in options_dialog]
 
     stage_element_db['data']['conversation_type'] = conversation_type
     stage_element_db['data']['prompt_user_dialog'] = prompt_user_dialog
