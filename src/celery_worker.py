@@ -209,9 +209,6 @@ def generate_voice_character_task(
     _task_id: str,
     _location_id: str = None,
     _state_game_id: str = None,
-    _type_conversation: str = None,
-    _prompt_user_dialog: str = None,
-    _options_dialog: list = None,
 ):
     try:
         loop = asyncio.get_event_loop()
@@ -227,9 +224,6 @@ def generate_voice_character_task(
             _task_id,
             _state_game_id,
             _location_id,
-            _type_conversation,
-            _prompt_user_dialog,
-            _options_dialog,
         )
     )
 

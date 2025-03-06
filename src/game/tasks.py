@@ -51,10 +51,10 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
             return False
 
         prompt = (
-            f"Generate a image in 3D animation style of extraordinary quality for the game "
-            f"{game_db['title']} featuring the character {first_character_state['data']['prompt_user']}"
-            f" in the location {first_location_state['data']['prompt_user']}. The scene should depict an "
-            f"action-packed moment that captures the essence of the game. with content in vertical."
+            f"Generar una imagen en estilo Toon 3D de extraordinaria calidad para el juego "
+            f"{game_db['title']} protagonizada por el personaje {first_character_state['data']['prompt_user']}. "
+            f"La escena debe representar un momento icónico que capture la esencia del juego. "
+            f"La imagen debe ser protrait y tener el contenido vertical."
         )
 
         response_image = await openai_generator.generate_image(

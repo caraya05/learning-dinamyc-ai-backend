@@ -92,6 +92,6 @@ class SchemaChangeCharacter(BaseModel):
 
 
 class SchemaUpdateGameV2(BaseModel):
-    title: Optional[str] = Field(..., min_length=3, max_length=100, example="Call of suty")
-    prompt_image: Optional[str] = Field(..., example="prompt_user")
-    description: Optional[str] = Field(..., example="description")
+    title: Optional[str] = Field(None, min_length=3, max_length=100, example="Call of suty")
+    prompt_image: Optional[str] = Field(None, example="prompt_user")
+    description: Optional[str] = Field(None, example="description")

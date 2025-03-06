@@ -16,7 +16,7 @@ class SchemaPromptImage(BaseModel):
 
 
 async def generate_image_event(
-    game_id: str, event_id: str, state_game: str, user_id: str, prompt_user_image: str
+        game_id: str, event_id: str, state_game: str, user_id: str, prompt_user_image: str
 ):
     try:
         event_db = await db["event"].find_one({"_id": ObjectId(event_id)})
@@ -65,16 +65,16 @@ async def generate_image_event(
         #     return False
 
         validate_prompt = await openai_generator.moderation_text(
-            text=f"Eres un diseñador de videojuegos y te han encargado crear una imagen de portada en estilo de "
-            f"animación 3D de calidad extraordinaria para el juego {game_db['title']}"
-            f" con el personaje {character_principal_state_game['data']['prompt_user']}. La escena debe representar un momento lleno de acción"
-            f" que capture la esencia del juego."
-            f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen."
-            f" {prompt_user_image}"
-            f"Game: {game_db['title']}\n"
-            f"Character Principal: {character_principal_state_game['data']['prompt_user']}\n"
-            f"Characters: {characters_state_game}\n"
-            f"Locations: {locations_state_game}\n",
+            text=f"Eres un diseñador de videojuegos y te han encargado"
+                 f"Genera una imagen de portada en estilo Toon 3D de calidad extraordinaria para el juego {game_db['title']}"
+                 f" con el personaje {character_principal_state_game['data']['prompt_user']}. "
+                 f"La imagen debe ser protrait y tener el contenido vertical."
+                 f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen."
+                 f" {prompt_user_image}"
+                 f"Game: {game_db['title']}\n"
+                 f"Character Principal: {character_principal_state_game['data']['prompt_user']}\n"
+                 f"Characters: {characters_state_game}\n"
+                 f"Locations: {locations_state_game}\n",
         )
 
         if validate_prompt:
@@ -85,18 +85,18 @@ async def generate_image_event(
             content_prompt=[
                 {
                     "role": "system",
-                    "content": f"Eres un diseñador de videojuegos y te han encargado crear una imagen de portada en estilo de "
-                    f"animación 3D de calidad extraordinaria para el juego {game_db['title']}"
-                    f" con el personaje {character_principal_state_game['data']['prompt_user']}. La escena debe representar un momento lleno de acción"
-                    f" que capture la esencia del juego."
-                    f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen.",
+                    "content": f"Eres un diseñador de videojuegos y te han encargado"
+                               f"Genera una imagen de portada en estilo Toon 3D de calidad extraordinaria para el juego {game_db['title']}"
+                               f" con el personaje {character_principal_state_game['data']['prompt_user']}. "
+                               f"La imagen debe ser protrait y tener el contenido vertical."
+                               f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen."
                 },
                 {
                     "role": "assistant",
                     "content": f"Game: {game_db['title']}\n"
-                    f"Character Principal: {character_principal_state_game['data']['prompt_user']}\n"
-                    f"Characters: {characters_state_game}\n"
-                    f"Locations: {locations_state_game}\n",
+                               f"Character Principal: {character_principal_state_game['data']['prompt_user']}\n"
+                               f"Characters: {characters_state_game}\n"
+                               f"Locations: {locations_state_game}\n",
                 },
                 {"role": "user", "content": [{"type": "text", "text": prompt_user_image}]},
             ],
@@ -142,12 +142,12 @@ async def generate_image_event(
 
 
 async def async_generate_image_event(
-    _game_id: str,
-    _event_id: str,
-    _state_game: str,
-    _user_id: str,
-    _prompt_user_image: str,
-    _task_id: str,
+        _game_id: str,
+        _event_id: str,
+        _state_game: str,
+        _user_id: str,
+        _prompt_user_image: str,
+        _task_id: str,
 ):
     await update_task_service(_id=_task_id, _status="pending")
 

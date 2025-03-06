@@ -14,7 +14,7 @@ from celery_worker import generate_image_character_task
 
 from character.models import Character
 from character.models import CharacterGLIC
-from character.schemas import SchemaCreateCharacter
+from character.schemas import SchemaCreateCharacter, SchemaOption
 from character.schemas import CharacterLocationModel
 
 from core.database import db
@@ -45,7 +45,7 @@ async def get_character_service(character_id: str):
 
 
 async def get_characters_service(
-    skip: int = 1, limit: int = 100, game_id: str = None, user_id: str = None
+        skip: int = 1, limit: int = 100, game_id: str = None, user_id: str = None
 ):
     try:
 
@@ -103,7 +103,7 @@ async def get_all_character_service(user_id: str, skip: int = 1, limit: int = 10
 
 
 async def get_characters_by_location_service(
-    skip: int = 1, limit: int = 100, location_id: str = None
+        skip: int = 1, limit: int = 100, location_id: str = None
 ):
     try:
         location_db = await db["location"].find_one({"_id": ObjectId(location_id)})
@@ -254,16 +254,16 @@ async def get_character_leading_role_service(game_id: str):
 
 
 async def update_character_service(
-    character_id: str,
-    user_id: str,
-    name: str = None,
-    options_dialog: dict = None,
-    prompt_user: str = None,
-    dialog: str = None,
-    type_dialog: str = None,
-    game_id: str = None,
-    location_id: str = None,
-    state_game: str = None,
+        character_id: str,
+        user_id: str,
+        name: str = None,
+        options_dialog: dict = None,
+        prompt_user: str = None,
+        dialog: str = None,
+        type_dialog: str = None,
+        game_id: str = None,
+        location_id: str = None,
+        state_game: str = None,
 ):
     try:
         if prompt_user:
@@ -302,12 +302,12 @@ async def update_character_service(
             )
 
         name_or_prompt_user_changed = (
-            prompt_user and prompt_user != character_state_db['data']["prompt_user"]
+                prompt_user and prompt_user != character_state_db['data']["prompt_user"]
         )
 
         dialog_changed = (
-            dialog and dialog != character_state_db['data']["prompt_user_dialog"]
-        ) or (type_dialog and type_dialog != character_state_db['data']["conversation_type"])
+                                 dialog and dialog != character_state_db['data']["prompt_user_dialog"]
+                         ) or (type_dialog and type_dialog != character_state_db['data']["conversation_type"])
 
         update_fields = {"updated_at": datetime.utcnow()}
         if name is not None:
@@ -424,9 +424,9 @@ async def delete_character_service(character_id: str):
     # if character_db['image']:
     #     delete_image(character_db['image'])
     if (
-        character_location_db := await db["character_location"]
-        .find({"character_id": character_id})
-        .to_list(None)
+            character_location_db := await db["character_location"]
+                    .find({"character_id": character_id})
+                    .to_list(None)
     ):
         for character_location in character_location_db:
             await db["character_location"].delete_one({"_id": character_location["_id"]})
@@ -475,12 +475,12 @@ async def add_character_to_location_service(character_id: str, location_id: str)
 
 
 async def add_or_edit_character_location(
-    character_id: str,
-    location_id: str,
-    game_id: str,
-    characteristics: dict,
-    user_id: str,
-    state_game: str = None,
+        character_id: str,
+        location_id: str,
+        game_id: str,
+        characteristics: dict,
+        user_id: str,
+        state_game: str = None,
 ):
     existing_entry = await db["character_location"].find_one(
         {"character_id": character_id, "location_id": location_id}
@@ -538,14 +538,14 @@ async def remove_character_location(character_id: str, location_id: str):
 
 
 async def new_interaction_character_service(
-    location_id: str,
-    game_id: str,
-    character_id: str,
-    conversation_type: str,
-    prompt_user_dialog: str,
-    user_id: str,
-    options_dialog: list[dict] = None,
-    state_game: str = None,
+        location_id: str,
+        game_id: str,
+        character_id: str,
+        conversation_type: str,
+        prompt_user_dialog: str,
+        user_id: str,
+        options_dialog: list[dict] = None,
+        state_game: str = None,
 ):
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
     if not character_db:
@@ -559,6 +559,26 @@ async def new_interaction_character_service(
     else:
         state_game = await get_state_game_by_id(state_game)
 
+    stage_element_db = await db["state_glic"].find_one({"element_id": character_id, "state": state_game["_id"]})
+    if not stage_element_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="State element not found",
+        )
+
+    stage_element_db = await db["state_glic"].update_one({
+        "_id": stage_element_db["_id"],
+        "$push": {
+            "data.interaction": {
+                "location_id": location_id,
+                "conversation_type": conversation_type,
+                "prompt_user_dialog": prompt_user_dialog,
+                "options_dialog": options_dialog,
+            }
+        }
+    })
+
+
     try:
         task_db = await create_task_service(
             _task_id="",
@@ -569,7 +589,6 @@ async def new_interaction_character_service(
             _process="new_interaction_character",
         )
 
-        options_dialog = [ option.dict() for option in options_dialog ]
 
         task_celery = generate_voice_character_task.delay(
             _task_id=str(task_db['_id']),
@@ -577,10 +596,7 @@ async def new_interaction_character_service(
             _character_id=character_id,
             _location_id=location_id,
             _user_id=user_id,
-            _state_game_id=state_game['_id'],
-            _type_conversation=conversation_type,
-            _prompt_user_dialog=prompt_user_dialog,
-            _options_dialog=options_dialog,
+            _state_game_id=state_game['_id']
         )
         await update_task_service(
             _id=str(task_db["_id"]),
@@ -611,11 +627,11 @@ class SchemaResponseOpenAnswer(BaseModel):
 
 
 async def answer_open_question_service(
-    location_id: str,
-    character_id: str,
-    prompt_user_answer: str,
-    user_id: str,
-    state_game: str = None,
+        location_id: str,
+        character_id: str,
+        prompt_user_answer: str,
+        user_id: str,
+        state_game: str = None,
 ):
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
 
@@ -668,14 +684,14 @@ async def answer_open_question_service(
                 {
                     "role": "system",
                     "content": f"Eres un evaluador de respuestas de preguntas abiertas, "
-                    f"por favor evalúa la respuesta que da el usuario, respecto a un pregunta teniendo encuenta"
-                    f" la un criteria a evaluar y dando la respuesta de las opciones que tienes en criterios y respuestas,"
-                    f"no te puedes salir de las opciones que tienes en criterios y respuestas",
+                               f"por favor evalúa la respuesta que da el usuario, respecto a un pregunta teniendo encuenta"
+                               f" la un criteria a evaluar y dando la respuesta de las opciones que tienes en criterios y respuestas,"
+                               f"no te puedes salir de las opciones que tienes en criterios y respuestas",
                 },
                 {
                     "role": "system",
                     "content": f"pregunta: {criteria['question']}"
-                    f"criterios a evaluar y respuestas: {criteria['options_answer']}",
+                               f"criterios a evaluar y respuestas: {criteria['options_answer']}",
                 },
                 {
                     "role": "user",
