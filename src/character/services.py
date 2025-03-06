@@ -566,18 +566,16 @@ async def new_interaction_character_service(
             detail="State element not found",
         )
 
+    stage_element_db['data']['conversation_type'] = conversation_type
+    stage_element_db['data']['prompt_user_dialog'] = prompt_user_dialog
+    stage_element_db['data']['options_dialog'] = options_dialog
+
     stage_element_db = await db["state_glic"].update_one({
         "_id": stage_element_db["_id"],
         "$push": {
-            "data.interaction": {
-                "location_id": location_id,
-                "conversation_type": conversation_type,
-                "prompt_user_dialog": prompt_user_dialog,
-                "options_dialog": options_dialog,
-            }
+            "data": stage_element_db["data"]
         }
     })
-
 
     try:
         task_db = await create_task_service(
@@ -588,7 +586,6 @@ async def new_interaction_character_service(
             _element_type="character",
             _process="new_interaction_character",
         )
-
 
         task_celery = generate_voice_character_task.delay(
             _task_id=str(task_db['_id']),

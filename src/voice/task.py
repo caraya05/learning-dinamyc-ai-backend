@@ -37,11 +37,11 @@ async def async_generate_voice_task(
     element_state_db = await db["state_glic"].find_one({"_id": ObjectId(_state_game_id)})
 
     if not _type_conversation:
-        _type_conversation = element_state_db["conversation_type"]
+        _type_conversation = element_state_db["data"]["conversation_type"]
     if not _prompt_user_dialog:
-        _prompt_user_dialog = element_state_db["prompt_user_dialog"]
+        _prompt_user_dialog = element_state_db["data"]["prompt_user_dialog"]
     if not _options_dialog:
-        _options_dialog = element_state_db["options_dialog"]
+        _options_dialog = element_state_db["data"]["options_dialog"]
 
     voice_generated = await generate_voice_character(
         game_id=_game_id,
