@@ -75,9 +75,9 @@ manager = ConnectionManager()
 
 @router.websocket("/{user_id}")
 async def websocket_endpoint(
-    websocket: WebSocket,
-    user_id: str,
-    token: str,
+        websocket: WebSocket,
+        user_id: str,
+        token: str,
 ):
     try:
         await manager.connect(websocket)
@@ -168,7 +168,8 @@ async def websocket_endpoint(
                         if datetime.utcnow() - created_at > timedelta(minutes=6):
                             task_celery = AsyncResult(task_db["task_id"], app=celery)
                             if task_celery.state == "SUCCESS" or task_db["status"] == "completed":
-                                if "Error" in task_celery.result or "error" in task_db["message"]:
+                                if "Error" in task_celery.result or (
+                                        task_db["message"] and "error" in task_db["message"]):
                                     await manager.send_personal_message(
                                         {
                                             "detail": "Task failed, notified out of time",
