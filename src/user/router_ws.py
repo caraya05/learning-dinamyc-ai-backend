@@ -167,8 +167,8 @@ async def websocket_endpoint(
                     if created_at:
                         if datetime.utcnow() - created_at > timedelta(minutes=6):
                             task_celery = AsyncResult(task_db["task_id"], app=celery)
-                            if (task_celery and task_celery.state == "SUCCESS") or (task_db["message"] and task_db["status"] == "completed"):
-                                if (task_celery and "Error" in task_celery.result) or (task_db["message"] and "error" in task_db["message"]):
+                            if (task_celery.state and task_celery.state == "SUCCESS") or (task_db["message"] and task_db["status"] == "completed"):
+                                if (task_celery.result and "Error" in task_celery.result) or (task_db["message"] and "error" in task_db["message"]):
                                     await manager.send_personal_message(
                                         {
                                             "detail": "Task failed, notified out of time",
