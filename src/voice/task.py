@@ -34,7 +34,7 @@ async def async_generate_voice_task(
         )
         return "Error can't find character"
 
-    element_state_db = await db["state_glic"].find_one({"_id": ObjectId(_state_game_id)})
+    element_state_db = await db["state_glic"].find_one({"element_id": _character_id, "type_element": "character", "state": _state_game_id})
 
     if not _type_conversation:
         _type_conversation = element_state_db["data"]["conversation_type"]

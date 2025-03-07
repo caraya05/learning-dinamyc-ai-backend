@@ -290,7 +290,7 @@ async def generate_interaction_character(
         print(f"error in get characters: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Characters not found",
+            detail=str(e),
         )
 
 

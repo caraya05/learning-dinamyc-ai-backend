@@ -14,7 +14,7 @@ from celery_worker import generate_image_character_task
 
 from character.models import Character
 from character.models import CharacterGLIC
-from character.schemas import SchemaCreateCharacter, SchemaOption
+from character.schemas import SchemaCreateCharacter
 from character.schemas import CharacterLocationModel
 
 from core.database import db
@@ -38,7 +38,6 @@ async def get_character_service(character_id: str):
         )
 
     character_db["_id"] = str(character_db["_id"])
-    print(f"character_db: {character_db}")
     character_db["state_game"] = await get_list_state_glic_by_element_id(character_id)
 
     return character_db
@@ -544,7 +543,7 @@ async def new_interaction_character_service(
         conversation_type: str,
         prompt_user_dialog: str,
         user_id: str,
-        options_dialog: list[dict] = None,
+        options_dialog: dict = None,
         state_game: str = None,
 ):
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
@@ -566,7 +565,8 @@ async def new_interaction_character_service(
             detail="State element not found",
         )
 
-    options_dialog = [dict(option) for option in options_dialog]
+    if options_dialog:
+        options_dialog= options_dialog.dict()
 
     stage_element_db['data']['conversation_type'] = conversation_type
     stage_element_db['data']['prompt_user_dialog'] = prompt_user_dialog
@@ -761,7 +761,7 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
                     data=state_element_db['data'],
                 )
 
-                return "Character deactivated / activate successfully"
+                return "Character created and deactivated / activate successfully"
 
             state_element_db['data']['is_active'] = active
             await db["state_glic"].update_one(
