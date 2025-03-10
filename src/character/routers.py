@@ -312,8 +312,6 @@ async def answer_open_question(
     user_db: dict = Depends(auth),
     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
-    print("params", character_id, location_id)
-    print("answer", answer)
     character_db = await answer_open_question_service(
         character_id=character_id,
         location_id=location_id,

@@ -653,7 +653,6 @@ async def answer_open_question_service(
         )
 
     try:
-
         criteria = {}
         for location in state_element_db['data']['interaction']:
             if location["location_id"] == location_id:
@@ -673,9 +672,6 @@ async def answer_open_question_service(
                         )
 
                 criteria["options_answer"] = options_answer
-
-        print(f"criteria: {criteria}")
-
         response = await openai_generator.generate_gpt(
             content_prompt=[
                 {
@@ -707,8 +703,6 @@ async def answer_open_question_service(
             type_generation="validate_open_answer",
         )
 
-        print(f"response: {response}")
-
         return {
             "detail": {
                 "response_answer": response.response_criteria,
@@ -733,16 +727,28 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
             if not state_element_db:
                 state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
 
-                order = state_game_db["order"] - 1
+                # Buscar en estados superiores
+                order = state_game_db["order"] + 1
                 state_element_db = None
 
-                while order >= 1:
+                while state_element_db is None:
                     state_element_db = await db["state_glic"].find_one(
                         {"element_id": character_id, "type_element": "character", "order": order}
                     )
                     if state_element_db:
                         break
-                    order -= 1
+                    order += 1
+
+                # Si no se encuentra en estados superiores, buscar en estados inferiores
+                if state_element_db is None:
+                    order = state_game_db["order"] - 1
+                    while order >= 1:
+                        state_element_db = await db["state_glic"].find_one(
+                            {"element_id": character_id, "type_element": "character", "order": order}
+                        )
+                        if state_element_db:
+                            break
+                        order -= 1
 
                 if not state_element_db:
                     raise HTTPException(
