@@ -20,23 +20,36 @@ class SchemaResponseImage(BaseModel):
     response_vertical: str
 
 
-async def generate_cover_image_game(_user_id: str, _game_id: str):
+async def generate_cover_image_game(_user_id: str, _game_id: str, _edit: bool = False):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
 
-        first_location_state = None
+        character_game_state_one = await db['state_glic'].find(
+            {
+                'data.game_id': _game_id,
+                'type_element': 'character',
+                "order": 1,
+            }
+        ).to_list(None)
+
+        character_game_state_one = await db['state_glic'].find(
+            {
+                'data.game_id': _game_id,
+                'type_element': 'character',
+                "order": 1,
+            }
+        ).to_list(None)
+
+        character_descriptions = [
+            f"Nombre: {character['data']['name']}, Descripción: {character['data']['description']}, Prompt: {character['data']['prompt_user']}"
+            for character in character_game_state_one
+        ]
+
+        character_descriptions_str = "\n".join(character_descriptions)
+
         first_character_state = None
 
         state_game_db = await get_state_game_by_game_id(_game_id)
-
-        if game_db.get('locations_id'):
-            first_location_state = await db['state_glic'].find_one(
-                {
-                    'element_id': game_db['locations_id'][0],
-                    'state': state_game_db['_id'],
-                    'type_element': 'location',
-                }
-            )
 
         if game_db.get('characters_id'):
             first_character_state = await db['state_glic'].find_one(
@@ -47,15 +60,29 @@ async def generate_cover_image_game(_user_id: str, _game_id: str):
                 }
             )
 
-        if not first_location_state or not first_character_state:
-            return False
-
-        prompt = (
-            f"Generar una imagen en estilo Toon 3D de extraordinaria calidad para el juego "
-            f"{game_db['title']} protagonizada por el personaje {first_character_state['data']['prompt_user']}. "
-            f"La escena debe representar un momento icónico que capture la esencia del juego. "
-            f"La imagen debe ser protrait y tener el contenido vertical."
-        )
+        if not first_character_state:
+            first_character_state = await db['state_glic'].find_one(
+                {
+                    'data.game_id': _game_id,
+                    'type_element': 'character',
+                    "order": 1,
+                }
+            )
+        if _edit:
+            prompt = (
+                f"Generar una imagen en estilo Toon 3D de extraordinaria calidad para el juego "
+                f"{game_db['title']} protagonizada por el personaje {first_character_state['data']['prompt_user']}. "
+                f"La escena debe representar un momento icónico que capture la esencia del juego. "
+                f"La imagen debe ser protrait y tener el contenido vertical."
+                f"Otros personajes: {character_descriptions_str}"
+            )
+        else:
+            prompt = (
+                f"Generar una imagen en estilo Toon 3D de extraordinaria calidad para el juego "
+                f"{game_db['title']} protagonizada por el personaje {first_character_state['data']['prompt_user']}. "
+                f"La escena debe representar un momento icónico que capture la esencia del juego. "
+                f"La imagen debe ser protrait y tener el contenido vertical."
+            )
 
         response_image = await openai_generator.generate_image(
             prompt=prompt,

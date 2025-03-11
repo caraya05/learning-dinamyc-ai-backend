@@ -607,6 +607,7 @@ async def new_interaction_character_service(
         )
 
         character_db["task_id"] = str(task_db["_id"])
+        character_db["state_game"] = await get_list_state_glic_by_element_id(character_id)
         return character_db
     except Exception as e:
         print(traceback.format_exc())
@@ -724,10 +725,10 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
                 {"element_id": character_id, "type_element": "character", "state": state_game}
             )
 
+            state_game_max = await db["state_game"].find_one({"game_id": character_db["game_id"]}, sort=[("order", -1)])
+
             if not state_element_db:
                 state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
-
-                # Buscar en estados superiores
                 order = state_game_db["order"] + 1
                 state_element_db = None
 
@@ -737,37 +738,44 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
                     )
                     if state_element_db:
                         break
+                    if order > state_game_max['order']:
+                        break
                     order += 1
 
-                # Si no se encuentra en estados superiores, buscar en estados inferiores
                 if state_element_db is None:
+                    state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
                     order = state_game_db["order"] - 1
-                    while order >= 1:
+                    state_element_db = None
+
+                    while state_element_db is None:
                         state_element_db = await db["state_glic"].find_one(
                             {"element_id": character_id, "type_element": "character", "order": order}
                         )
                         if state_element_db:
                             break
+                        if order < 1:
+                            break
                         order -= 1
+                    if not state_element_db:
+                        raise HTTPException(
+                            status_code=status.HTTP_404_NOT_FOUND, detail="State element not found"
+                        )
 
-                if not state_element_db:
-                    raise HTTPException(
-                        status_code=status.HTTP_404_NOT_FOUND, detail="State element not found"
+                    state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
+
+                    state_element_db['data']['is_active'] = active
+                    state_element_db['data']['interaction'] = []
+
+                    state_element_db = await create_state_glic(
+                        element_id=str(character_id),
+                        type_element="character",
+                        state=state_game,
+                        order=state_game_db['order'],
+                        created_by=state_game_db['created_by'],
+                        data=state_element_db['data'],
                     )
 
-                state_element_db['data']['is_active'] = active
-                state_element_db['data']['interaction'] = []
-
-                state_element_db = await create_state_glic(
-                    element_id=str(character_id),
-                    type_element="character",
-                    state=str(state_game_db['_id']),
-                    order=state_game_db['order'],
-                    created_by=state_game_db['created_by'],
-                    data=state_element_db['data'],
-                )
-
-                return "Character created and deactivated / activate successfully"
+                    return "Character created and deactivated / activate successfully"
 
             state_element_db['data']['is_active'] = active
             await db["state_glic"].update_one(

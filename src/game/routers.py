@@ -438,6 +438,118 @@ async def create_game(
 #         )
 
 
+# @router.get("/publish/{game_id}", status_code=status.HTTP_200_OK)
+# async def publish_game(
+#     game_id: str,
+#     user_db: dict = Depends(auth),
+#     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+# ):
+#     """
+#     This endpoint publishes a game.
+#
+#     It returns the game's information.
+#     """
+#
+#     game_db = await get_game_v2_service(game_id)
+#
+#     if not game_db.get("published", None):
+#         task_db = await create_task_service(
+#             _task_id="",
+#             _user_id=str(user_db.get("_id")),
+#             _task_data={},
+#             _element_id=game_id,
+#             _element_type="game",
+#             _process="identify_category",
+#         )
+#
+#         task_celery = identify_category_game_task.delay(
+#             _game_id=game_id, _task_id=str(task_db["_id"]), _user_id=str(user_db.get("_id"))
+#         )
+#
+#         await update_task_service(
+#             _id=str(task_db["_id"]),
+#             _task_id=task_celery.id,
+#         )
+#
+#     try:
+#         if game_db := await get_game_v2_service(game_id):
+#
+#             game_db["_id"] = str(game_db["_id"])
+#             count_versions = await db['published_game'].count_documents({'game_id': game_id})
+#             if count_versions:
+#                 version = count_versions + 1
+#             else:
+#                 version = 1
+#             game_db["version"] = version
+#             if "published" in game_db:
+#                 del game_db["published"]
+#             if "published_version" in game_db:
+#                 del game_db["published_version"]
+#             if "published_at" in game_db:
+#                 del game_db["published_at"]
+#             # Current time in UTC
+#             now_utc = datetime.now(pytz.timezone('UTC'))
+#             now_bog = now_utc.astimezone(pytz.timezone('America/Bogota'))
+#             now_bog_minus_5 = now_bog - timedelta(hours=5)
+#
+#             if not game_db.get("published", None):
+#                 published_game = {
+#                     "published": True,
+#                     "created_at": now_bog_minus_5,
+#                     "created_by": str(user_db.get("_id")),
+#                     "updated_at": now_bog_minus_5,
+#                     "updated_by": str(user_db.get("_id")),
+#                     "status": 1,
+#                     "game_id": game_id,
+#                     "game": None,
+#                     "version": version,
+#                     "return_note": None,
+#                     "reviewed": False,
+#                     "reviewer": None,
+#                     "reviewed_at": None,
+#                     "reviewed_by": None,
+#                 }
+#             else:
+#                 game_db["_id"] = str(game_db["_id"])
+#                 published_game = {
+#                     "published": True,
+#                     "created_at": now_bog_minus_5,
+#                     "created_by": str(user_db.get("_id")),
+#                     "updated_at": now_bog_minus_5,
+#                     "updated_by": str(user_db.get("_id")),
+#                     "status": 2,
+#                     "game_id": game_id,
+#                     "game": game_db,
+#                     "version": version,
+#                     "return_note": None,
+#                     "reviewed": True,
+#                     "reviewer": str(user_db.get("_id")),
+#                     "reviewed_at": now_bog_minus_5,
+#                     "reviewed_by": str(user_db.get("_id")),
+#                 }
+#
+#             if published_game_db := await db['published_game'].insert_one(published_game):
+#                 await db['game'].update_one(
+#                     {'_id': ObjectId(game_id)},
+#                     {
+#                         '$set': {
+#                             'published': str(published_game_db.inserted_id),
+#                             'published_version': version,
+#                             'is_published': True,
+#                             'published_at': datetime.utcnow(),
+#                         },
+#                     },
+#                 )
+#                 return "Game published"
+#
+#     except Exception as e:
+#         print(f"Error publishing game: {str(e)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Game not published",
+#         )
+
+
 @router.get("/publish/{game_id}", status_code=status.HTTP_200_OK)
 async def publish_game(
     game_id: str,
@@ -450,29 +562,8 @@ async def publish_game(
     It returns the game's information.
     """
 
-    game_db = await get_game_v2_service(game_id)
-
-    if not game_db.get("published", None):
-        task_db = await create_task_service(
-            _task_id="",
-            _user_id=str(user_db.get("_id")),
-            _task_data={},
-            _element_id=game_id,
-            _element_type="game",
-            _process="identify_category",
-        )
-
-        task_celery = identify_category_game_task.delay(
-            _game_id=game_id, _task_id=str(task_db["_id"]), _user_id=str(user_db.get("_id"))
-        )
-
-        await update_task_service(
-            _id=str(task_db["_id"]),
-            _task_id=task_celery.id,
-        )
-
     try:
-        if game_db := await get_game_v2_service(game_id):
+        if game_db := await db['game'].find_one({'_id': ObjectId(game_id)}):
 
             game_db["_id"] = str(game_db["_id"])
             count_versions = await db['published_game'].count_documents({'game_id': game_id})
@@ -519,7 +610,6 @@ async def publish_game(
                     "updated_by": str(user_db.get("_id")),
                     "status": 2,
                     "game_id": game_id,
-                    "game": game_db,
                     "version": version,
                     "return_note": None,
                     "reviewed": True,
