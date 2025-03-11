@@ -664,16 +664,14 @@ async def get_games_played_recent_service(user_id: str):
     try:
         games_played = await get_first_5_records_by_user(user_id)
         if games_played:
-            games_db = (
-                await db['game']
-                .find({'_id': {'$in': [ObjectId(game['game_id']) for game in games_played]}})
-                .to_list(None)
-            )
+            games_db =[]
+            for game in games_played:
+                game_ = await db['game'].find_one({'_id': ObjectId(game['game_id'])})
+                games_db.append(game_)
 
-            for game in games_db:
-                game['created_at'] = games_played[0]['created_at']
             return games_db
     except Exception as e:
+        traceback.print_exc()
         print(f"Error getting games played recent service: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
