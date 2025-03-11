@@ -10,6 +10,7 @@ from starlette import status
 
 from uuid import uuid4
 
+import game
 from character.services import get_characters_by_location_service
 
 from game.schemas import SchemaUpdateGameV2
@@ -583,6 +584,10 @@ async def update_game_v2_service(game_id: str, game_update: SchemaUpdateGameV2, 
         if game_db:
             if game_update.title:
                 game_db["title"] = game_update.title
+            if game_update.event_end:
+                game_db["event_end"] = game_update.event_end
+            if game_update.event_init:
+                game_db["event_init"] = game_update.event_init
             if game_update.description:
                 game_db["description"] = game_update.description
             if game_update.prompt_image:

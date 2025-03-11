@@ -99,3 +99,5 @@ class SchemaUpdateGameV2(BaseModel):
     title: Optional[str] = Field(None, min_length=3, max_length=100, example="Call of suty")
     prompt_image: Optional[str] = Field(None, example="prompt_user")
     description: Optional[str] = Field(None, example="description")
+    event_init: Optional[str] = Field(None, example="event_init")
+    event_end: Optional[str] = Field(None, example="event_end")
