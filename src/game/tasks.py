@@ -71,10 +71,10 @@ async def generate_cover_image_game(_user_id: str, _game_id: str, _edit: bool = 
         if _edit:
             prompt = (
                 f"Generar una imagen en estilo Toon 3D de extraordinaria calidad para el juego "
-                f"{game_db['title']} protagonizada por el personaje {first_character_state['data']['prompt_user']}. "
+                f"{game_db['title']} que ejemplifique lo siquiente {game_db['prompt_image']}. "
                 f"La escena debe representar un momento icónico que capture la esencia del juego. "
                 f"La imagen debe ser protrait y tener el contenido vertical."
-                f"Otros personajes: {character_descriptions_str}"
+                f"Otros personajes sin son nesesarios: {character_descriptions_str}"
             )
         else:
             prompt = (
@@ -332,7 +332,7 @@ async def identify_category_game(game_id: str, user_id: str):
         return False
 
 
-async def async_generate_image_cover_game_task(_game_id: str, _user_id: str, _task_id: str):
+async def async_generate_image_cover_game_task(_game_id: str, _user_id: str, _task_id: str, _edit: bool):
     await update_task_service(_id=_task_id, _status="pending")
     game_db = await db['game'].find_one({'_id': ObjectId(_game_id)})
     if not game_db:
@@ -342,7 +342,7 @@ async def async_generate_image_cover_game_task(_game_id: str, _user_id: str, _ta
             _message=f"Error can't find the game with id {_game_id}.",
         )
         return f"Error can't find game with id {_game_id}"
-    response_image = await generate_cover_image_game(_user_id, _game_id)
+    response_image = await generate_cover_image_game(_user_id, _game_id, _edit)
     if not response_image:
         await update_task_service(_id=_task_id, _status="failed", _message="Error generating image")
         return "Error generating image"

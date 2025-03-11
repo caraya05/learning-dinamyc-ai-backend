@@ -600,6 +600,7 @@ async def update_game_v2_service(game_id: str, game_update: SchemaUpdateGameV2, 
                         _task_id=str(task_db['_id']),
                         _game_id=game_id,
                         _user_id=user_id,
+                        _edit=True,
                     )
                     await update_task_service(
                         _id=str(task_db["_id"]),

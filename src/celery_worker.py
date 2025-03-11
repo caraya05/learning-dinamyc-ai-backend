@@ -171,7 +171,7 @@ def identify_category_game_task(_game_id: str, _user_id: str, _task_id: str):
 
 
 @celery.task(name="generate_image_cover_game_task")
-def generate_image_cover_game_task(_game_id: str, _user_id: str, _task_id: str):
+def generate_image_cover_game_task(_game_id: str, _user_id: str, _task_id: str, _edit: bool = False):
     try:
         loop = asyncio.get_event_loop()
     except RuntimeError:
@@ -179,7 +179,7 @@ def generate_image_cover_game_task(_game_id: str, _user_id: str, _task_id: str):
         asyncio.set_event_loop(loop)
 
     return loop.run_until_complete(
-        async_generate_image_cover_game_task(_game_id, _user_id, _task_id)
+        async_generate_image_cover_game_task(_game_id, _user_id, _task_id, _edit)
     )
 
 
