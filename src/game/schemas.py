@@ -30,6 +30,8 @@ class SchemaRetrieveGame(ResponseModel):
     published_at: Optional[datetime] = Field(None, example=datetime.utcnow())
     is_published: Optional[bool] = Field(False, example=True)
     code_access: Optional[str] = Field(None, example="123456")
+    prompt_user: Optional[str] = Field(None, example="prompt_user")
+    description: Optional[str] = Field(None, example="description")
 
 
 class ResponseModelStr(BaseModel):
@@ -57,6 +59,8 @@ class SchemaRetrieveGameStr(ResponseModelStr):
     reject_note: Optional[str] = Field(None, example="reject_note")
     published_at: Optional[datetime] = Field(None, example=datetime.utcnow())
     is_published: Optional[bool] = Field(False, example=True)
+    prompt_user: Optional[str] = Field(None, example="prompt_user")
+    description: Optional[str] = Field(None, example="description")
 
 
 class SchemaListGame(BaseModel):
