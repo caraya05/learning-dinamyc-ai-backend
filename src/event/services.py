@@ -65,32 +65,36 @@ async def create_event_service(event: SchemaCreateEvent, user_id: str):
 
     event_created = await db["event"].insert_one(event_schema.dict())
 
-    task_db = await create_task_service(
-        _task_id="",
-        _user_id=user_id,
-        _task_data={},
-        _element_id=str(event_created.inserted_id),
-        _element_type="event",
-        _process="generate_event_image",
-    )
+    if not event.prompt_user_image:
+        task_db = await create_task_service(
+            _task_id="",
+            _user_id=user_id,
+            _task_data={},
+            _element_id=str(event_created.inserted_id),
+            _element_type="event",
+            _process="generate_event_image",
+        )
 
-    task_celery = generate_image_event_task.delay(
-        game_id=event.game_id,
-        event_id=str(event_created.inserted_id),
-        state_game=event.state_game_init,
-        user_id=user_id,
-        prompt_user_image=event.prompt_user_image,
-        task_id=str(task_db["_id"]),
-    )
+        task_celery = generate_image_event_task.delay(
+            game_id=event.game_id,
+            event_id=str(event_created.inserted_id),
+            state_game=event.state_game_init,
+            user_id=user_id,
+            prompt_user_image=event.prompt_user_image,
+            task_id=str(task_db["_id"]),
+        )
 
-    await update_task_service(
-        _id=str(task_db["_id"]),
-        _task_id=task_celery.id,
-    )
+        await update_task_service(
+            _id=str(task_db["_id"]),
+            _task_id=task_celery.id,
+        )
+        event_db = await db["event"].find_one({"_id": event_created.inserted_id})
+        event_db["_id"] = str(event_db["_id"])
+        event_db["task_id"] = str(task_db["_id"])
+        return event_db
 
     event_db = await db["event"].find_one({"_id": event_created.inserted_id})
     event_db["_id"] = str(event_db["_id"])
-    event_db["task_id"] = str(task_db["_id"])
     return event_db
 
 
