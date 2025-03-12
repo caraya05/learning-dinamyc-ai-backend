@@ -65,7 +65,7 @@ async def create_event_service(event: SchemaCreateEvent, user_id: str):
 
     event_created = await db["event"].insert_one(event_schema.dict())
 
-    if not event.prompt_user_image:
+    if event.prompt_user_image:
         task_db = await create_task_service(
             _task_id="",
             _user_id=user_id,
