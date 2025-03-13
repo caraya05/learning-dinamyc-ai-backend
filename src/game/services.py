@@ -158,7 +158,7 @@ async def get_game_by_code_access_service(code_access: str):
 
 
 async def get_games_service(
-    *, skip: int = 1, limit: int = 100, user_id: str = None, games_id: list = None
+        *, skip: int = 1, limit: int = 100, user_id: str = None, games_id: list = None
 ):
     if user_id:
         games_query = {'created_by': user_id, 'version': 2}
@@ -192,7 +192,7 @@ async def get_games_service(
 
 
 async def update_partial_game_service(
-    game_id: str, game_update: SchemaPartialUpdateGame, user_id: str
+        game_id: str, game_update: SchemaPartialUpdateGame, user_id: str
 ):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
@@ -471,7 +471,7 @@ async def add_items_game_service(game_id: str, items_id: str):
 
 
 async def change_character_principal_game_service(
-    game_id: str, character_principal: str, user_id: str
+        game_id: str, character_principal: str, user_id: str
 ):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
@@ -509,6 +509,8 @@ async def change_character_principal_game_service(
 async def get_game_v2_service(game_id: str):
     try:
         if game_db := await db['game'].find_one({'_id': ObjectId(game_id)}):
+            game_db["_id"] = str(game_db["_id"])
+
             if game_db.get('characters_id'):
                 game_db['characters'] = (
                     await db['character']
@@ -526,6 +528,10 @@ async def get_game_v2_service(game_id: str):
                 )
                 for character in game_db['characters']:
                     character["_id"] = str(character["_id"])
+                    character["data"] = await db["state_glic"].find(
+                        {"element_id": character["_id"], "type_element": "character"},
+                        {"_id": 0}
+                    ).to_list(None)
             else:
                 game_db['characters'] = []
 
@@ -537,6 +543,10 @@ async def get_game_v2_service(game_id: str):
                 )
                 for item in game_db['items']:
                     item["_id"] = str(item["_id"])
+                    item["data"] = await db["state_glic"].find(
+                        {"element_id": str(item["_id"]), "type_element": "item"},
+                        {"_id": 0}
+                    ).to_list(None)
             else:
                 game_db['items'] = []
 
@@ -556,27 +566,41 @@ async def get_game_v2_service(game_id: str):
                 )
                 for location in game_db['locations']:
                     location["_id"] = str(location["_id"])
-                    if location_characters := await get_characters_by_location_service(
-                        location_id=str(location['_id'])
-                    ):
-                        location['characters'] = location_characters
-                    if location_items := await get_item_by_location_service(
-                        location_id=str(location['_id'])
-                    ):
-                        location['items'] = location_items
+                    # if location_characters := await get_characters_by_location_service(location_id=str(location['_id'])):
+                    #     location['characters'] = location_characters
+                    # if location_items := await get_item_by_location_service(location_id=str(location['_id'])):
+                    #     location['items'] = location_items
+                    location["data"] = await db["state_glic"].find(
+                        {"element_id": str(location["_id"]), "type_element": "location"},
+                        {"_id": 0}
+                    ).to_list(None)
             else:
                 game_db['locations'] = []
+
+            if states_game := await db["state_game"].find({"game_id": game_id}).to_list(None):
+                for state in states_game:
+                    state["_id"] = str(state["_id"])
+                game_db["state_game"] = states_game
+            else:
+                game_db["state_game"] = []
+
+
             del game_db['locations_id']
             del game_db['characters_id']
             del game_db['items_id']
             return game_db
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Game not found",
+            )
     except Exception as e:
+        traceback.print_exc()
         print(f"Error getting game service: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Game not found",
         )
-
 
 async def update_game_v2_service(game_id: str, game_update: SchemaUpdateGameV2, user_id: str):
     try:
@@ -664,10 +688,11 @@ async def get_games_played_recent_service(user_id: str):
     try:
         games_played = await get_first_5_records_by_user(user_id)
         if games_played:
-            games_db =[]
+            games_db = []
             for game in games_played:
-                game_ = await db['game'].find_one({'_id': ObjectId(game['game_id'])})
-                games_db.append(game_)
+                if game.get('game_id'):
+                    if game_ := await db['game'].find_one({'_id': ObjectId(game['game_id'])}):
+                        games_db.append(game_)
 
             return games_db
     except Exception as e:
@@ -684,7 +709,7 @@ async def get_characters_game_publish_service(game_id: str):
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db and game_db.get('published'):
             if games_published_db := await db['published_game'].find_one(
-                {'_id': ObjectId(game_db['published'])}
+                    {'_id': ObjectId(game_db['published'])}
             ):
                 return games_published_db['game']['characters']
     except Exception as e:
@@ -700,7 +725,7 @@ async def get_character_game_publish_service(game_id: str, character_id: str):
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db and game_db.get('published'):
             if games_published_db := await db['published_game'].find_one(
-                {'_id': ObjectId(game_db['published'])}
+                    {'_id': ObjectId(game_db['published'])}
             ):
                 for character in games_published_db['game']['characters']:
                     if character['_id'] == character_id:
@@ -718,7 +743,7 @@ async def get_locations_game_publish_service(game_id: str):
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db and game_db.get('published'):
             if games_published_db := await db['published_game'].find_one(
-                {'_id': ObjectId(game_db['published'])}
+                    {'_id': ObjectId(game_db['published'])}
             ):
                 return games_published_db['game']['locations']
     except Exception as e:
@@ -734,7 +759,7 @@ async def get_location_game_publish_service(game_id: str, location_id: str):
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
         if game_db and game_db.get('published'):
             if games_published_db := await db['published_game'].find_one(
-                {'_id': ObjectId(game_db['published'])}
+                    {'_id': ObjectId(game_db['published'])}
             ):
                 for location in games_published_db['game']['locations']:
                     if location['_id'] == location_id:
@@ -865,9 +890,9 @@ async def get_games_of_reviewer(user_id: str):
     try:
         print(f"Getting games of reviewer: {user_id}")
         if (
-            games_pending_db := await db['published_game']
-            .find({'reviewer': user_id, 'status': 1})
-            .to_list(None)
+                games_pending_db := await db['published_game']
+                        .find({'reviewer': user_id, 'status': 1})
+                        .to_list(None)
         ):
             print(f"Games pending: {games_pending_db}")
             return [ObjectId(game['game_id']) for game in games_pending_db]

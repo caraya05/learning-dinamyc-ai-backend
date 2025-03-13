@@ -71,10 +71,9 @@ async def generate_cover_image_game(_user_id: str, _game_id: str, _edit: bool = 
         if _edit:
             prompt = (
                 f"Generar una imagen en estilo Toon 3D de extraordinaria calidad para el juego "
-                f"{game_db['title']} que ejemplifique lo siquiente {game_db['prompt_image']}. "
-                f"La escena debe representar un momento icónico que capture la esencia del juego. "
+                f"{game_db['title']} protagonizada por el personaje {first_character_state['data']['prompt_user']}. "
+                f"La escena debe representar el siquiente momento '{game_db['prompt_image']}'. "
                 f"La imagen debe ser protrait y tener el contenido vertical."
-                f"Otros personajes sin son nesesarios: {character_descriptions_str}"
             )
         else:
             prompt = (

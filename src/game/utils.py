@@ -190,5 +190,4 @@ async def get_first_5_records_by_user(user_id: str):
         {"$limit": 5},
     ]
     result = await db['record_game'].aggregate(pipeline).to_list(None)
-    print(f"result: {result}")
     return result

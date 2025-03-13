@@ -1,3 +1,5 @@
+import traceback
+
 from bson import ObjectId
 from fastapi import APIRouter
 from fastapi import HTTPException
@@ -88,20 +90,25 @@ async def get_pending_game(
     user_db: dict = Depends(auth_admin),
     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
-    game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
-    if game_db is None:
-        raise HTTPException(status_code=404, detail="Game not found")
-    game_db["_id"] = str(game_db["_id"])
-    user_db = await db["user"].find_one({"_id": ObjectId(game_db["created_by"])})
-    game_db["user"] = user_db["email"]
-    game_db["game"] = await get_game_v2_service(game_db["game_id"])
-    game_db["game"]["_id"] = str(game_db["game"]["_id"])
+    try:
+        game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
+        if game_db is None:
+            raise HTTPException(status_code=404, detail="Game not found")
+        game_db["_id"] = str(game_db["_id"])
+        user_db = await db["user"].find_one({"_id": ObjectId(game_db["created_by"])})
+        game_db["user"] = user_db["email"]
+        game_db["game"] = await get_game_v2_service(game_db["game_id"])
+        # game_db["game"]["_id"] = str(game_db["game"]["_id"])
 
-    for location in game_db["game"]["locations"]:
-        if location.get("sound_id"):
-            sound_db = await get_sound_service(location["sound_id"])
-            location["sound"] = sound_db.get("file")
-    return game_db
+        # for location in game_db["game"]["locations"]:
+        #     if location.get("sound_id"):
+        #         sound_db = await get_sound_service(location["sound_id"])
+        #         location["sound"] = sound_db.get("file")
+        return game_db
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=404, detail="Game not found")
+
 
 
 @router.get("/publish/{game_id}", status_code=status.HTTP_200_OK)
