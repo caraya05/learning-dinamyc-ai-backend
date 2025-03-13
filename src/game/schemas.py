@@ -42,14 +42,14 @@ class ResponseModelStr(BaseModel):
 
 
 class SchemaRetrieveGameStr(ResponseModelStr):
-    title: Optional[str] = Field(..., min_length=3, max_length=100, example="Call of suty")
-    history: Optional[str] = Field(..., example="history of the game")
+    title: Optional[str] = Field(None, min_length=3, max_length=100, example="Call of suty")
+    history: Optional[str] = Field(None, example="history of the game")
     category_id: Optional[str] | None = Field(None, example="category of the game")
-    synopsis: Optional[str] = Field(..., example="synopsis og the game")
-    image: Optional[str] = Field(..., example="photo", decimal_places=None)
+    synopsis: Optional[str] = Field(None, example="synopsis og the game")
+    image: Optional[str] = Field(None, example="photo", decimal_places=None)
     image_minimalist: Optional[str] = Field(None, example="photo", decimal_places=None)
-    image_background: Optional[str] = Field(..., example="photo background", decimal_places=None)
-    summary: Optional[str] = Field(..., example="summary of the game")
+    image_background: Optional[str] = Field(None, example="photo background", decimal_places=None)
+    summary: Optional[str] = Field(None, example="summary of the game")
     created_at: datetime
     created_by: str
     likes: list[str] = Field([], example=["123", "456"])
