@@ -690,9 +690,9 @@ async def publish_games(
 
     try:
         if category == 'Other':
-            query = {'published': {'$exists': True}, 'category_id': None}
+            query = {'published': {'$exists': True}, 'category_id': None, "is_active": True}
         else:
-            query = {'published': {'$exists': True}, 'category_id': category}
+            query = {'published': {'$exists': True}, 'category_id': category, "is_active": True}
 
         published_games = (
             await db['game'].find(query).skip((page - 1) * count).limit(count).to_list(None)

@@ -12,9 +12,9 @@ from category.schemas import SchemaUpdateDocumentCategory
 async def get_categories_service(skip: int, limit: int):
     try:
         count_categories = 0
-        if categories_db := await db["category"].find().to_list(None):
+        if categories_db := await db["category"].find().sort({"order":-1}).to_list(None):
             count_categories = len(categories_db)
-            categories_db = await db["category"].find().skip(skip).limit(limit).to_list(None)
+            categories_db = await db["category"].find().sort({"order":-1}).skip(skip).limit(limit).to_list(None)
         return categories_db, count_categories
     except Exception as e:
         print(f"Error get categories service: {str(e)}")
@@ -27,10 +27,10 @@ async def get_categories_service(skip: int, limit: int):
 async def get_categories_active_service(skip: int, limit: int):
     try:
         count_categories = 0
-        if categories_db := await db["category"].find({"is_active": True}).to_list(None):
+        if categories_db := await db["category"].find({"is_active": True}).sort({"order":-1}).to_list(None):
             count_categories = len(categories_db)
             categories_db = (
-                await db["category"].find({"is_active": True}).skip(skip).limit(limit).to_list(None)
+                await db["category"].find({"is_active": True}).sort({"order":-1}).skip(skip).limit(limit).to_list(None)
             )
         return categories_db, count_categories
     except Exception as e:
@@ -68,9 +68,12 @@ async def create_category_service(category: Category):
 
 async def update_category_service(category_id: str, category: SchemaUpdateDocumentCategory):
     try:
-        if category_updated := await db["category"].update_one(
-            {"_id": ObjectId(category_id)}, {"$set": category.dict()}
-        ):
+         # Filter out None values
+         filtered_data = {k: v for k, v in category.dict().items() if v is not None}
+
+         if category_updated := await db["category"].update_one(
+             {"_id": ObjectId(category_id)}, {"$set": filtered_data}
+         ):
             if category_updated.modified_count:
                 category_db = await db["category"].find_one({"_id": ObjectId(category_id)})
                 return category_db

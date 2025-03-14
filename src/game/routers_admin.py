@@ -30,58 +30,62 @@ router = APIRouter(prefix="/game-pending", tags=["Game Pending"])
 async def get_pending_games(
     user_db: dict = Depends(auth_admin), Token: HTTPAuthorizationCredentials = Depends(auth_schema)
 ):
-    games_db = (
-        await db["published_game"]
-        .aggregate(
-            [
-                {
-                    "$lookup": {
-                        "from": "game",
-                        "let": {"gameId": {"$toObjectId": "$game_id"}},
-                        "pipeline": [
-                            {"$match": {"$expr": {"$eq": ["$_id", "$$gameId"]}}},
-                        ],
-                        "as": "game",
-                    }
-                },
-                {
-                    "$lookup": {
-                        "from": "user",
-                        "let": {"userId": {"$toObjectId": "$created_by"}},
-                        "pipeline": [
-                            {"$match": {"$expr": {"$eq": ["$_id", "$$userId"]}}},
-                        ],
-                        "as": "user",
-                    }
-                },
-                {
-                    "$lookup": {
-                        "from": "user",
-                        "let": {"reviewerId": {"$toObjectId": "$reviewer"}},
-                        "pipeline": [
-                            {"$match": {"$expr": {"$eq": ["$_id", "$$reviewerId"]}}},
-                        ],
-                        "as": "reviewer",
-                    }
-                },
-                {"$unwind": {"path": "$game", "preserveNullAndEmptyArrays": True}},
-                {"$unwind": {"path": "$reviewer", "preserveNullAndEmptyArrays": True}},
-                {"$unwind": {"path": "$user", "preserveNullAndEmptyArrays": True}},
-                {"$sort": {"created_at": -1}},
-            ]
+    try:
+        games_db = (
+            await db["published_game"]
+            .aggregate(
+                [
+                    {
+                        "$lookup": {
+                            "from": "game",
+                            "let": {"gameId": {"$toObjectId": "$game_id"}},
+                            "pipeline": [
+                                {"$match": {"$expr": {"$eq": ["$_id", "$$gameId"]}}},
+                            ],
+                            "as": "game",
+                        }
+                    },
+                    {
+                        "$lookup": {
+                            "from": "user",
+                            "let": {"userId": {"$toObjectId": "$created_by"}},
+                            "pipeline": [
+                                {"$match": {"$expr": {"$eq": ["$_id", "$$userId"]}}},
+                            ],
+                            "as": "user",
+                        }
+                    },
+                    {
+                        "$lookup": {
+                            "from": "user",
+                            "let": {"reviewerId": {"$toObjectId": "$reviewer"}},
+                            "pipeline": [
+                                {"$match": {"$expr": {"$eq": ["$_id", "$$reviewerId"]}}},
+                            ],
+                            "as": "reviewer",
+                        }
+                    },
+                    {"$unwind": {"path": "$game", "preserveNullAndEmptyArrays": True}},
+                    {"$unwind": {"path": "$reviewer", "preserveNullAndEmptyArrays": True}},
+                    {"$unwind": {"path": "$user", "preserveNullAndEmptyArrays": True}},
+                    {"$sort": {"created_at": -1}},
+                ]
+            )
+            .to_list(None)
         )
-        .to_list(None)
-    )
+        for game in games_db:
+            game["_id"] = str(game["_id"])
+            if game.get("game"):
+                game["game"]["_id"] = str(game["game"]["_id"])
+            if game.get("user"):
+                game["user"] = game["user"]["email"]
+            if game.get("reviewer"):
+                game["reviewer"] = game["reviewer"]["email"]
 
-    for game in games_db:
-        game["_id"] = str(game["_id"])
-        game["game"]["_id"] = str(game["game"]["_id"])
-        if game.get("user"):
-            game["user"] = game["user"]["email"]
-        if game.get("reviewer"):
-            game["reviewer"] = game["reviewer"]["email"]
-
-    return games_db
+        return games_db
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=404, detail="Games not found")
 
 
 @router.get("/{game_id}", status_code=status.HTTP_200_OK)
