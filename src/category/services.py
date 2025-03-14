@@ -12,9 +12,9 @@ from category.schemas import SchemaUpdateDocumentCategory
 async def get_categories_service(skip: int, limit: int):
     try:
         count_categories = 0
-        if categories_db := await db["category"].find().sort({"order":-1}).to_list(None):
+        if categories_db := await db["category"].find().sort({"order":1}).to_list(None):
             count_categories = len(categories_db)
-            categories_db = await db["category"].find().sort({"order":-1}).skip(skip).limit(limit).to_list(None)
+            categories_db = await db["category"].find().sort({"order":1}).skip(skip).limit(limit).to_list(None)
         return categories_db, count_categories
     except Exception as e:
         print(f"Error get categories service: {str(e)}")
@@ -27,10 +27,10 @@ async def get_categories_service(skip: int, limit: int):
 async def get_categories_active_service(skip: int, limit: int):
     try:
         count_categories = 0
-        if categories_db := await db["category"].find({"is_active": True}).sort({"order":-1}).to_list(None):
+        if categories_db := await db["category"].find({"is_active": True}).sort({"order":1}).to_list(None):
             count_categories = len(categories_db)
             categories_db = (
-                await db["category"].find({"is_active": True}).sort({"order":-1}).skip(skip).limit(limit).to_list(None)
+                await db["category"].find({"is_active": True}).sort({"order":1}).skip(skip).limit(limit).to_list(None)
             )
         return categories_db, count_categories
     except Exception as e:
