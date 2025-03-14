@@ -87,6 +87,23 @@ async def get_pending_games(
         traceback.print_exc()
         raise HTTPException(status_code=404, detail="Games not found")
 
+@router.get("/no-active/", status_code=status.HTTP_200_OK)
+async def get_pending_games_no_active(
+    user_db: dict = Depends(auth_admin), Token: HTTPAuthorizationCredentials = Depends(auth_schema)
+):
+    try:
+        games_db = (
+            await db["game"]
+            .find({"is_published": True, "is_active": False})
+            .to_list(None)
+        )
+        for game in games_db:
+            game["_id"] = str(game["_id"])
+
+        return games_db
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=404, detail="Games not found")
 
 @router.get("/{game_id}", status_code=status.HTTP_200_OK)
 async def get_pending_game(
@@ -147,6 +164,7 @@ class SchemaUpdateGamePublish(BaseModel):
     category: Optional[str]
     return_note: Optional[str]
     reviewer: Optional[str]
+    is_active: Optional[bool]
 
 
 @router.patch("/reject/{game_id}", status_code=status.HTTP_200_OK)
@@ -203,6 +221,8 @@ async def update_game(
     published_game_db["updated_by"] = str(user_db["_id"])
     game_db = await db["game"].find_one({"_id": ObjectId(published_game_db["game_id"])})
     game_db["category_id"] = data.category
+    if data.is_active is not None:
+        game_db["is_active"] = False if data.is_active is True else True
     try:
         await db["game"].update_one({"_id": ObjectId(game_db["_id"])}, {"$set": game_db})
         await db["published_game"].update_one(
