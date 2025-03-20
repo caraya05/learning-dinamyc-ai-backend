@@ -28,6 +28,8 @@ async def update_photo_user(
     user_db: dict = Depends(auth_admin),
     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
+
+    print(f"sectino: {section}, format: {format}, file: {file}")
     file_content = await file.read()
 
     if format in ["jpg", "jpeg", "png"]:

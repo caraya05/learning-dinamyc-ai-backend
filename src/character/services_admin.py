@@ -64,11 +64,11 @@ async def get_character_service_admin(character_id: str):
         )
 
 
-async def get_characters_service_admin(skip: int = 0, limit: int = 10000):
+async def get_characters_service_admin(skip: int = 0, limit: int = 1000000):
     pipeline = [
         {"$match": {"created_at": {"$gte": datetime(2025, 1, 1)}}},
         {"$sort": {"created_at": -1}},
-        {"$skip": skip},
+        {"$skip": skip - 1},
         {"$limit": limit},
         {
             "$lookup": {
@@ -95,6 +95,7 @@ async def get_characters_service_admin(skip: int = 0, limit: int = 10000):
     ]
 
     characters_db = await db["character"].aggregate(pipeline).to_list(None)
+    print(len(characters_db))
     for character in characters_db:
         character["_id"] = str(character["_id"])
         if "data" in character and character["data"]:
@@ -144,7 +145,7 @@ async def create_character_service_admin(character: SchemaAdminCreateCharacter, 
 
 
 async def update_character_service_admin(
-    character_id: str, character: SchemaAdminUpdateCharacter, user_id: str
+        character_id: str, character: SchemaAdminUpdateCharacter, user_id: str
 ):
     try:
         character_db = await db["character"].find_one({"_id": ObjectId(character_id)})

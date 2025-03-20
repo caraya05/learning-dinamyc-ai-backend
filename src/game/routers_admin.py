@@ -263,5 +263,7 @@ async def update_game(
     user_db: dict = Depends(auth_admin),
     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
-    await update_game_service_admin(game_id, game, str(user_db["_id"]))
+    game = await update_game_service_admin(game_id, game, str(user_db["_id"]))
+    if game is None:
+        raise HTTPException(status_code=404, detail="Game not found")
     return {"detail": "Game updated"}

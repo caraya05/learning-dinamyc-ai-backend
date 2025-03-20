@@ -62,6 +62,7 @@ class SchemaRetrieveGameStr(ResponseModelStr):
     is_published: Optional[bool] = Field(False, example=True)
     prompt_image: Optional[str] = Field(None, example="prompt_user")
     description: Optional[str] = Field(None, example="description")
+    is_active: Optional[bool] = Field(False, example=True)
 
 
 class SchemaListGame(BaseModel):

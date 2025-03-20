@@ -38,7 +38,7 @@ async def get_character(
 @router.get("/", status_code=status.HTTP_200_OK)
 async def get_characters(
     skip: int = 1,
-    limit: int = 100,
+    limit: int = 100000,
     user_db: dict = Depends(auth_admin),
     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):

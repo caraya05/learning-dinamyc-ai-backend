@@ -5,11 +5,12 @@ from pydantic import Field
 
 
 class SchemaUpdateGame(BaseModel):
-    title: str = Field(..., max_length=100, example="Game Title")
-    history: str = Field(..., example="Game History")
-    summary: str = Field(..., example="Game Summary")
-    category_id: str = Field(..., example="category_id")
-    image: str = Field(..., example="image")
+    title: str = Field(None, max_length=100, example="Game Title")
+    history: str = Field(None, example="Game History")
+    summary: str = Field(None, example="Game Summary")
+    category_id: str = Field(None, example="category_id")
+    is_active: bool = Field(default=None, example=True)
+    image: str = Field(None, example="image")
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: str = Field(default="system", example="system")
     updated_at: datetime = Field(default_factory=datetime.utcnow)

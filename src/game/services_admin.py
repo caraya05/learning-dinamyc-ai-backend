@@ -32,6 +32,11 @@ async def get_game_service_admin(game_id: str):
 async def update_game_service_admin(game_id: str, game: SchemaUpdateGame, user_id: str):
     if game_db := await get_game_service_admin(game_id):
         for key, value in game.dict().items():
-            game_db[key] = value
+            if value is not None:
+                game_db[key] = value
         game_db["updated_by"] = user_id
         game_db["updated_at"] = datetime.utcnow()
+        del game_db["_id"]
+        print(game_db)
+        await db["game"].update_one({"_id": ObjectId(game_id)}, {"$set": game_db})
+        return game_db

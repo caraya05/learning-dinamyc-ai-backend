@@ -153,5 +153,6 @@ admin.include_router(location_admin_routers.router)
 admin.include_router(character_admin_routers.router)
 
 admin.include_router(game_pending_admin_routers.router)
+admin.include_router(configuration_admin_routers.router)
 
 app.mount("/v1/admin", admin)

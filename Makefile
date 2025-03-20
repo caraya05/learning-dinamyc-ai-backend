@@ -1,5 +1,5 @@
 build:
-	docker-compose  build --no-cache
+	docker-compose  build
 
 up:
 	docker-compose  up
@@ -104,7 +104,7 @@ stage-pylint:
 	docker-compose -f docker-compose-stage.yml run --rm fastapi pylint code
 
 arm-build:
-	docker-compose -f docker-compose-arm.yml build --no-cache
+	docker-compose -f docker-compose-arm.yml build
 
 arm-up:
 	docker-compose -f docker-compose-arm.yml up
