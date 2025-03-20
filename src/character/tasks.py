@@ -85,7 +85,8 @@ async def generate_voice_character(
         character_state_db["data"]["options_dialog"] = options_dialog
         if character_state_db["data"].get("locations_id"):
             locations_array = character_state_db["data"]["locations_id"]
-            locations_array.append(location_id)
+            if location_id not in locations_array:
+                locations_array.append(location_id)
             character_state_db["data"]["locations_id"] = locations_array
         else:
             character_state_db["data"]["locations_id"] = [location_id]

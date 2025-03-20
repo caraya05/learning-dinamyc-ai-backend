@@ -136,14 +136,14 @@ class OpenAIGenerator:
         )
 
     async def generate_image(
-        self,
-        prompt: str,
-        model: str = "dall-e-3",
-        count: int = 1,
-        size: str = "1024x1792",
-        quality: str = "standard",
-        user_id: str = None,
-        type_generation: str = None,
+            self,
+            prompt: str,
+            model: str = "dall-e-3",
+            count: int = 1,
+            size: str = "1024x1792",
+            quality: str = "standard",
+            user_id: str = None,
+            type_generation: str = None,
     ):
         try:
             response = await self.client.images.generate(
@@ -171,26 +171,29 @@ class OpenAIGenerator:
             return await handle_exception(e, prompt, model, user_id)
 
     async def generate_gpt(
-        self,
-        content_prompt: list[dict],
-        response_format: BaseModel,
-        type_generation: str = "",
-        max_tokens: int = 1000,
-        model: str = "gpt-4o",
-        user_id: str = None,
+            self,
+            content_prompt: list[dict],
+            response_format: BaseModel = None,
+            type_generation: str = "",
+            max_tokens: int = 1000,
+            model: str = "gpt-4o",
+            user_id: str = None,
+            vision: bool = False,
     ):
         try:
-            response = await self.client.beta.chat.completions.parse(
-                model=model,
-                response_format=response_format,
-                messages=content_prompt,
-                max_tokens=max_tokens,
-                stop=None,
-                temperature=0.6,
-                top_p=0.8,
-                frequency_penalty=0.6,
-                presence_penalty=0.7,
-            )
+            if vision:
+                response = await self.client.chat.completions.create(
+                    model=model,
+                    messages=content_prompt,
+                    max_tokens=max_tokens,
+                )
+            else:
+                response = await self.client.beta.chat.completions.parse(
+                    model=model,
+                    response_format=response_format,
+                    messages=content_prompt,
+                    max_tokens=max_tokens,
+                )
 
             await store_response(
                 response=response,
@@ -199,6 +202,9 @@ class OpenAIGenerator:
                 type_generation=type_generation,
                 user_id=user_id,
             )
+
+            if vision:
+                return response.choices[0].message.content
 
             return response.choices[0].message.parsed
 

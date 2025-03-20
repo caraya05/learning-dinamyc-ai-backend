@@ -1,4 +1,5 @@
 import traceback
+from http.client import HTTPException
 from uuid import uuid4
 
 from bson import ObjectId
@@ -34,49 +35,87 @@ class SchemaLocationEnvironment(BaseModel):
         title="Light Intensity",
         description="(low, high) - The light intensity in the location",
     )
+    rain_mode: bool = Field(
+        ...,
+        title="Rain Mode",
+        description="Indicates whether there should be rain at the site.",
+    )
+    snow_model: bool = Field(
+        ...,
+        title="Snow Mode",
+        description="Indicates whether there should be snow at the site.",
+    )
+    fire_mode: bool = Field(
+        ...,
+        title="Fire Mode",
+        description="Indicates whether there should be a fire at the site.",
+    )
 
 
-async def generate_environment_location(_location_id: str, _user_id: str, _state_game_id):
+async def generate_environment_location(_location_id: str, _user_id: str, _state_game_id: str):
     try:
-        # location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
-        # response_analyze = await openai_generator.generate_gpt(
-        #     content_prompt=[
-        #         {
-        #             "role": "system",
-        #             "content": f"Analiza la imagen de la locacion y describe el ambiente en la imagen,"
-        #                        f"las opciones de animales son dog ,bird ,squirrel, firefly",
-        #         },
-        #         {
-        #             "role": "user",
-        #             "content": [
-        #                 {"type": "image_url", "image_url": {"url": location_db["image"]}},
-        #             ],
-        #         },
-        #     ],
-        #     model="gpt-4o-mini",
-        #     max_tokens=4096,
-        #     response_format=SchemaLocationEnvironment,
-        #     type_generation="generate_environment_location",
-        #     user_id=_user_id,
-        # )
-        #
-        # location_environment = response_analyze.dict()
-        # location_environment["animals"] = []
+        element_state_db = await db['state_glic'].find_one({"element_id": _location_id, "state": _state_game_id})
+        if not element_state_db:
+            return False
 
-        element_state_db = await db["state_glic"].find_one(
-            {"element_id": _location_id, "state": _state_game_id}
+        response_analyze = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": f"Analiza cuidadosamente la imagen proporcionada y describe detalladamente el ambiente"
+                               f" que se muestra, incluyendo las condiciones climáticas, iluminación, y el estado "
+                               f"general del entorno. Basado en la escena, determina si sería apropiado agregar efectos"
+                               f" como humo o chispas que emergen de la lava para mejorar la atmósfera. No incluyas lluvia"
+                               f" o nieve ya que se trata de una cueva de lava con un ambiente de calor extremo.",
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": element_state_db["data"]["image"]}
+                        },
+                    ],
+                },
+            ],
+            model="gpt-4o-mini",
+            max_tokens=4096,
+            type_generation="generate_environment_location",
+            user_id=_user_id,
+            vision=True,
+        )
+
+        response_analyze_image = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": f"Extrae la información del JSON proporcionado sobre la imagen de la locación y "
+                               f"describe detalladamente el ambiente mostrado, incluyendo aspectos como la presencia "
+                               f"de niebla, iluminación, lluvia, nieve y fuego. Indica cómo cada uno de estos elementos"
+                               f" contribuye a la atmósfera general de la escena. No incluyas lluvia o nieve ya que se trata"
+                               f" de una cueva de lava con un ambiente de calor extremo. ",
+                },
+                {
+                    "role": "user",
+                    "content": f"descripcion de la imagen de la locacion : {response_analyze}",
+                },
+            ],
+            model="gpt-4o-mini",
+            max_tokens=4096,
+            response_format=SchemaLocationEnvironment,
+            type_generation="generate_environment_location",
+            user_id=_user_id,
         )
 
         location_environment = {
-            "fog_level": "none",
-            "light_mode": "directSun",
-            "light_intensity": "high",
-            "animals": [],
+            "fog_level": response_analyze_image.fog_level,
+            "light_mode": response_analyze_image.light_mode,
+            "light_intensity": response_analyze_image.light_intensity,
+            "rain_mode": response_analyze_image.rain_mode,
+            "snow_model": response_analyze_image.snow_model,
+            "fire_mode": response_analyze_image.fire_mode,
+            "animals": []
         }
-
-        # await db['location'].update_one(
-        #     {"_id": ObjectId(_location_id)}, {"$set": {"environment": location_environment}}
-        # )
 
         element_state_db["data"]["environment"] = location_environment
 
@@ -90,7 +129,6 @@ async def generate_environment_location(_location_id: str, _user_id: str, _state
         print(traceback.format_exc())
         print(f"Error in generate environment location: {e}")
         return False
-
 
 class SchemaLocationDescription(BaseModel):
     description: str = Field(
@@ -128,7 +166,7 @@ async def generate_location_description(_location_id: str, _user_id: str, state_
                 {
                     "role": "system",
                     "content": "Eres un personaje en un videojuego de realidad virtual. Estás en un lugar nuevo"
-                    " y necesitas describirlo para que otros jugadores puedan encontrarlo.",
+                               " y necesitas describirlo para que otros jugadores puedan encontrarlo.",
                 },
                 {"role": "user", "content": f"{prompt_db_location_place['description']}"},
             ],
@@ -178,7 +216,7 @@ async def identify_location_sound(_location_id: str, _user_id: str, _state_game_
                 {
                     "role": "system",
                     "content": "eres un identicador de sonidos para locaciones, con la siquiente image y descripcion de una locacion, escoje uno de los "
-                    "sonidos de la lista que se escucharia en este lugar, no incluyas o crees sonidos que no esten en la lista.",
+                               "sonidos de la lista que se escucharia en este lugar, no incluyas o crees sonidos que no esten en la lista.",
                 },
                 {
                     "role": "user",
@@ -240,7 +278,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                 {
                     "role": "system",
                     "content": "reestructure el prompt para generar la imagen con estilo 3D volumétrico en vista"
-                    " isométrica para un videojuego RPG, con fondo de color solido.",
+                               " isométrica para un videojuego RPG, con fondo de color solido.",
                 },
                 {"role": "user", "content": content_prompt},
             ],
@@ -287,7 +325,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
 
 async def async_generate_location_task(
-    _location_id: str, _user_id: str, _task_id: str, _state_game_id: str
+        _location_id: str, _user_id: str, _task_id: str, _state_game_id: str
 ):
     await update_task_service(_id=_task_id, _status="pending")
     location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
