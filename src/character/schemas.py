@@ -50,6 +50,7 @@ class SchemaStateData(BaseModel):
     connections: Optional[dict] = Field(None, example="")
     sound: Optional[str] = Field(None, example="123")
     is_active: Optional[bool] = Field(None, example=True)
+    personalization: Optional[list] = Field(None, example={"key": "value"})
 
 
 class SchemaStateItem(BaseModel):

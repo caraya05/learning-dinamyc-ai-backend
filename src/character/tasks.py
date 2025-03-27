@@ -1524,6 +1524,16 @@ async def async_update_character_task(
             )
             return message
 
+        detection_personalization = await generate_character_personalization(
+            _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
+        )
+
+        if not detection_personalization:
+            await update_task_service(
+                _id=_task_id, _status="failed", _message="Error in generate character personalization"
+            )
+            return "Error in generate character personalization"
+
     if _updated_voice:
         element_state_db = await db["state_glic"].find_one(
             {"element_id": _character_id, "state": _state_game_id}
