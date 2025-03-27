@@ -23,14 +23,14 @@ class SchemaVoiceIdentification(BaseModel):
 
 
 async def generate_voice_character(
-    game_id,
-    character_id: str,
-    user_id: str,
-    location_id: str,
-    state_game: str,
-    type_conversation: str,
-    prompt_user_dialog: str,
-    options_dialog: dict = None,
+        game_id,
+        character_id: str,
+        user_id: str,
+        location_id: str,
+        state_game: str,
+        type_conversation: str,
+        prompt_user_dialog: str,
+        options_dialog: dict = None,
 ):
     try:
         voice = {}
@@ -45,7 +45,7 @@ async def generate_voice_character(
                     {
                         "role": "system",
                         "content": "Utilizando la siguiente descripción, identificar la voz que mejor se ajuste a la descripción. "
-                        f"Respondiendo con la edad y género de la voz,",
+                                   f"Respondiendo con la edad y género de la voz,",
                     },
                     {
                         "role": "assistant",
@@ -54,7 +54,7 @@ async def generate_voice_character(
                     {
                         "role": "user",
                         "content": f"Descripción del personaje: {character_state_db['data']['description']}"
-                        f"Genero del personaje: {character_state_db['data']['genre']}",
+                                   f"Genero del personaje: {character_state_db['data']['genre']}",
                     },
                 ],
                 response_format=SchemaVoiceIdentification,
@@ -133,19 +133,19 @@ async def generate_voice_character(
                 _state_game_id=state_game,
             )
         if (
-            type_conversation != "none"
-            and type_conversation != "option_multiple"
-            and type_conversation != "open_question"
+                type_conversation != "none"
+                and type_conversation != "option_multiple"
+                and type_conversation != "open_question"
         ):
             character_state_db = await db["state_glic"].find_one({"_id": character_state_db["_id"]})
             if character_state_db["data"]["interaction"]:
                 for i in range(len(character_state_db["data"]["interaction"])):
                     if (
-                        character_state_db["data"]["interaction"][i]["location_id"] == location_id
-                        and character_state_db["data"]["interaction"][i]["state_game"] == state_game
+                            character_state_db["data"]["interaction"][i]["location_id"] == location_id
+                            and character_state_db["data"]["interaction"][i]["state_game"] == state_game
                     ):
                         for j in range(
-                            len(character_state_db["data"]["interaction"][i]["conversation"])
+                                len(character_state_db["data"]["interaction"][i]["conversation"])
                         ):
                             character_state_db_ = await db["state_glic"].find_one(
                                 {
@@ -190,15 +190,15 @@ async def generate_voice_character(
             if character_state_db["data"]["interaction"]:
                 for i in range(len(character_state_db["data"]["interaction"])):
                     if (
-                        character_state_db["data"]["interaction"][i]["location_id"] == location_id
-                        and character_state_db["data"]["interaction"][i]["state_game"] == state_game
+                            character_state_db["data"]["interaction"][i]["location_id"] == location_id
+                            and character_state_db["data"]["interaction"][i]["state_game"] == state_game
                     ):
                         for j in range(
-                            len(
-                                character_state_db["data"]["interaction"][i]["options_dialog"][
-                                    "prompt_user_question"
-                                ]
-                            )
+                                len(
+                                    character_state_db["data"]["interaction"][i]["options_dialog"][
+                                        "prompt_user_question"
+                                    ]
+                                )
                         ):
                             character_state_db_ = await db["state_glic"].find_one(
                                 {
@@ -219,11 +219,11 @@ async def generate_voice_character(
                                 "prompt_user_question"
                             ][j]["audio"] = audio
                         for j in range(
-                            len(
-                                character_state_db["data"]["interaction"][i]["options_dialog"][
-                                    "options"
-                                ]
-                            )
+                                len(
+                                    character_state_db["data"]["interaction"][i]["options_dialog"][
+                                        "options"
+                                    ]
+                                )
                         ):
                             character_state_db_ = await db["state_glic"].find_one(
                                 {
@@ -272,15 +272,15 @@ async def generate_voice_character(
             if character_state_db["data"]["interaction"]:
                 for i in range(len(character_state_db["data"]["interaction"])):
                     if (
-                        character_state_db["data"]["interaction"][i]["location_id"] == location_id
-                        and character_state_db["data"]["interaction"][i]["state_game"] == state_game
+                            character_state_db["data"]["interaction"][i]["location_id"] == location_id
+                            and character_state_db["data"]["interaction"][i]["state_game"] == state_game
                     ):
                         for j in range(
-                            len(
-                                character_state_db["data"]["interaction"][i]["options_dialog"][
-                                    "prompt_user_question"
-                                ]
-                            )
+                                len(
+                                    character_state_db["data"]["interaction"][i]["options_dialog"][
+                                        "prompt_user_question"
+                                    ]
+                                )
                         ):
                             character_state_db_ = await db["state_glic"].find_one(
                                 {
@@ -302,11 +302,11 @@ async def generate_voice_character(
                             ][j]["audio"] = audio
 
                         for j in range(
-                            len(
-                                character_state_db["data"]["interaction"][i]["options_dialog"][
-                                    "options"
-                                ]
-                            )
+                                len(
+                                    character_state_db["data"]["interaction"][i]["options_dialog"][
+                                        "options"
+                                    ]
+                                )
                         ):
                             character_state_db_ = await db["state_glic"].find_one(
                                 {
@@ -352,10 +352,10 @@ async def generate_image_character_face(_character_id, _user_id, _state_game_id)
 
         validate_prompt = await openai_generator.moderation_text(
             text=f"Genera una imagen cuadrada en vista frontal de {character_state_db['data']['prompt_user']},"
-            " de ojos vivos, rasgos faciales exagerados y expresivos, de la "
-            "cintura para arriba, en estilo 3D Cel-shaded que Imita el aspecto "
-            "de los dibujos animados 2D, utilizando colores planos pero vivos y "
-            f"contornos marcados. Con fondo Blanco.",
+                 " de ojos vivos, rasgos faciales exagerados y expresivos, de la "
+                 "cintura para arriba, en estilo 3D Cel-shaded que Imita el aspecto "
+                 "de los dibujos animados 2D, utilizando colores planos pero vivos y "
+                 f"contornos marcados. Con fondo Blanco.",
             user_id=_user_id,
         )
         if validate_prompt:
@@ -363,10 +363,10 @@ async def generate_image_character_face(_character_id, _user_id, _state_game_id)
 
         image_face = await openai_generator.generate_image(
             prompt=f"Genera una imagen cuadrada en vista frontal de {character_state_db['data']['prompt_user']},"
-            " de ojos vivos, rasgos faciales exagerados y expresivos, de la "
-            "cintura para arriba, en estilo 3D Cel-shaded que Imita el aspecto "
-            "de los dibujos animados 2D, utilizando colores planos pero vivos y "
-            f"contornos marcados. Con fondo Blanco.",
+                   " de ojos vivos, rasgos faciales exagerados y expresivos, de la "
+                   "cintura para arriba, en estilo 3D Cel-shaded que Imita el aspecto "
+                   "de los dibujos animados 2D, utilizando colores planos pero vivos y "
+                   f"contornos marcados. Con fondo Blanco.",
             quality="hd",
             size="1024x1024",
             user_id=_user_id,
@@ -414,13 +414,13 @@ class SchemaCharacterCreate(BaseModel):
         ...,
         example="description",
         description="description to identify the colors that the character has, it is necessary "
-        "to know the colors of clothes, shoes, hair, skin, eyes and lips",
+                    "to know the colors of clothes, shoes, hair, skin, eyes and lips",
     )
     description_shoulder_up: str = Field(
         ...,
         example="description_shoulder_up",
         description="string (15-word description cut from the head to the waist of"
-        " the character, to generate an image of the character",
+                    " the character, to generate an image of the character",
     )
 
 
@@ -441,8 +441,8 @@ async def generate_character_body_type(_character_id, _user_id, _state_game_id):
                 {
                     "role": "system",
                     "content": "Eres un identificador de genero y tipo de cuerpo de un personaje, "
-                    "los generos son: man, woman o null, los tipos de cuerpo son: "
-                    " adult, child o animal, no te debes salir de estos generos y tipos de cuerpo.",
+                               "los generos son: man, woman o null, los tipos de cuerpo son: "
+                               " adult, child o animal, no te debes salir de estos generos y tipos de cuerpo.",
                 },
                 {
                     "role": "user",
@@ -450,7 +450,7 @@ async def generate_character_body_type(_character_id, _user_id, _state_game_id):
                         {
                             "type": "text",
                             "text": f"nombre del personaje: {character_state_db['data']['name']} y descripción del personaje por "
-                            f"parte del usuario: {character_state_db['data']['prompt_user']}",
+                                    f"parte del usuario: {character_state_db['data']['prompt_user']}",
                         },
                     ],
                 },
@@ -477,7 +477,7 @@ async def generate_character_body_type(_character_id, _user_id, _state_game_id):
                         {
                             "type": "text",
                             "text": f"nombre del personaje: {character_state_db['data']['name']} y descripción del personaje por "
-                            f"parte del usuario: {character_state_db['data']['prompt_user']}",
+                                    f"parte del usuario: {character_state_db['data']['prompt_user']}",
                         },
                         {
                             "type": "text",
@@ -513,6 +513,129 @@ async def generate_character_body_type(_character_id, _user_id, _state_game_id):
         return False
 
 
+class SchemaCharacterPart(BaseModel):
+    section: str = Field(..., example="section", description="section of the character")
+    color: str = Field(..., example="color", description="color of the section in hexadecimal")
+    equal: str = Field(..., example="equal", description="equal of the section")
+
+
+class SchemaCharacterPersonalization(BaseModel):
+    personalization: list[SchemaCharacterPart] = Field(None, description="personalization of the section")
+
+
+async def generate_character_personalization(_character_id, _user_id, _state_game_id):
+    try:
+        element_state_db = await (db["state_glic"]
+        .find_one(
+            {"element_id": _character_id, "state": _state_game_id}
+        ))
+
+        body_type_db = await (db["character_type"].
+        find_one(
+            {"character_type": element_state_db["data"]["character_type"]}
+        ))
+
+        if not body_type_db["personalization"]:
+            element_state_db["data"]["personalization"] = []
+
+            await db["state_glic"].update_one(
+                {"_id": element_state_db["_id"]},
+                {
+                    "$set": {
+                        "data": element_state_db["data"],
+                    }
+                },
+            )
+            return True
+
+        response_analyze = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": f"Analiza cuidadosamente la imagen proporcionada y detecta los colores de las diferentes partes del personaje que se indican. "
+                               f"Debes proporcionar una descripción muy detallada de los colores, incluyendo tonos y matices específicos. "
+                               f"Las partes del personaje a analizar son: {str(body_type_db['personalization'])} "
+                               f"Asegúrate de ser lo más preciso posible en la definición de los colores,"
+                               f"si hay section que tengas equal deben tener el mismo color de es seccion.",
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": element_state_db["data"]["image"]}
+                        },
+                        {
+                            "type": "text",
+                            "text": f"nombre del personaje: {element_state_db['data']['name']} y descripción del personaje por "
+                                    f"parte del usuario: {element_state_db['data']['prompt_user']}"
+                                    f"partes del personaje a analizar:{str(body_type_db['personalization'])}",
+                        }
+                    ],
+                },
+            ],
+            model="gpt-4o-mini",
+            max_tokens=4096,
+            type_generation="analyze_character_personalization",
+            user_id=_user_id,
+            vision=True,
+        )
+
+        response = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": "Eres un generador de personalización de personajes, "
+                               "debes generar una lista de personalización de personajes, "
+                               "como colores., y los colores deben estar en formato hexadecimal.",
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"analisis de la imagen del personaje: {response_analyze},"
+                                    f"partes del personaje a analizar:{str(body_type_db['personalization'])}",
+                        },
+                    ],
+                },
+            ],
+            model="gpt-4o-mini-2024-07-18",
+            max_tokens=4096,
+            response_format=SchemaCharacterPersonalization,
+            type_generation="generate_character_personalization",
+            user_id=_user_id,
+        )
+
+        response_result = []
+        if response.personalization:
+            for personalization in response.personalization:
+                for personalization_db in body_type_db["personalization"]:
+                    if personalization.section == personalization_db["section"]:
+                        if personalization.color:
+                            response_result.append(personalization.dict())
+                        else:
+                            personalization.color = "#000000"
+                            response_result.append(personalization.dict())
+
+        element_state_db["data"]["personalization"] = response_result
+
+        await db["state_glic"].update_one(
+            {"_id": element_state_db["_id"]},
+            {
+                "$set": {
+                    "data": element_state_db["data"],
+                }
+            },
+        )
+
+        return True
+    except Exception as e:
+        print(traceback.format_exc())
+        print(f"Error in get character personalization service: {str(e)}")
+        return False
+
+
 async def generate_character_description(_character_id, _user_id, _state_game_id):
     try:
 
@@ -525,7 +648,7 @@ async def generate_character_description(_character_id, _user_id, _state_game_id
                 {
                     "role": "system",
                     "content": "create 3 descriptions for the character, one for the character description, one for the "
-                    "game description and one for the description for the generation of a picture of the character.",
+                               "game description and one for the description for the generation of a picture of the character.",
                 },
                 {
                     "role": "user",
@@ -584,7 +707,7 @@ class SchemaCharacterConversations(BaseModel):
 
 
 async def generate_conversation_character(
-    _game_id, _character_id, _user_id, _location_id, _state_game_id
+        _game_id, _character_id, _user_id, _location_id, _state_game_id
 ):
     game_db = await db["game"].find_one({"_id": ObjectId(_game_id)})
     character_principal_db = await db["character"].find_one(
@@ -604,12 +727,12 @@ async def generate_conversation_character(
                 {
                     "role": "system",
                     "content": f" You are a character dialogue extractor, according to a text where there is a conversation between two characters as follows. "
-                    + "1. hello. how are you?"
-                    + "2. hello, well how are you?"
-                    + "where 1 is the main character and 2 is the other character, transform it to a"
-                    "replace 1 with the id of the main character and 2 with the id of the other character, "
-                    " conversation according to the json schema and the data provided by the user, and "
-                    f"correct the spelling of the dialogue text in the {language_detection} language.",
+                               + "1. hello. how are you?"
+                               + "2. hello, well how are you?"
+                               + "where 1 is the main character and 2 is the other character, transform it to a"
+                                 "replace 1 with the id of the main character and 2 with the id of the other character, "
+                                 " conversation according to the json schema and the data provided by the user, and "
+                                 f"correct the spelling of the dialogue text in the {language_detection} language.",
                 },
                 {
                     "role": "user",
@@ -656,8 +779,8 @@ async def generate_conversation_character(
 
         for interaction in element_state_db["data"]["interaction"]:
             if (
-                interaction["location_id"] == _location_id
-                and interaction["state_game"] == _state_game_id
+                    interaction["location_id"] == _location_id
+                    and interaction["state_game"] == _state_game_id
             ):
                 interaction["conversation"] = conversation_
                 interaction["prompt_user_dialog"] = element_state_db["data"]["prompt_user_dialog"]
@@ -705,10 +828,10 @@ async def identify_prompt_conversation(_prompt_dialog, _user_id):
                 {
                     "role": "system",
                     "content": "Identifica si el texto es una conversación, respondiendo con un valor booleano."
-                    "para saber si es una conversación o no, si tiene la siquiente estructura: "
-                    "1. hello. how are you?"
-                    + "2. hello, well how are you?"
-                    + "es una conversación.",
+                               "para saber si es una conversación o no, si tiene la siquiente estructura: "
+                               "1. hello. how are you?"
+                               + "2. hello, well how are you?"
+                               + "es una conversación.",
                 },
                 {
                     "role": "user",
@@ -734,7 +857,7 @@ async def identify_prompt_conversation(_prompt_dialog, _user_id):
 
 
 async def generate_option_character(
-    _game_id, _character_id, _user_id, _location_id, _state_game_id
+        _game_id, _character_id, _user_id, _location_id, _state_game_id
 ):
     game_db = await db["game"].find_one({"_id": ObjectId(_game_id)})
     character_principal_db = await db["character"].find_one(
@@ -760,12 +883,12 @@ async def generate_option_character(
                     {
                         "role": "system",
                         "content": f" You are a character dialogue extractor, according to a text where there is a conversation between two characters as follows. "
-                        + "1. hello. how are you?"
-                        + "2. hello, well how are you?"
-                        + "where 1 is the main character and 2 is the other character, transform it to a"
-                        "replace 1 with the id of the main character and 2 with the id of the other character, "
-                        " conversation according to the json schema and the data provided by the user, and "
-                        f"correct the spelling of the dialogue text in the {language_detection} language.",
+                                   + "1. hello. how are you?"
+                                   + "2. hello, well how are you?"
+                                   + "where 1 is the main character and 2 is the other character, transform it to a"
+                                     "replace 1 with the id of the main character and 2 with the id of the other character, "
+                                     " conversation according to the json schema and the data provided by the user, and "
+                                     f"correct the spelling of the dialogue text in the {language_detection} language.",
                     },
                     {
                         "role": "user",
@@ -809,7 +932,7 @@ async def generate_option_character(
                             {
                                 "type": "text",
                                 "text": f"character dialog: {element_state_db['data']['options_dialog']['prompt_user_question']}"
-                                f"id: {str(character_other_db['_id'])}",
+                                        f"id: {str(character_other_db['_id'])}",
                             },
                         ],
                     },
@@ -923,8 +1046,8 @@ async def generate_option_character(
 
     for interaction in element_state_db["data"]["interaction"]:
         if (
-            interaction["location_id"] == _location_id
-            and interaction["state_game"] == _state_game_id
+                interaction["location_id"] == _location_id
+                and interaction["state_game"] == _state_game_id
         ):
             interaction["options_dialog"] = element_state_db["data"]["options_dialog"]
             interaction["prompt_user_dialog"] = None
@@ -963,7 +1086,7 @@ async def generate_option_character(
 
 #
 async def generate_open_question_character(
-    _game_id, _character_id, _user_id, _location_id, _state_game_id
+        _game_id, _character_id, _user_id, _location_id, _state_game_id
 ):
     game_db = await db["game"].find_one({"_id": ObjectId(_game_id)})
     character_principal_db = await db["character"].find_one(
@@ -989,12 +1112,12 @@ async def generate_open_question_character(
                     {
                         "role": "system",
                         "content": f" You are a character dialogue extractor, according to a text where there is a conversation between two characters as follows. "
-                        + "1. hello. how are you?"
-                        + "2. hello, well how are you?"
-                        + "where 1 is the main character and 2 is the other character, transform it to a"
-                        "replace 1 with the id of the main character and 2 with the id of the other character, "
-                        " conversation according to the json schema and the data provided by the user, and "
-                        f"correct the spelling of the dialogue text in the {language_detection} language.",
+                                   + "1. hello. how are you?"
+                                   + "2. hello, well how are you?"
+                                   + "where 1 is the main character and 2 is the other character, transform it to a"
+                                     "replace 1 with the id of the main character and 2 with the id of the other character, "
+                                     " conversation according to the json schema and the data provided by the user, and "
+                                     f"correct the spelling of the dialogue text in the {language_detection} language.",
                     },
                     {
                         "role": "user",
@@ -1114,8 +1237,8 @@ async def generate_open_question_character(
 
     for interaction in element_state_db["data"]["interaction"]:
         if (
-            interaction["location_id"] == _location_id
-            and interaction["state_game"] == _state_game_id
+                interaction["location_id"] == _location_id
+                and interaction["state_game"] == _state_game_id
         ):
             interaction["options_dialog"] = element_state_db["data"]["options_dialog"]
             interaction["prompt_user_dialog"] = None
@@ -1153,7 +1276,7 @@ async def generate_open_question_character(
 
 
 async def generate_monologue_character(
-    _game_id, _character_id, _user_id, _location_id, _state_game_id
+        _game_id, _character_id, _user_id, _location_id, _state_game_id
 ):
     # game_db = await db["game"].find_one({"_id": ObjectId(_game_id)})
     character_other_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
@@ -1180,7 +1303,7 @@ async def generate_monologue_character(
                         {
                             "type": "text",
                             "text": f"character dialog: {character_state_db['data']['prompt_user_dialog']}"
-                            f"id: {str(character_other_db['_id'])}",
+                                    f"id: {str(character_other_db['_id'])}",
                         },
                     ],
                 },
@@ -1204,8 +1327,8 @@ async def generate_monologue_character(
 
         for interaction in character_state_db["data"]["interaction"]:
             if (
-                interaction["location_id"] == _location_id
-                and interaction["state_game"] == _state_game_id
+                    interaction["location_id"] == _location_id
+                    and interaction["state_game"] == _state_game_id
             ):
                 interaction["conversation"] = conversation_
                 interaction["prompt_user_dialog"] = character_state_db["data"]["prompt_user_dialog"]
@@ -1272,12 +1395,12 @@ async def generate_language_detection(_text, _user_id):
 
 
 async def async_generate_character_task(
-    _character_id,
-    _user_id,
-    _task_id,
-    _location_id,
-    _state_game_id,
-    _game_id,
+        _character_id,
+        _user_id,
+        _task_id,
+        _location_id,
+        _state_game_id,
+        _game_id,
 ):
     await update_task_service(_id=_task_id, _status="pending")
     character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
@@ -1337,6 +1460,16 @@ async def async_generate_character_task(
         )
         return "Error voice not generated"
 
+    detection_personalization = await generate_character_personalization(
+        _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
+    )
+
+    if not detection_personalization:
+        await update_task_service(
+            _id=_task_id, _status="failed", _message="Error in generate character personalization"
+        )
+        return "Error in generate character personalization"
+
     await update_task_service(
         _id=_task_id, _status="completed", _message="Character generate successfully"
     )
@@ -1344,14 +1477,14 @@ async def async_generate_character_task(
 
 
 async def async_update_character_task(
-    _character_id,
-    _user_id,
-    _task_id,
-    _game_id,
-    _updated_data,
-    _updated_voice,
-    _state_game_id,
-    _location_id,
+        _character_id,
+        _user_id,
+        _task_id,
+        _game_id,
+        _updated_data,
+        _updated_voice,
+        _state_game_id,
+        _location_id,
 ):
     await update_task_service(_id=_task_id, _status="pending")
     if _updated_data:

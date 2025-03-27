@@ -75,6 +75,7 @@ class SchemaDataCharacter(BaseModel):
     interaction: Optional[list[dict]] = Field([], example=[{"key": "value"}])
     type: Optional[str] = Field(None, example=TypeCharacter.NPC)
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
+    personalization: Optional[list] = Field(None, example={"key": "value"})
 
 
 class SchemaStateLocation(BaseModel):

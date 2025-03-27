@@ -42,3 +42,4 @@ class CharacterGLIC(BaseModel):
     options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(
         None, example={"key": "value"}
     )
+    personalization: Optional[dict] = Field(None, example={"key": "value"})
