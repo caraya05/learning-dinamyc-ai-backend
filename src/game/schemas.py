@@ -33,6 +33,8 @@ class SchemaRetrieveGame(ResponseModel):
     code_access: Optional[str] = Field(None, example="123456")
     prompt_image: Optional[str] = Field(None, example="prompt_user")
     description: Optional[str] = Field(None, example="description")
+    event_init: Optional[str] = Field(None, example="event_init")
+    event_end: Optional[str] = Field(None, example="event_end")
 
 
 class ResponseModelStr(BaseModel):
@@ -63,6 +65,8 @@ class SchemaRetrieveGameStr(ResponseModelStr):
     prompt_image: Optional[str] = Field(None, example="prompt_user")
     description: Optional[str] = Field(None, example="description")
     is_active: Optional[bool] = Field(False, example=True)
+    event_init: Optional[str] = Field(None, example="event_init")
+    event_end: Optional[str] = Field(None, example="event_end")
 
 
 class SchemaListGame(BaseModel):

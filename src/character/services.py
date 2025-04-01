@@ -657,10 +657,11 @@ async def answer_open_question_service(
         criteria = {}
         for location in state_element_db['data']['interaction']:
             if location["location_id"] == location_id:
-                criteria["question"] = location["options_dialog"]["prompt_user_question"][-1][
-                    "dialog"
-                ]
+                all_dialogs = []
+                for question in location["options_dialog"]["prompt_user_question"]:
+                    all_dialogs.append(question["dialog"])
 
+                criteria["question"] = [question["dialog"] for question in location["options_dialog"]["prompt_user_question"]]
                 options_answer = []
                 for criteria_db in location["options_dialog"]["options"]:
                     if criteria_db["prompt_user_guideline"] and criteria_db["prompt_user_answer"]:

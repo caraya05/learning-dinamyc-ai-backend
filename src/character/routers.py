@@ -192,6 +192,7 @@ async def create_character(
         )
         return character_db
     except Exception as e:
+        print(traceback.print_exc())
         print(f"error in create character: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

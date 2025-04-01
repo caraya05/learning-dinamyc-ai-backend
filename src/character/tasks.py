@@ -828,7 +828,7 @@ async def identify_prompt_conversation(_prompt_dialog, _user_id):
                 {
                     "role": "system",
                     "content": "Identifica si el texto es una conversación, respondiendo con un valor booleano."
-                               "para saber si es una conversación o no, si tiene la siquiente estructura: "
+                               "para saber si es una conversación o no, si tiene la siquiente estructura por ejemplo: "
                                "1. hello. how are you?"
                                + "2. hello, well how are you?"
                                + "es una conversación.",
@@ -843,7 +843,7 @@ async def identify_prompt_conversation(_prompt_dialog, _user_id):
                     ],
                 },
             ],
-            model="gpt-4o-mini-2024-07-18",
+            model="gpt-4o-mini",
             max_tokens=500,
             response_format=SchemaCharacterConversationPrompt,
             user_id=_user_id,
@@ -863,6 +863,9 @@ async def generate_option_character(
     character_principal_db = await db["character"].find_one(
         {"_id": ObjectId(game_db["character_principal"])}
     )
+    if not character_principal_db:
+        print(f"Error not found character principal: {game_db['character_principal']}")
+        return False
     character_other_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
     element_state_db = await db["state_glic"].find_one(
         {"element_id": _character_id, "state": _state_game_id}
@@ -1036,6 +1039,7 @@ async def generate_option_character(
             ] = conversation_
 
         except Exception as e:
+            print(traceback.format_exc())
             print(f"Error in generating character option (answer): {str(e)}")
             return False
 
@@ -1148,6 +1152,7 @@ async def generate_open_question_character(
                 for dialog in response.conversation
             ]
             element_state_db["data"]['options_dialog']['prompt_user_question'] = conversation_
+
         else:
             # response = await openai_generator.generate_gpt(
             #     content_prompt=[
@@ -1216,15 +1221,11 @@ async def generate_open_question_character(
 
             conversation_ = {
                 "id_character": str(character_other_db["_id"]),
-                "dialog": element_state_db['data']['options_dialog']['options'][option][
-                    'prompt_user_answer'
-                ],
+                "dialog": element_state_db['data']['options_dialog']['options'][option]['prompt_user_answer'],
                 "audio": None,
             }
 
-            element_state_db["data"]['options_dialog']['options'][option][
-                'prompt_user_answer'
-            ] = conversation_
+            element_state_db["data"]['options_dialog']['options'][option]['prompt_user_answer'] = conversation_
 
         except Exception as e:
             print(f"Error in generating character option (answer): {str(e)}")

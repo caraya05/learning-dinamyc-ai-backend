@@ -187,6 +187,7 @@ async def get_first_5_records_by_user(user_id: str):
         {"$sort": {"created_at": -1}},
         {"$group": {"_id": "$game_id", "latest_record": {"$first": "$$ROOT"}}},
         {"$replaceRoot": {"newRoot": "$latest_record"}},
+        {"$sort": {"created_at": -1}},  # Add a second sort after grouping
         {"$limit": 5},
     ]
     result = await db['record_game'].aggregate(pipeline).to_list(None)
