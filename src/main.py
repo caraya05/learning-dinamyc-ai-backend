@@ -29,6 +29,7 @@ from voice import routers as voice_routers
 from shortener import routers as shortener_routers
 from task import routers as task_routers
 from event import routers as event_routers
+from event import routers_admin as event_routers_admin
 from state_game import routers as state_game_routers
 from contextlib import asynccontextmanager
 from config import settings
@@ -149,10 +150,9 @@ admin.include_router(user_admin_routers.router)
 admin.include_router(stats_routers.router)
 admin.include_router(game_admin_routers.router_admin)
 admin.include_router(location_admin_routers.router)
-
 admin.include_router(character_admin_routers.router)
-
 admin.include_router(game_pending_admin_routers.router)
 admin.include_router(configuration_admin_routers.router)
+admin.include_router(event_routers_admin.router)
 
 app.mount("/v1/admin", admin)

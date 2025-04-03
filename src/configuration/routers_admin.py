@@ -28,15 +28,18 @@ async def update_photo_user(
     user_db: dict = Depends(auth_admin),
     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
-
-    print(f"sectino: {section}, format: {format}, file: {file}")
     file_content = await file.read()
+
+    if section in ["events", "games"]:
+        size_image = (512, 896)
+    else:
+        size_image = (512, 512)
 
     if format in ["jpg", "jpeg", "png"]:
         url = upload_image(
             image_content_type=file_content,
             file_name=f"{section}/{uuid4()}.{format}",
-            size=(512, 512),
+            size=size_image,
         )
     elif format in ["ogg", "mp3"]:
         audio_segment = AudioSegment.from_file(BytesIO(file_content), format=format)

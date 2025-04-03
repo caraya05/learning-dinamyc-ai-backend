@@ -33,6 +33,21 @@ class SchemaCreateEvent(BaseModel):
     game_id: str = Field(..., example="game_id")
 
 
+class SchemaCreateEventAdmin(BaseModel):
+    name: Optional[str] = Field(None, example="Event Name")
+    prompt_user_image: Optional[str] = Field(None, example="prompt_user_image.jpg")
+    prompt_user_text: Optional[str] = Field(None, example="prompt_user_test")
+    character_id: Optional[str] = Field(None, example="character_id")
+    type_conversation: Optional[str] = Field(None, example="conversation_type")
+    option_number: Optional[int] = Field(None, example=1)
+    state_game_init: Optional[str] = Field(None, example="state_game")
+    state_game_end: Optional[str] = Field(None, example="state_game")
+    location_state_game_init: Optional[str] = Field(None, example="location_state_game")
+    location_state_game_end: Optional[str] = Field(None, example="location_state_game")
+    game_id: str = Field(..., example="game_id")
+    image: Optional[str] = Field(None, example="prompt_user_image.jpg")
+
+
 class SchemaUpdateEvent(BaseModel):
     name: Optional[str] = Field(None, example="Event Name")
     prompt_user_image: Optional[str] = Field(None, example="prompt_user_image.jpg")
@@ -44,6 +59,19 @@ class SchemaUpdateEvent(BaseModel):
     state_game_end: Optional[str] = Field(None, example="state_game")
     location_state_game_init: Optional[str] = Field(None, example="location_state_game")
     location_state_game_end: Optional[str] = Field(None, example="location_state_game")
+
+class SchemaUpdateEventAdmin(BaseModel):
+    name: Optional[str] = Field(None, example="Event Name")
+    prompt_user_image: Optional[str] = Field(None, example="prompt_user_image.jpg")
+    prompt_user_text: Optional[str] = Field(None, example="prompt_user_test")
+    character_id: Optional[str] = Field(None, example="character_id")
+    type_conversation: Optional[str] = Field(None, example="conversation_type")
+    option_number: Optional[int] = Field(None, example=1)
+    state_game_init: Optional[str] = Field(None, example="state_game")
+    state_game_end: Optional[str] = Field(None, example="state_game")
+    location_state_game_init: Optional[str] = Field(None, example="location_state_game")
+    location_state_game_end: Optional[str] = Field(None, example="location_state_game")
+    image: Optional[str] = Field(None, example="prompt_user_image.jpg")
 
 
 class SchemaRetrieveEvent(BaseModel):
