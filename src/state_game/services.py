@@ -40,7 +40,6 @@ async def get_state_game_by_game_id(game_id: str) -> dict:
     state_game = await db["state_game"].find_one({"game_id": game_id, "order": 1})
     if state_game:
         state_game["_id"] = str(state_game["_id"])
-        print("state_game", state_game)
         return state_game
 
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="StateGame not found")

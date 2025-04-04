@@ -1,5 +1,7 @@
 from bson import ObjectId
 import traceback
+
+from state_game.services import get_state_game_by_game_id
 from task.services import update_task_service
 from utils import upload_image
 from openai import BaseModel
@@ -28,6 +30,13 @@ async def generate_image_event(
         if not game_db:
             print("Error game not found")
             return False, "Game not found"
+
+        if not state_game:
+            state_game_db = await get_state_game_by_game_id(game_id)
+            if not state_game_db:
+                print("Error state game not found")
+                return False, "State game not found"
+            state_game = state_game_db["_id"]
 
         state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
         if not state_game_db:
