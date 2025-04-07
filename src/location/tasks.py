@@ -304,7 +304,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
         )
         image_generated = upload_image(
             url_image=image_location,
-            file_name=f"characters/{uuid4()}.jpg",
+            file_name=f"locations/{uuid4()}.jpg",
             size=(2436, 1372),
         )
         # await db['location'].update_one(

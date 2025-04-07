@@ -32,6 +32,8 @@ async def update_photo_user(
 
     if section in ["events", "games"]:
         size_image = (512, 896)
+    elif section == "locations":
+        size_image = (2436, 1372)
     else:
         size_image = (512, 512)
 
