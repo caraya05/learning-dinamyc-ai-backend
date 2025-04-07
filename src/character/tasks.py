@@ -555,7 +555,7 @@ async def generate_character_personalization(_character_id, _user_id, _state_gam
                     "content": f"Analiza cuidadosamente la imagen proporcionada y detecta los colores de las diferentes partes del personaje que se indican. "
                                f"Debes proporcionar una descripción muy detallada de los colores, incluyendo tonos y matices específicos. "
                                f"Las partes del personaje a analizar son: {str(body_type_db['personalization'])} "
-                               f"Asegúrate de ser lo más preciso posible en la definición de los colores,"
+                               f"Asegúrate de ser lo más preciso posible en la definición de los colores, describe colores pastel u oscurecidos,"
                                f"si hay section que tengas equal deben tener el mismo color de es seccion.",
                 },
                 {
@@ -587,7 +587,7 @@ async def generate_character_personalization(_character_id, _user_id, _state_gam
                     "role": "system",
                     "content": "Eres un generador de personalización de personajes, "
                                "debes generar una lista de personalización de personajes, "
-                               "como colores., y los colores deben estar en formato hexadecimal.",
+                               "como colores. describe colores pastel u oscurecidos, y los colores deben estar en formato hexadecimal.",
                 },
                 {
                     "role": "user",
