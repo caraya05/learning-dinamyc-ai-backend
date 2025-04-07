@@ -14,6 +14,7 @@ from utils import upload_image, upload_audio
 
 from io import BytesIO
 from pydub import AudioSegment
+from PIL import Image
 
 router = APIRouter(prefix="/configuration", tags=["Configuration"])
 
@@ -29,13 +30,21 @@ async def update_photo_user(
     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     file_content = await file.read()
+    image = Image.open(BytesIO(file_content))
+    original_width, original_height = image.size
 
     if section in ["events", "games"]:
-        size_image = (512, 896)
+        new_width = 512
     elif section == "locations":
-        size_image = (2436, 1372)
+        new_width = 2436
     else:
-        size_image = (512, 512)
+        new_width = 512
+
+    ratio = new_width / original_width
+    new_height = int(original_height * ratio)
+    size_image = (new_width, new_height)
+
+    print(f"size_image: {size_image}")
 
     if format in ["jpg", "jpeg", "png"]:
         url = upload_image(
