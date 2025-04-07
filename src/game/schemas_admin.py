@@ -12,6 +12,6 @@ class SchemaUpdateGame(BaseModel):
     is_active: bool = Field(default=None, example=True)
     image: str = Field(None, example="image")
     created_at: datetime = Field(default_factory=datetime.utcnow)
-    created_by: str = Field(default="system", example="system")
+    created_by: str = Field(default=None, example="system")
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_by: str = Field(default="system", example="system")
+    updated_by: str = Field(default=None, example="system")
