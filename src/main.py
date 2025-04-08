@@ -21,6 +21,7 @@ from game import routers_stats as stats_routers
 from game import routers_admin as game_pending_admin_routers
 from game import routers_admin as game_admin_routers
 from object import routers as object_routers
+from object import routers_admin as object_admin_routers
 from location import routers as location_routers
 from location import routers_admin as location_admin_routers
 from character import routers as character_routers
@@ -154,5 +155,6 @@ admin.include_router(character_admin_routers.router)
 admin.include_router(game_pending_admin_routers.router)
 admin.include_router(configuration_admin_routers.router)
 admin.include_router(event_routers_admin.router)
+admin.include_router(object_admin_routers.router)
 
 app.mount("/v1/admin", admin)

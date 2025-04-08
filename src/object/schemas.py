@@ -104,6 +104,24 @@ class SchemaRetrieveObject(ResponseModel):
     class Config:
         orm_mode = True
 
+class SchemaRetrieveObjectAdmin(ResponseModel):
+    """
+    Schema for retrieving a objective.
+
+    Attributes:
+    id (int): The id of the objective.
+    title (str): The title of the objective.
+    description (str): The description of the objective.
+    """
+
+    game_id: Optional[str] = None
+    task_id: Optional[str] = None
+    status: Optional[int] = 1
+    data: Optional[list[SchemaStateLocation]]
+
+    class Config:
+        orm_mode = True
+
 
 class SchemaRetrieveObjectStr(ResponseModelStr):
     """
@@ -119,6 +137,45 @@ class SchemaRetrieveObjectStr(ResponseModelStr):
     task_id: Optional[str] = None
     status: Optional[int] = 1
     state_game: Optional[list[SchemaStateLocation]] = []
+
+    class Config:
+        orm_mode = True
+
+
+class SchemaRetrieveObjectStrAdmin(ResponseModelStr):
+    """
+    Schema for retrieving a objective.
+
+    Attributes:
+    id (int): The id of the objective.
+    title (str): The title of the objective.
+    description (str): The description of the objective.
+    """
+
+    game_id: Optional[str] = None
+    task_id: Optional[str] = None
+    status: Optional[int] = 1
+    data: Optional[SchemaStateLocation] = {}
+    created_by: Optional[str] = None
+    updated_by: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        orm_mode = True
+
+
+class SchemaListObjectAdmin(BaseModel):
+    """
+    Schema for listing objectives.
+
+    Attributes:
+    results (list[SchemaRetrieveObject]): The list of objectives.
+    count (int): The number of objectives.
+    """
+
+    results: list[SchemaRetrieveObjectStrAdmin]
+    count: int
 
     class Config:
         orm_mode = True
@@ -157,6 +214,21 @@ class SchemaCreateItem(BaseModel):
     game_id: Optional[str] = None
     state_game: Optional[str] = None
     location_id: Optional[str] = None
+
+
+class SchemaCreateItemAdmin(BaseModel):
+    """
+    Schema for creating a new objective.
+
+    Attributes:
+    title (str): The title of the objective.
+    description (Optional[str]): The description of the objective.
+    image (Optional[str]): The image of the objective.
+    """
+
+    name: Optional[str] = None
+    image: Optional[str] = None
+    state: Optional[str] = None
 
 
 class ObjectLocationModel(BaseModel):

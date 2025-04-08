@@ -95,7 +95,6 @@ async def get_characters_service_admin(skip: int = 0, limit: int = 1000000):
     ]
 
     characters_db = await db["character"].aggregate(pipeline).to_list(None)
-    print(len(characters_db))
     for character in characters_db:
         character["_id"] = str(character["_id"])
         if "data" in character and character["data"]:
@@ -109,30 +108,6 @@ async def create_character_service_admin(character: SchemaAdminCreateCharacter, 
         character_db.created_by = user_id
         character_db.updated_by = user_id
         character_created = await db["character"].insert_one(character_db.dict())
-        #
-        # task_db = await create_task_service(
-        #     _task_id="",
-        #     _user_id=user_id,
-        #     _task_data={},
-        #     _element_id=str(character_created.inserted_id),
-        #     _element_type="character",
-        #     _process="create_character",
-        # )
-        #
-        # task_celery = generate_character_task.delay(
-        #     _character_id=str(character_created.inserted_id),
-        #     _user_id=user_id,
-        #     _task_id=str(task_db["_id"]),
-        # )
-        # await update_task_service(
-        #     _id=str(task_db["_id"]),
-        #     _task_id=task_celery.id,
-        # )
-        #
-        # await db["character"].update_one(
-        #     {"_id": character_created.inserted_id},
-        #     {"$set": {"tasks_request": [str(task_db["_id"])]}},
-        # )
 
         if character_db := await db["character"].find_one({"_id": character_created.inserted_id}):
             return character_db
