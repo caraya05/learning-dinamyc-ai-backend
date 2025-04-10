@@ -82,6 +82,8 @@ async def generate_voice_character(
         character_state_db["data"]["voice_id"] = str(voice["voice_id"])
         character_state_db["data"]["prompt_user_dialog"] = prompt_user_dialog
         character_state_db["data"]["conversation_type"] = type_conversation
+        character_state_db["data"]["options"] = options_dialog["options"] if options_dialog.get("options") else None
+        character_state_db["data"]["prompt_user_question"] = options_dialog["prompt_user_question"] if options_dialog.get("prompt_user_question") else None
         character_state_db["data"]["options_dialog"] = options_dialog
         if character_state_db["data"].get("locations_id"):
             locations_array = character_state_db["data"]["locations_id"]
@@ -556,7 +558,7 @@ async def generate_character_personalization(_character_id, _user_id, _state_gam
                                f"Debes proporcionar una descripción muy detallada de los colores, incluyendo tonos y matices específicos. "
                                f"Las partes del personaje a analizar son: {str(body_type_db['personalization'])} "
                                f"Asegúrate de ser lo más preciso posible en la definición de los colores, describe colores pastel u oscurecidos,"
-                               f"si hay section que tengas equal deben tener el mismo color de es seccion.",
+                               f"si hay section que tengas 'equal' deben tener el mismo color de es seccion o prenda.",
                 },
                 {
                     "role": "user",
@@ -567,9 +569,9 @@ async def generate_character_personalization(_character_id, _user_id, _state_gam
                         },
                         {
                             "type": "text",
-                            "text": f"nombre del personaje: {element_state_db['data']['name']} y descripción del personaje por "
-                                    f"parte del usuario: {element_state_db['data']['prompt_user']}"
-                                    f"partes del personaje a analizar:{str(body_type_db['personalization'])}",
+                            "text": f"nombre del personaje: {element_state_db['data']['name']} , descripción del personaje por "
+                                    f"parte del usuario: {element_state_db['data']['prompt_user']} y descripción del personaje por "
+                                    f"parte de la IA: {element_state_db['data']['description']}",
                         }
                     ],
                 },
@@ -594,7 +596,7 @@ async def generate_character_personalization(_character_id, _user_id, _state_gam
                     "content": [
                         {
                             "type": "text",
-                            "text": f"analisis de la imagen del personaje: {response_analyze},"
+                            "text": f"analisis de colores de la imagen del personaje: {response_analyze},"
                                     f"partes del personaje a analizar:{str(body_type_db['personalization'])}",
                         },
                     ],
@@ -610,13 +612,13 @@ async def generate_character_personalization(_character_id, _user_id, _state_gam
         response_result = []
         if response.personalization:
             for personalization in response.personalization:
-                for personalization_db in body_type_db["personalization"]:
-                    if personalization.section == personalization_db["section"]:
-                        if personalization.color:
-                            response_result.append(personalization.dict())
-                        else:
-                            personalization.color = "#000000"
-                            response_result.append(personalization.dict())
+                matching_section = next(
+                    (p_db for p_db in body_type_db["personalization"] if p_db["section"] == personalization.section),
+                    None
+                )
+                if matching_section:
+                    personalization.color = personalization.color or "#000000"
+                    response_result.append(personalization.dict())
 
         element_state_db["data"]["personalization"] = response_result
 
@@ -1056,6 +1058,8 @@ async def generate_option_character(
             interaction["options_dialog"] = element_state_db["data"]["options_dialog"]
             interaction["prompt_user_dialog"] = None
             interaction["type_conversation"] = "option_multiple"
+            interaction["options"] = element_state_db["data"]["options"]
+            interaction["prompt_user_question"] = element_state_db["data"]["prompt_user_question"]
             interaction_exists = True
             break
 
@@ -1066,6 +1070,8 @@ async def generate_option_character(
                 "state_game": _state_game_id,
                 "type_conversation": "option_multiple",
                 "prompt_user_dialog": None,
+                "options": element_state_db["data"]["options"],
+                "prompt_user_question": element_state_db["data"]["prompt_user_question"],
                 "options_dialog": element_state_db["data"]["options_dialog"],
             }
         )
@@ -1244,6 +1250,8 @@ async def generate_open_question_character(
             interaction["options_dialog"] = element_state_db["data"]["options_dialog"]
             interaction["prompt_user_dialog"] = None
             interaction["type_conversation"] = "open_question"
+            interaction["options"] = element_state_db["data"]["options"]
+            interaction["prompt_user_question"] = element_state_db["data"]["prompt_user_question"]
             interaction_exists = True
             break
 
@@ -1254,6 +1262,8 @@ async def generate_open_question_character(
                 "state_game": _state_game_id,
                 "type_conversation": "open_question",
                 "prompt_user_dialog": None,
+                "options": element_state_db["data"]["options"],
+                "prompt_user_question": element_state_db["data"]["prompt_user_question"],
                 "options_dialog": element_state_db["data"]["options_dialog"],
             }
         )
@@ -1444,6 +1454,16 @@ async def async_generate_character_task(
         {"element_id": _character_id, "state": _state_game_id}
     )
 
+    detection_personalization = await generate_character_personalization(
+        _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
+    )
+
+    if not detection_personalization:
+        await update_task_service(
+            _id=_task_id, _status="failed", _message="Error in generate character personalization"
+        )
+        return "Error in generate character personalization"
+
     voice_generated = await generate_voice_character(
         game_id=_game_id,
         character_id=_character_id,
@@ -1460,16 +1480,6 @@ async def async_generate_character_task(
             _id=_task_id, _status="failed", _message="Error voice not generated"
         )
         return "Error voice not generated"
-
-    detection_personalization = await generate_character_personalization(
-        _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
-    )
-
-    if not detection_personalization:
-        await update_task_service(
-            _id=_task_id, _status="failed", _message="Error in generate character personalization"
-        )
-        return "Error in generate character personalization"
 
     await update_task_service(
         _id=_task_id, _status="completed", _message="Character generate successfully"
