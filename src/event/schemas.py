@@ -31,6 +31,7 @@ class SchemaCreateEvent(BaseModel):
     location_state_game_init: Optional[str] = Field(None, example="location_state_game")
     location_state_game_end: Optional[str] = Field(None, example="location_state_game")
     game_id: str = Field(..., example="game_id")
+    is_final: Optional[bool] = Field(default=False, example=False)
 
 
 class SchemaCreateEventAdmin(BaseModel):
@@ -59,6 +60,7 @@ class SchemaUpdateEvent(BaseModel):
     state_game_end: Optional[str] = Field(None, example="state_game")
     location_state_game_init: Optional[str] = Field(None, example="location_state_game")
     location_state_game_end: Optional[str] = Field(None, example="location_state_game")
+    is_final: Optional[bool] = Field(default=False, example=False)
 
 class SchemaUpdateEventAdmin(BaseModel):
     name: Optional[str] = Field(None, example="Event Name")
@@ -94,6 +96,7 @@ class SchemaRetrieveEvent(BaseModel):
     game_id: str = Field(None, example="game_id")
     character_id: str = Field(None, example="character_id")
     task_id: str = Field(None, example="task_id")
+    is_final: Optional[bool] = Field(default=False, example=False)
 
     class Config:
         json_encoders = {ObjectId: str}

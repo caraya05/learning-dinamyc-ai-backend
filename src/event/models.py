@@ -24,3 +24,4 @@ class Event(BaseModel):
     created_by: str = Field(default="system", example="system")
     updated_at: Optional[datetime] = Field(default_factory=datetime.utcnow)
     updated_by: str = Field(default="system", example="system")
+    is_final: Optional[bool] = Field(default=False, example=False)
