@@ -78,7 +78,7 @@ class SchemaUpdateEventAdmin(BaseModel):
 
 class SchemaRetrieveEvent(BaseModel):
     id: PyObjectId = Field(alias="_id")
-    name: str = Field(..., example="Event Name")
+    name: str = Field(None, example="Event Name")
     prompt_user_image: str = Field(None, example="prompt_user_image.jpg")
     prompt_user_text: str = Field(None, example="prompt_user_test")
     type_conversation: str = Field(None, example="conversation_type")
