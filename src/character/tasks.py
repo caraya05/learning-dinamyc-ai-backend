@@ -82,8 +82,8 @@ async def generate_voice_character(
         character_state_db["data"]["voice_id"] = str(voice["voice_id"])
         character_state_db["data"]["prompt_user_dialog"] = prompt_user_dialog
         character_state_db["data"]["conversation_type"] = type_conversation
-        character_state_db["data"]["options"] = options_dialog["options"] if options_dialog.get("options") else None
-        character_state_db["data"]["prompt_user_question"] = options_dialog["prompt_user_question"] if options_dialog.get("prompt_user_question") else None
+        character_state_db["data"]["options"] = options_dialog["options"] if options_dialog and options_dialog.get("options") else None
+        character_state_db["data"]["prompt_user_question"] = options_dialog["prompt_user_question"] if options_dialog and options_dialog.get("prompt_user_question") else None
         character_state_db["data"]["options_dialog"] = options_dialog
         if character_state_db["data"].get("locations_id"):
             locations_array = character_state_db["data"]["locations_id"]
