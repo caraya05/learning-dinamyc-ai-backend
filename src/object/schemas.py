@@ -5,6 +5,8 @@ from pydantic import BaseModel
 from pydantic import Field
 from typing import Optional
 
+from character.enums import TypeConversation
+from character.schemas import SchemaOpenAnswer
 from core import PyObjectId
 
 
@@ -68,7 +70,9 @@ class SchemaCreateObject(BaseModel):
     game_id: Optional[str] = None
     location_id: Optional[str] = None
     state_game: Optional[str] = None
-
+    conversation_type: str = Field(TypeConversation.ONE_WAY_CONVERSATION, example=TypeConversation.NONE_CONVERSATION)
+    options_dialog: Optional[SchemaOpenAnswer] = Field(None, example={"key": "value"})
+    is_final: Optional[bool] = Field(None, example=False)
 
 class SchemaPartialUpdateObject(SchemaCreateObject):
     """
@@ -214,7 +218,9 @@ class SchemaCreateItem(BaseModel):
     game_id: Optional[str] = None
     state_game: Optional[str] = None
     location_id: Optional[str] = None
-
+    conversation_type: str = Field(TypeConversation.ONE_WAY_CONVERSATION, example=TypeConversation.NONE_CONVERSATION)
+    options_dialog: Optional[SchemaOpenAnswer] = Field(None, example={"key": "value"})
+    is_final: Optional[bool] = Field(None, example=False)
 
 class SchemaCreateItemAdmin(BaseModel):
     """

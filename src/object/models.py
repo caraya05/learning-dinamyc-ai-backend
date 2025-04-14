@@ -4,6 +4,9 @@ from pydantic import BaseModel
 from pydantic import Field
 from datetime import datetime
 
+from character.enums import TypeConversation
+from character.schemas import SchemaOpenAnswer
+
 
 class Object(BaseModel):
     game_id: Optional[str] = Field(None, example="123")
@@ -25,3 +28,6 @@ class ObjectGLIC(BaseModel):
     location_id: Optional[str] = Field(None, example="123")
     game_id: Optional[str] = Field(None, example="123")
     is_active: bool = Field(default=True, example=True)
+    conversation_type: str = Field(TypeConversation.ONE_WAY_CONVERSATION, example=TypeConversation.NONE_CONVERSATION)
+    options_dialog: Optional[SchemaOpenAnswer] = Field(None, example={"key": "value"})
+    interaction: Optional[list[dict]] = Field([], example=[{"key": "value"}])

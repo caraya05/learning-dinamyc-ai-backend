@@ -19,3 +19,5 @@ class TypeConversation(Enum):
     NONE_CONVERSATION = "none"
     ONE_WAY_CONVERSATION = "one_way "
     TWO_WAY_CONVERSATION = "two_way "
+    OPEN_QUESTION = "open_question"
+    OPTION_MULTIPLE = "option_multiple"

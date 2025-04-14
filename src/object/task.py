@@ -64,7 +64,7 @@ class SchemaCharacterConversations(BaseModel):
 
 
 async def generate_conversation_item(
-    prompt_user_dialog: str, object_id: str, user_id: str, state_game_id: str, location_id: str
+        prompt_user_dialog: str, object_id: str, user_id: str, state_game_id: str, location_id: str
 ):
     try:
 
@@ -79,8 +79,8 @@ async def generate_conversation_item(
                 {
                     "role": "system",
                     "content": f" You are a character dialogue "
-                    + " conversation according to the json schema and the data provided by the user, and "
-                    f"correct the spelling of the dialogue text in the {language_detection} language.",
+                               + " conversation according to the json schema and the data provided by the user, and "
+                                 f"correct the spelling of the dialogue text in the {language_detection} language.",
                 },
                 {
                     "role": "user",
@@ -107,15 +107,6 @@ async def generate_conversation_item(
             for dialog in response.conversation
         ]
 
-        # await db["item"].update_one(
-        #     {"_id": ObjectId(object_id)},
-        #     {
-        #         "$set": {
-        #             "conversation": conversation_,
-        #         }
-        #     },
-        # )
-
         if element_state_db["data"].get("locations_id"):
             locations_array = element_state_db["data"]["locations_id"]
             locations_array.append(location_id)
@@ -130,8 +121,8 @@ async def generate_conversation_item(
 
         for interaction in element_state_db["data"]["interaction"]:
             if (
-                interaction["location_id"] == location_id
-                and interaction["state_game"] == state_game_id
+                    interaction["location_id"] == location_id
+                    and interaction["state_game"] == state_game_id
             ):
                 interaction["conversation"] = conversation_
                 interaction_exists = True
@@ -157,13 +148,95 @@ async def generate_conversation_item(
         return False
 
 
+async def generate_open_question_item(_object_id: str, _user_id: str, _state_game_id: str, _location_id):
+    element_state_db = await db['state_glic'].find_one(
+        {"element_id": _object_id, "state": _state_game_id}
+    )
+
+    language_detection = await generate_language_detection(
+        element_state_db['data']['options_dialog'], _user_id
+    )
+
+    try:
+
+        element_state_db["data"]["prompt_user_question"] = element_state_db["data"]["options_dialog"]["prompt_user_question"]
+
+        element_state_db["data"]["options"] = element_state_db["data"]["options_dialog"]["options"]
+
+        conversation_ = [
+            {
+                "id_character": str(element_state_db["data"]["element_id"]),
+                "dialog": element_state_db['data']['options_dialog']['prompt_user_question'],
+                "audio": None,
+            }
+        ]
+
+        element_state_db["data"]["options_dialog"]["prompt_user_question"] = conversation_
+
+        for option in range(len(element_state_db["data"]['options_dialog']['options'])):
+            conversation_option = {
+                "id_character": str(element_state_db["data"]["element_id"]),
+                "dialog": element_state_db['data']['options_dialog']['options'][option]["prompt_user_answer"],
+                "audio": None,
+            }
+
+            element_state_db["data"]["options_dialog"]["options"][option]["prompt_user_answer"] = conversation_option
+
+    except Exception as e:
+        print(traceback.format_exc())
+        return False
+
+    interaction_exists = False
+
+    if "interaction" not in element_state_db["data"]:
+        element_state_db["data"]["interaction"] = []
+
+    for interaction in element_state_db["data"]["interaction"]:
+        if (
+                interaction["location_id"] == _location_id
+                and interaction["state_game"] == _state_game_id
+        ):
+            interaction["options_dialog"] = element_state_db["data"]["options_dialog"]
+            interaction["prompt_user_dialog"] = None
+            interaction["type_conversation"] = "open_question"
+            interaction["options"] = element_state_db["data"]["options"]
+            interaction["prompt_user_question"] = element_state_db["data"]["prompt_user_question"]
+            interaction_exists = True
+            break
+
+    if not interaction_exists:
+        element_state_db["data"]["interaction"].append(
+            {
+                "location_id": _location_id,
+                "state_game": _state_game_id,
+                "options_dialog": element_state_db["data"]["options_dialog"],
+                "prompt_user_dialog": None,
+                "type_conversation": "open_question",
+                "options": element_state_db["data"]["options"],
+                "prompt_user_question": element_state_db["data"]["prompt_user_question"],
+            }
+        )
+
+    try:
+        await db['state_glic'].update_one(
+            {"_id": element_state_db["_id"]},
+            {"$set": {"data": element_state_db["data"]}}
+        )
+
+        return True
+    except Exception as e:
+        print(traceback.format_exc())
+        print(f"Error in generate open question: {str(e)}")
+        return False
+
+
 async def async_generate_item(
-    item_id: str,
-    _user_id: str,
-    _task_id: str,
-    _location_id: str,
-    _state_game_id: str,
-    _game_id: str,
+        item_id: str,
+        _user_id: str,
+        _task_id: str,
+        _location_id: str,
+        _state_game_id: str,
+        _game_id: str,
 ):
     await update_task_service(_id=_task_id, _status="pending")
 
@@ -193,20 +266,36 @@ async def async_generate_item(
         )
         return message
 
-    conversation_item = await generate_conversation_item(
-        element_state_db["data"]["prompt_user_dialog"],
-        item_id,
-        _user_id,
-        _state_game_id,
-        _location_id,
-    )
-    if not conversation_item:
-        await update_task_service(
-            _id=_task_id,
-            _status="failed",
-            _message="Error in generate conversation item",
-        )
-        return f"Error in generate conversation item"
+    match element_state_db["data"]["conversation_type"]:
+        case "one_way":
+            conversation_item = await generate_conversation_item(
+                element_state_db["data"]["prompt_user_dialog"],
+                item_id,
+                _user_id,
+                _state_game_id,
+                _location_id,
+            )
+            if not conversation_item:
+                await update_task_service(
+                    _id=_task_id,
+                    _status="failed",
+                    _message="Error in generate conversation item",
+                )
+                return f"Error in generate conversation item"
+        case "open_question":
+            conversation_item = await generate_open_question_item(
+                _object_id=item_id,
+                _user_id=_user_id,
+                _state_game_id=_state_game_id,
+                _location_id=_location_id,
+            )
+            if not conversation_item:
+                await update_task_service(
+                    _id=_task_id,
+                    _status="failed",
+                    _message="Error in generate open question item",
+                )
+                return f"Error in generate open question item"
 
     await update_task_service(
         _id=_task_id, _status="completed", _message="Item generated successfully"
@@ -215,13 +304,13 @@ async def async_generate_item(
 
 
 async def async_updated_item(
-    item_id: str,
-    _user_id: str,
-    _task_id: str,
-    updated_prompt_user: bool,
-    updated_dialog: bool,
-    state_game_id: str,
-    _location_id: str,
+        item_id: str,
+        _user_id: str,
+        _task_id: str,
+        updated_prompt_user: bool,
+        updated_dialog: bool,
+        state_game_id: str,
+        _location_id: str,
 ):
     await update_task_service(_id=_task_id, _status="pending")
 
@@ -275,14 +364,13 @@ async def async_updated_item(
 
 
 async def async_generate_new_interaction_item(
-    _task_id: str,
-    _item_id: str,
-    _prompt_user_dialog,
-    _state_game_id: str,
-    location_id: str,
-    _user_id: str,
+        _task_id: str,
+        _item_id: str,
+        _prompt_user_dialog,
+        _state_game_id: str,
+        location_id: str,
+        _user_id: str,
 ):
-
     await update_task_service(_id=_task_id, _status="pending")
 
     item_db = await db['item'].find_one({"_id": ObjectId(_item_id)})
