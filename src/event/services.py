@@ -165,6 +165,8 @@ async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id:
             update_data["location_state_game_end"] = event.location_state_game_end
         if event.character_id:
             update_data["character_id"] = event.character_id
+        if event.is_final:
+            update_data["is_final"] = event.is_final
 
         await db["event"].update_one({"_id": ObjectId(event_id)}, {"$set": update_data})
         event_db = await db["event"].find_one({"_id": ObjectId(event_id)})
