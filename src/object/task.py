@@ -165,7 +165,7 @@ async def generate_open_question_item(_object_id: str, _user_id: str, _state_gam
 
         conversation_ = [
             {
-                "id_character": str(element_state_db["data"]["element_id"]),
+                "id_character": str(element_state_db["element_id"]),
                 "dialog": element_state_db['data']['options_dialog']['prompt_user_question'],
                 "audio": None,
             }
@@ -175,7 +175,7 @@ async def generate_open_question_item(_object_id: str, _user_id: str, _state_gam
 
         for option in range(len(element_state_db["data"]['options_dialog']['options'])):
             conversation_option = {
-                "id_character": str(element_state_db["data"]["element_id"]),
+                "id_character": str(element_state_db["element_id"]),
                 "dialog": element_state_db['data']['options_dialog']['options'][option]["prompt_user_answer"],
                 "audio": None,
             }

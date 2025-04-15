@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 
 from auth.auth import auth
 from auth.utils import auth_schema
+from character.schemas import SchemaResponseQuestionOpen
 
 from object.schemas import SchemaListObject, SchemaNewInteractionItem, SchemaDeactivateItem
 from object.schemas import SchemaCreateItem
@@ -18,7 +19,7 @@ from object.schemas import SchemaCreateObject
 from object.services import (
     get_objects_service,
     new_interaction_item_service,
-    deactivate_item_service,
+    deactivate_item_service, answer_open_question_service,
 )
 from object.services import create_item_service
 from object.services import update_item_service
@@ -208,3 +209,24 @@ async def disable_character(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Character not found",
         )
+
+
+@router.post("/answer/open-question/{item_id}/{location_id}/")
+async def answer_open_question(
+    item_id: str,
+    location_id: str,
+    answer: SchemaResponseQuestionOpen,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    character_db = await answer_open_question_service(
+        item_id=item_id,
+        location_id=location_id,
+        prompt_user_answer=answer.prompt_user_answer,
+        user_id=str(user_db.get("_id")),
+        state_game=answer.state_game,
+    )
+
+    return character_db
+
+

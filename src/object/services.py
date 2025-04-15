@@ -2,6 +2,7 @@ import traceback
 from datetime import datetime
 from bson import ObjectId
 from fastapi import HTTPException
+from pydantic import BaseModel, Field
 from starlette import status
 
 from core.database import db
@@ -211,6 +212,7 @@ async def create_item_service(schema: SchemaCreateObject, user_id: str):
             state_game = await get_state_game_by_game_id(schema.game_id)
 
         if state_game:
+            print("State game found ", object_created.inserted_id)
             await create_state_glic(
                 element_id=str(object_created.inserted_id),
                 type_element="item",
@@ -631,3 +633,105 @@ async def deactivate_item_service(item_id: str, state_game: str, active: bool):
         print(traceback.print_exc())
         print(f"Error in deactivate item service: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Item not deactivated.")
+
+
+class SchemaResponseOpenAnswer(BaseModel):
+    response_criteria: str = Field(description="Response answer")
+    audio: str = Field(description="Audio")
+    reason: str = Field(description="Reason")
+
+
+
+async def answer_open_question_service(
+        location_id: str,
+        item_id: str,
+        prompt_user_answer: str,
+        user_id: str,
+        state_game: str = None,
+):
+    item_db = await db["item"].find_one({"_id": ObjectId(item_id)})
+
+    if not item_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Item not found",
+        )
+
+    if not state_game:
+        state_game = await get_state_game_by_game_id(item_db["game_id"])
+        state_game = state_game["_id"]
+
+    state_element_db = await db["state_glic"].find_one(
+        {"element_id": item_id, "state": state_game}
+    )
+
+    if not state_element_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="State element not found",
+        )
+
+    try:
+        criteria = {}
+        for location in state_element_db['data']['interaction']:
+            if location["location_id"] == location_id:
+                all_dialogs = []
+                for question in location["options_dialog"]["prompt_user_question"]:
+                    all_dialogs.append(question["dialog"])
+
+                criteria["question"] = [question["dialog"] for question in location["options_dialog"]["prompt_user_question"]]
+                options_answer = []
+                for criteria_db in location["options_dialog"]["options"]:
+                    if criteria_db["prompt_user_guideline"] and criteria_db["prompt_user_answer"]:
+                        options_answer.append(
+                            {
+                                "criteria_evaluated": criteria_db["prompt_user_guideline"],
+                                "response_criteria": criteria_db["prompt_user_answer"]["dialog"],
+                                "audio": criteria_db["prompt_user_answer"]["audio"],
+                            }
+                        )
+
+                criteria["options_answer"] = options_answer
+        response = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": f"Eres un evaluador de respuestas de preguntas abiertas, "
+                               f"por favor evalúa la respuesta que da el usuario, respecto a un pregunta teniendo encuenta"
+                               f" la un criteria a evaluar y dando la respuesta de las opciones que tienes en criterios y respuestas,"
+                               f"no te puedes salir de las opciones que tienes en criterios y respuestas",
+                },
+                {
+                    "role": "system",
+                    "content": f"pregunta: {criteria['question']}"
+                               f"criterios a evaluar y respuestas: {criteria['options_answer']}",
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": f"respuesta del usuario: {prompt_user_answer}",
+                        },
+                    ],
+                },
+            ],
+            model="gpt-4o-mini-2024-07-18",
+            max_tokens=4096,
+            response_format=SchemaResponseOpenAnswer,
+            user_id=user_id,
+            type_generation="validate_open_answer",
+        )
+
+        return {
+            "detail": {
+                "response_answer": response.response_criteria,
+                "audio": response.audio,
+            }
+        }
+    except Exception as e:
+        print(f"Error in answer open question service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Answer not generated",
+        )
