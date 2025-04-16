@@ -10,7 +10,7 @@ from state_glic.models import StateGLIC
 
 
 async def create_state_glic(
-    element_id: str, type_element: str, state: str, created_by: str, order: int, data: dict = None
+        element_id: str, type_element: str, state: str, created_by: str, order: int, data: dict = None
 ) -> dict:
     state_glic = StateGLIC(
         element_id=element_id,
@@ -55,48 +55,32 @@ import traceback
 
 async def get_list_state_glic_by_element_id(element_id: str) -> list:
     try:
-        state_glic = await db["state_glic"].find({"element_id": element_id}).to_list(length=1000)
+        state_glic = await db["state_glic"].find({"element_id": element_id}).to_list(None)
         for j in range(len(state_glic)):
             state_glic[j]["_id"] = str(state_glic[j]["_id"])
-            if state_glic[j]["type_element"] == "character":
+            if state_glic[j]["type_element"] in ["character", "location", "item"]:
                 if state_glic[j]["data"].get("interaction", None):
                     for i in range(len(state_glic[j]["data"]["interaction"])):
                         print(state_glic[j]["data"]["interaction"][i])
                         if state_glic[j]["data"]["interaction"][i].get("type_conversation", None):
-                            if state_glic[j]["data"]["interaction"][i]["type_conversation"] in [
-                                "one_way",
-                                "two_way",
-                            ]:
+                            if state_glic[j]["data"]["interaction"][i]["type_conversation"] in ["one_way", "two_way"]:
                                 event_db = await db["event"].find_one(
                                     {
                                         "game_id": state_glic[j]["data"]["game_id"],
                                         "character_id": state_glic[j]["element_id"],
                                         "state_game_init": state_glic[j]["state"],
-                                        "location_state_game_init": state_glic[j]["data"][
-                                            "interaction"
-                                        ][i]["location_id"],
-                                        "type_conversation": state_glic[j]["data"]["interaction"][
-                                            i
-                                        ]["type_conversation"],
+                                        "location_state_game_init": state_glic[j]["data"]["interaction"][i][
+                                            "location_id"],
+                                        "type_conversation": state_glic[j]["data"]["interaction"][i][
+                                            "type_conversation"],
                                     }
                                 )
-                                if event_db and event_db["type_conversation"] in [
-                                    "one_way",
-                                    "two_way",
-                                ]:
-                                    state_glic[j]["data"]["interaction"][i]["event_id"] = str(
-                                        event_db["_id"]
-                                    )
-                            if state_glic[j]["data"]["interaction"][i]["type_conversation"] in [
-                                "open_question",
-                                "option_multiple",
-                            ]:
+                                if event_db and event_db["type_conversation"] in ["one_way", "two_way"]:
+                                    state_glic[j]["data"]["interaction"][i]["event_id"] = str(event_db["_id"])
+                            if (state_glic[j]["data"]["interaction"][i]["type_conversation"] in ["open_question",
+                                                                                                 "option_multiple"]):
                                 for k in range(
-                                    len(
-                                        state_glic[j]["data"]["interaction"][i]["options_dialog"][
-                                            "options"
-                                        ]
-                                    )
+                                        len(state_glic[j]["data"]["interaction"][i]["options_dialog"]["options"])
                                 ):
                                     type_conversation = (
                                         state_glic[j]["data"]["interaction"][i]["conversation_type"]
@@ -113,9 +97,7 @@ async def get_list_state_glic_by_element_id(element_id: str) -> list:
                                             "character_id": state_glic[j]["element_id"],
                                             "state_game_init": state_glic[j]["state"],
                                             "location_state_game_init": state_glic[j]["data"][
-                                                "interaction"
-                                            ][i]["location_id"],
-                                            "option_number": k,
+                                                "interaction"][i]["location_id"], "option_number": k,
                                             "type_conversation": type_conversation,
                                         }
                                     )
@@ -123,11 +105,8 @@ async def get_list_state_glic_by_element_id(element_id: str) -> list:
                                         "open_question",
                                         "option_multiple",
                                     ]:
-                                        state_glic[j]["data"]["interaction"][i]["options_dialog"][
-                                            "options"
-                                        ][event_db["option_number"]]["event_id"] = str(
-                                            event_db["_id"]
-                                        )
+                                        state_glic[j]["data"]["interaction"][i]["options_dialog"]["options"][
+                                            event_db["option_number"]]["event_id"] = str(event_db["_id"])
         return state_glic
     except Exception as e:
         print(f"Error: {str(e)}")

@@ -402,7 +402,6 @@ async def generate_image_character_service(character_id: str, user_id: str):
             {"_id": ObjectId(character_id)},
             {"$set": {"tasks_request": character_db["request_tasks"]}},
         )
-
         character_db["task_id"] = str(task_db["_id"])
         return character_db
     except Exception as e:
@@ -566,7 +565,7 @@ async def new_interaction_character_service(
         )
 
     if options_dialog:
-        options_dialog= options_dialog.dict()
+        options_dialog = options_dialog.dict()
 
     stage_element_db['data']['conversation_type'] = conversation_type
     stage_element_db['data']['prompt_user_dialog'] = prompt_user_dialog
@@ -661,7 +660,8 @@ async def answer_open_question_service(
                 for question in location["options_dialog"]["prompt_user_question"]:
                     all_dialogs.append(question["dialog"])
 
-                criteria["question"] = [question["dialog"] for question in location["options_dialog"]["prompt_user_question"]]
+                criteria["question"] = [question["dialog"] for question in
+                                        location["options_dialog"]["prompt_user_question"]]
                 options_answer = []
                 for criteria_db in location["options_dialog"]["options"]:
                     if criteria_db["prompt_user_guideline"] and criteria_db["prompt_user_answer"]:

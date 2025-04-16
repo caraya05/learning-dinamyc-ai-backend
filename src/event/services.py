@@ -50,7 +50,6 @@ async def create_event_service(event: SchemaCreateEvent, user_id: str):
         option_number=event.option_number,
         character_id=event.character_id,
         character_principal="",
-        item_id=event.item_id,
         state_game_init=event.state_game_init,
         state_game_end=event.state_game_end,
         location_state_game_init=event.location_state_game_init,

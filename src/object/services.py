@@ -17,6 +17,7 @@ from object.schemas import SchemaCreateItem
 from state_game.services import get_state_game_by_game_id
 from state_game.services import get_state_game_by_id
 from state_glic.services import create_state_glic
+from state_glic.services import get_list_state_glic_by_element_id
 
 from task.services import create_task_service
 from task.services import update_task_service
@@ -129,18 +130,7 @@ async def retrieve_object_service(object_id: str):
             if object_db:
                 element_state_db = await db["state_glic"].find_one({"element_id": object_id})
                 element_state_db["_id"] = str(element_state_db["_id"])
-                object_db["state_game"] = [element_state_db]
-                # item_characteristics = await db["object_location"].find(
-                #     {"item_id": object_id}).to_list(None)
-                # if item_characteristics:
-                #     for i in range(len(item_characteristics)):
-                #         del item_characteristics[i]["_id"]
-                #         del item_characteristics[i]["item_id"]
-                #         del item_characteristics[i]["updated_at"]
-                #         del item_characteristics[i]["updated_by"]
-                #         del item_characteristics[i]["created_at"]
-                #         del item_characteristics[i]["created_by"]
-                #     object_db["characteristics"] = item_characteristics
+                object_db["state_game"] = await get_list_state_glic_by_element_id(object_id)
             return object_db
     except Exception as e:
         print(f"Error in retrieve object service: {str(e)}")

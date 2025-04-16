@@ -24,7 +24,6 @@ class SchemaCreateEvent(BaseModel):
     prompt_user_image: Optional[str] = Field(None, example="prompt_user_image.jpg")
     prompt_user_text: Optional[str] = Field(None, example="prompt_user_test")
     character_id: Optional[str] = Field(None, example="character_id")
-    item_id: Optional[str] = Field(None, example="item_id")
     type_conversation: Optional[str] = Field(None, example="conversation_type")
     option_number: Optional[int] = Field(None, example=1)
     state_game_init: Optional[str] = Field(None, example="state_game")
