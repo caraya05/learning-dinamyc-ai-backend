@@ -36,6 +36,11 @@ class SchemaOpenQuestion(BaseModel):
     prompt_user_answer: str = Field(..., example="prompt_user_answer")
 
 
+class SchemaOpenTalk(BaseModel):
+    prompt_user_dialog: str = Field(..., example="prompt_user_dialog")
+    prompt_user_guideline: str = Field(..., example="prompt_user_guideline")
+
+
 class SchemaOpenAnswer(BaseModel):
     prompt_user_question: str = Field(..., example="prompt_user_question")
     options: list[SchemaOpenQuestion] = Field(..., example=[{"key": "value"}])
@@ -90,8 +95,17 @@ class SchemaCreateCharacter(BaseModel):
     prompt_user: str = Field(..., example="prompt_user")
     prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
     conversation_type: str = Field(..., example="conversation_type")
-    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(
-        None, example={"key": "value"}
+    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple | SchemaOpenTalk] = Field(
+        None, example={
+            "prompt_user_dialog": None,
+            "prompt_user_question": None,
+            "prompt_user_answer": None,
+            "options": [
+                {"prompt_user_guideline": None,
+                "prompt_user_answer": None}
+            ],
+            "prompt_user_guideline": None}
+
     )
     game_id: Optional[str] = Field(None, example="location_id")
     location_id: Optional[str] = Field(None, example="location_id")
@@ -127,7 +141,7 @@ class SchemaUpdateCharacterCollection(BaseModel):
     prompt_user: Optional[str] = Field(None, example="prompt_user")
     prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
     conversation_type: Optional[str] = Field(None, example="conversation_type")
-    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(
+    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple | SchemaOpenTalk] = Field(
         None, example={"key": "value"}
     )
     location_id: Optional[str] = Field(None, example="location_id")
@@ -161,7 +175,7 @@ class SchemaNewInteraction(BaseModel):
     game_id: str = Field(..., example="game_id")
     conversation_type: str = Field(..., example="conversation_type")
     prompt_user_dialog: str = Field(..., example="prompt_user_dialog")
-    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(
+    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple | SchemaOpenTalk] = Field(
         None, example={"key": "value"}
     )
     state_game: Optional[str] = Field(None, example="state_game")
@@ -204,3 +218,9 @@ class SchemaDeactivateCharacter(BaseModel):
 class SchemaResponseQuestionOpen(BaseModel):
     prompt_user_answer: str = Field(..., example="prompt_user_answer")
     state_game: Optional[str] = Field(None, example="state_game")
+
+
+class SchemaResponseTalkOpen(BaseModel):
+    prompt_user_answer: str = Field(..., example="prompt_user_answer")
+    state_game: Optional[str] = Field(None, example="state_game")
+    id_conversation: Optional[str] = Field(None, example="id_conversation")

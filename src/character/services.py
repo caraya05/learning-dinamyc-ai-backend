@@ -1,6 +1,7 @@
 import traceback
 from datetime import datetime
 
+import bson.objectid
 from bson import ObjectId
 from fastapi import HTTPException
 from fastapi import status
@@ -789,4 +790,148 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
         print(f"Error in deactivate character service: {e}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Character not deactivated."
+        )
+
+
+class SchemaResponseOpenTalk(BaseModel):
+    response_criteria: str = Field(description="Response answer")
+    reason: str = Field(description="Reason")
+
+
+async def answer_open_talk_service(
+        location_id: str,
+        character_id: str,
+        prompt_user_answer: str,
+        user_id: str,
+        state_game: str = None,
+        id_conversation: str = None,
+):
+    character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+
+    if not character_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Character not found",
+        )
+
+    if not state_game:
+        state_game = await get_state_game_by_game_id(character_db["game_id"])
+        state_game = state_game["_id"]
+
+    state_element_db = await db["state_glic"].find_one(
+        {"element_id": character_id, "state": state_game}
+    )
+
+    if not state_element_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="State element not found",
+        )
+
+    try:
+        # Crear un nuevo id de conversación si no existe
+        if not id_conversation:
+            response_user = await db["response_user"].insert_one({
+                "user_id": user_id,
+                "character_id": character_id,
+                "location_id": location_id,
+                "state_game": state_game,
+                "conversation": [
+                    {
+                        "user_question": prompt_user_answer,
+                        "ai_response": None
+                    }
+                ],
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            })
+        else:
+            # Actualizar la conversación existente
+            response_user = await db["response_user"].find_one({"_id": ObjectId(id_conversation)})
+            if not response_user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Response user not found",
+                )
+
+            conversation = response_user.get("conversation", [])
+            conversation.append({
+                "id_conversation": id_conversation,
+                "user_question": prompt_user_answer,
+                "ai_response": None
+            })
+
+            await db["response_user"].update_one(
+                {"_id": response_user["_id"]},
+                {"$set": {"conversation": conversation, "updated_at": datetime.utcnow()}}
+            )
+
+        # Enviar el contexto de la conversación a la IA
+        response_user = await db["response_user"].find_one({"_id": response_user["_id"]})
+        conversation_context = response_user.get("conversation", [])
+
+        criteria = {}
+        for location in state_element_db['data']['interaction']:
+            if location["location_id"] == location_id:
+                all_dialogs = []
+                for question in location["options_dialog"]["prompt_user_dialog"]:
+                    all_dialogs.append(question["dialog"])
+
+                criteria["question"] = [question["dialog"] for question in
+                                        location["options_dialog"]["prompt_user_dialog"]]
+                options_guideline = location["options_dialog"]["prompt_user_guideline"]
+
+                criteria["prompt_guideline"] = options_guideline
+
+        ai_response = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": f"Eres un evaluador de respuestas conversaciones, "
+                               f"por favor evalúa la respuesta que da el usuario, respecto a un pregunta teniendo encuenta"
+                               f" la un criteria a evaluar y la guion de respuesta que tienes,"
+                               f"no te puedes salir de la guion de respuesta que tienes,"
+                               f"ve conduciendo la conversación con el usuario segun el guión de respuesta que tienes,"
+                               f"la conversacion debe tener maximo de 5 turnos de conversación",
+                },
+                {
+                    "role": "system",
+                    "content": f"pregunta: {criteria['question']}"
+                               f"criterios a evaluar y respuestas: {criteria['prompt_guideline']}",
+                },
+                {
+                    "role": "system",
+                    "content": f"Contexto de la conversación: {conversation_context}, turno de conversación actual: {len(conversation_context)}",
+                },
+                {
+                    "role": "user",
+                    "content": prompt_user_answer
+                }
+            ],
+            model="gpt-4o-mini-2024-07-18",
+            max_tokens=4096,
+            response_format=SchemaResponseOpenTalk,
+            user_id=user_id,
+            type_generation="validate_open_talk",
+        )
+
+        # Actualizar la última respuesta de la IA en la conversación
+        await db["response_user"].update_one(
+            {"user_id": user_id, "character_id": character_id},
+            {"$set": {"conversation.$[elem].ai_response": ai_response.response_criteria}},
+            array_filters=[{"elem.id_conversation": id_conversation}]
+        )
+
+        return {
+            "detail": {
+                "response_answer": ai_response.response_criteria,
+                "audio": None,
+            }
+        }
+
+    except Exception as e:
+        print(f"Error in answer open talk service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error processing the conversation",
         )

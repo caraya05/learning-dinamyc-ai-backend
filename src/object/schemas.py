@@ -28,6 +28,7 @@ class SchemaStateData(BaseModel):
     type_item: Optional[str] = Field(None, example="type_item")
     image: Optional[str] = Field(None, example="image.jpg")
     interaction: Optional[list] = Field(None, example={"key": "value"})
+    conversation_type: Optional[str] = Field(None, example=TypeConversation.NONE_CONVERSATION)
     location_id: Optional[str] = Field(None, example="123")
     is_active: Optional[bool] = Field(None, example=True)
 

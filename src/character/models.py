@@ -7,7 +7,8 @@ from pydantic import BaseModel
 from character.enums import TypeCharacter
 from character.enums import GenderCharacter
 from character.enums import TypeConversation
-from character.schemas import SchemaOpenAnswer, SchemaOptionMultiple
+from character.schemas import SchemaOpenAnswer
+from character.schemas import SchemaOptionMultiple
 
 
 class Character(BaseModel):

@@ -15,7 +15,7 @@ from character.schemas import (
     SchemaUpdateCharacterCollection,
     SchemaNewInteraction,
     SchemaDeactivateCharacter,
-    SchemaResponseQuestionOpen,
+    SchemaResponseQuestionOpen, SchemaResponseTalkOpen,
 )
 from character.schemas import SchemaAddCharacterLocation
 from character.schemas import SchemaUpdatedCharacterLocation
@@ -28,7 +28,7 @@ from character.services import (
     get_characters_service,
     new_interaction_character_service,
     answer_open_question_service,
-    deactivate_character_service,
+    deactivate_character_service, answer_open_talk_service,
 )
 from character.services import generate_image_character_service
 from character.services import create_character_service
@@ -319,6 +319,27 @@ async def answer_open_question(
         prompt_user_answer=answer.prompt_user_answer,
         user_id=str(user_db.get("_id")),
         state_game=answer.state_game,
+    )
+
+    return character_db
+
+
+@router.post("/answer/open-talk/{character_id}/{location_id}/")
+async def answer_open_talk(
+    character_id: str,
+    location_id: str,
+    answer: SchemaResponseTalkOpen,
+    user_db: dict = Depends(auth),
+    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+
+    character_db = await answer_open_talk_service(
+        character_id=character_id,
+        location_id=location_id,
+        prompt_user_answer=answer.prompt_user_answer,
+        user_id=str(user_db.get("_id")),
+        state_game=answer.state_game,
+        id_conversation=answer.id_conversation,
     )
 
     return character_db

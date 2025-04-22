@@ -82,8 +82,10 @@ async def generate_voice_character(
         character_state_db["data"]["voice_id"] = str(voice["voice_id"])
         character_state_db["data"]["prompt_user_dialog"] = prompt_user_dialog
         character_state_db["data"]["conversation_type"] = type_conversation
-        character_state_db["data"]["options"] = options_dialog["options"] if options_dialog and options_dialog.get("options") else None
-        character_state_db["data"]["prompt_user_question"] = options_dialog["prompt_user_question"] if options_dialog and options_dialog.get("prompt_user_question") else None
+        character_state_db["data"]["options"] = options_dialog["options"] if options_dialog and options_dialog.get(
+            "options") else None
+        character_state_db["data"]["prompt_user_question"] = options_dialog[
+            "prompt_user_question"] if options_dialog and options_dialog.get("prompt_user_question") else None
         character_state_db["data"]["options_dialog"] = options_dialog
         if character_state_db["data"].get("locations_id"):
             locations_array = character_state_db["data"]["locations_id"]
@@ -101,39 +103,49 @@ async def generate_voice_character(
             },
         )
 
-        if type_conversation == "one_way":
-            await generate_monologue_character(
-                _game_id=game_id,
-                _character_id=character_id,
-                _user_id=user_id,
-                _location_id=location_id,
-                _state_game_id=state_game,
-            )
-        if type_conversation == "two_way":
-            await generate_conversation_character(
-                _game_id=game_id,
-                _character_id=character_id,
-                _user_id=user_id,
-                _location_id=location_id,
-                _state_game_id=state_game,
-            )
-        if type_conversation == "option_multiple":
-            await generate_option_character(
-                _game_id=game_id,
-                _character_id=character_id,
-                _user_id=user_id,
-                _location_id=location_id,
-                _state_game_id=state_game,
-            )
+        match type_conversation:
+            case "one_way":
+                await generate_monologue_character(
+                    _game_id=game_id,
+                    _character_id=character_id,
+                    _user_id=user_id,
+                    _location_id=location_id,
+                    _state_game_id=state_game,
+                )
+            case "two_way":
+                await generate_conversation_character(
+                    _game_id=game_id,
+                    _character_id=character_id,
+                    _user_id=user_id,
+                    _location_id=location_id,
+                    _state_game_id=state_game,
+                )
+            case "option_multiple":
+                await generate_option_character(
+                    _game_id=game_id,
+                    _character_id=character_id,
+                    _user_id=user_id,
+                    _location_id=location_id,
+                    _state_game_id=state_game,
+                )
 
-        if type_conversation == "open_question":
-            await generate_open_question_character(
-                _game_id=game_id,
-                _character_id=character_id,
-                _user_id=user_id,
-                _location_id=location_id,
-                _state_game_id=state_game,
-            )
+            case "open_question":
+                await generate_open_question_character(
+                    _game_id=game_id,
+                    _character_id=character_id,
+                    _user_id=user_id,
+                    _location_id=location_id,
+                    _state_game_id=state_game,
+                )
+
+            case "open_talk":
+                await generate_open_talk_character(
+                    _game_id=game_id,
+                    _character_id=character_id,
+                    _user_id=user_id,
+                    _location_id=location_id,
+                    _state_game_id=state_game,
+                )
         if (
                 type_conversation != "none"
                 and type_conversation != "option_multiple"
@@ -1094,7 +1106,150 @@ async def generate_option_character(
         return False
 
 
-#
+async def generate_open_talk_character(
+        _game_id, _character_id, _user_id, _location_id, _state_game_id
+):
+    game_db = await db["game"].find_one({"_id": ObjectId(_game_id)})
+    character_principal_db = await db["character"].find_one(
+        {"_id": ObjectId(game_db["character_principal"])}
+    )
+    character_other_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
+    element_state_db = await db["state_glic"].find_one(
+        {"element_id": _character_id, "state": _state_game_id}
+    )
+    language_detection = await generate_language_detection(
+        element_state_db['data']['options_dialog']['prompt_user_dialog'], _user_id
+    )
+    try:
+
+        question_ic = await identify_prompt_conversation(
+            element_state_db['data']['options_dialog']["prompt_user_question"], _user_id
+        )
+
+        if question_ic.is_conversation:
+            response = await openai_generator.generate_gpt(
+                content_prompt=[
+                    {
+                        "role": "system",
+                        "content": f" You are a character dialogue extractor, according to a text where there is a conversation between two characters as follows. "
+                                   + "1. hello. how are you?"
+                                   + "2. hello, well how are you?"
+                                   + "where 1 is the main character and 2 is the other character, transform it to a"
+                                     "replace 1 with the id of the main character and 2 with the id of the other character, "
+                                     " conversation according to the json schema and the data provided by the user, and "
+                                     f"correct the spelling of the dialogue text in the {language_detection} language.",
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"Main character id: {str(character_principal_db['_id'])}",
+                            },
+                            {
+                                "type": "text",
+                                "text": f"Other character id: {str(character_other_db['_id'])}",
+                            },
+                            {
+                                "type": "text",
+                                "text": f"Conversation of the character: {element_state_db['data']['options_dialog']['prompt_user_dialog']}",
+                            },
+                        ],
+                    },
+                ],
+                model="gpt-4o-mini-2024-07-18",
+                max_tokens=4096,
+                response_format=SchemaCharacterConversations,
+                user_id=_user_id,
+                type_generation="create_conversation_character",
+            )
+            conversation_ = [
+                {"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None}
+                for dialog in response.conversation
+            ]
+            element_state_db["data"]['options_dialog']['prompt_user_dialog'] = conversation_
+        else:
+            response = await openai_generator.generate_gpt(
+                content_prompt=[
+                    {
+                        "role": "system",
+                        "content": f" Correct spelling on the text of dialogue in the {language_detection} language. ",
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": f"character dialog: {element_state_db['data']['options_dialog']['prompt_user_dialog']}"
+                                        f"id: {str(character_other_db['_id'])}",
+                            },
+                        ],
+                    },
+                ],
+                model="gpt-4o-mini-2024-07-18",
+                max_tokens=4096,
+                response_format=SchemaCharacterConversations,
+                user_id=_user_id,
+                type_generation="create_monologue_character",
+            )
+
+            conversation_ = [
+                {
+                    "id_character": str(character_other_db["_id"]),
+                    "dialog": element_state_db['data']['options_dialog']['prompt_user_dialog'],
+                    "audio": None,
+                }
+            ]
+
+            element_state_db["data"]['options_dialog']['prompt_user_dialog'] = conversation_
+    except Exception as e:
+        print(traceback.format_exc())
+        print(f"Error in generating character conversation: {str(e)}")
+        return False
+
+    interaction_exists = False
+    if "interaction" not in element_state_db["data"]:
+        element_state_db["data"]["interaction"] = []
+
+    for interaction in element_state_db["data"]["interaction"]:
+        if (
+                interaction["location_id"] == _location_id
+                and interaction["state_game"] == _state_game_id
+        ):
+            interaction["options_dialog"] = element_state_db["data"]["options_dialog"]
+            interaction["prompt_user_dialog"] = None
+            interaction["type_conversation"] = "open_talk"
+            interaction_exists = True
+            break
+
+    if not interaction_exists:
+        element_state_db["data"]["interaction"].append(
+            {
+                "location_id": _location_id,
+                "state_game": _state_game_id,
+                "type_conversation": "open_talk",
+                "prompt_user_dialog": None,
+                "options_dialog": element_state_db["data"]["options_dialog"],
+            }
+        )
+
+    try:
+        await db["state_glic"].update_one(
+            {"_id": element_state_db["_id"]},
+            {
+                "$set": {
+                    "data": element_state_db["data"],
+                }
+            },
+        )
+
+        return True
+    except Exception as e:
+        print(traceback.format_exc())
+        print(f"Error in generating character conversation: {str(e)}")
+        return False
+
+
 async def generate_open_question_character(
         _game_id, _character_id, _user_id, _location_id, _state_game_id
 ):
