@@ -37,8 +37,10 @@ class SchemaOpenQuestion(BaseModel):
 
 
 class SchemaOpenTalk(BaseModel):
-    prompt_user_dialog: str = Field(..., example="prompt_user_dialog")
+    prompt_user_question: str = Field(..., example="prompt_user_dialog")
     prompt_user_guideline: str = Field(..., example="prompt_user_guideline")
+    options: list[SchemaOpenQuestion] = Field(..., example=[{"key": "value"}])
+    num_interaction: Optional[int] = Field(None, example=1)
 
 
 class SchemaOpenAnswer(BaseModel):
@@ -95,9 +97,8 @@ class SchemaCreateCharacter(BaseModel):
     prompt_user: str = Field(..., example="prompt_user")
     prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
     conversation_type: str = Field(..., example="conversation_type")
-    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple | SchemaOpenTalk] = Field(
+    options_dialog: Optional[SchemaOpenTalk | SchemaOpenAnswer | SchemaOptionMultiple] = Field(
         None, example={
-            "prompt_user_dialog": None,
             "prompt_user_question": None,
             "prompt_user_answer": None,
             "options": [

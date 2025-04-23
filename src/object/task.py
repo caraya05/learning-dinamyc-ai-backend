@@ -125,6 +125,7 @@ async def generate_conversation_item(
                     and interaction["state_game"] == state_game_id
             ):
                 interaction["conversation"] = conversation_
+                interaction["type_conversation"] = "one_way"
                 interaction_exists = True
                 break
 
@@ -134,6 +135,7 @@ async def generate_conversation_item(
                     "location_id": location_id,
                     "state_game": state_game_id,
                     "conversation": conversation_,
+                    "type_conversation": "one_way",
                 }
             )
 

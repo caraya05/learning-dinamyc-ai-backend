@@ -186,6 +186,7 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
             state_game = await get_state_game_by_game_id(game_id)
 
         if state_game:
+            print("data", character_db_state)
             await create_state_glic(
                 element_id=str(character_created.inserted_id),
                 type_element="character",
@@ -845,6 +846,7 @@ async def answer_open_talk_service(
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow()
             })
+            response_user = await db["response_user"].find_one({"_id": response_user.inserted_id})
         else:
             # Actualizar la conversación existente
             response_user = await db["response_user"].find_one({"_id": ObjectId(id_conversation)})
@@ -870,38 +872,67 @@ async def answer_open_talk_service(
         response_user = await db["response_user"].find_one({"_id": response_user["_id"]})
         conversation_context = response_user.get("conversation", [])
 
+        conversation_guideline = None
+
+        count_interactions = 0
+
         criteria = {}
         for location in state_element_db['data']['interaction']:
             if location["location_id"] == location_id:
                 all_dialogs = []
-                for question in location["options_dialog"]["prompt_user_dialog"]:
+                conversation_guideline = location["options_dialog"]["prompt_user_guideline"]
+                count_interactions = location["options_dialog"]["num_interaction"]
+                for question in location["options_dialog"]["prompt_user_question"]:
                     all_dialogs.append(question["dialog"])
 
                 criteria["question"] = [question["dialog"] for question in
-                                        location["options_dialog"]["prompt_user_dialog"]]
-                options_guideline = location["options_dialog"]["prompt_user_guideline"]
+                                        location["options_dialog"]["prompt_user_question"]]
+                options_answer = []
+                for criteria_db in location["options_dialog"]["options"]:
+                    if criteria_db["prompt_user_guideline"] and criteria_db["prompt_user_answer"]:
+                        options_answer.append(
+                            {
+                                "criteria_evaluated": criteria_db["prompt_user_guideline"],
+                                "response_criteria": criteria_db["prompt_user_answer"],
+                                "audio": None,
+                            }
+                        )
 
-                criteria["prompt_guideline"] = options_guideline
+                criteria["options_answer"] = options_answer
+
+        if not conversation_guideline:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Conversation guideline not found",
+            )
+
+        if len(conversation_context) > count_interactions:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Conversation finished",
+            )
 
         ai_response = await openai_generator.generate_gpt(
             content_prompt=[
                 {
                     "role": "system",
-                    "content": f"Eres un evaluador de respuestas conversaciones, "
-                               f"por favor evalúa la respuesta que da el usuario, respecto a un pregunta teniendo encuenta"
-                               f" la un criteria a evaluar y la guion de respuesta que tienes,"
-                               f"no te puedes salir de la guion de respuesta que tienes,"
-                               f"ve conduciendo la conversación con el usuario segun el guión de respuesta que tienes,"
-                               f"la conversacion debe tener maximo de 5 turnos de conversación",
+                    "content": f"Eres un evaluador de conversaciones. Evalúa la respuesta del usuario basándote en "
+                               f"la pregunta, los criterios de evaluación y el guion de respuesta proporcionados. "
+                               f"No te desvíes del guion de respuesta. Conduce la conversación de manera coherente "
+                               f"siguiendo el guion y limita la interacción a un máximo de {count_interactions} turnos. "
+                               f"Si se alcanza el máximo de iteraciones, selecciona alguno de los criterios a evaluar y respuestas.",
                 },
                 {
                     "role": "system",
                     "content": f"pregunta: {criteria['question']}"
-                               f"criterios a evaluar y respuestas: {criteria['prompt_guideline']}",
+                               f"criterios a evaluar y respuestas: {criteria['options_answer']},"
+                               f"role de la IA: {conversation_guideline}",
                 },
                 {
                     "role": "system",
-                    "content": f"Contexto de la conversación: {conversation_context}, turno de conversación actual: {len(conversation_context)}",
+                    "content": f"Contexto de la conversación: {conversation_context},"
+                               f" turno de conversación actual: {len(conversation_context)},"
+                               f" cantidad de interacciones maximas: {count_interactions}",
                 },
                 {
                     "role": "user",
@@ -926,12 +957,14 @@ async def answer_open_talk_service(
             "detail": {
                 "response_answer": ai_response.response_criteria,
                 "audio": None,
+                "conversation_id": str(response_user["_id"]),
             }
         }
 
     except Exception as e:
+        print(traceback.format_exc())
         print(f"Error in answer open talk service: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Error processing the conversation",
+            status_code=e.status_code if hasattr(e, 'status_code') else status.HTTP_400_BAD_REQUEST,
+            detail=str(e.detail) if hasattr(e, 'detail') else "Answer not generated",
         )

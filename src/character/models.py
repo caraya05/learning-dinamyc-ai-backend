@@ -9,6 +9,7 @@ from character.enums import GenderCharacter
 from character.enums import TypeConversation
 from character.schemas import SchemaOpenAnswer
 from character.schemas import SchemaOptionMultiple
+from character.schemas import SchemaOpenTalk
 
 
 class Character(BaseModel):
@@ -40,7 +41,7 @@ class CharacterGLIC(BaseModel):
     conversation: Optional[list[dict]] = Field([], example=[{"key": "value"}])
     type: Optional[str] = Field(None, example=TypeCharacter.NPC)
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
-    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple] = Field(
+    options_dialog: Optional[SchemaOpenTalk | SchemaOpenAnswer | SchemaOptionMultiple] = Field(
         None, example={"key": "value"}
     )
     personalization: Optional[dict] = Field(None, example={"key": "value"})
