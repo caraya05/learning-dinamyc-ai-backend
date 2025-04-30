@@ -799,6 +799,10 @@ class SchemaResponseOpenTalk(BaseModel):
     reason: str = Field(description="Reason")
 
 
+class SchemaResponseOpenTalkArray(BaseModel):
+    responses: list[SchemaResponseOpenTalk] = Field(description="Responses")
+
+
 async def answer_open_talk_service(
         location_id: str,
         character_id: str,
@@ -830,7 +834,6 @@ async def answer_open_talk_service(
         )
 
     try:
-        # Crear un nuevo id de conversación si no existe
         if not id_conversation:
             response_user = await db["response_user"].insert_one({
                 "user_id": user_id,
@@ -847,8 +850,8 @@ async def answer_open_talk_service(
                 "updated_at": datetime.utcnow()
             })
             response_user = await db["response_user"].find_one({"_id": response_user.inserted_id})
+
         else:
-            # Actualizar la conversación existente
             response_user = await db["response_user"].find_one({"_id": ObjectId(id_conversation)})
             if not response_user:
                 raise HTTPException(
@@ -863,12 +866,12 @@ async def answer_open_talk_service(
                 "ai_response": None
             })
 
-            await db["response_user"].update_one(
-                {"_id": response_user["_id"]},
-                {"$set": {"conversation": conversation, "updated_at": datetime.utcnow()}}
-            )
+            # await db["response_user"].update_one(
+            #     {"_id": response_user["_id"]},
+            #     {"$set": {"conversation": conversation, "updated_at": datetime.utcnow()}}
+            # )
 
-        # Enviar el contexto de la conversación a la IA
+
         response_user = await db["response_user"].find_one({"_id": response_user["_id"]})
         conversation_context = response_user.get("conversation", [])
 
@@ -906,58 +909,94 @@ async def answer_open_talk_service(
                 detail="Conversation guideline not found",
             )
 
-        if len(conversation_context) > count_interactions:
+        if len(conversation_context) <= count_interactions - 1:
+            ai_response = await openai_generator.generate_gpt(
+                content_prompt=[
+                    {
+                        "role": "system",
+                        "content": f"Eres un evaluador de conversaciones. Responde únicamente basándote en el rol de la IA: "
+                                   f"{conversation_guideline}. No tomes en cuenta criterios ni preguntas en esta etapa el array de respuestas solo debe tener 1 respuesta.",
+                    },
+                    {
+                        "role": "system",
+                        "content": f"Contexto de la conversación: {conversation_context},"
+                                   f" turno de conversación actual: {len(conversation_context)},"
+                                   f" cantidad de interacciones máximas: {count_interactions}",
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt_user_answer
+                    }
+                ],
+                model="gpt-4o-mini-2024-07-18",
+                max_tokens=4096,
+                response_format=SchemaResponseOpenTalkArray,
+                user_id=user_id,
+                type_generation="validate_open_talk",
+            )
+        elif len(conversation_context) == count_interactions:
+            ai_response = await openai_generator.generate_gpt(
+                content_prompt=[
+                    {
+                        "role": "system",
+                        "content": f"Eres un evaluador de conversaciones. En esta última interacción, evalúa la respuesta del usuario "
+                                   f"basándote en los criterios de evaluación y el guion de respuesta proporcionados. "
+                                   f"Por ejemplo, si el criterio evaluado es 'Conciencia ambiental' y la respuesta definida es 'Es importante cuidar el medio ambiente', "
+                                   f"genera una respuesta como 'Debemos cuidar el planeta' como la primera respuesta, mientras que la segunda será la respuesta definida. "
+                                   f"La primera respuesta debe ser generada por la IA, basada en el contexto de la conversación y el guion, "
+                                   f"y debe ser coherente con el rol de la IA, la opción de criterio seleccionada y "
+                                   f"esta respuesta no debe terminar en una pregunta, generar dudas, cambios de decisión ni causar confusión con la opción seleccionada. "
+                                   f"Tampoco debe coincidir con ninguna de las opciones de criterio. "
+                                   f"Selecciona uno de los criterios a evaluar y genera una respuesta dirigida a esa opción como la segunda respuesta. "
+                                   f"El array de respuestas debe contener exactamente 2 respuestas, las primera respuesta no debe ser la misma que la segunda o coincidir con ninguna de las opciones de criterio. ",
+                    },
+                    {
+                        "role": "system",
+                        "content":
+                            f"criterios a evaluar y respuestas: {criteria['options_answer']},"
+                            f"rol de la IA: {conversation_guideline}",
+                    },
+                    {
+                        "role": "system",
+                        "content": f"Contexto de la conversación: {conversation_context},"
+                                   f" turno de conversación actual: {len(conversation_context)},"
+                                   f" cantidad de interacciones máximas: {count_interactions}",
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt_user_answer
+                    }
+                ],
+                model="gpt-4o-mini-2024-07-18",
+                max_tokens=4096,
+                response_format=SchemaResponseOpenTalkArray,
+                user_id=user_id,
+                type_generation="validate_open_talk",
+            )
+        else:
+
             raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_404_NOT_FOUND,
                 detail="Conversation finished",
             )
 
-        ai_response = await openai_generator.generate_gpt(
-            content_prompt=[
-                {
-                    "role": "system",
-                    "content": f"Eres un evaluador de conversaciones. Evalúa la respuesta del usuario basándote en "
-                               f"la pregunta, los criterios de evaluación y el guion de respuesta proporcionados. "
-                               f"No te desvíes del guion de respuesta. Conduce la conversación de manera coherente "
-                               f"siguiendo el guion y limita la interacción a un máximo de {count_interactions} turnos. "
-                               f"Si se alcanza el máximo de iteraciones, selecciona alguno de los criterios a evaluar y respuestas.",
-                },
-                {
-                    "role": "system",
-                    "content": f"pregunta: {criteria['question']}"
-                               f"criterios a evaluar y respuestas: {criteria['options_answer']},"
-                               f"role de la IA: {conversation_guideline}",
-                },
-                {
-                    "role": "system",
-                    "content": f"Contexto de la conversación: {conversation_context},"
-                               f" turno de conversación actual: {len(conversation_context)},"
-                               f" cantidad de interacciones maximas: {count_interactions}",
-                },
-                {
-                    "role": "user",
-                    "content": prompt_user_answer
-                }
-            ],
-            model="gpt-4o-mini-2024-07-18",
-            max_tokens=4096,
-            response_format=SchemaResponseOpenTalk,
-            user_id=user_id,
-            type_generation="validate_open_talk",
-        )
-
-        # Actualizar la última respuesta de la IA en la conversación
         await db["response_user"].update_one(
-            {"user_id": user_id, "character_id": character_id},
-            {"$set": {"conversation.$[elem].ai_response": ai_response.response_criteria}},
-            array_filters=[{"elem.id_conversation": id_conversation}]
-        )
+                {"_id": response_user["_id"]},
+                {"$set": {"conversation.$[elem].ai_response": [{"response_answer": response_ai.response_criteria} for
+                                                               response_ai in ai_response.responses]}},
+                array_filters=[{"elem.user_question": prompt_user_answer}]
+            )
+
 
         return {
             "detail": {
-                "response_answer": ai_response.response_criteria,
+                "response_answer": ai_response.responses[0].response_criteria,
                 "audio": None,
+                "is_final": len(conversation_context) == count_interactions,
                 "conversation_id": str(response_user["_id"]),
+                "conversation": [{"response_answer": response_ai.response_criteria, "audio": None}
+                                 for response_ai in
+                                 ai_response.responses],
             }
         }
 
