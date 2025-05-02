@@ -866,10 +866,10 @@ async def answer_open_talk_service(
                 "ai_response": None
             })
 
-            # await db["response_user"].update_one(
-            #     {"_id": response_user["_id"]},
-            #     {"$set": {"conversation": conversation, "updated_at": datetime.utcnow()}}
-            # )
+            await db["response_user"].update_one(
+                {"_id": response_user["_id"]},
+                {"$set": {"conversation": conversation, "updated_at": datetime.utcnow()}}
+            )
 
 
         response_user = await db["response_user"].find_one({"_id": response_user["_id"]})
