@@ -78,7 +78,8 @@ async def get_list_state_glic_by_element_id(element_id: str) -> list:
                                 if event_db and event_db["type_conversation"] in ["one_way", "two_way"]:
                                     state_glic[j]["data"]["interaction"][i]["event_id"] = str(event_db["_id"])
                             if (state_glic[j]["data"]["interaction"][i]["type_conversation"] in ["open_question",
-                                                                                                 "option_multiple"]):
+                                                                                                 "option_multiple",
+                                                                                                 "open_talk"]):
                                 for k in range(
                                         len(state_glic[j]["data"]["interaction"][i]["options_dialog"]["options"])
                                 ):
@@ -104,6 +105,7 @@ async def get_list_state_glic_by_element_id(element_id: str) -> list:
                                     if event_db and event_db["type_conversation"] in [
                                         "open_question",
                                         "option_multiple",
+                                        "open_talk",
                                     ]:
                                         state_glic[j]["data"]["interaction"][i]["options_dialog"]["options"][
                                             event_db["option_number"]]["event_id"] = str(event_db["_id"])
