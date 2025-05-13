@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import status
-
+import requests
 from fastapi.security import HTTPAuthorizationCredentials
 
 from auth.auth import auth
@@ -22,6 +22,11 @@ from configuration.schemas import SchemaListConfiguration
 from configuration.schemas import SchemaCreateConfiguration
 from configuration.schemas import SchemaUpdateConfiguration
 
+from core.database import db
+from utils import upload_image_from_url
+from utils import upload_audio
+from pydub import AudioSegment
+from io import BytesIO
 router = APIRouter(prefix="/configuration", tags=["Configuration"])
 
 
@@ -139,3 +144,77 @@ def get_current_images():
         "splash_screen": "https://qwestar.sfo3.cdn.digitaloceanspaces.com/backend/screen/b80b7060-40b0-47dc-a523-402292d1ef23.jpeg",
         "login_screen": "https://qwestar.sfo3.cdn.digitaloceanspaces.com/backend/screen/f30c6340-2fd9-4f98-9ddc-ce484186f271.jpeg",
     }
+async def traverse_structure(data, collection_name: str):
+    if isinstance(data, dict):
+        for key, value in data.items():
+            if isinstance(value, (dict, list)):
+                data[key] = await traverse_structure(value, collection_name)
+            elif isinstance(value, str) and "https://qwestar" in value:
+                print(f"Key: {key}, Value: {value.split('backend/')[-1]}")
+                if key == "image" or key == "image_minimalist":
+                    new_value = upload_image_from_url(
+                        url_image=value,
+                        file_name=value.split('backend/')[-1],
+                    )
+                    data[key] = new_value  # Actualizar el valor en el diccionario
+                elif key == "audio":
+                    try:
+                        # Descargar el audio desde la URL
+                        response = requests.get(value)
+                        if response.status_code != 200:
+                            raise HTTPException(
+                                status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="No se pudo descargar el audio desde la URL.",
+                            )
+
+                        # Convertir el contenido descargado a un objeto BytesIO
+                        audio_in_memory = BytesIO(response.content)
+                        audio_in_memory.seek(0)
+
+                        # Subir el audio descargado
+                        new_value = upload_audio(
+                            file_name=value.split('backend/')[-1],
+                            audio_byte_arr=audio_in_memory,
+                        )
+                        data[key] = new_value
+                    except Exception as e:
+                        print(f"Error procesando el audio para la clave '{key}': {e}")
+                        raise HTTPException(
+                            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail="Error al procesar el archivo de audio.",
+                        )
+    elif isinstance(data, list):
+        for index, item in enumerate(data):
+            data[index] = await traverse_structure(item, collection_name)
+
+    return data
+
+@router.get("/transfer-statics/", status_code=status.HTTP_200_OK)
+async def transfer_statics():
+    """
+    This endpoint transfers the statics.
+    """
+    # all_state_glic = await db["state_glic"].find({}).to_list(None)
+    # for i in all_state_glic:
+    #     updated_data = await traverse_structure(i, "state_glic")
+    #     if "_id" in updated_data:
+    #         await db["state_glic"].update_one(
+    #             {"_id": updated_data["_id"]}, {"$set": updated_data}
+    #         )
+
+    # all_games = await db["game"].find({}).to_list(None)
+    # for i in all_games:
+    #     updated_data = await traverse_structure(i, "game")
+    #     if "_id" in updated_data:
+    #         await db["game"].update_one(
+    #             {"_id": updated_data["_id"]}, {"$set": updated_data}
+    #         )
+    # all_events = await db["event"].find({}).to_list(None)
+    # for i in all_events:
+    #     updated_data = await traverse_structure(i, "event")
+    #     if "_id" in updated_data:
+    #         await db["event"].update_one(
+    #             {"_id": updated_data["_id"]}, {"$set": updated_data}
+    #         )
+
+    return {"message": "Transfer statics completed successfully."}

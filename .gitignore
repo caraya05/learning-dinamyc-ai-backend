@@ -13,3 +13,4 @@ src/alembic.ini
 nginx/ssl/cert.pem
 nginx/ssl/privkey.pem
 /upload-image.sh
+/src/credentials.json

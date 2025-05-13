@@ -6,7 +6,8 @@ services:
     build:
       context: .
       dockerfile: .docker/Dockerfile
-    command: ./fastapi-entrypoint-loc.sh
+    command: >
+      /bin/sh -c "echo 'Qwestar AI Backend' | figlet && sleep 1 && uvicorn main:app --reload --host 0.0.0.0 --port 9000 --forwarded-allow-ips='*' --proxy-headers"
     env_file:
       - .env
     volumes:
