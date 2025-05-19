@@ -89,7 +89,7 @@ def upload_audio(*, file_name: str, name_bucket: str = 'qwestar', audio_byte_arr
         bucket = storage_client.bucket(name_bucket)
         blob = bucket.blob(file_name)
         blob.upload_from_file(audio_byte_arr, content_type='audio/ogg')
-        return f"https://storage.cloud.google.com/{name_bucket}/{file_name}?authuser=1"
+        return f"https://storage.googleapis.com/{name_bucket}/{file_name}"
     except Exception as e:
         print(f"Error uploading audio: {str(e)}")
         raise HTTPException(
@@ -129,7 +129,7 @@ def upload_image(
         bucket = storage_client.bucket(name_bucket)
         blob = bucket.blob(file_name)
         blob.upload_from_file(img_byte_arr, content_type='image/jpeg')
-        return f"https://storage.cloud.google.com/{name_bucket}/{file_name}?authuser=1"
+        return f"https://storage.googleapis.com/{name_bucket}/{file_name}?authuser=1"
     except Exception as e:
         print(traceback.format_exc())
         print(f"Error uploading file: {str(e)}")
@@ -162,7 +162,7 @@ def upload_image_from_url(
         bucket = storage_client.bucket(name_bucket)
         blob = bucket.blob(file_name)
         blob.upload_from_file(img_byte_arr, content_type='image/jpeg')
-        return f"https://storage.cloud.google.com/{name_bucket}/{file_name}?authuser=1"
+        return f"https://storage.googleapis.com/{name_bucket}/{file_name}?authuser=1"
     except Exception as e:
         print(traceback.format_exc())
         print(f"Error uploading file: {str(e)}")

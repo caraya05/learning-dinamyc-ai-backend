@@ -149,33 +149,36 @@ async def traverse_structure(data, collection_name: str):
         for key, value in data.items():
             if isinstance(value, (dict, list)):
                 data[key] = await traverse_structure(value, collection_name)
-            elif isinstance(value, str) and "https://qwestar" in value:
+            elif isinstance(value, str) and "https://" in value:
                 print(f"Key: {key}, Value: {value.split('backend/')[-1]}")
                 if key == "image" or key == "image_minimalist":
-                    new_value = upload_image_from_url(
-                        url_image=value,
-                        file_name=value.split('backend/')[-1],
-                    )
+                    # new_value = upload_image_from_url(
+                    #     url_image=value,
+                    #     file_name=value.split('backend/')[-1],
+                    # )
+                    new_value = value.replace("storage.cloud.google.com", "storage.googleapis.com").split("?")[0]
                     data[key] = new_value  # Actualizar el valor en el diccionario
                 elif key == "audio":
                     try:
                         # Descargar el audio desde la URL
-                        response = requests.get(value)
-                        if response.status_code != 200:
-                            raise HTTPException(
-                                status_code=status.HTTP_400_BAD_REQUEST,
-                                detail="No se pudo descargar el audio desde la URL.",
-                            )
+                        # response = requests.get(value)
+                        # if response.status_code != 200:
+                        #     raise HTTPException(
+                        #         status_code=status.HTTP_400_BAD_REQUEST,
+                        #         detail="No se pudo descargar el audio desde la URL.",
+                        #     )
 
                         # Convertir el contenido descargado a un objeto BytesIO
-                        audio_in_memory = BytesIO(response.content)
-                        audio_in_memory.seek(0)
+                        # audio_in_memory = BytesIO(response.content)
+                        # audio_in_memory.seek(0)
 
                         # Subir el audio descargado
-                        new_value = upload_audio(
-                            file_name=value.split('backend/')[-1],
-                            audio_byte_arr=audio_in_memory,
-                        )
+                        # new_value = upload_audio(
+                        #     file_name=value.split('backend/')[-1],
+                        #     audio_byte_arr=audio_in_memory,
+                        # )
+                        new_value = value.replace("storage.cloud.google.com", "storage.googleapis.com").split("?")[0]
+
                         data[key] = new_value
                     except Exception as e:
                         print(f"Error procesando el audio para la clave '{key}': {e}")
@@ -194,27 +197,27 @@ async def transfer_statics():
     """
     This endpoint transfers the statics.
     """
-    # all_state_glic = await db["state_glic"].find({}).to_list(None)
-    # for i in all_state_glic:
-    #     updated_data = await traverse_structure(i, "state_glic")
-    #     if "_id" in updated_data:
-    #         await db["state_glic"].update_one(
-    #             {"_id": updated_data["_id"]}, {"$set": updated_data}
-    #         )
+    all_state_glic = await db["state_glic"].find({}).to_list(None)
+    for i in all_state_glic:
+        updated_data = await traverse_structure(i, "state_glic")
+        if "_id" in updated_data:
+            await db["state_glic"].update_one(
+                {"_id": updated_data["_id"]}, {"$set": updated_data}
+            )
 
-    # all_games = await db["game"].find({}).to_list(None)
-    # for i in all_games:
-    #     updated_data = await traverse_structure(i, "game")
-    #     if "_id" in updated_data:
-    #         await db["game"].update_one(
-    #             {"_id": updated_data["_id"]}, {"$set": updated_data}
-    #         )
-    # all_events = await db["event"].find({}).to_list(None)
-    # for i in all_events:
-    #     updated_data = await traverse_structure(i, "event")
-    #     if "_id" in updated_data:
-    #         await db["event"].update_one(
-    #             {"_id": updated_data["_id"]}, {"$set": updated_data}
-    #         )
+    all_games = await db["game"].find({}).to_list(None)
+    for i in all_games:
+        updated_data = await traverse_structure(i, "game")
+        if "_id" in updated_data:
+            await db["game"].update_one(
+                {"_id": updated_data["_id"]}, {"$set": updated_data}
+            )
+    all_events = await db["event"].find({}).to_list(None)
+    for i in all_events:
+        updated_data = await traverse_structure(i, "event")
+        if "_id" in updated_data:
+            await db["event"].update_one(
+                {"_id": updated_data["_id"]}, {"$set": updated_data}
+            )
 
     return {"message": "Transfer statics completed successfully."}
