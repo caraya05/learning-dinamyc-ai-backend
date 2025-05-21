@@ -91,9 +91,22 @@ async def generate_environment_location(_location_id: str, _user_id: str, _state
                     "role": "system",
                     "content": f"Extrae la información del JSON proporcionado sobre la imagen de la locación y "
                                f"describe detalladamente el ambiente mostrado, incluyendo aspectos como la presencia "
-                               f"de niebla, iluminación, lluvia, nieve y fuego. Indica cómo cada uno de estos elementos"
-                               f" contribuye a la atmósfera general de la escena. No incluyas lluvia o nieve ya que se trata"
-                               f" de una cueva de lava con un ambiente de calor extremo. ",
+                               f"de niebla, iluminación, lluvia, nieve y fuego. Indica cómo cada uno de estos elementos "
+                               f"contribuye a la atmósfera general de la escena. No incluyas lluvia o nieve ya que se trata "
+                               f"de una cueva de lava con un ambiente de calor extremo. Aquí tienes algunos ejemplos de ambientes:\n\n"
+                               f"A continuación, se presentan ejemplos de preguntas y respuestas para guiar la generación:\n\n"
+                               f"### Ejemplo de Pregunta:\n"
+                               f"{{'role': 'user', 'content': 'La locación es una cueva de lava con ríos de magma y humo saliendo de las grietas. Describe el ambiente.'}}\n"
+                               f"### Ejemplo de Respuesta:\n"
+                               f"{{'fog_level': 'medium', 'light_mode': 'shade', 'light_intensity': 'high', 'rain_mode': False, 'snow_model': False, 'fire_mode': True}}\n\n"
+                               f"### Ejemplo de Pregunta:\n"
+                               f"{{'role': 'user', 'content': 'La locación es un bosque nevado con árboles cubiertos de nieve y un cielo despejado. Describe el ambiente.'}}\n"
+                               f"### Ejemplo de Respuesta:\n"
+                               f"{{'fog_level': 'medium', 'light_mode': 'blueSky', 'light_intensity': 'low', 'rain_mode': False, 'snow_model': True, 'fire_mode': False}}\n\n"
+                               f"### Ejemplo de Pregunta:\n"
+                               f"{{'role': 'user', 'content': 'La locación es un campo abierto con un cielo nublado y una ligera llovizna. Describe el ambiente.'}}\n"
+                               f"### Ejemplo de Respuesta:\n"
+                               f"{{'fog_level': 'low', 'light_mode': 'cloudy', 'light_intensity': 'low', 'rain_mode': True, 'snow_model': False, 'fire_mode': False}}",
                 },
                 {
                     "role": "user",
@@ -129,6 +142,7 @@ async def generate_environment_location(_location_id: str, _user_id: str, _state
         print(traceback.format_exc())
         print(f"Error in generate environment location: {e}")
         return False
+
 
 class SchemaLocationDescription(BaseModel):
     description: str = Field(
