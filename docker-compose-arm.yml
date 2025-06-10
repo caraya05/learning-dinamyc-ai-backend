@@ -11,22 +11,22 @@ services:
       - ./src/:/code
     ports:
       - "9000:9000"
-
-  nginx:
-    container_name: nginxARM
-    build:
-      context: ./nginx
-      dockerfile: DockerfileARM
-    #    image: nginx:latest
-    depends_on:
-      - fastapi
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/local/:/etc/nginx/conf.d/:ro
-#      - ./nginx/ssl:/etc/ssl/:ro
-      - ./src/static:/code/static
+#
+#  nginx:
+#    container_name: nginxARM
+#    build:
+#      context: ./nginx
+#      dockerfile: DockerfileARM
+#    #    image: nginx:latest
+#    depends_on:
+#      - fastapi
+#    ports:
+#      - "80:80"
+#      - "443:443"
+#    volumes:
+#      - ./nginx/local/:/etc/nginx/conf.d/:ro
+##      - ./nginx/ssl:/etc/ssl/:ro
+#      - ./src/static:/code/static
 
   redis:
     container_name: redisARM

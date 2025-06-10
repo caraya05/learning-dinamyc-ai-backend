@@ -35,6 +35,8 @@ from state_game import routers as state_game_routers
 from contextlib import asynccontextmanager
 from config import settings
 
+from game.routers_protional import router as game_provisional_routers
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -158,3 +160,19 @@ admin.include_router(event_routers_admin.router)
 admin.include_router(object_admin_routers.router)
 
 app.mount("/v1/admin", admin)
+
+from slowapi.middleware import SlowAPIMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
+
+from game.routers_protional import limiter
+
+app.add_middleware(SlowAPIMiddleware)
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+app.state.limiter = limiter
+
+app.include_router(game_provisional_routers, prefix="/v1/api")
+

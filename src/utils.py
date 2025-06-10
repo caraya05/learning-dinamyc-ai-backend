@@ -19,6 +19,10 @@ from config import settings
 session = session.Session()
 
 
+from fastapi_mail import FastMail, MessageSchema, MessageType, ConnectionConfig
+from starlette.responses import JSONResponse
+from typing import List, Optional
+
 def generate_uuid():
     return str(uuid.uuid4())
 
@@ -71,7 +75,10 @@ def generate_uuid():
 #         )
 
 
-def upload_audio(*, file_name: str, name_bucket: str = 'qwestar', audio_byte_arr: any = None):
+def upload_audio(*,
+                 file_name: str,
+                 name_bucket: str = 'qwestar',
+                 audio_byte_arr: any = None):
     try:
         if not audio_byte_arr:
             raise HTTPException(
@@ -96,13 +103,15 @@ def upload_audio(*, file_name: str, name_bucket: str = 'qwestar', audio_byte_arr
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error al subir el archivo de audio.",
         )
+
+
 def upload_image(
-    size: tuple[int, int],
-    file_name: str,
-    image_content_type: any = None,
-    url_image: str = None,
-    name_bucket: str = 'qwestar',
-    img_byte_arr: any = None,
+        size: tuple[int, int],
+        file_name: str,
+        image_content_type: any = None,
+        url_image: str = None,
+        name_bucket: str = 'qwestar',
+        img_byte_arr: any = None,
 ):
     try:
         if not img_byte_arr:
@@ -129,7 +138,7 @@ def upload_image(
         bucket = storage_client.bucket(name_bucket)
         blob = bucket.blob(file_name)
         blob.upload_from_file(img_byte_arr, content_type='image/jpeg')
-        return f"https://storage.googleapis.com/{name_bucket}/{file_name}?authuser=1"
+        return f"https://storage.googleapis.com/{name_bucket}/{file_name}"
     except Exception as e:
         print(traceback.format_exc())
         print(f"Error uploading file: {str(e)}")
@@ -140,9 +149,9 @@ def upload_image(
 
 
 def upload_image_from_url(
-    file_name: str,
-    url_image: str,
-    name_bucket: str = 'qwestar',
+        file_name: str,
+        url_image: str,
+        name_bucket: str = 'qwestar',
 ):
     try:
         # Descargar la imagen desde la URL
@@ -162,7 +171,7 @@ def upload_image_from_url(
         bucket = storage_client.bucket(name_bucket)
         blob = bucket.blob(file_name)
         blob.upload_from_file(img_byte_arr, content_type='image/jpeg')
-        return f"https://storage.googleapis.com/{name_bucket}/{file_name}?authuser=1"
+        return f"https://storage.googleapis.com/{name_bucket}/{file_name}"
     except Exception as e:
         print(traceback.format_exc())
         print(f"Error uploading file: {str(e)}")
@@ -170,6 +179,7 @@ def upload_image_from_url(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error uploading file",
         )
+
 
 def get_sub_token(token: str):
     try:
@@ -234,3 +244,80 @@ def update_nested_dict(target, source):
         else:
             target[key] = value
     return target
+
+
+def upload_file(file: UploadFile, name_bucket: str = 'qwestar'):
+    try:
+        # Leer el contenido del archivo
+        file_content = file.file.read()
+        if not file_content:
+            raise HTTPException(
+                status_code=400,
+                detail="El archivo está vacío."
+            )
+
+        # Convertir el contenido a BytesIO
+        file_byte_arr = BytesIO(file_content)
+        file_byte_arr.seek(0)
+
+        # Subir el archivo a Google Cloud Storage
+        storage_client = storage.Client.from_service_account_json("credentials.json")
+        bucket = storage_client.bucket(name_bucket)
+        blob = bucket.blob(f"files-provisional/{file.filename}")
+        blob.upload_from_file(file_byte_arr, content_type=file.content_type)
+
+        return f"https://storage.googleapis.com/{name_bucket}/files-provisional/{file.filename}"
+    except Exception as e:
+        print(f"Error uploading file: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Error al subir el archivo."
+        )
+
+conf = ConnectionConfig(
+    MAIL_USERNAME="soporte.varios.proyectos@gmail.com",
+    MAIL_PASSWORD="popjtzxkeygvjmuv",
+    MAIL_FROM="soporte.varios.proyectos@gmail.com",
+    MAIL_PORT=465,  # Puerto para SSL
+    MAIL_SERVER="smtp.gmail.com",
+    MAIL_STARTTLS=False,
+    MAIL_SSL_TLS=True,
+    USE_CREDENTIALS=True,
+    VALIDATE_CERTS=True
+)
+
+
+async def send_email(
+    subject: str,
+    recipients: List[str],
+    body: str,
+) -> JSONResponse:
+    """
+    Método reutilizable para enviar correos electrónicos.
+
+    Parameters:
+    - subject (str): Asunto del correo.
+    - recipients (List[str]): Lista de destinatarios.
+    - body (str): Contenido HTML del correo.
+    - attachments (Optional[List[UploadFile]]): Archivos adjuntos opcionales.
+
+    Returns:
+    - JSONResponse: Respuesta indicando el estado del envío.
+    """
+    try:
+        # Procesar los archivos adjuntos si existen
+
+        # Crear el mensaje
+        message = MessageSchema(
+            subject=subject,
+            recipients=recipients,
+            body=body,
+            subtype=MessageType.html
+        )
+
+        # Enviar el correo
+        fm = FastMail(conf)
+        await fm.send_message(message)
+        return JSONResponse(status_code=200, content={"message": "email has been sent"})
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"message": str(e)})

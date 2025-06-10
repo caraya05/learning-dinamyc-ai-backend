@@ -1,3 +1,5 @@
+import traceback
+
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
@@ -60,8 +62,8 @@ async def create_user(user: SchemaUser):
 
 @router.get("/current-user", response_model=SchemaRetrieveUser)
 async def get_current_user(
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves the current user's information.
@@ -91,9 +93,9 @@ async def get_current_user(
 
 @router.get("/{user_id}", response_model=SchemaRetrieveUser)
 async def get_user(
-    user_id: str,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        user_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves the current user's information.
@@ -127,8 +129,8 @@ async def get_user(
 
 @router.get("/validate-stars/", status_code=status.HTTP_200_OK)
 async def validate_stars(
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     if user_db['stars'] is None or user_db['stars'] <= 0:
         await update_attempt_to_create_service(str(user_db['_id']))
@@ -139,9 +141,9 @@ async def validate_stars(
 # update photo user
 @router.post("/update-photo/", response_model=SchemaRetrieveUser)
 async def update_photo_user(
-    photo: UploadFile = File(...),
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        photo: UploadFile = File(...),
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     photo_content = await photo.read()
 
@@ -279,58 +281,119 @@ async def update_photo_user(
 #         ) from ex
 
 #
-# from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
-# from pydantic import BaseModel, EmailStr
-# from starlette.responses import JSONResponse
-#
-#
-# class EmailSchema(BaseModel):
-#     email: list[EmailStr]
-#
-#
-# conf = ConnectionConfig(
-#     MAIL_USERNAME="soporte.varios.proyectos@gmail.com",
-#     MAIL_PASSWORD="popjtzxkeygvjmuv",
-#     MAIL_FROM="soporte.varios.proyectos@gmail.com",
-#     MAIL_PORT=587,
-#     MAIL_SERVER="smtp.gmail.com",
-#     MAIL_STARTTLS=True,
-#     MAIL_SSL_TLS=False,
-#     USE_CREDENTIALS=True,
-#     VALIDATE_CERTS=True
-# )
-#
-# html = """
-# <html>
-# <head>
-# <style>
-# body {
-#     color: gray;
-# }
-# h1 {
-#     color: blue;
-# }
-# p {
-#     color: orange;
-# }
-# </style>
-# </head>
-# <body>
-# <h1>Bienvenido a Prospero</h1>
-# <p>Estamos encantados de tenerle con nosotros. Esperamos que disfrute de nuestros servicios.</p>
-# </body>
-# </html>
-# """
-#
-#
-# @router.post("/email")
-# async def simple_send(email: EmailSchema) -> JSONResponse:
-#     message = MessageSchema(
-#         subject="Fastapi-Mail module",
-#         recipients=email.dict().get("email"),
-#         body=html,
-#         subtype=MessageType.html)
-#
-#     fm = FastMail(conf)
-#     await fm.send_message(message)
-#     return JSONResponse(status_code=200, content={"message": "email has been sent"})
+from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
+from pydantic import BaseModel, EmailStr
+from starlette.responses import JSONResponse
+from typing import List
+
+
+class EmailSchema(BaseModel):
+    email: List[str]
+
+
+conf = ConnectionConfig(
+    MAIL_USERNAME="soporte.varios.proyectos@gmail.com",
+    MAIL_PASSWORD="popjtzxkeygvjmuv",
+    MAIL_FROM="soporte.varios.proyectos@gmail.com",
+    MAIL_PORT=465,  # Puerto para SSL
+    MAIL_SERVER="smtp.gmail.com",
+    MAIL_STARTTLS=False,
+    MAIL_SSL_TLS=True,
+    USE_CREDENTIALS=True,
+    VALIDATE_CERTS=True
+)
+
+
+@router.post("/email")
+async def simple_send(
+        email: List[EmailStr],
+        request_body: str,
+        file: UploadFile = File(None),
+) -> JSONResponse:
+    try:
+        attachments = [file] if file else None
+
+        html = f"""
+        <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+        <html xmlns="http://www.w3.org/1999/xhtml" xmlns="http://www.w3.org/1999/xhtml" style="color-scheme: light dark; supported-color-schemes: light dark;">
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+            <meta name="x-apple-disable-message-reformatting" />
+            <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+            <meta name="color-scheme" content="light dark" />
+            <meta name="supported-color-schemes" content="light dark" />
+            <title></title>
+            <style>
+              body {{
+                background-color: #f3f4f6;
+                color: #1f2937;
+                font-family: Arial, sans-serif;
+              }}
+              .container {{
+                max-width: 640px;
+                margin: 0 auto;
+                padding: 24px;
+                background-color: #ffffff;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                border-radius: 8px;
+              }}
+              .header {{
+                text-align: center;
+                padding: 24px 0;
+              }}
+              .header h1 {{
+                font-size: 1.5rem;
+                font-weight: bold;
+                color: #ffffff;
+                background-color: #ec4899;
+                padding: 8px;
+                border-radius: 4px;
+                display: inline-block;
+              }}
+              .title {{
+                font-size: 1.125rem;
+                font-weight: 600;
+                color: #4b5563;
+              }}
+              .text {{
+                margin-top: 16px;
+                font-size: 0.875rem;
+                color: #374151;
+              }}
+              .text span {{
+                font-family: monospace;
+                color: #6b7280;
+              }}
+            </style>
+          </head>
+        <body>
+        <div class="container">
+            <div class="header">
+                <h1>Qwestar</h1>
+            </div>
+            <h2 class="title">Solicitud de Creación de Juego</h2>
+            <p class="text">
+                La siguiente empresa ha solicitado la creación de un juego con la siguiente información:
+            </p>
+            <p class="text">Contacto: <span>{request_body}</span></p>
+            <p class="text">Descripción de la solicitud: <span>{request_body}</span></p>
+            <p class="text">Archivo: <span>{file.filename if file else "No se proporcionó archivo"}</span></p>
+        </div>
+        </body>
+        </html>
+        """
+
+        message = MessageSchema(
+            subject="!Nueva Solicitud de Creación de Juego!",
+            recipients=email,
+            body=html,
+            subtype=MessageType.html,
+            attachments=attachments
+        )
+
+        fm = FastMail(conf)
+        await fm.send_message(message)
+        return JSONResponse(status_code=200, content={"message": "email has been sent"})
+    except Exception as e:
+        print(traceback.print_exc())
+        return JSONResponse(status_code=500, content={"message": str(e)})

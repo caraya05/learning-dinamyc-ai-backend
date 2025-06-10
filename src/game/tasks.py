@@ -2,6 +2,7 @@ from uuid import uuid4
 import traceback
 
 from bson import ObjectId
+import requests
 
 from pydantic import BaseModel
 from pydantic import Field
@@ -14,6 +15,27 @@ from state_game.services import get_state_game_by_game_id
 from task.services import update_task_service
 
 from utils import upload_image
+
+import base64
+from datetime import datetime, time
+from uuid import uuid4
+import traceback
+
+import pytz
+from bson import ObjectId
+
+from openai import NotGiven
+
+from pydantic import BaseModel
+from pydantic import Field
+
+from core.database import db
+
+from gpt_ai.utils import openai_generator
+
+from utils import upload_image
+
+NOT_GIVEN = NotGiven()
 
 
 class SchemaResponseImage(BaseModel):
@@ -136,8 +158,8 @@ async def generate_context_init_game(_game_id: str, _user_id: str):
                 {
                     "role": "user",
                     "content": f"Generate the story init for the game, set in the location "
-                    f"{first_location['title']}. The location is described as: {first_location['prompt_user']}. "
-                    f"The main character is {first_character['name']}, described as: {first_character['prompt_user']}.",
+                               f"{first_location['title']}. The location is described as: {first_location['prompt_user']}. "
+                               f"The main character is {first_character['name']}, described as: {first_character['prompt_user']}.",
                 },
             ],
             max_tokens=1000,
@@ -218,7 +240,7 @@ class SchemaResponseStoryNC(BaseModel):
 
 
 async def generate_context_new_character(
-    game_id: str, character_id: str, location_id: str, user_id: str
+        game_id: str, character_id: str, location_id: str, user_id: str
 ):
     try:
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
@@ -230,10 +252,10 @@ async def generate_context_new_character(
                 {
                     "role": "user",
                     "content": f"Continue the story for the game {game_db['title']} with the new character "
-                    f"{character_db['name']} in the location {location_db['title']}. "
-                    f"The current story is: {game_db.get('history', '')}. "
-                    f"The character is described as: {character_db['prompt_user']}. "
-                    f"The location is described as: {location_db['prompt_user']}.",
+                               f"{character_db['name']} in the location {location_db['title']}. "
+                               f"The current story is: {game_db.get('history', '')}. "
+                               f"The character is described as: {character_db['prompt_user']}. "
+                               f"The location is described as: {location_db['prompt_user']}.",
                 },
             ],
             max_tokens=4000,
@@ -265,8 +287,8 @@ async def generate_game_summary(game_id: str, user_id: str):
                 {
                     "role": "user",
                     "content": f"Generate a summary for the following game history: {game_db['history']},"
-                    f"should be a maximum of 200 words. "
-                    f"Respond only with the text of the summary in JSON format: {{'summary': '<summary_text>'}}",
+                               f"should be a maximum of 200 words. "
+                               f"Respond only with the text of the summary in JSON format: {{'summary': '<summary_text>'}}",
                 },
             ],
             max_tokens=500,
@@ -352,7 +374,7 @@ async def async_generate_image_cover_game_task(_game_id: str, _user_id: str, _ta
 
 
 async def async_generate_context_new_character_task(
-    _game_id: str, _character_id: str, _location_id: str, _user_id: str, _task_id: str
+        _game_id: str, _character_id: str, _location_id: str, _user_id: str, _task_id: str
 ):
     await update_task_service(_id=_task_id, _status="pending")
 
@@ -424,3 +446,114 @@ async def async_identify_category_game_task(_game_id: str, _user_id: str, _task_
         _id=_task_id, _status="completed", _message="Category generated successfully"
     )
     return "Category generated successfully"
+
+
+class TaskCreateGameProvisional(BaseModel):
+    script: str = Field(..., example="script", description="Script for the game provisional")
+    title: str = Field(..., example="title", description="Title for the game provisional")
+
+
+async def create_game_provisional(_id_game_provisional: str):
+    """
+    Create a provisional game entry in the database.
+    """
+    try:
+        game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(_id_game_provisional)})
+
+        if not game_provisional_db:
+            return "Game provisional not found"
+
+        file_url = game_provisional_db["file"]
+        response = requests.get(file_url)
+
+        if response.status_code == 200:
+            data = response.content  # Contenido binario del archivo
+            # Codificar el archivo en base64
+            base64_string = base64.b64encode(data).decode("utf-8")
+        else:
+            return "Error generating file"
+
+        source_game_response = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": """Crea un entrenamiento interactivo en formato "elige tu propia aventura" para un nuevo representante de ventas en una empresa de tecnología (TechCorp).
+                                El objetivo es enseñar buenas prácticas de ventas a través de decisiones narrativas.
+                                Estructura:
+                                Introducción breve con contexto.
+                                Múltiples escenas (3 a 5), cada una con una situación clave (primera reunión, manejo de objeciones, cierre de venta, etc.)
+                                En cada escena, presenta una decisión con 3 opciones (A, B, C).
+                                No des la respuesta correcta de inmediato. Permite que el usuario elija y luego ofrece una retroalimentación adaptativa basada en su elección.
+                                Usa un tono profesional, pero dinámico y conversacional.
+                                Incluye una conclusión que resuma el estilo de ventas del jugador según sus elecciones y ofrezca consejos prácticos."""
+                },
+                {
+                    "role": "user",
+                    "content": f"nesecito que me ayudes a crear un juego basado en el archivo PDF proporcionado."
+                               f"nesecito que el juego tenga un guion y un titulo ambos en ingles, el guion debe ser una historia que se pueda jugar en formato de texto"
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "file",
+                            "file": {
+                                "filename": "archivo.pdf",
+                                "file_data": f"data:application/pdf;base64,{base64_string}",
+                            }
+                        }
+                    ]
+                }
+            ],
+            model="gpt-4.1",
+            response_format=TaskCreateGameProvisional,
+            type_generation="game_provisional",
+            user_id=None,
+            max_tokens=16384,
+        )
+
+        if not source_game_response:
+            return "Failed to generate game provisional"
+
+        image_game_provisional = await openai_generator.generate_image(
+            prompt=f"Genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego ."
+                   f"basado en el  script: {source_game_response.script} "
+                   f"que ejemplifique una escena del juego con un personaje principal que represente el estilo del juego, no debe tener texto.",
+            model="gpt-image-1",
+            size=("1024x1536"),
+            style=None
+        )
+
+        image_bytes = base64.b64decode(image_game_provisional)
+
+        url_image = upload_image(
+            img_byte_arr=image_bytes,
+            file_name=f"game-provisional/{uuid4()}.jpg",
+            size=(512, 896)
+        )
+
+        if not url_image:
+            return "Failed to upload image"
+
+        game_provisional_db["image"] = url_image
+        game_provisional_db["title"] = source_game_response.title
+        game_provisional_db["script"] = source_game_response.script
+
+        game_provisional_db["updated_at"] = datetime.now(pytz.utc)
+        await db["game_provisional"].update_one(
+            {"_id": ObjectId(_id_game_provisional)},
+            {"$set": game_provisional_db}
+        )
+
+        return "game provisional created successfully"
+    except Exception as e:
+        print(traceback.print_exc())
+        return "Failed to create game provisional"
+
+
+async def async_create_game_provisional_task(id_game_provisional: str):
+    """
+    Asynchronous task to create a provisional game.
+    """
+    result = await create_game_provisional(_id_game_provisional=id_game_provisional)
+    return result

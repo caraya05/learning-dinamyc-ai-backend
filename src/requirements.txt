@@ -30,4 +30,6 @@ uvicorn==0.21.1
 wheel==0.40.0
 httpx==0.25.0
 websockets==14.1
-google
+google==3.0.0
+crc32c
+slowapi

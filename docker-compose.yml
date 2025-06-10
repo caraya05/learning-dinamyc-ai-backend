@@ -13,6 +13,7 @@ services:
       - ./src/:/code
     ports:
       - "9000:9000"
+      - "9001:9001"
 
   nginx:
     container_name: nginx

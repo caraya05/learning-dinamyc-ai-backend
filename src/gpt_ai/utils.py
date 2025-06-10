@@ -3,7 +3,7 @@ import pytz
 
 from fastapi import HTTPException
 
-from openai import AsyncClient as OpenAI
+from openai import AsyncClient as OpenAI, NotGiven
 from openai import BaseModel
 import openai
 from openai import APIConnectionError
@@ -23,6 +23,8 @@ from pydantic import BaseModel as PydanticBaseModel
 from config import settings
 
 from core.database import db
+
+NOT_GIVEN = NotGiven()
 
 
 class SchemaResponseModerator(PydanticBaseModel):
@@ -135,15 +137,17 @@ class OpenAIGenerator:
             organization=settings.OPENAI_API_ORG_ID, api_key=settings.OPENAI_API_KEY
         )
 
+
     async def generate_image(
             self,
             prompt: str,
             model: str = "dall-e-3",
             count: int = 1,
             size: str = "1024x1792",
-            quality: str = "standard",
+            quality: str = "high",
             user_id: str = None,
             type_generation: str = None,
+            style: str | None = "vivid",  # Assuming style is optional and can be NotGiven
     ):
         try:
             response = await self.client.images.generate(
@@ -152,7 +156,7 @@ class OpenAIGenerator:
                 size=size,
                 quality=quality,
                 n=count,
-                style="vivid",
+                style=style if style is not None else NOT_GIVEN,
             )
 
             await store_response(
@@ -163,7 +167,8 @@ class OpenAIGenerator:
                 user_id=user_id,
             )
 
-            return response.data[0].url
+
+            return response.data[0].url if response.data[0].url else response.data[0].b64_json
 
         except Exception as e:
             print(f"Error in generate_image: {str(e)}")

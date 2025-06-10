@@ -25,7 +25,5 @@ class Settings(BaseSettings):
 
     ELEVENLABS_API_KEY: str = os.environ["ELEVENLABS_API_KEY"]
 
-    GCP_CREDENTIALS: str = os.environ["GCP_CREDENTIALS"]
-
 
 settings = Settings()
