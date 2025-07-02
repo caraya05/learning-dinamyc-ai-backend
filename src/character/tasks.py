@@ -1,5 +1,8 @@
 import random
 import traceback
+import requests
+import base64
+
 from uuid import uuid4
 
 from bson import ObjectId
@@ -15,6 +18,8 @@ from task.services import update_task_service
 from utils import upload_image
 from voice.elevenlabs import generate_audio
 from voice.utils import get_variants_service
+
+from io import BytesIO
 
 
 class SchemaVoiceIdentification(BaseModel):
@@ -421,37 +426,117 @@ async def generate_image_character_face(_character_id, _user_id, _state_game_id)
         if validate_prompt:
             return False, "Prompt not allowed"
 
-        image_face = await openai_generator.generate_image(
-            prompt=f"Genera una imagen cuadrada en vista frontal de {character_state_db['data']['prompt_user']},"
-                   " de ojos vivos, rasgos faciales exagerados y expresivos, de la "
-                   "cintura para arriba, en estilo 3D Cel-shaded que Imita el aspecto "
-                   "de los dibujos animados 2D, utilizando colores planos pero vivos y "
-                   f"contornos marcados. Con fondo Blanco.",
-            quality="hd",
-            size="1024x1024",
-            user_id=_user_id,
-            type_generation="character_face",
-        )
-        # if character_db['image']:
-        #     delete_image(character_db['image'])
-        image_generated = upload_image(
-            url_image=image_face,
-            file_name=f"characters/{uuid4()}.jpg",
-            size=(512, 512),
-        )
+        if character_state_db["data"]["image_reference"] and character_state_db["data"]["image_reference"] != "" and \
+                character_state_db['data']['prompt_user']:
+            image_reference = character_state_db['data']['image_reference']
+            response = requests.get(image_reference)
+            image_bytes = BytesIO(response.content)
 
-        character_state_db["data"]["image"] = image_generated
+            image_base64 = base64.b64encode(image_bytes.getvalue()).decode('utf-8')
 
-        await db["state_glic"].update_one(
-            {"_id": character_state_db["_id"]},
-            {
-                "$set": {
-                    "data": character_state_db["data"],
-                }
-            },
-        )
+            image_face = await openai_generator.generate_gpt(
+                content_prompt=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": "Genera una imagen cuadrada de 1024x1024 de un personaje en estilo 3D low poly,"
+                                        " de la cintura para arriba,  con fondo de color solido que contraste."
+                                        " Utilizando la imagen de referencia.",
+                            },
+                            {
+                                "type": "input_text",
+                                "text": f"nombre del personaje: {character_state_db['data']['name']} y descripción del personaje por "
+                                        f"parte del usuario: {character_state_db['data']['prompt_user']}"
+                                        f"genero: {character_state_db['data']['genre']}",
+                            },
+                            {
+                                "type": "input_image",
+                                "image_url": f"data:image/jpeg;base64,{image_base64}",
+                            }
+                        ],
+                    },
+                ],
+                model="gpt-4.1",
+                user_id=_user_id,
+                type_generation="character_face_with_reference",
+                image=True,
+                tools=[{"type": "image_generation"}]
+            )
 
-        return True, "Image generated successfully"
+            image_data = base64.b64decode(image_face)
+
+            image_face = BytesIO(image_data)
+
+            image_generated = upload_image(
+                img_byte_arr=image_face,
+                file_name=f"characters/{uuid4()}.jpg",
+                size=(512, 512),
+            )
+
+            character_state_db["data"]["image"] = image_generated
+
+
+            await db["state_glic"].update_one(
+                {"_id": character_state_db["_id"]},
+                {
+                    "$set": {
+                        "data": character_state_db["data"],
+                    }
+                },
+            )
+
+            return True, "Image generated successfully with reference"
+
+        if not character_state_db['data']['image_reference'] and character_state_db['data']['prompt_user']:
+            image_face = await openai_generator.generate_image(
+                prompt=f"Genera una imagen en vista frontal cuadrada de 1024x1024 de un personaje,"
+                       f" ({character_state_db['data']['prompt_user']}) en estilo 3D low poly, de la cintura para "
+                       f"arriba mirando al frente con los brazos hacia abajo, con fondo de color solido que contraste."
+                       f"genero: {character_state_db['data']['genre']}, "
+                       f" Utilizando la imagen de referencia.",
+                size="1024x1024",
+                user_id=_user_id,
+                model="gpt-image-1",
+                style=None,
+                type_generation="character_face",
+            )
+
+            image_bytes = base64.b64decode(image_face)
+
+            image_generated = upload_image(
+                img_byte_arr=image_bytes,
+                file_name=f"characters/{uuid4()}.jpg",
+                size=(512, 512),
+            )
+
+            character_state_db["data"]["image"] = image_generated
+
+            await db["state_glic"].update_one(
+                {"_id": character_state_db["_id"]},
+                {
+                    "$set": {
+                        "data": character_state_db["data"],
+                    }
+                },
+            )
+
+            return True, "Image generated successfully"
+
+        if character_state_db['data']['image_reference'] and not character_state_db['data']['prompt_user']:
+            character_state_db["data"]["image"] = character_state_db['data']['image_reference']
+            await db["state_glic"].update_one(
+                {"_id": character_state_db["_id"]},
+                {
+                    "$set": {
+                        "data": character_state_db["data"],
+                    }
+                },
+            )
+            return True, "Image generated successfully with reference but no prompt user"
+
+        return False, "No prompt user provided for character image generation"
     except Exception as e:
         print(traceback.format_exc())
         print(f"Error in get images character service: {str(e)}")

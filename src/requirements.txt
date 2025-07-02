@@ -20,6 +20,11 @@ pylint==3.2.6
 pymongo==4.8.0
 pyrebase==3.0.18
 pytest==8.3.2
+pytest-asyncio
+anyio
+pytest-tornasync
+pytest-trio
+pytest-twisted
 python-jose==3.3.0
 python-multipart==0.0.6
 pytz==2023.3

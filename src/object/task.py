@@ -2,6 +2,9 @@ from uuid import uuid4
 import traceback
 from bson import ObjectId
 from pydantic import BaseModel, Field
+import base64
+import requests
+from io import BytesIO
 
 from character.tasks import generate_language_detection
 from gpt_ai.utils import openai_generator
@@ -14,38 +17,122 @@ from core.database import db
 
 async def generate_image_item(prompt_user: str, object_id: str, user_id: str, state_game_id: str):
     try:
-        prompt_db_image_object = await get_prompt_by_category_service('image_object')
-        prompt_object = prompt_db_image_object.get("description").replace("x_object", prompt_user)
-
-        validate_prompt = await openai_generator.moderation_text(text=prompt_object)
-
-        if validate_prompt:
-            return False, "Prompt not allowed"
-
-        image_item = await openai_generator.generate_image(
-            prompt=prompt_object,
-            quality="hd",
-            size="1024x1024",
-            user_id=user_id,
-            type_generation="image_item",
-        )
-        image_object = upload_image(
-            url_image=image_item,
-            file_name=f"item/{uuid4()}.jpg",
-            size=(512, 512),
-        )
-        # await db['item'].update_one({"_id": ObjectId(object_id)}, {"$set": {"image": image_object}})
         element_state_db = await db['state_glic'].find_one(
             {"element_id": object_id, "state": state_game_id}
         )
 
-        element_state_db["data"]["image"] = image_object
+        # Verificar si existe una imagen de referencia y hay un prompt_user
+        if element_state_db["data"].get("image_reference") and element_state_db["data"]["image_reference"] != "" and \
+                element_state_db['data'].get('prompt_user'):
+            image_reference = element_state_db['data']['image_reference']
+            response = requests.get(image_reference)
+            image_bytes = BytesIO(response.content)
 
-        await db['state_glic'].update_one(
-            {"_id": element_state_db["_id"]}, {"$set": {"data": element_state_db["data"]}}
-        )
+            image_base64 = base64.b64encode(image_bytes.getvalue()).decode('utf-8')
 
-        return True, "Image item generated successfully"
+            image_item = await openai_generator.generate_gpt(
+                content_prompt=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": "Genera una imagen en estilo 3D low poly en vista frontal de un objeto ,"
+                                        " con fondo de color solido que contraste."
+                                        " Utilizando la imagen de referencia.",
+                            },
+                            {
+                                "type": "input_text",
+                                "text": f"nombre del objeto: {element_state_db['data']['name']} y descripción del objeto por "
+                                        f"parte del usuario: {element_state_db['data']['prompt_user']}",
+                            },
+                            {
+                                "type": "input_image",
+                                "image_url": f"data:image/jpeg;base64,{image_base64}",
+                            }
+                        ],
+                    },
+                ],
+                model="gpt-4.1",
+                user_id=user_id,
+                type_generation="item_image_with_reference",
+                image=True,
+                tools=[{"type": "image_generation"}]
+            )
+
+            image_data = base64.b64decode(image_item)
+
+            image_object = BytesIO(image_data)
+
+            image_generated = upload_image(
+                img_byte_arr=image_object,
+                file_name=f"item/{uuid4()}.jpg",
+                size=(512, 512),
+            )
+
+            element_state_db["data"]["image"] = image_generated
+
+            # Después de generar la imagen, establecer image_reference a null
+            element_state_db["data"]["image_reference"] = None
+
+            await db['state_glic'].update_one(
+                {"_id": element_state_db["_id"]}, {"$set": {"data": element_state_db["data"]}}
+            )
+
+            return True, "Image generated successfully with reference"
+
+        # Si no hay imagen de referencia pero hay prompt_user, generar imagen normal
+        elif not element_state_db['data'].get('image_reference') and element_state_db['data'].get('prompt_user'):
+            prompt_db_image_object = ("Genere una imagen en vista frontal de (x_object), en estilo 3D low poly,"
+                                  ". Con fondo de color solido que contraste.")
+            prompt_object = prompt_db_image_object.replace("x_object", prompt_user)
+
+            validate_prompt = await openai_generator.moderation_text(text=prompt_object)
+
+            if validate_prompt:
+                return False, "Prompt not allowed"
+
+            image_item = await openai_generator.generate_image(
+                prompt=prompt_object,
+                model="gpt-image-1",
+                size="1024x1024",
+                style=None
+            )
+
+            image_bytes = base64.b64decode(image_item)
+
+            image_object = upload_image(
+                img_byte_arr=image_bytes,
+                file_name=f"item/{uuid4()}.jpg",
+                size=(512, 512),
+            )
+
+            element_state_db["data"]["image"] = image_object
+
+            await db['state_glic'].update_one(
+                {"_id": element_state_db["_id"]}, {"$set": {"data": element_state_db["data"]}}
+            )
+
+            return True, "Image item generated successfully"
+
+        # Si hay imagen de referencia pero no hay prompt_user, usar la imagen de referencia directamente
+        elif element_state_db['data'].get('image_reference') and not element_state_db['data'].get('prompt_user'):
+            element_state_db["data"]["image"] = element_state_db['data']['image_reference']
+
+            # Después de usar la imagen de referencia, establecerla a null
+            element_state_db["data"]["image_reference"] = None
+
+            await db['state_glic'].update_one(
+                {"_id": element_state_db["_id"]},
+                {
+                    "$set": {
+                        "data": element_state_db["data"],
+                    }
+                },
+            )
+            return True, "Image generated successfully with reference but no prompt user"
+
+        return False, "No prompt user provided for item image generation"
     except Exception as e:
         print(traceback.format_exc())
         print(f"Error in generate image: {str(e)}")

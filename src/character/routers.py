@@ -1,21 +1,32 @@
+from typing import Optional, Union
+import json
 from fastapi import APIRouter
+from fastapi import File
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import status
+from fastapi import UploadFile
+from fastapi import Request
+from fastapi import Form
+from fastapi import Body
+from typing import Dict
 from fastapi.security import HTTPAuthorizationCredentials
 
 import traceback
+from bson import ObjectId
 
 from pydantic import BaseModel
 
 from auth.auth import auth
 from auth.utils import auth_schema
+from core.database import db
+from utils import upload_file
 
 from character.schemas import (
     SchemaUpdateCharacterCollection,
     SchemaNewInteraction,
     SchemaDeactivateCharacter,
-    SchemaResponseQuestionOpen, SchemaResponseTalkOpen,
+    SchemaResponseQuestionOpen, SchemaResponseTalkOpen, SchemaOpenTalk, SchemaOpenAnswer, SchemaOptionMultiple,
 )
 from character.schemas import SchemaAddCharacterLocation
 from character.schemas import SchemaUpdatedCharacterLocation
@@ -51,10 +62,10 @@ router = APIRouter(prefix='/characters', tags=['Characters'])
 
 @router.get("/{character_id}", response_model=SchemaRetrieveCharacter)
 async def get_character(
-    character_id: str,
-    publish: bool = False,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        character_id: str,
+        publish: bool = False,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     if publish:
         try:
@@ -93,11 +104,11 @@ async def get_character(
 
 @router.get("/", response_model=SchemaListCharacter)
 async def get_characters(
-    location_id: str = None,
-    game_id: str = None,
-    publish: bool = False,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        location_id: str = None,
+        game_id: str = None,
+        publish: bool = False,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     if publish:
         try:
@@ -140,10 +151,10 @@ async def get_characters(
 
 @router.get("/me/", response_model=SchemaListCharacter)
 async def get_all_characters(
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-    page: int = 1,
-    count: int = 10,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        page: int = 1,
+        count: int = 10,
 ):
     try:
         characters_db = await get_all_character_service(
@@ -180,15 +191,71 @@ async def get_all_characters(
 
 @router.post("/", response_model=SchemaRetrieveCharacter)
 async def create_character(
-    character: SchemaCreateCharacter,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        request: Request,
+        name: Optional[str] = Form(None, max_length=100, example="Jhon Doe"),
+        prompt_user: Optional[str] = Form(None, example="prompt_user"),
+        prompt_user_dialog: Optional[str] = Form(None),
+        conversation_type: Optional[str] = Form(None),
+        options_dialog: Optional[str] = Form(None),
+        game_id: Optional[str] = Form(None, example="location_id"),
+        location_id: Optional[str] = Form(None, example="location_id"),
+        state_game: Optional[str] = Form(None, example="state_game"),
+        file: Optional[UploadFile] = File(None),
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
+        # Intenta procesar el cuerpo como JSON
+        try:
+            json_body = await request.json()
+            name = json_body.get("name")
+            prompt_user = json_body.get("prompt_user")
+            prompt_user_dialog = json_body.get("prompt_user_dialog")
+            conversation_type = json_body.get("conversation_type")
+            options_dialog = json_body.get("options_dialog")
+            game_id = json_body.get("game_id")
+            location_id = json_body.get("location_id")
+            state_game = json_body.get("state_game")
+        except Exception:
+            # Si no es JSON, los datos se procesan como form-data
+            pass
+
+        print(f"Creating character with name: {name}, "
+              f"game_id: {game_id},"
+              f" location_id: {location_id}, "
+              f"state_game: {state_game}, prompt_user: {prompt_user},"
+              f" prompt_user_dialog: {prompt_user_dialog},"
+              f" conversation_type: {conversation_type}, "
+              f"options_dialog: {options_dialog},"
+              f" file: {file}")
+
+        if options_dialog:
+            options_dialog = json.loads(options_dialog)
+
+            if isinstance(options_dialog, (SchemaOpenTalk, SchemaOptionMultiple, SchemaOpenAnswer)):
+                options_dialog = options_dialog.dict()
+            elif isinstance(options_dialog, dict):
+                pass  # El valor ya es un diccionario válido
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="options_dialog debe ser un diccionario válido."
+                )
+
         character_db = await create_character_service(
-            character=character,
+            character=SchemaCreateCharacter(
+                name=name,
+                prompt_user=prompt_user,
+                prompt_user_dialog=prompt_user_dialog,
+                conversation_type=conversation_type,
+                options_dialog=options_dialog,
+                game_id=game_id,
+                location_id=location_id,
+                state_game=state_game
+            ),
             user_id=str(user_db.get("_id")),
-            game_id=character.game_id,
+            game_id=game_id,
+            file=file
         )
         return character_db
     except Exception as e:
@@ -221,18 +288,18 @@ async def create_character(
 
 @router.post("/add-edit-characteristic/")
 async def add_edit_characteristic(
-    character: SchemaUpdatedCharacterLocation,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        character: SchemaUpdatedCharacterLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
         if character_db := await add_or_edit_character_location(
-            character_id=character.character_id,
-            location_id=character.location_id,
-            game_id=character.game_id,
-            state_game=character.state_game,
-            characteristics=character.characteristics,
-            user_id=str(user_db.get("_id")),
+                character_id=character.character_id,
+                location_id=character.location_id,
+                game_id=character.game_id,
+                state_game=character.state_game,
+                characteristics=character.characteristics,
+                user_id=str(user_db.get("_id")),
         ):
             return character_db
     except Exception as e:
@@ -245,10 +312,10 @@ async def add_edit_characteristic(
 
 @router.patch("/{character_id}", response_model=SchemaRetrieveCharacter)
 async def partial_update_character(
-    character_id: str,
-    character_update: SchemaUpdateCharacterCollection,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        character_id: str,
+        character_update: SchemaUpdateCharacterCollection,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     character_db = await update_character_service(
         character_id=character_id,
@@ -269,10 +336,10 @@ async def partial_update_character(
 
 @router.post("/{character_id}/generate-interaction/", response_model=SchemaRetrieveCharacter)
 async def generate_interaction_character(
-    character_id: str,
-    new_interaction: SchemaNewInteraction,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        character_id: str,
+        new_interaction: SchemaNewInteraction,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
         character_db = await new_interaction_character_service(
@@ -297,9 +364,9 @@ async def generate_interaction_character(
 
 @router.delete("/{character_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_character(
-    character_id: str,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        character_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     await delete_character_service(character_id=character_id)
     return status.HTTP_204_NO_CONTENT
@@ -307,11 +374,11 @@ async def delete_character(
 
 @router.post("/answer/open-question/{character_id}/{location_id}/")
 async def answer_open_question(
-    character_id: str,
-    location_id: str,
-    answer: SchemaResponseQuestionOpen,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        character_id: str,
+        location_id: str,
+        answer: SchemaResponseQuestionOpen,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     character_db = await answer_open_question_service(
         character_id=character_id,
@@ -326,13 +393,12 @@ async def answer_open_question(
 
 @router.post("/answer/open-talk/{character_id}/{location_id}/")
 async def answer_open_talk(
-    character_id: str,
-    location_id: str,
-    answer: SchemaResponseTalkOpen,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        character_id: str,
+        location_id: str,
+        answer: SchemaResponseTalkOpen,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
-
     character_db = await answer_open_talk_service(
         character_id=character_id,
         location_id=location_id,
@@ -347,10 +413,10 @@ async def answer_open_talk(
 
 @router.post("/disable/{character_id}/")
 async def disable_character(
-    character_id: str,
-    character: SchemaDeactivateCharacter,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        character_id: str,
+        character: SchemaDeactivateCharacter,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
         character_db = await deactivate_character_service(
@@ -363,7 +429,6 @@ async def disable_character(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Character not found",
         )
-
 
 # class SchemaResponsePromptOpen(BaseModel):
 #     response: str

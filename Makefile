@@ -143,6 +143,8 @@ arm-build-bg:
 arm-bash:
 	docker-compose -f docker-compose-arm.yml run --rm fastapi sh
 
+arm-test:
+	docker-compose -f docker-compose-arm.yml run --rm fastapi pytest tests/
 git:
 	git config  --global user.name "caraya05"
 	git config  --global user.email "carlos.amy375d@gmail.com"

@@ -28,3 +28,5 @@ class LocationGLIC(BaseModel):
     sound: Optional[str] = Field(None, example="123")
     game_id: Optional[str] = Field(None, example="123")
     is_active: bool = Field(default=True, example=True)
+    image_reference: Optional[str] = Field(None, example="reference_image.jpg")
+

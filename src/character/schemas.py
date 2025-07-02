@@ -77,6 +77,7 @@ class SchemaDataCharacter(BaseModel):
     genre: Optional[str] = Field(None, example=GenderCharacter.MAN)
     character_type: Optional[str] = Field(None, example="character_type")
     image: Optional[str] = Field(None, example="image.jpg")
+    image_reference: Optional[str] = Field(None, example="reference_image.jpg")
     locations_id: Optional[list] = Field(None, example="location_id")
     extra_data: Optional[dict] = Field(None, example="Extra data")
     # conversation_type: str = Field(...)
@@ -105,12 +106,16 @@ class SchemaCreateCharacter(BaseModel):
                 {"prompt_user_guideline": None,
                 "prompt_user_answer": None}
             ],
-            "prompt_user_guideline": None}
+            "prompt_user_guideline": None,
+            "num_interaction": None
+
+        }
 
     )
     game_id: Optional[str] = Field(None, example="location_id")
     location_id: Optional[str] = Field(None, example="location_id")
     state_game: Optional[str] = Field(None, example="state_game")
+    image_reference: Optional[str] = Field(None, example="reference_image.jpg")
 
 
 class SchemaRetrieveCharacter(ResponseModel):
@@ -145,6 +150,7 @@ class SchemaUpdateCharacterCollection(BaseModel):
     options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple | SchemaOpenTalk] = Field(
         None, example={"key": "value"}
     )
+    image_reference: Optional[str] = Field(None, example="reference_image.jpg")
     location_id: Optional[str] = Field(None, example="location_id")
     game_id: Optional[str] = Field(None, example="game_id")
     state_game: Optional[str] = Field(None, example="state_game")

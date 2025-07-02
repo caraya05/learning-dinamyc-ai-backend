@@ -1,9 +1,11 @@
 import traceback
 from datetime import datetime
+from io import BytesIO
+from uuid import uuid4
 
-import bson.objectid
 from bson import ObjectId
 from fastapi import HTTPException
+from fastapi import UploadFile
 from fastapi import status
 from openai import BaseModel
 from pydantic import Field
@@ -28,6 +30,7 @@ from state_glic.services import get_list_state_glic_by_element_id
 from task.services import create_task_service
 from task.services import update_task_service
 from user.services import validate_star_user_service, disable_user_service
+from utils import upload_image
 
 
 async def get_character_service(character_id: str):
@@ -141,7 +144,7 @@ async def get_characters_by_location_service(
         return []
 
 
-async def create_character_service(character: SchemaCreateCharacter, user_id: str, game_id: str):
+async def create_character_service(character: SchemaCreateCharacter, user_id: str, game_id: str, file: UploadFile):
     try:
         if character.prompt_user:
             response_moderation_prompt_user = await openai_generator.moderation_text(
@@ -168,6 +171,7 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
         character_db = Character(**character.dict())
         character_db.created_by = user_id
         character_db.updated_by = user_id
+
         character_created = await db["character"].insert_one(character_db.dict())
 
         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
@@ -185,8 +189,39 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
         else:
             state_game = await get_state_game_by_game_id(game_id)
 
+        if file:
+            file_content = file.file.read()
+            if not file_content:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File is empty",
+                )
+            file.file.seek(0)  # Reset file pointer to the beginning
+            if file.content_type not in ["image/jpeg", "image/png"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File type not allowed, only jpeg and png",
+                )
+            if file.content_type == "image/jpeg":
+                file_name = f"characters-reference/{uuid4()}.jpg"
+            elif file.content_type == "image/png":
+                file_name = f"characters-reference/{uuid4()}.png"
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File type not allowed, only jpeg and png",
+                )
+            img_byte_arr = BytesIO(file_content)
+            img_byte_arr.seek(0)
+
+            url_image_reference = upload_image(
+                img_byte_arr=img_byte_arr,
+                file_name=file_name,
+                size=(512, 512),
+            )
+            character_db_state.image_reference = url_image_reference
+
         if state_game:
-            print("data", character_db_state)
             await create_state_glic(
                 element_id=str(character_created.inserted_id),
                 type_element="character",

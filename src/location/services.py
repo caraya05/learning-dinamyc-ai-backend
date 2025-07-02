@@ -1,8 +1,12 @@
 import traceback
+from io import BytesIO
+from uuid import uuid4
 
 from bson import ObjectId
 from fastapi import HTTPException
 from starlette import status
+
+from fastapi import UploadFile
 
 from celery_worker import generate_location_task
 from celery_worker import generate_image_location_task
@@ -143,7 +147,7 @@ async def get_locations_v2_service(*, game_id: str, skip: int = 0, limit: int = 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Locations not found.")
 
 
-async def create_location_service(location: SchemaCreateLocation, user_id: str):
+async def create_location_service(location: SchemaCreateLocation, user_id: str, file: UploadFile = None):
     """
     Create a location.
     """
@@ -181,6 +185,40 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str):
             state_game = await get_state_game_by_id(location.state_game)
         else:
             state_game = await get_state_game_by_game_id(location.game_id)
+
+        # Procesar la imagen de referencia si se proporciona
+        if file:
+            file_content = file.file.read()
+            if not file_content:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File is empty",
+                )
+            file.file.seek(0)  # Reset file pointer to the beginning
+            if file.content_type not in ["image/jpeg", "image/png"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File type not allowed, only jpeg and png",
+                )
+            if file.content_type == "image/jpeg":
+                file_name = f"locations-reference/{uuid4()}.jpg"
+            elif file.content_type == "image/png":
+                file_name = f"locations-reference/{uuid4()}.png"
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File type not allowed, only jpeg and png",
+                )
+            img_byte_arr = BytesIO(file_content)
+            img_byte_arr.seek(0)
+
+            from utils import upload_image
+            url_image_reference = upload_image(
+                img_byte_arr=img_byte_arr,
+                file_name=file_name,
+                size=(512, 512),
+            )
+            location_db_state.image_reference = url_image_reference
 
         if state_game:
             await create_state_glic(
@@ -222,6 +260,7 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str):
             return location_db
     except Exception as e:
         print(f"Error in create location service: {e}")
+        print(traceback.print_exc())
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Location not created")
 
 

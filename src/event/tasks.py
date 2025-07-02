@@ -1,5 +1,6 @@
 from bson import ObjectId
 import traceback
+import base64
 
 from state_game.services import get_state_game_by_game_id
 from task.services import update_task_service
@@ -95,9 +96,10 @@ async def generate_image_event(
                 {
                     "role": "system",
                     "content": f"Eres un diseñador de videojuegos y te han encargado"
-                               f"Genera una imagen de portada en estilo Toon 3D de calidad extraordinaria para el juego {game_db['title']}"
+                               f"Genera una imagen de portada en estilo 3D low poly para el juego {game_db['title']}"
                                f" con el personaje {character_principal_state_game['data']['prompt_user']}. "
-                               f"La imagen debe ser protrait y tener el contenido vertical."
+                               f"con proporciones realistas."
+                               f"La imagen debe ser protrait y tener el contenido vertical. sin texto."
                                f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen."
                 },
                 {
@@ -125,14 +127,15 @@ async def generate_image_event(
 
         response_image = await openai_generator.generate_image(
             prompt=response_prompt_image.prompt_user_image,
-            quality="hd",
-            size="1024x1792",
-            user_id=user_id,
-            type_generation="generate image cover game",
+            model="gpt-image-1",
+            size="1024x1536",
+            style=None
         )
 
+        image_bytes = base64.b64decode(response_image)
+
         image_generated = upload_image(
-            url_image=response_image,
+            img_byte_arr=image_bytes,
             file_name=f"event/{uuid4()}.jpg",
             size=(512, 896),
         )

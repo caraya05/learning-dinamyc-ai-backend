@@ -1,8 +1,11 @@
 import traceback
 from http.client import HTTPException
+from io import BytesIO
 from uuid import uuid4
+import base64
 
 from bson import ObjectId
+import requests
 
 from pydantic import BaseModel
 from pydantic import Field
@@ -148,13 +151,9 @@ class SchemaLocationDescription(BaseModel):
     description: str = Field(
         ...,
         title="Description",
-        description="general description of the place, theme, appearance",
+        description="general description of element location",
     )
-    description_floor: str = Field(
-        ...,
-        title="Description Floor",
-        description="detailed description of the apartment next to a wall",
-    )
+
 
 
 class SchemaLocationSound(BaseModel):
@@ -170,19 +169,29 @@ async def generate_location_description(_location_id: str, _user_id: str, state_
         element_state_db = await db["state_glic"].find_one(
             {"element_id": _location_id, "state": state_game_id}
         )
-
-        prompt_db_location_place = await get_prompt_by_category_service("location_place")
-        prompt_db_location_place["description"] = prompt_db_location_place["description"].replace(
-            "{{PromptUserLocation}}", element_state_db["data"]["prompt_user"]
-        )
+        #
+        # prompt_db_location_place = await get_prompt_by_category_service("location_place")
+        # prompt_db_location_place["description"] = prompt_db_location_place["description"].replace(
+        #     "{{PromptUserLocation}}", element_state_db["data"]["prompt_user"]
+        # )
         response_description = await openai_generator.generate_gpt(
             content_prompt=[
                 {
                     "role": "system",
-                    "content": "Eres un personaje en un videojuego de realidad virtual. Estás en un lugar nuevo"
-                               " y necesitas describirlo para que otros jugadores puedan encontrarlo.",
+                    "content": (
+                                 "Eres un generador de elementos interiores para locaciones de videojuegos en una vista isométrica en 3D de estilo low poly. "
+                                 "Proporciona una lista detallada de los elementos que deben estar presentes en el interior de la locación solicitada por el usuario, "
+                               )
                 },
-                {"role": "user", "content": f"{prompt_db_location_place['description']}"},
+                {
+                    "role": "assistant",
+                    "content": (
+                                 "ejemplo: "
+                                 " bosque con árboles de pino, arbustos, rocas y un río que cruza el paisaje. "
+                                 "Hay un pequeño puente de madera sobre el río y un sendero de tierra que lo atraviesa. Todo está representado con formas geométricas simples, sin texturas, en una paleta de colores suaves y naturales. Iluminación cálida, estilo de videojuego minimalista"
+                               )
+                },
+                {"role": "user", "content": f"{element_state_db['data']['prompt_user']}"},
             ],
             model="gpt-4o-mini",
             max_tokens=4096,
@@ -192,7 +201,7 @@ async def generate_location_description(_location_id: str, _user_id: str, state_
         )
 
         element_state_db["data"]["description"] = response_description.description
-        element_state_db["data"]["description_floor"] = response_description.description_floor
+        # element_state_db["data"]["description_floor"] = response_description.description_floor
 
         await db["state_glic"].update_one(
             {"_id": element_state_db["_id"]},
@@ -283,55 +292,118 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
             {"element_id": _location_id, "state": _state_game_id}
         )
 
-        prompt_db_image_location = await get_prompt_by_category_service("location_image")
-        content_prompt = (
-            f'{prompt_db_image_location["description"]}, {element_state_db["data"]["description"]}'
-        )
-        new_prompt = await openai_generator.generate_gpt(
-            content_prompt=[
+        # Verificar si existe una imagen de referencia y hay un prompt_user
+        if element_state_db["data"].get("image_reference") and element_state_db["data"]["image_reference"] != "" and \
+                element_state_db['data'].get('prompt_user'):
+            image_reference = element_state_db['data']['image_reference']
+            response = requests.get(image_reference)
+            image_bytes = BytesIO(response.content)
+
+            image_base64 = base64.b64encode(image_bytes.getvalue()).decode('utf-8')
+
+            image_location = await openai_generator.generate_gpt(
+                content_prompt=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": "Genera una imagen de una locación en estilo 3D low poly en vista"
+                                        " isométrica, con fondo de color negro."
+                                        " Utilizando la imagen de referencia.",
+                            },
+                            {
+                                "type": "input_text",
+                                "text": f"Descripción de la locación: {element_state_db['data']['prompt_user']}",
+                            },
+                            {
+                                "type": "input_image",
+                                "image_url": f"data:image/jpeg;base64,{image_base64}",
+                            }
+                        ],
+                    },
+                ],
+                model="gpt-4.1",
+                user_id=_user_id,
+                type_generation="location_image_with_reference",
+                image=True,
+                tools=[{"type": "image_generation"}]
+            )
+
+            image_data = base64.b64decode(image_location)
+
+            image_face = BytesIO(image_data)
+
+            image_generated = upload_image(
+                img_byte_arr=image_face,
+                file_name=f"locations/{uuid4()}.jpg",
+                size=(2436, 1372),
+            )
+
+            element_state_db["data"]["image"] = image_generated
+
+            # Después de generar la imagen, establecer image_reference a null
+            element_state_db["data"]["image_reference"] = None
+
+            await db["state_glic"].update_one(
+                {"_id": element_state_db["_id"]}, {"$set": {"data": element_state_db["data"]}}
+            )
+
+            return True, "Image generated successfully with reference"
+
+        # Si no hay imagen de referencia pero hay prompt_user, generar imagen normal
+        elif not element_state_db['data'].get('image_reference') and element_state_db['data'].get('prompt_user'):
+            prompt_db_image_location = f""""
+            genera una imagen en vista interior isométrica en 3D de estilo low poly de { element_state_db["data"]["description"]},
+            con fondo de color negro, el suelo debe estar lo mas despejado posible, los elementos deben ser pequeños.
+            """
+            validate_prompt = await openai_generator.moderation_text(
+                text=prompt_db_image_location, user_id=_user_id
+            )
+            if validate_prompt:
+                return False, "Prompt not allowed"
+
+            image_location = await openai_generator.generate_image(
+                prompt=prompt_db_image_location,
+                model="gpt-image-1",
+                size="1536x1024",
+                style=None
+            )
+
+            image_bytes = base64.b64decode(image_location)
+
+            image_generated = upload_image(
+                img_byte_arr=image_bytes,
+                file_name=f"locations/{uuid4()}.jpg",
+                size=(2436, 1372),
+            )
+
+            element_state_db["data"]["image"] = image_generated
+
+            await db["state_glic"].update_one(
+                {"_id": element_state_db["_id"]}, {"$set": {"data": element_state_db["data"]}}
+            )
+
+            return True, "Image generated successfully"
+
+        # Si hay imagen de referencia pero no hay prompt_user, usar la imagen de referencia directamente
+        elif element_state_db['data'].get('image_reference') and not element_state_db['data'].get('prompt_user'):
+            element_state_db["data"]["image"] = element_state_db['data']['image_reference']
+
+            # Después de usar la imagen de referencia, establecerla a null
+            element_state_db["data"]["image_reference"] = None
+
+            await db["state_glic"].update_one(
+                {"_id": element_state_db["_id"]},
                 {
-                    "role": "system",
-                    "content": "reestructure el prompt para generar la imagen con estilo 3D volumétrico en vista"
-                               " isométrica para un videojuego RPG, con fondo de color solido.",
+                    "$set": {
+                        "data": element_state_db["data"],
+                    }
                 },
-                {"role": "user", "content": content_prompt},
-            ],
-            model="gpt-4o-mini",
-            max_tokens=4096,
-            response_format=SchemaLocationImage,
-            type_generation="text generation location image",
-            user_id=_user_id,
-        )
+            )
+            return True, "Image generated successfully with reference but no prompt user"
 
-        validate_prompt = await openai_generator.moderation_text(
-            text=new_prompt.response, user_id=_user_id
-        )
-        if validate_prompt:
-            return False, "Prompt not allowed"
-
-        image_location = await openai_generator.generate_image(
-            prompt=new_prompt.response,
-            quality="hd",
-            size="1792x1024",
-            user_id=_user_id,
-            type_generation="generate_image_location",
-        )
-        image_generated = upload_image(
-            url_image=image_location,
-            file_name=f"locations/{uuid4()}.jpg",
-            size=(2436, 1372),
-        )
-        # await db['location'].update_one(
-        #     {"_id": ObjectId(_location_id)}, {"$set": {"image": image_generated}}
-        # )
-
-        element_state_db["data"]["image"] = image_generated
-
-        await db["state_glic"].update_one(
-            {"_id": element_state_db["_id"]}, {"$set": {"data": element_state_db["data"]}}
-        )
-
-        return True, "Image generated successfully"
+        return False, "No prompt user provided for location image generation"
     except Exception as e:
         print(traceback.format_exc())
         print(f"Error in generate location image: {e}")

@@ -1,5 +1,9 @@
 import traceback
 from datetime import datetime
+from io import BytesIO
+from uuid import uuid4
+from fastapi import UploadFile
+
 from bson import ObjectId
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
@@ -159,7 +163,7 @@ async def delete_object_service(object_id: str):
         )
 
 
-async def create_item_service(schema: SchemaCreateObject, user_id: str):
+async def create_item_service(schema: SchemaCreateObject, user_id: str, file: UploadFile = None):
     """
     Create a new object.
     """
@@ -193,6 +197,40 @@ async def create_item_service(schema: SchemaCreateObject, user_id: str):
         schema_object.updated_by = user_id
 
         object_state = ObjectGLIC(**schema.dict())
+
+        # Procesar la imagen de referencia si se proporciona
+        if file:
+            file_content = file.file.read()
+            if not file_content:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File is empty",
+                )
+            file.file.seek(0)  # Reset file pointer to the beginning
+            if file.content_type not in ["image/jpeg", "image/png"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File type not allowed, only jpeg and png",
+                )
+            if file.content_type == "image/jpeg":
+                file_name = f"items-reference/{uuid4()}.jpg"
+            elif file.content_type == "image/png":
+                file_name = f"items-reference/{uuid4()}.png"
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File type not allowed, only jpeg and png",
+                )
+            img_byte_arr = BytesIO(file_content)
+            img_byte_arr.seek(0)
+
+            from utils import upload_image
+            url_image_reference = upload_image(
+                img_byte_arr=img_byte_arr,
+                file_name=file_name,
+                size=(512, 512),
+            )
+            object_state.image_reference = url_image_reference
 
         object_created = await db["item"].insert_one(schema_object.dict())
 
@@ -242,6 +280,7 @@ async def create_item_service(schema: SchemaCreateObject, user_id: str):
 
     except Exception as e:
         print(f"Error in create object service: {str(e)}")
+        print(traceback.print_exc())
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Object not created",

@@ -35,6 +35,7 @@ class CharacterGLIC(BaseModel):
     character_type: Optional[str] = Field(None, example="character_type")
     image: Optional[str] = Field(None, example="image.jpg")
     game_id: Optional[str] = Field(None, example="game_id")
+    image_reference: Optional[str] = Field(None, example="reference_image.jpg")
     locations_id: Optional[str] = Field(None, example="location_id")
     extra_data: Optional[dict] = Field(None, example="Extra data")
     conversation_type: str = Field(..., example=TypeConversation.NONE_CONVERSATION)

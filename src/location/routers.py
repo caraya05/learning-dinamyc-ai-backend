@@ -3,6 +3,9 @@ from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import status
 from fastapi.security import HTTPAuthorizationCredentials
+from fastapi import File, UploadFile, Form, Request
+import traceback
+from typing import Optional
 
 from auth.auth import auth
 from auth.utils import auth_schema
@@ -157,7 +160,12 @@ async def get_locations_all(
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveLocation)
 async def create_location(
-    schema: SchemaCreateLocation,
+    request: Request,
+    title: Optional[str] = Form(None, example="Forest"),
+    prompt_user: Optional[str] = Form(None, example="A dark forest with tall trees"),
+    game_id: Optional[str] = Form(None, example="game_id"),
+    state_game: Optional[str] = Form(None, example="state_game"),
+    file: Optional[UploadFile] = File(None),
     user_db: dict = Depends(auth),
     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
@@ -170,11 +178,32 @@ async def create_location(
     await validate_star_user_service(user_id=str(user_db.get("_id")))
 
     try:
-        location_db = await create_location_service(location=schema, user_id=str(user_db['_id']))
+        # Intenta procesar el cuerpo como JSON
+        try:
+            json_body = await request.json()
+            title = json_body.get("title")
+            prompt_user = json_body.get("prompt_user")
+            game_id = json_body.get("game_id")
+            state_game = json_body.get("state_game")
+        except Exception:
+            # Si no es JSON, los datos se procesan como form-data
+            pass
+
+        location_db = await create_location_service(
+            location=SchemaCreateLocation(
+                title=title,
+                prompt_user=prompt_user,
+                game_id=game_id,
+                state_game=state_game
+            ),
+            user_id=str(user_db['_id']),
+            file=file
+        )
         return location_db
 
     except Exception as e:
         print(f"Error in create location: {e}")
+        print(traceback.print_exc())
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Location not created",

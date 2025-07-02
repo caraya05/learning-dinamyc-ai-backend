@@ -1,5 +1,6 @@
 from uuid import uuid4
 import traceback
+import base64
 
 from bson import ObjectId
 import requests
@@ -92,33 +93,35 @@ async def generate_cover_image_game(_user_id: str, _game_id: str, _edit: bool = 
             )
         if _edit:
             prompt = (
-                f"Generar una imagen en estilo Toon 3D de extraordinaria calidad para el juego "
+                f"Generar una imagen en estilo 3D low poly para el juego "
                 f"{game_db['title']} protagonizada por el personaje {first_character_state['data']['prompt_user']}. "
                 f"La escena debe representar el siquiente momento '{game_db['prompt_image']}'. "
-                f"La imagen debe ser protrait y tener el contenido vertical."
+                f"La imagen debe ser protrait y tener el contenido vertical. sin incluir texto en la imagen."
             )
         else:
             prompt = (
-                f"Generar una imagen en estilo Toon 3D de extraordinaria calidad para el juego "
+                f"Generar una imagen en estilo 3D low poly para el juego "
                 f"{game_db['title']} protagonizada por el personaje {first_character_state['data']['prompt_user']}. "
                 f"La escena debe representar un momento icónico que capture la esencia del juego. "
-                f"La imagen debe ser protrait y tener el contenido vertical."
+                f"La imagen debe ser protrait y tener el contenido vertical. sin incluir texto en la imagen."
             )
 
         response_image = await openai_generator.generate_image(
             prompt=prompt,
-            quality="hd",
-            size="1024x1792",
-            user_id=_user_id,
-            type_generation="generate image cover game",
+            model="gpt-image-1",
+            size="1024x1536",
+            style=None
         )
 
+        image_bytes = base64.b64decode(response_image)
+
+
         image = upload_image(
-            url_image=response_image, file_name=f"covers/{uuid4()}.jpg", size=(512, 896)
+            img_byte_arr=image_bytes, file_name=f"covers/{uuid4()}.jpg", size=(512, 896)
         )
 
         image_minimalist = upload_image(
-            url_image=response_image, file_name=f"covers/{uuid4()}_minimalist.jpg", size=(256, 448)
+            img_byte_arr=image_bytes, file_name=f"covers/{uuid4()}_minimalist.jpg", size=(256, 448)
         )
 
         await db['game'].update_one(
@@ -520,7 +523,7 @@ async def create_game_provisional(_id_game_provisional: str):
                    f"basado en el  script: {source_game_response.script} "
                    f"que ejemplifique una escena del juego con un personaje principal que represente el estilo del juego, no debe tener texto.",
             model="gpt-image-1",
-            size=("1024x1536"),
+            size="1024x1536",
             style=None
         )
 

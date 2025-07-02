@@ -1,7 +1,12 @@
+import json
+
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import status
+from fastapi import File, UploadFile, Form, Request
+import traceback
+from typing import Optional
 
 from fastapi.security import HTTPAuthorizationCredentials
 
@@ -15,7 +20,7 @@ from object.schemas import SchemaUpdatedObjectLocation
 from object.schemas import SchemaAddItemLocation
 from object.schemas import SchemaRetrieveObject
 from object.schemas import SchemaCreateObject
-
+from object.schemas import SchemaOpenAnswer
 from object.services import (
     get_objects_service,
     new_interaction_item_service,
@@ -34,12 +39,12 @@ router = APIRouter(prefix="/item", tags=["Items"])
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListObject)
 async def get_objects(
-    game_id: str = None,
-    location_id: str = None,
-    user_db: dict = Depends(auth),
-    page: int = 1,
-    limit: int = 100,
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_id: str = None,
+        location_id: str = None,
+        user_db: dict = Depends(auth),
+        page: int = 1,
+        limit: int = 100,
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves all objects.
@@ -56,9 +61,9 @@ async def get_objects(
 
 @router.get("/{item_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveObject)
 async def retrieve_object(
-    item_id: str,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        item_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves a object.
@@ -73,9 +78,20 @@ async def retrieve_object(
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveObject)
 async def create_object(
-    object_: SchemaCreateObject,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        request: Request,
+        name: str = Form(..., example="Magic Sword"),
+        prompt_user: str = Form(..., example="A powerful magic sword with a blue blade"),
+        type_item: Optional[str] = Form(None),
+        prompt_user_dialog: Optional[str] = Form(None),
+        game_id: Optional[str] = Form(None, example="game_id"),
+        location_id: Optional[str] = Form(None),
+        state_game: Optional[str] = Form(None, example="state_game"),
+        conversation_type: str = Form(..., example="ONE_WAY_CONVERSATION"),
+        options_dialog: Optional[str] = Form(None, example={"key": "value"}),
+        is_final: Optional[bool] = Form(None, example=False),
+        file: Optional[UploadFile] = File(None),
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint creates a new object.
@@ -84,11 +100,51 @@ async def create_object(
     """
 
     try:
-        object_db = await create_item_service(object_, str(user_db.get("_id")))
+        # Intenta procesar el cuerpo como JSON
+        try:
+            json_body = await request.json()
+            name = json_body.get("name")
+            prompt_user = json_body.get("prompt_user")
+            game_id = json_body.get("game_id")
+            state_game = json_body.get("state_game")
+        except Exception:
+            # Si no es JSON, los datos se procesan como form-data
+            pass
+
+        if options_dialog:
+            options_dialog = json.loads(options_dialog)
+
+            if isinstance(options_dialog, (SchemaOpenAnswer)):
+                options_dialog = options_dialog.dict()
+            elif isinstance(options_dialog, dict):
+                pass  # El valor ya es un diccionario válido
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="options_dialog debe ser un diccionario válido."
+                )
+
+        object_db = await create_item_service(
+            SchemaCreateObject(
+                name=name,
+                prompt_user=prompt_user,
+                game_id=game_id,
+                state_game=state_game,
+                type_item=type_item,
+                prompt_user_dialog=prompt_user_dialog,
+                conversation_type=conversation_type,
+                options_dialog=options_dialog,
+                is_final=is_final,
+                location_id=location_id,
+            ),
+            str(user_db.get("_id")),
+            file=file
+        )
         return object_db
 
     except Exception as e:
         print(f"Error in create object: {str(e)}")
+        print(traceback.print_exc())
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Object not created",
@@ -97,10 +153,10 @@ async def create_object(
 
 @router.patch("/{item_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveObject)
 async def update_item(
-    item_id: str,
-    object_: SchemaCreateItem,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        item_id: str,
+        object_: SchemaCreateItem,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint updates a object.
@@ -138,9 +194,9 @@ async def update_item(
 
 @router.post("/add-edit-characteristic/")
 async def add_edit_characteristic(
-    item: SchemaUpdatedObjectLocation,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        item: SchemaUpdatedObjectLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint adds or edits a characteristic to a object in a location.
@@ -169,10 +225,10 @@ async def add_edit_characteristic(
 
 @router.post("/{item_id}/generate-interaction/", status_code=status.HTTP_200_OK)
 async def generate_interaction_item(
-    item_id: str,
-    new_interaction: SchemaNewInteractionItem,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        item_id: str,
+        new_interaction: SchemaNewInteractionItem,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint generates a interaction for a object.
@@ -193,10 +249,10 @@ async def generate_interaction_item(
 
 @router.post("/disable/{item_id}/")
 async def disable_character(
-    item_id: str,
-    item: SchemaDeactivateItem,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        item_id: str,
+        item: SchemaDeactivateItem,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
         character_db = await deactivate_item_service(
@@ -213,11 +269,11 @@ async def disable_character(
 
 @router.post("/answer/open-question/{item_id}/{location_id}/")
 async def answer_open_question(
-    item_id: str,
-    location_id: str,
-    answer: SchemaResponseQuestionOpen,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        item_id: str,
+        location_id: str,
+        answer: SchemaResponseQuestionOpen,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     character_db = await answer_open_question_service(
         item_id=item_id,
@@ -228,5 +284,3 @@ async def answer_open_question(
     )
 
     return character_db
-
-

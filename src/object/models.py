@@ -31,3 +31,4 @@ class ObjectGLIC(BaseModel):
     conversation_type: str = Field(TypeConversation.ONE_WAY_CONVERSATION, example=TypeConversation.NONE_CONVERSATION)
     options_dialog: Optional[SchemaOpenAnswer] = Field(None, example={"key": "value"})
     interaction: Optional[list[dict]] = Field([], example=[{"key": "value"}])
+    image_reference: Optional[str] = Field(None, example="reference_image.jpg")
