@@ -155,7 +155,6 @@ class SchemaLocationDescription(BaseModel):
     )
 
 
-
 class SchemaLocationSound(BaseModel):
     sound_id: str = Field(
         ..., title="Sound ID", description="Sound ID that most closely resembles the location"
@@ -179,17 +178,17 @@ async def generate_location_description(_location_id: str, _user_id: str, state_
                 {
                     "role": "system",
                     "content": (
-                                 "Eres un generador de elementos interiores para locaciones de videojuegos en una vista isométrica en 3D de estilo low poly. "
-                                 "Proporciona una lista detallada de los elementos que deben estar presentes en el interior de la locación solicitada por el usuario, "
-                               )
+                        "Eres un generador de elementos interiores para locaciones de videojuegos en una vista isométrica en 3D de estilo low poly. "
+                        "Proporciona una lista detallada de los elementos que deben estar presentes en el interior de la locación solicitada por el usuario, "
+                    )
                 },
                 {
                     "role": "assistant",
                     "content": (
-                                 "ejemplo: "
-                                 " bosque con árboles de pino, arbustos, rocas y un río que cruza el paisaje. "
-                                 "Hay un pequeño puente de madera sobre el río y un sendero de tierra que lo atraviesa. Todo está representado con formas geométricas simples, sin texturas, en una paleta de colores suaves y naturales. Iluminación cálida, estilo de videojuego minimalista"
-                               )
+                        "ejemplo: "
+                        " bosque con árboles de pino, arbustos, rocas y un río que cruza el paisaje. "
+                        "Hay un pequeño puente de madera sobre el río y un sendero de tierra que lo atraviesa. Todo está representado con formas geométricas simples, sin texturas, en una paleta de colores suaves y naturales. Iluminación cálida, estilo de videojuego minimalista"
+                    )
                 },
                 {"role": "user", "content": f"{element_state_db['data']['prompt_user']}"},
             ],
@@ -292,6 +291,12 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
             {"element_id": _location_id, "state": _state_game_id}
         )
 
+        url_image_voxel = "https://storage.googleapis.com/qwestar/voxel_.jpg"
+
+        response_image_voxel = requests.get(url_image_voxel)
+        image_voxel_bytes = BytesIO(response_image_voxel.content)
+        image_voxel_base64 = base64.b64encode(image_voxel_bytes.getvalue()).decode('utf-8')
+
         # Verificar si existe una imagen de referencia y hay un prompt_user
         if element_state_db["data"].get("image_reference") and element_state_db["data"]["image_reference"] != "" and \
                 element_state_db['data'].get('prompt_user'):
@@ -303,24 +308,32 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
             image_location = await openai_generator.generate_gpt(
                 content_prompt=[
+
                     {
                         "role": "user",
-                        "content": [
-                            {
-                                "type": "input_text",
-                                "text": "Genera una imagen de una locación en estilo 3D low poly en vista"
-                                        " isométrica, con fondo de color negro."
-                                        " Utilizando la imagen de referencia.",
-                            },
-                            {
-                                "type": "input_text",
-                                "text": f"Descripción de la locación: {element_state_db['data']['prompt_user']}",
-                            },
-                            {
-                                "type": "input_image",
-                                "image_url": f"data:image/jpeg;base64,{image_base64}",
-                            }
-                        ],
+              "content": [
+                  {
+                      "type": "input_text",
+                      "text": "Genera una imagen horizontal 1536x1024 de una locación en estilo 3D low poly en vista"
+                              " isométrica, con fondo de color negro. Si es un espacio abierto, "
+                              "no generes las paredes de la vista isométrica, solo el suelo. "
+                              "Si es un sitio cerrado, incluye las paredes en la vista isométrica,"
+                              "replica la imagen referencia en la vista isométrica.",
+                  },
+                  {
+                      "type": "input_image",
+                      "image_url": f"data:image/jpeg;base64,{image_voxel_base64}",
+                  },
+                  {
+                      "type": "input_text",
+                      "text": f"Descripción adicional de la locación: {element_state_db['data']['description']}. "
+                              "Imagen de referencia a continuación:",
+                  },
+                  {
+                      "type": "input_image",
+                      "image_url": f"data:image/jpeg;base64,{image_base64}",
+                  }
+              ],
                     },
                 ],
                 model="gpt-4.1",
@@ -353,27 +366,49 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
         # Si no hay imagen de referencia pero hay prompt_user, generar imagen normal
         elif not element_state_db['data'].get('image_reference') and element_state_db['data'].get('prompt_user'):
-            prompt_db_image_location = f""""
-            genera una imagen en vista interior isométrica en 3D de estilo low poly de { element_state_db["data"]["description"]},
-            con fondo de color negro, el suelo debe estar lo mas despejado posible, los elementos deben ser pequeños.
-            """
+            prompt_db_image_location = f"genera una imagen en vista interior isométrica en 3D de estilo low poly de {element_state_db['data']['description']}, con fondo de color negro, el suelo debe estar lo mas despejado posible, los elementos deben ser pequeños."
+
             validate_prompt = await openai_generator.moderation_text(
                 text=prompt_db_image_location, user_id=_user_id
             )
             if validate_prompt:
                 return False, "Prompt not allowed"
 
-            image_location = await openai_generator.generate_image(
-                prompt=prompt_db_image_location,
-                model="gpt-image-1",
-                size="1536x1024",
-                style=None
+            # Usar generate_gpt en lugar de generate_image, incluyendo la imagen de referencia voxel
+            image_location = await openai_generator.generate_gpt(
+                content_prompt=[
+
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": "Genera una imagen horizontal 1536x1024 de una locación en estilo 3D low poly en vista isométrica, con fondo de color negro.",
+                            },
+                            {
+                                "type": "input_image",
+                                "image_url": f"data:image/jpeg;base64,{image_voxel_base64}",
+                            },
+                            {
+                                "type": "input_text",
+                                "text": f"Descripción de la locación: {prompt_db_image_location}",
+                            }
+                        ],
+                    },
+                ],
+                model="gpt-4.1",
+                user_id=_user_id,
+                type_generation="location_image_without_reference",
+                image=True,
+                tools=[{"type": "image_generation"}]
             )
 
-            image_bytes = base64.b64decode(image_location)
+            image_data = base64.b64decode(image_location)
+
+            image_face = BytesIO(image_data)
 
             image_generated = upload_image(
-                img_byte_arr=image_bytes,
+                img_byte_arr=image_face,
                 file_name=f"locations/{uuid4()}.jpg",
                 size=(2436, 1372),
             )

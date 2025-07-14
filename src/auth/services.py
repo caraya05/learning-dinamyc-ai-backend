@@ -1,4 +1,6 @@
 from datetime import datetime, timedelta
+
+from bson import ObjectId
 from fastapi import HTTPException
 from fastapi import status
 
@@ -108,3 +110,45 @@ async def is_token_valid(token: str) -> bool:
                 if exp_date > datetime.utcnow():
                     return True
     return False
+
+
+async def authenticate_by_game_code(code: str) -> dict | None:
+    """
+    Autentica a un usuario mediante un código de juego.
+
+    Args:
+        code: El código de juego proporcionado por el usuario
+
+    Returns:
+        Un diccionario con la información del usuario si la autenticación es exitosa, None en caso contrario
+    """
+    if game := await db["game"].find_one({"_id": ObjectId(code)}):
+        # Verificar si el código no ha expirado
+
+        # Si el código es válido, obtener o crear el usuario asociado
+        user_id = game.get("created_by")
+        if not user_id:
+            # Si no hay usuario asociado, crear uno anónimo
+            new_user = {
+                "email": f"game_user_{code}@qwestar.com",
+                "password": str(datetime.utcnow().timestamp()),
+                "is_active": True,
+                "is_anonymous": True,
+                "created_at": datetime.utcnow(),
+            }
+            result = await db["user"].insert_one(new_user)
+            user_id = str(result.inserted_id)
+
+            # Asociar el usuario al código de juego
+            await db["game_code"].update_one(
+                {"_id": game.get("_id")},
+                {"$set": {"created_by": user_id}},
+            )
+
+        # Obtener el usuario
+        user = await db["user"].find_one({"_id": ObjectId(user_id)})
+        if user and user.get("is_active"):
+            user["_id"] = str(user["_id"])  # Convertir a string para consistencia
+            return user
+
+    return None

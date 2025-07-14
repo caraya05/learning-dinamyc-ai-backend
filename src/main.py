@@ -36,6 +36,7 @@ from contextlib import asynccontextmanager
 from config import settings
 
 from game.routers_protional import router as game_provisional_routers
+from proxy import routers as proxy_routers
 
 
 @asynccontextmanager
@@ -99,6 +100,7 @@ app.include_router(user_ws_routers.router, prefix="")
 app.include_router(task_routers.router, prefix="/v1/api")
 app.include_router(event_routers.router, prefix="/v1/api")
 app.include_router(shortener_routers.routerAPP)
+app.include_router(proxy_routers.router, prefix="/v1/api")
 
 
 @app.get("/health", tags=["Health Check"])
@@ -175,4 +177,3 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.state.limiter = limiter
 
 app.include_router(game_provisional_routers, prefix="/v1/api")
-

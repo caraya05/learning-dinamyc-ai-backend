@@ -1,9 +1,11 @@
 from auth.services import social_auth_firebase
 from auth.services import is_token_valid
+from auth.services import authenticate_by_game_code
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import status
 from auth.schemas import Credentials
+from auth.schemas import GameCode
 from auth.schemas import Refresh
 from auth.schemas import Token
 from auth.services import auth_refresh
@@ -81,3 +83,29 @@ async def refresh(payload: Refresh):
             detail=str(e),
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+@router.post("/game-code", response_model=Token, responses={401: {"model": ExceptionModel}})
+async def authenticate_with_game_code(game_code: GameCode):
+    """
+    Autentica un usuario mediante un código de juego y genera tokens de acceso.
+
+    Args:
+        game_code: El código de juego proporcionado por el usuario
+
+    Returns:
+        Los tokens de acceso y refresco si la autenticación es exitosa
+
+    Raises:
+        HTTPException: Si el código de juego es inválido o ha expirado
+    """
+    if user := await authenticate_by_game_code(code=game_code.code):
+        return await generate_token(
+            user_id=user.get("_id"),
+            password_ts=user.get("password"),
+        )
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Invalid or expired game code",
+        headers={"WWW-Authenticate": "Bearer"},
+    )

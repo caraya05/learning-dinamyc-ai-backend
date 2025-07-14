@@ -14,3 +14,7 @@ class Credentials(BaseModel):
 
 class Refresh(BaseModel):
     refresh: str
+
+
+class GameCode(BaseModel):
+    code: str
