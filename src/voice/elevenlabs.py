@@ -71,20 +71,43 @@ async def generate_audio(
     )
 
     if response.ok:
+        # Guardamos el MP3 original en memoria
         audio_in_memory = BytesIO()
         for chunk in response.iter_content(chunk_size=chunk_size):
             audio_in_memory.write(chunk)
         audio_in_memory.seek(0)
 
+        # Hacemos una copia del audio MP3 para tener dos versiones
+        mp3_audio_in_memory = BytesIO()
+        audio_in_memory.seek(0)
+        mp3_audio_in_memory.write(audio_in_memory.read())
+        mp3_audio_in_memory.seek(0)
+        audio_in_memory.seek(0)
+
+        # Convertimos a OGG para compatibilidad
         audio_segment = AudioSegment.from_file(audio_in_memory, format="mp3")
         ogg_audio_in_memory = BytesIO()
         audio_segment.export(ogg_audio_in_memory, format="ogg")
         ogg_audio_in_memory.seek(0)
 
-        url_audio = upload_audio(
-            file_name=f"voice/{uuid4()}.ogg", audio_byte_arr=ogg_audio_in_memory
+        # Generamos un ID único para los archivos de audio
+        audio_id = uuid4()
+
+        # Subimos el archivo OGG
+        url_audio_ogg = upload_audio(
+            file_name=f"voice/{audio_id}.ogg", audio_byte_arr=ogg_audio_in_memory
         )
-        return url_audio
+
+        # Subimos también el archivo MP3 original
+        url_audio_mp3 = upload_audio(
+            file_name=f"voice/{audio_id}.mp3", audio_byte_arr=mp3_audio_in_memory
+        )
+
+        # Devolvemos ambas URLs en un diccionario
+        return {
+            "ogg": url_audio_ogg,
+            "mp3": url_audio_mp3
+        }
     else:
         await db["logs"].insert_one(
             {
@@ -99,5 +122,4 @@ async def generate_audio(
                 "created_at": colombia_now,
             }
         )
-        print("error generate voice", response.text)
         return None

@@ -187,7 +187,10 @@ async def generate_voice_character(
 
                                 character_state_db["data"]["interaction"][i]["conversation"][j][
                                     "audio"
-                                ] = audio
+                                ] = audio.get("ogg")
+                                character_state_db["data"]["interaction"][i]["conversation"][j][
+                                    "audio_mp3"
+                                ] = audio.get("mp3")
                             except Exception as e:
                                 print(f"Error in generate voice service: {str(e)}")
                                 pass
@@ -237,7 +240,11 @@ async def generate_voice_character(
                             )
                             character_state_db["data"]["interaction"][i]["options_dialog"][
                                 "prompt_user_question"
-                            ][j]["audio"] = audio
+                            ][j]["audio"] = audio.get("ogg")
+                            character_state_db["data"]["interaction"][i]["options_dialog"][
+                                "prompt_user_question"
+                            ][j]["audio_mp3"] = audio.get("mp3")
+
                         for j in range(
                                 len(
                                     character_state_db["data"]["interaction"][i]["options_dialog"][
@@ -262,7 +269,11 @@ async def generate_voice_character(
                             )
                             character_state_db["data"]["interaction"][i]["options_dialog"][
                                 "options"
-                            ][j]['prompt_user_option']["audio"] = audio
+                            ][j]['prompt_user_option']["audio"] = audio.get("ogg")
+
+                            character_state_db["data"]["interaction"][i]["options_dialog"][
+                                "options"
+                            ][j]['prompt_user_option']["audio_mp3"] = audio.get("mp3")
 
                             audio = await generate_audio(
                                 text=character_state_db["data"]["interaction"][i]["options_dialog"][
@@ -273,7 +284,11 @@ async def generate_voice_character(
                             )
                             character_state_db["data"]["interaction"][i]["options_dialog"][
                                 "options"
-                            ][j]['prompt_user_answer']["audio"] = audio
+                            ][j]['prompt_user_answer']["audio"] = audio.get("ogg")
+
+                            character_state_db["data"]["interaction"][i]["options_dialog"][
+                                "options"
+                            ][j]['prompt_user_answer']["audio_mp3"] = audio.get("mp3")
 
                 await db["state_glic"].update_one(
                     {"_id": character_state_db["_id"]},
@@ -319,7 +334,11 @@ async def generate_voice_character(
                             )
                             character_state_db["data"]["interaction"][i]["options_dialog"][
                                 "prompt_user_question"
-                            ][j]["audio"] = audio
+                            ][j]["audio"] = audio.get("ogg")
+
+                            character_state_db["data"]["interaction"][i]["options_dialog"][
+                                "prompt_user_question"
+                            ][j]["audio_mp3"] = audio.get("mp3")
 
                         for j in range(
                                 len(
@@ -345,7 +364,11 @@ async def generate_voice_character(
                             )
                             character_state_db["data"]["interaction"][i]["options_dialog"][
                                 "options"
-                            ][j]['prompt_user_answer']["audio"] = audio
+                            ][j]['prompt_user_answer']["audio"] = audio.get("ogg")
+
+                            character_state_db["data"]["interaction"][i]["options_dialog"][
+                                "options"
+                            ][j]['prompt_user_answer']["audio_mp3"] = audio.get("mp3")
 
                 await db["state_glic"].update_one(
                     {"_id": character_state_db["_id"]},
@@ -390,7 +413,11 @@ async def generate_voice_character(
                             )
                             character_state_db["data"]["interaction"][i]["options_dialog"][
                                 "prompt_user_question"
-                            ][j]["audio"] = audio
+                            ][j]["audio"] = audio.get("ogg")
+
+                            character_state_db["data"]["interaction"][i]["options_dialog"][
+                                "prompt_user_question"
+                            ][j]["audio_mp3"] = audio.get("mp3")
 
                 await db["state_glic"].update_one(
                     {"_id": character_state_db["_id"]},
@@ -905,7 +932,7 @@ async def generate_conversation_character(
             type_generation="create_conversation_character",
         )
         conversation_ = [
-            {"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None}
+            {"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None, "audio_mp3": None,}
             for dialog in response.conversation
         ]
 
@@ -1098,6 +1125,7 @@ async def generate_option_character(
                     "id_character": str(character_other_db["_id"]),
                     "dialog": dialog.dialog,
                     "audio": None,
+                    "audio_mp3": None,
                 }
                 for dialog in response.conversation
             ]
@@ -1142,6 +1170,7 @@ async def generate_option_character(
                     'prompt_user_option'
                 ],
                 "audio": None,
+                "audio_mp3": None,
             }
 
             element_state_db["data"]['options_dialog']['options'][option][
@@ -1330,6 +1359,7 @@ async def generate_open_talk_character(
                     "id_character": str(character_other_db["_id"]),
                     "dialog": element_state_db['data']['options_dialog']['prompt_user_question'],
                     "audio": None,
+                    "audio_mp3": None,
                 }
             ]
 
@@ -1449,7 +1479,7 @@ async def generate_open_question_character(
                 type_generation="create_conversation_character",
             )
             conversation_ = [
-                {"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None}
+                {"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None, "audio_mp3": None}
                 for dialog in response.conversation
             ]
             element_state_db["data"]['options_dialog']['prompt_user_question'] = conversation_
@@ -1485,6 +1515,7 @@ async def generate_open_question_character(
                     "id_character": str(character_other_db["_id"]),
                     "dialog": element_state_db['data']['options_dialog']['prompt_user_question'],
                     "audio": None,
+                    "audio_mp3": None,
                 }
             ]
 
@@ -1524,6 +1555,7 @@ async def generate_open_question_character(
                 "id_character": str(character_other_db["_id"]),
                 "dialog": element_state_db['data']['options_dialog']['options'][option]['prompt_user_answer'],
                 "audio": None,
+                "audio_mp3": None,
             }
 
             element_state_db["data"]['options_dialog']['options'][option]['prompt_user_answer'] = conversation_
@@ -1622,7 +1654,7 @@ async def generate_monologue_character(
         )
 
         conversation_ = [
-            {"id_character": str(character_other_db["_id"]), "dialog": dialog.dialog, "audio": None}
+            {"id_character": str(character_other_db["_id"]), "dialog": dialog.dialog, "audio": None,"audio_mp3": None, }
             for dialog in response.conversation
         ]
 
