@@ -1,8 +1,10 @@
+import asyncio
 import base64
 from io import BytesIO
 
 import traceback
 from datetime import datetime
+from datetime import timedelta
 from uuid import uuid4
 
 import pytz
@@ -14,6 +16,8 @@ from fastapi import Request
 from fastapi.params import Form
 from fastapi import UploadFile
 from fastapi import File
+from fastapi import WebSocket, WebSocketDisconnect
+from fastapi.websockets import WebSocketState
 from core.database import db
 
 from utils import upload_file, send_email, upload_image
@@ -21,11 +25,44 @@ from utils import upload_file, send_email, upload_image
 from slowapi.util import get_remote_address
 from slowapi import Limiter
 
-from celery_worker import create_game_provisional_task
+from celery.result import AsyncResult
+from celery_worker import create_game_provisional_task, generate_scene_interactions_task, celery
 
 limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(prefix="/game-provisional", tags=["Game Provisional"])
+
+
+# Clase para gestionar las conexiones WebSocket
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: dict[str, list[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, game_id: str):
+        await websocket.accept()
+        if game_id not in self.active_connections:
+            self.active_connections[game_id] = []
+        self.active_connections[game_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, game_id: str):
+        if game_id in self.active_connections:
+            if websocket in self.active_connections[game_id]:
+                self.active_connections[game_id].remove(websocket)
+            if not self.active_connections[game_id]:
+                del self.active_connections[game_id]
+
+    async def send_personal_message(self, message: dict, websocket: WebSocket):
+        if websocket.client_state == WebSocketState.CONNECTED:
+            await websocket.send_json(message)
+
+    async def broadcast(self, message: dict, game_id: str):
+        if game_id in self.active_connections:
+            for connection in self.active_connections[game_id]:
+                await self.send_personal_message(message, connection)
+
+
+# Creamos una instancia del gestor de conexiones
+manager = ConnectionManager()
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
@@ -329,10 +366,12 @@ async def update_game_provisional(
         """
 
         response = await send_email(
-            recipients=["jn@qwestar.ai"],
+            recipients=["carlos.amy375d@gmail.com"],
             subject=f"Game Provisional Updated: {game_provisional_db['title']}",
             body=html
         )
+
+    generate_scene_interactions_task.delay(id_game_provisional=id_game_provisional)
 
     return {
         "_id": str(game_provisional_db["_id"]),
@@ -344,3 +383,164 @@ async def update_game_provisional(
         "title": game_provisional_db["title"],
         "script": game_provisional_db["script"],
     }
+
+
+@router.websocket("/ws/{game_id}")
+async def websocket_game_provisional(websocket: WebSocket, game_id: str):
+    """
+    Endpoint WebSocket para monitorear el progreso de las tareas de un juego provisional.
+
+    Permite al cliente conectarse y recibir actualizaciones en tiempo real sobre el estado
+    de las tareas relacionadas con la creación y procesamiento del juego provisional.
+
+    Args:
+        websocket: La conexión WebSocket establecida con el cliente
+        game_id: ID del juego provisional a monitorear
+    """
+    try:
+        if not ObjectId.is_valid(game_id):
+            await websocket.close(code=1008, reason="ID de juego inválido")
+            return
+
+        game_provisional_db = await db["game_provisional"].find_one(
+            {"_id": ObjectId(game_id)}
+        )
+
+        if not game_provisional_db:
+            await websocket.close(code=1008, reason="Juego provisional no encontrado")
+            return
+
+        await manager.connect(websocket, game_id)
+
+        # Mensaje inicial de conexión establecida
+        await manager.send_personal_message(
+            {"status": "connected", "message": "Conexión establecida", "game_id": game_id},
+            websocket
+        )
+
+        # Bucle principal para monitorear el progreso de las tareas
+        try:
+            while True:
+                # Esperar mensajes del cliente (pueden ser solicitudes de estado o comandos)
+                try:
+                    data = await asyncio.wait_for(websocket.receive_json(), timeout=1.0)
+                    if data.get("action") == "check_status":
+                        # El cliente solicita explícitamente un estado actualizado
+                        await send_task_status_update(websocket, game_id)
+                except asyncio.TimeoutError:
+                    # No se recibieron mensajes, seguimos con la verificación periódica
+                    pass
+
+                # Verificar y enviar actualizaciones de estado periódicamente
+                await send_task_status_update(websocket, game_id)
+
+                # Esperar antes de la próxima verificación para evitar sobrecarga
+                await asyncio.sleep(2.0)
+
+        except WebSocketDisconnect:
+            manager.disconnect(websocket, game_id)
+
+    except Exception as e:
+        print(f"Error en WebSocket para game_id {game_id}: {str(e)}")
+        print(traceback.format_exc())
+        try:
+            if websocket.client_state == WebSocketState.CONNECTED:
+                await websocket.close(code=1011, reason="Error interno del servidor")
+        except:
+            pass
+
+
+async def send_task_status_update(websocket: WebSocket, game_id: str):
+    """
+    Verifica el estado de las tareas asociadas al juego provisional y envía actualizaciones.
+
+    Args:
+        websocket: La conexión WebSocket con el cliente
+        game_id: ID del juego provisional
+    """
+    try:
+        # Obtener la información más reciente del juego provisional
+        game_provisional_db = await db["game_provisional"].find_one(
+            {"_id": ObjectId(game_id)}
+        )
+
+        if not game_provisional_db:
+            await manager.send_personal_message(
+                {"status": "error", "message": "Juego no encontrado"},
+                websocket
+            )
+            return
+
+        # Buscar tareas relacionadas con este juego
+        tasks = await db["task"].find(
+            {"element_id": game_id, "element_type": "game_provisional"}
+        ).to_list(length=10)
+
+        # Información del juego
+        game_info = {
+            "id": game_id,
+            "title": game_provisional_db.get("title"),
+            "has_script": bool(game_provisional_db.get("script")),
+            "has_image": bool(game_provisional_db.get("image")),
+            "num_scenes": game_provisional_db.get("num_scenes", 0),
+            "has_scene_interactions": bool(game_provisional_db.get("scene_interactions")),
+            "created_at": game_provisional_db.get("created_at").isoformat() if game_provisional_db.get("created_at") else None,
+            "updated_at": game_provisional_db.get("updated_at").isoformat() if game_provisional_db.get("updated_at") else None,
+        }
+
+        # Estado de las tareas
+        task_states = []
+        for task_db in tasks:
+            task_id = task_db.get("task_id")
+            if task_id:
+                # Verificar el estado real de la tarea en Celery
+                task_celery = AsyncResult(task_id, app=celery)
+                task_info = {
+                    "id": str(task_db["_id"]),
+                    "task_id": task_id,
+                    "status": task_celery.state,
+                    "type": task_db.get("element_type_detail", "unknown"),
+                    "created_at": task_db.get("created_at").isoformat() if task_db.get("created_at") else None,
+                }
+
+                # Si la tarea está completada o falló, incluir más detalles
+                if task_celery.state == "SUCCESS":
+                    task_info["result"] = task_celery.result
+                    task_info["completed"] = True
+                elif task_celery.state == "FAILURE":
+                    task_info["error"] = str(task_celery.result)
+                    task_info["completed"] = True
+
+                task_states.append(task_info)
+
+        # Determinar el estado general del procesamiento
+        overall_status = "pending"
+        if game_provisional_db.get("script") and game_provisional_db.get("image"):
+            if game_provisional_db.get("scene_interactions"):
+                overall_status = "completed"
+            elif any(t.get("type") == "scene_interactions" and t.get("status") == "STARTED" for t in task_states):
+                overall_status = "generating_interactions"
+            else:
+                overall_status = "ready_for_interactions"
+        elif any(t.get("status") == "STARTED" for t in task_states):
+            overall_status = "processing"
+
+        # Enviar la actualización al cliente
+        await manager.send_personal_message(
+            {
+                "status": "update",
+                "game": game_info,
+                "tasks": task_states,
+                "overall_status": overall_status,
+                "timestamp": datetime.now(pytz.utc).isoformat()
+            },
+            websocket
+        )
+
+    except Exception as e:
+        print(f"Error al enviar actualización de estado: {str(e)}")
+        print(traceback.format_exc())
+        await manager.send_personal_message(
+            {"status": "error", "message": f"Error al procesar el estado: {str(e)}"},
+            websocket
+        )
