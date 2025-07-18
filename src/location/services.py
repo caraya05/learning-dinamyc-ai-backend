@@ -66,6 +66,7 @@ async def get_location_service(*, location_id: str, user_id: str) -> dict:
                         )
                         if sound_db:
                             element_state_db[i]["data"]["sound"] = sound_db["file"]
+                            element_state_db[i]["data"]["sound_mp3"] = sound_db["file_mp3"]
                     except Exception as e:
                         print(f"Error in get sound service: {e}")
                         pass
@@ -133,6 +134,7 @@ async def get_locations_v2_service(*, game_id: str, skip: int = 0, limit: int = 
                             )
                             if sound_db:
                                 element_state_db[j]["data"]["sound"] = sound_db["file"]
+                                element_state_db[j]["data"]["sound_mp3"] = sound_db["file_mp3"]
                         except Exception as e:
                             print(e)
                             pass
@@ -463,6 +465,7 @@ async def get_all_location_service(user_id: str, skip: int = 1, limit: int = 10)
                         )
                         if sound_db:
                             element_state_db["data"]["sound"] = sound_db["file"]
+                            element_state_db["data"]["sound_mp3"] = sound_db["file_mp3"]
                     except Exception as e:
                         print(f"Error in get sound service: {e}")
                         element_state_db["data"]["sound"] = None

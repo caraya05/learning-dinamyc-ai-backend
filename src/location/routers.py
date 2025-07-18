@@ -104,6 +104,7 @@ async def get_location(
             if locations_db.get("sound"):
                 sound_db = await get_sound_service(locations_db["sound"])
                 locations_db["sound"] = sound_db["file"]
+                locations_db["sound_mp3"] = sound_db["file_mp3"]
             return locations_db
         except Exception as e:
             print(f"Error in get locations: {str(e)}")
