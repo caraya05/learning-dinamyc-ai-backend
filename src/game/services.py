@@ -3,6 +3,7 @@ from datetime import datetime
 
 import random
 import string
+import logging
 
 from bson import ObjectId
 from fastapi import HTTPException
@@ -34,8 +35,11 @@ from utils import upload_image
 
 from core.database import db
 
+logger = logging.getLogger(__name__)
+
 
 async def get_game_service(game_id: str):
+    logger.info(f"Getting game with id: {game_id}")
     try:
         if game_db := await db['game'].find_one({'_id': ObjectId(game_id)}):
 
@@ -89,7 +93,7 @@ async def get_game_service(game_id: str):
 
             return game_db
     except Exception as e:
-        print(f"Error getting game service: {str(e)}")
+        logger.error(f"Error getting game service: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Game not found",

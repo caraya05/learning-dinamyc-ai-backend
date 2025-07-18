@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocket
 
 from core.database import create_indexes
+from core.logging_config import setup_logging
 from user import routers as user_routers
 from user import router_admin as user_admin_routers
 from user import router_ws as user_ws_routers
@@ -41,6 +42,7 @@ from proxy import routers as proxy_routers
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    setup_logging()
     await create_indexes()
     yield
 
