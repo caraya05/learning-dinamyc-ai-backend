@@ -91,11 +91,19 @@ def upload_audio(*,
             audio_byte_arr = BytesIO(audio_byte_arr)
             audio_byte_arr.seek(0)
 
+        # Determinar el content_type según la extensión
+        if file_name.lower().endswith('.mp3'):
+            content_type = 'audio/mpeg'
+        elif file_name.lower().endswith('.ogg'):
+            content_type = 'audio/ogg'
+        else:
+            content_type = 'application/octet-stream'  # valor por defecto
+
         # Subir el archivo a Google Cloud Storage
         storage_client = storage.Client.from_service_account_json("credentials.json")
         bucket = storage_client.bucket(name_bucket)
         blob = bucket.blob(file_name)
-        blob.upload_from_file(audio_byte_arr, content_type='audio/ogg')
+        blob.upload_from_file(audio_byte_arr, content_type=content_type)
         return f"https://storage.googleapis.com/{name_bucket}/{file_name}"
     except Exception as e:
         print(f"Error uploading audio: {str(e)}")

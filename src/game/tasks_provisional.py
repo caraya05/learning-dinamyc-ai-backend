@@ -1,3 +1,5 @@
+import json
+
 import requests
 import base64
 from datetime import datetime
@@ -31,6 +33,7 @@ NOT_GIVEN = NotGiven()
 class TaskCreateGameProvisional(BaseModel):
     script: str = Field(..., example="script", description="Script for the game provisional")
     title: str = Field(..., example="title", description="Title for the game provisional")
+    num_scenes: int = Field(..., example=1, description="Number of scenes in the game provisional")
 
 
 async def create_game_provisional(_id_game_provisional: str):
@@ -138,6 +141,7 @@ async def create_game_provisional(_id_game_provisional: str):
         game_provisional_db["title"] = source_game_response.title
         game_provisional_db["script"] = source_game_response.script
         game_provisional_db["updated_at"] = datetime.now(pytz.utc)
+        game_provisional_db["num_scenes"] = source_game_response.num_scenes
 
         await db["game_provisional"].update_one(
             {"_id": ObjectId(_id_game_provisional)},
@@ -167,6 +171,9 @@ async def async_create_game_provisional_task(id_game_provisional: str):
         return f"Error: {str(e)}"
 
 
+class SceneCountResponse(BaseModel):
+    scene_count: str = Field(..., description="Número de escenas identificadas en el guión")
+
 async def extract_scene_count_from_script(script: str) -> int:
     """
     Analiza el guión para determinar el número de escenas presentes.
@@ -181,8 +188,7 @@ async def extract_scene_count_from_script(script: str) -> int:
     # logger.debug(f"Longitud del guión a analizar: {len(script)} caracteres")
     try:
         # Definimos un modelo Pydantic para la respuesta
-        class SceneCountResponse(BaseModel):
-            scene_count: int = Field(..., description="Número de escenas identificadas en el guión")
+
 
         # logger.debug("Enviando solicitud a GPT para análisis de escenas")
         # Utilizamos GPT para identificar el número de escenas en el guión
@@ -190,29 +196,39 @@ async def extract_scene_count_from_script(script: str) -> int:
             content_prompt=[
                 {
                     "role": "system",
-                    "content": "Eres un asistente especializado en análisis de guiones. Tu tarea es identificar y contar el número total de escenas en un guión."
+                    "content": "Eres un asistente especializado en análisis de guiones. Tu tarea es identificar y"
+                               " contar el número total de escenas en un guión."
                 },
                 {
                     "role": "user",
-                    "content": f"Analiza el siguiente guión y determina cuántas escenas diferentes contiene. Responde con un número entero.\n\n{script}"
+                    "content": f"Analiza el siguiente guión y determina cuántas escenas diferentes contiene. Responde "
+                               f"con un número entero: {script}"
                 }
             ],
-            model="gpt-4.1",
+            model="gpt-4o-mini",
             response_format=SceneCountResponse,
-            user_id=None,
+            user_id="anonymous",
+            max_tokens=1000,
+            type_generation="generate story init game",
         )
 
-        # La respuesta ya viene como objeto SceneCountResponse gracias al schema
-        num_scenes = max(1, scene_count_response.scene_count)  # Aseguramos al menos 1 escena
-        # logger.info(f"Número de escenas identificadas: {num_scenes}")
+        if isinstance(scene_count_response, str):
+            scene_count_response = json.loads(scene_count_response)
+
+        # Asegúrate de que sea un diccionario y conviértelo a SceneCountResponse
+        if isinstance(scene_count_response, dict):
+            scene_count_response = SceneCountResponse(**scene_count_response)
+
+        # Ahora accede al atributo scene_count
+        num_scenes = max(1, int(scene_count_response.scene_count) if isinstance(scene_count_response.scene_count,
+                                                                                str) else scene_count_response.scene_count)
         return num_scenes
 
     except Exception as e:
-        # logger.error(f"Error al extraer número de escenas: {str(e)}")
+        # logger.error(f"Error al extraer el número de escenas: {str(e)}")
         # logger.debug(traceback.format_exc())
-        # logger.warning("Usando valor por defecto (4) para el número de escenas")
-        # Valor por defecto si falla
-        return 4
+        print(traceback.format_exc())
+        return f"Error: {str(e)}"
 
 
 async def generate_scene_interactions(id_game_provisional: str):
@@ -242,14 +258,7 @@ async def generate_scene_interactions(id_game_provisional: str):
 
         # logger.debug("Guión encontrado, procediendo a extraer número de escenas")
         # Extraemos el número de escenas del guión
-        num_scenes = await extract_scene_count_from_script(script)
-
-        # Actualizamos el número de escenas en la base de datos
-        # logger.info(f"Actualizando juego con número de escenas: {num_scenes}")
-        await db["game_provisional"].update_one(
-            {"_id": ObjectId(id_game_provisional)},
-            {"$set": {"num_scenes": num_scenes}}
-        )
+        num_scenes = game_provisional_db.get("num_scenes")
 
         # Generamos las interacciones para cada escena
         # logger.info(f"Generando interacciones para {num_scenes} escenas")
@@ -259,12 +268,11 @@ async def generate_scene_interactions(id_game_provisional: str):
             interaction = await generate_interaction_for_scene(script, scene_num)
             scene_interactions.append({
                 "scene_number": scene_num,
-                "interaction": interaction
+                "interaction": interaction.get("content") ,
             })
             # logger.debug(f"Escena {scene_num} procesada: {len(interaction.get('content', ''))} caracteres")
 
-        # Guardamos todas las interacciones en la base de datos
-        # logger.info(f"Guardando {len(scene_interactions)} interacciones en base de datos")
+        # Actualiza la base de datos con los datos serializables
         await db["game_provisional"].update_one(
             {"_id": ObjectId(id_game_provisional)},
             {"$set": {
@@ -279,8 +287,11 @@ async def generate_scene_interactions(id_game_provisional: str):
     except Exception as e:
         # logger.error(f"Error en generate_scene_interactions: {str(e)}")
         # logger.debug(traceback.format_exc())
+        print(traceback.format_exc())
         return f"Failed to generate scene interactions: {str(e)}"
 
+class SceneInteractionResponse(BaseModel):
+    content: str = Field(..., description="Contenido de la interacción generada para la escena")
 
 async def generate_interaction_for_scene(script: str, scene_num: int):
     """
@@ -306,29 +317,29 @@ async def generate_interaction_for_scene(script: str, scene_num: int):
                 {
                     "role": "user",
                     "content": f"""
-De la escena de escena {scene_num} del guión, define con que personajes y con que objetos (que no sean su ropa ni objetos que el protagonista tenga en su haber) el protagonista debe interactuar.
-De estos personajes y objetos con los que debe interactuar escoge uno solo, el cual será el personaje u objeto clave para avanzar en la historia, salir de esta escena y pasar a la siguiente.
-
-Definido lo anterior, para los personajes que no sea personaje clave, redacta lo que seria un dialogo finito entre el protagonista y este. Mientras que para el personaje clave, si lo hay, define un dialogo que termine en una pregunta la cual el protagonista debe responder correctamente para avanzar en la historia al siguiente escenario, define la respuesta que daría el personaje tanto si responde correctamente como si responde incorrectamente.
-
-De manera similar, para los objetos que no sean objeto clave, redacta lo que seria el texto de lo que pensaría el protagonista al ver este objeto. Mientras que para el objeto clave, si lo hay, define una auto-pregunta que se haga el protagonista y llame a la acción, acción que el protagonista debe realizar para avanzar en la historia al siguiente escenario, define lo que sucedería y lo que pensaría el protagonista, tanto si realiza la acción correcta, como si no la realiza.
-
-Aquí está el guión completo:
-{script}
-"""
+                            De la escena de escena {scene_num} del guión, define con que personajes y con que objetos (que no sean su ropa ni objetos que el protagonista tenga en su haber) el protagonista debe interactuar.
+                            De estos personajes y objetos con los que debe interactuar escoge uno solo, el cual será el personaje u objeto clave para avanzar en la historia, salir de esta escena y pasar a la siguiente.
+                            Definido lo anterior, para los personajes que no sea personaje clave, redacta lo que seria un dialogo finito entre el protagonista y este. Mientras que para el personaje clave, si lo hay, define un dialogo que termine en una pregunta la cual el protagonista debe responder correctamente para avanzar en la historia al siguiente escenario, define la respuesta que daría el personaje tanto si responde correctamente como si responde incorrectamente.
+                            De manera similar, para los objetos que no sean objeto clave, redacta lo que seria el texto de lo que pensaría el protagonista al ver este objeto. Mientras que para el objeto clave, si lo hay, define una auto-pregunta que se haga el protagonista y llame a la acción, acción que el protagonista debe realizar para avanzar en la historia al siguiente escenario, define lo que sucedería y lo que pensaría el protagonista, tanto si realiza la acción correcta, como si no la realiza.
+                            Aquí está el guión completo:
+                            {script}
+                            """
                 }
             ],
             model="gpt-4.1",
             user_id=None,
-            max_tokens=4000,
+            max_tokens=10000,
+            type_generation="generate scene interaction",
+            response_format=SceneInteractionResponse
         )
 
         # logger.debug(f"Respuesta recibida para escena {scene_num}. Longitud: {len(interaction_response) if interaction_response else 0} caracteres")
 
         # Analizamos la respuesta para estructurarla adecuadamente
         result = {
-            "content": interaction_response,
-            "created_at": datetime.now(pytz.utc)
+            "content": interaction_response.content,
+            "created_at": datetime.now(pytz.utc),
+            "error": False
         }
         # logger.info(f"Interacción generada exitosamente para escena {scene_num}")
         return result

@@ -223,7 +223,6 @@ class OpenAIGenerator:
                 if image_data:
                     image_base64 = image_data[0]
                     return image_base64
-
             return response.choices[0].message.parsed
 
         except Exception as e:
