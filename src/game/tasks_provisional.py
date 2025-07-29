@@ -281,6 +281,23 @@ async def generate_scene_interactions(id_game_provisional: str):
             }}
         )
 
+        # extraer locaciones
+        # logger.info("Extrayendo locaciones de las escenas")
+        locations = await extract_locations_from_scenes(id_game_provisional)
+        if isinstance(locations, str):
+            # logger.error(f"Error al extraer locaciones: {locations}")
+            return f"Failed to extract locations: {locations}"
+
+        # logger.debug(f"Locaciones extraídas: {len(locations)} locaciones encontradas")
+        # Actualiza las locaciones en el juego provisional
+        await db["game_provisional"].update_one(
+            {"_id": ObjectId(id_game_provisional)},
+            {"$set": {
+                "locations": locations,
+                "updated_at": datetime.now(pytz.utc)
+            }}
+        )
+
         # logger.info(f"Generación de interacciones completada exitosamente para juego {id_game_provisional}")
         return f"Successfully generated interactions for {num_scenes} scenes"
 
@@ -367,3 +384,56 @@ async def async_generate_scene_interactions_task(id_game_provisional: str):
         # logger.error(f"Error en tarea async_generate_scene_interactions_task: {str(e)}")
         # logger.debug(traceback.format_exc())
         return f"Error: {str(e)}"
+
+
+class LocationExtractionResponse(BaseModel):
+    locations: list = Field(..., description="Lista de locaciones extraídas del guion")
+
+async def extract_locations_from_scenes(id_game_provisional: str):
+    """
+    Extrae información de locaciones a partir de todas las escenas del juego provisional.
+
+    Args:
+        id_game_provisional: ID del juego provisional
+
+    Returns:
+        dict: Información estructurada de locaciones
+    """
+    try:
+        game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(id_game_provisional)})
+        if not game_provisional_db:
+            return {"error": "Game provisional not found"}
+        script = game_provisional_db.get("script")
+        num_scenes = game_provisional_db.get("num_scenes")
+        if not script or not num_scenes:
+            return {"error": "Script or num_scenes not found"}
+
+        prompt = (
+            "Analiza todas las escenas del siguiente guion y extrae la información de las locaciones en el siguiente formato para cada locación encontrada:\n"
+            "- titulo: nombre de la locacion\n"
+            "- prompt_user: descripcion de la locacion\n"
+            "- escena: escena inicial donde aparece\n"
+            "- escenas donde se repite: todas las escenas donde se repite\n"
+            "Devuelve una lista de objetos JSON, uno por cada locación.\n"
+            f"Guion:\n{script}"
+        )
+
+        locations_response = await openai_generator.generate_gpt(
+            content_prompt=[
+                {"role": "system", "content": "Eres un experto en análisis de guiones para videojuegos."},
+                {"role": "user", "content": prompt}
+            ],
+            model="gpt-4.1",
+            response_format=LocationExtractionResponse,
+            user_id=None,
+            max_tokens=8000,
+            type_generation="extract locations from scenes"
+        )
+        if isinstance(locations_response, str):
+            locations_response = json.loads(locations_response)
+        if isinstance(locations_response, dict):
+            locations_response = LocationExtractionResponse(**locations_response)
+        return locations_response.locations
+    except Exception as e:
+        print(traceback.format_exc())
+        return {"error": str(e)}
