@@ -75,6 +75,10 @@ app.add_middleware(
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
+    excluded_paths = ["/health", "/ws/echo"]  # Agrega aquí las rutas que deseas excluir
+    if request.url.path in excluded_paths:
+        return await call_next(request)
+
     start_time = time.time()
     response = await call_next(request)
     process_time = time.time() - start_time
@@ -87,6 +91,7 @@ app.include_router(category_routers.router, prefix="/v1/api")
 app.include_router(character_routers.router, prefix="/v1/api")
 app.include_router(configuration_routers.router, prefix="/v1/api")
 app.include_router(game_routers.router, prefix="/v1/api")
+app.include_router(game_routers.router_community, prefix="/v1/api")
 app.include_router(location_routers.router, prefix="/v1/api")
 app.include_router(object_routers.router, prefix="/v1/api")
 # app.include_router(place_routers.router, prefix="/v1/api")
@@ -177,3 +182,23 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.state.limiter = limiter
 
 app.include_router(game_provisional_routers, prefix="/v1/api")
+
+
+# @app.middleware("http")
+# async def exclude_auth_for_specific_routes(request: Request, call_next):
+#     excluded_paths = ["/v1/api/game/community-games"]  # Rutas que no requieren autenticación
+#
+#     # Verificar si la ruta actual está en la lista de exclusión
+#     for route in excluded_paths:
+#         if request.url.path.startswith(route):
+#             return await call_next(request)
+#
+#     # Si no está excluida, aplicar autenticación
+#     if not request.headers.get("Authorization"):
+#         raise HTTPException(
+#             status_code=status.HTTP_401_UNAUTHORIZED,
+#             detail="Invalid Authorization Header",
+#             headers={"WWW-Authenticate": "Bearer"},
+#         )
+#
+#     return await call_next(request)

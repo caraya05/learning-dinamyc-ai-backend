@@ -1,4 +1,5 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
+from datetime import datetime
 
 
 class Token(BaseModel):
@@ -18,3 +19,18 @@ class Refresh(BaseModel):
 
 class GameCode(BaseModel):
     code: str
+
+
+class VerificationRequest(BaseModel):
+    email: EmailStr
+
+
+class VerificationCode(BaseModel):
+    email: EmailStr
+    code: str
+
+
+class VerificationCodeDB(BaseModel):
+    email: EmailStr
+    code: str
+    created_at: datetime

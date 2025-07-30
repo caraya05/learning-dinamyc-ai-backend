@@ -7,6 +7,8 @@ from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import status
+from fastapi import Request
+
 from fastapi.security import HTTPAuthorizationCredentials
 
 from core.database import db
@@ -45,6 +47,8 @@ from task.services import create_task_service, update_task_service
 
 router = APIRouter(prefix="/game", tags=["Game"])
 
+router_community = APIRouter(prefix="/community", tags=["community"])
+
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
 async def get_games(
@@ -76,49 +80,6 @@ async def get_games(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Games not found",
         )
-
-
-# @router.get("/generate-cover/{game_id}", status_code=status.HTTP_200_OK)
-# async def cover_generate(
-#         game_id: str,
-#         user_db: dict = Depends(auth),
-#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-# ):
-#     """
-#     This endpoint generates a cover for a game.
-#     """
-#     try:
-#         game_db = await get_game_service(game_id)
-#         if game_db.get("attempts") == 0:
-#             raise HTTPException(
-#                 status_code=status.HTTP_400_BAD_REQUEST,
-#                 detail="Attempts exhausted",
-#             )
-#         prompt_db_cover = await get_prompt_by_category_service('cover')
-#         character_leading_role = await get_character_leading_role_service(game_id)
-#         if not character_leading_role:
-#             raise HTTPException(
-#                 status_code=status.HTTP_400_BAD_REQUEST,
-#                 detail="characters have not been created",
-#             )
-#         prompt_content = prompt_db_cover.get("description").replace('x_history', game_db.get("synopsis"))
-#         prompt_content = prompt_content.replace('x_character', f"{character_leading_role.get('description')}")
-#         image_generated = generate_image_dalle(prompt=prompt_content, quality="hd", size="1024x1792")
-#         try:
-#             await subtract_attempts_game_service(game_id)
-#         except Exception as e:
-#             print(f"Error subtracting attempts: {str(e)}")
-#             raise HTTPException(
-#                 status_code=status.HTTP_400_BAD_REQUEST,
-#                 detail="Image not generated or attempts exhausted",
-#             )
-#         return {"images": image_generated}
-#     except Exception as e:
-#         print(f"Error generating cover: {str(e)}")
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Cover not generated",
-#         )
 
 
 @router.delete("/{game_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -155,104 +116,6 @@ async def delete_game(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Game not deleted",
         )
-
-
-# @router.get("/generate-background/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
-# async def background_generate(
-#         game_id: str,
-#         user_db: dict = Depends(auth),
-#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-# ):
-#     """
-#     This endpoint generates a background for a game.
-#     """
-#     try:
-#
-#         game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
-#         character_leading_role = await db['character'].find_one({'game_id': game_id, 'type': 'leading role'})
-#         script_db = await db['chapter'].find({'game_id': game_id}).to_list(None)
-#         scenes_db = await db['scene'].find({'script_id': str(script_db[0]['_id'])}).sort('number', -1).to_list(None)
-#         location_db = await db['location'].find_one({'_id': ObjectId(scenes_db[3]['location_id'])})
-#         prompt_db_background = await db['prompt'].find_one({'category': 'image_background'})
-#         prompt_content = prompt_db_background['description'].replace('x_escena', f" {scenes_db[3]['content']}")
-#         prompt_content = prompt_content.replace(
-#             'x_personaje', f"{character_leading_role['name']} {character_leading_role['description']}"
-#         )
-#         prompt_content = prompt_content + f" ocurre en la siguiente ubicacion {location_db['description']}"
-#         image_generated = generate_image_dalle(prompt=prompt_content, quality="hd", size="1792x1024")
-#         try:
-#             game_db["image_background"] = upload_image(
-#                 url_image=image_generated,
-#                 file_name=f"background/{uuid4()}.jpg",
-#                 size=(1218, 686),
-#             )
-#             game_updated = await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': game_db})
-#             if game_updated.modified_count:
-#                 return await db['game'].find_one({'_id': ObjectId(game_id)})
-#         except Exception as e:
-#             print(f"Error AI  generating background: {str(e)}")
-#             raise HTTPException(
-#                 status_code=status.HTTP_400_BAD_REQUEST,
-#                 detail="not generated",
-#             )
-#     except Exception as e:
-#         print(f"Error generating background: {str(e)}")
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Background not generated",
-#         )
-
-
-# @router.get("/categories/", status_code=status.HTTP_200_OK)
-# async def categories_games(
-#         category: str,
-#         user_db: dict = Depends(auth),
-#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-#         page: int = 1,
-#         count: int = 10,
-# ):
-#     """
-#     This endpoint retrieves all games by category.
-#
-#     It returns a list of games.
-#     """
-#
-#     try:
-#         games_featured_db = await get_configurations_service()
-#         if not games_featured_db["games_by_category"]:
-#             return SchemaListGame(results=[], count=0, page=0, total_pages=0)
-#
-#         categories_active_db, counts_categories = await get_categories_active_service(0, 100)
-#
-#         if category not in [category_active["name"] for category_active in categories_active_db]:
-#             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Category not found")
-#
-#         games_ids = next(
-#             (
-#                 games_["games"]
-#                 for games_ in games_featured_db["games_by_category"]
-#                 if games_["name"] == category
-#             ),
-#             [],
-#         )
-#         games_list, count_pages = await get_games_service(skip=page, limit=count, games_id=games_ids)
-#
-#         for game in games_list:
-#             game["_id"] = str(game["_id"])
-#
-#         return {
-#             "results": games_list,
-#             "count": len(games_list),
-#             "page": page,
-#             "total_pages": count_pages,
-#         }
-#
-#     except Exception as e:
-#         print(f"Error getting categories games: {str(e)}")
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Games not found",
-#         )
 
 
 @router.get("/like/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
@@ -351,202 +214,6 @@ async def create_game(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Game not created",
         )
-
-
-#
-
-
-# @router.post("/add-character", status_code=status.HTTP_200_OK)
-# async def add_character_game(
-#         data: SchemaAddCharacter,
-#         user_db: dict = Depends(auth),
-#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),@router.post("/add-item", status_code=status.HTTP_200_OK)
-# # async def add_item_game(
-# #         data: SchemaAddItem,
-# #         user_db: dict = Depends(auth),
-# #         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-# # ):
-# #     """
-# #     This endpoint adds an item to a game.
-# #
-# #     It returns the game's information.
-# #     """
-# #
-# #     try:
-# #         return await add_items_game_service(data.game_id, data.item_id)
-# #
-# #     except Exception as e:
-# #         print(f"Error adding item game: {str(e)}")
-# #         raise HTTPException(
-# #             status_code=status.HTTP_400_BAD_REQUEST,
-# #             detail="Item not added",
-# #         )
-# ):
-#     """
-#     This endpoint adds a character to a game.
-#
-#     It returns the game's information.
-#     """
-#
-#     try:
-#         location_db = await db['character_location'].find_one({'character_id': data.character_id})
-#         if not location_db:
-#             raise HTTPException(
-#                 status_code=status.HTTP_400_BAD_REQUEST,
-#                 detail="Location not found",
-#             )
-#         if character_game := await add_characters_game_service(
-#                 game_id=data.game_id,
-#                 characters_id=data.character_id,
-#                 location_id=location_db['location_id'],
-#                 user_id=str(user_db.get("_id")),
-#         ):
-#             return "Character added"
-#
-#
-# except HTTPException as e:
-#     print(f"Error adding character game: {e.detail}")
-#     raise HTTPException(
-#         status_code=e.status_code,
-#         detail=e.detail,
-#     )
-
-
-# @router.post("/add-location", status_code=status.HTTP_200_OK)
-# async def add_location_game(
-#         data: SchemaAddLocation,
-#         user_db: dict = Depends(auth),
-#         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-# ):
-#     """
-#     This endpoint adds a location to a game.
-#
-#     It returns the game's information.
-#     """
-#
-#     try:
-#         if location_game := await add_locations_game_service(data.game_id, data.location_id):
-#             # generate_context_new_location.delay(data.game_id, data.location_id)
-#             return "Location added"
-#
-#     except Exception as e:
-#         print(f"Error adding location game: {str(e)}")
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Location not added",
-#         )
-
-
-# @router.get("/publish/{game_id}", status_code=status.HTTP_200_OK)
-# async def publish_game(
-#     game_id: str,
-#     user_db: dict = Depends(auth),
-#     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-# ):
-#     """
-#     This endpoint publishes a game.
-#
-#     It returns the game's information.
-#     """
-#
-#     game_db = await get_game_v2_service(game_id)
-#
-#     if not game_db.get("published", None):
-#         task_db = await create_task_service(
-#             _task_id="",
-#             _user_id=str(user_db.get("_id")),
-#             _task_data={},
-#             _element_id=game_id,
-#             _element_type="game",
-#             _process="identify_category",
-#         )
-#
-#         task_celery = identify_category_game_task.delay(
-#             _game_id=game_id, _task_id=str(task_db["_id"]), _user_id=str(user_db.get("_id"))
-#         )
-#
-#         await update_task_service(
-#             _id=str(task_db["_id"]),
-#             _task_id=task_celery.id,
-#         )
-#
-#     try:
-#         if game_db := await get_game_v2_service(game_id):
-#
-#             game_db["_id"] = str(game_db["_id"])
-#             count_versions = await db['published_game'].count_documents({'game_id': game_id})
-#             if count_versions:
-#                 version = count_versions + 1
-#             else:
-#                 version = 1
-#             game_db["version"] = version
-#             if "published" in game_db:
-#                 del game_db["published"]
-#             if "published_version" in game_db:
-#                 del game_db["published_version"]
-#             if "published_at" in game_db:
-#                 del game_db["published_at"]
-#             # Current time in UTC
-#             now_utc = datetime.now(pytz.timezone('UTC'))
-#             now_bog = now_utc.astimezone(pytz.timezone('America/Bogota'))
-#             now_bog_minus_5 = now_bog - timedelta(hours=5)
-#
-#             if not game_db.get("published", None):
-#                 published_game = {
-#                     "published": True,
-#                     "created_at": now_bog_minus_5,
-#                     "created_by": str(user_db.get("_id")),
-#                     "updated_at": now_bog_minus_5,
-#                     "updated_by": str(user_db.get("_id")),
-#                     "status": 1,
-#                     "game_id": game_id,
-#                     "game": None,
-#                     "version": version,
-#                     "return_note": None,
-#                     "reviewed": False,
-#                     "reviewer": None,
-#                     "reviewed_at": None,
-#                     "reviewed_by": None,
-#                 }
-#             else:
-#                 game_db["_id"] = str(game_db["_id"])
-#                 published_game = {
-#                     "published": True,
-#                     "created_at": now_bog_minus_5,
-#                     "created_by": str(user_db.get("_id")),
-#                     "updated_at": now_bog_minus_5,
-#                     "updated_by": str(user_db.get("_id")),
-#                     "status": 2,
-#                     "game_id": game_id,
-#                     "game": game_db,
-#                     "version": version,
-#                     "return_note": None,
-#                     "reviewed": True,
-#                     "reviewer": str(user_db.get("_id")),
-#                     "reviewed_at": now_bog_minus_5,
-#                     "reviewed_by": str(user_db.get("_id")),
-#                 }
-#
-#             if published_game_db := await db['published_game'].insert_one(published_game):
-#                 await db['game'].update_one(
-#                     {'_id': ObjectId(game_id)},
-#                     {
-#                         '$set': {
-#                             'published': str(published_game_db.inserted_id),
-#                             'published_version': version,
-#                             'is_published': True,
-#                             'published_at': datetime.utcnow(),
-#                         },
-#                     },
-#                 )
-#                 return "Game published"
-#
-#     except Exception as e:
-#         print(f"Error publishing game: {str(e)}")
-#         raise HTTPException(
-#             status_code=status.HTTP_400_BAD_REQUEST,
-#             detail="Game not published",
-#         )
 
 
 @router.get("/publish/{game_id}", status_code=status.HTTP_200_OK)
@@ -1040,4 +707,42 @@ async def my_games_in_progress(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Games not found",
+        )
+
+
+@router_community.get("/community-games", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
+async def get_community_games(
+request: Request,
+        page: int = 1,
+        count: int = 10
+):
+    """
+    This endpoint retrieves community games that are visible to everyone.
+
+    It uses a predefined list of game IDs.
+    """
+
+    try:
+        # Predefined list of community game IDs
+        community_game_ids = ["68797abb7c0788e693f98d9b"]
+
+        games_db, count_pages = await get_games_service(
+            skip=page,
+            limit=count,
+            games_id=community_game_ids
+        )
+
+        for game in games_db:
+            game["_id"] = str(game["_id"])
+            game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
+
+        return SchemaListGame(
+            results=games_db, count=len(games_db), page=page, total_pages=count_pages // count + 1
+        )
+
+    except Exception as e:
+        print(f"Error getting community games: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Community games not found",
         )

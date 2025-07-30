@@ -1,8 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
+import random
 
 from bson import ObjectId
 from fastapi import HTTPException
 from fastapi import status
+from pydantic import EmailStr
 
 from jose import ExpiredSignatureError
 from jose import JWTError
@@ -20,6 +22,7 @@ from core.database import PyObjectId
 from core.database import db
 
 from user.services import get_or_created_user_service
+from auth.schemas import VerificationCodeDB
 
 
 async def authenticate_user(email: str, password: str) -> dict | None:
@@ -52,13 +55,13 @@ async def generate_token(user_id: PyObjectId, password_ts: float) -> dict:
     access = {
         "user_id": str(user_id),
         "password_ts": password_ts,
-        "exp": datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRES_IN),
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRES_IN),
         "type": TokenType.ACCESS.value,
     }
     refresh = access.copy()
     refresh.update(
         {
-            "exp": datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRES_IN),
+            "exp": datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRES_IN),
             "type": TokenType.REFRESH.value,
         }
     )
@@ -107,7 +110,7 @@ async def is_token_valid(token: str) -> bool:
             exp = payload.get("exp")
             if exp:
                 exp_date = datetime.fromtimestamp(exp)
-                if exp_date > datetime.utcnow():
+                if exp_date > datetime.now(timezone.utc):
                     return True
     return False
 
@@ -131,10 +134,10 @@ async def authenticate_by_game_code(code: str) -> dict | None:
             # Si no hay usuario asociado, crear uno anónimo
             new_user = {
                 "email": f"game_user_{code}@qwestar.com",
-                "password": str(datetime.utcnow().timestamp()),
+                "password": str(datetime.now(timezone.utc).timestamp()),
                 "is_active": True,
                 "is_anonymous": True,
-                "created_at": datetime.utcnow(),
+                "created_at": datetime.now(timezone.utc),
             }
             result = await db["user"].insert_one(new_user)
             user_id = str(result.inserted_id)
@@ -152,3 +155,35 @@ async def authenticate_by_game_code(code: str) -> dict | None:
             return user
 
     return None
+
+
+async def generate_verification_code(email: EmailStr) -> str:
+    """
+    Genera un código de verificación de 6 dígitos y lo almacena en la base de datos.
+    """
+    code = f"{random.randint(100000, 999999)}"
+    verification_entry = VerificationCodeDB(
+        email=email,
+        code=code,
+        created_at=datetime.now(timezone.utc)
+    )
+    await db["verification_codes"].insert_one(verification_entry.dict())
+    return code
+
+
+async def validate_verification_code(email: str, code: str) -> bool:
+    """
+    Valida si el código de verificación es correcto y no ha expirado.
+    """
+    entry = await db["verification_codes"].find_one({"email": email, "code": code})
+    if not entry:
+        return False
+
+    created_at = entry.get("created_at")
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+
+    if datetime.now(timezone.utc) - created_at > timedelta(hours=1):
+        return False
+
+    return True
