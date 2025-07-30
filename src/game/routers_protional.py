@@ -366,7 +366,7 @@ async def update_game_provisional(
         """
 
         response = await send_email(
-            recipients=["carlos.amy375d@gmail.com"],
+            recipients=["jn@qwestar.ai"],
             subject=f"Game Provisional Updated: {game_provisional_db['title']}",
             body=html
         )
