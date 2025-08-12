@@ -124,7 +124,7 @@ async def send_verification_code(request: VerificationRequest, background_tasks:
     """
     Envía un código de verificación al correo proporcionado si el usuario está en la base de datos.
     """
-    user = await db["user"].find_one({"email": request.email})
+    user = await db["user"].find_one({"email": request.email, "is_preview": True})
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

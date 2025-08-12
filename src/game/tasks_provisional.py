@@ -14,6 +14,7 @@ from openai import NotGiven
 from pydantic import BaseModel
 from pydantic import Field
 
+
 from core.database import db
 
 from gpt_ai.utils import openai_generator
@@ -166,13 +167,14 @@ async def async_create_game_provisional_task(id_game_provisional: str):
         # logger.info(f"Tarea completada para juego {id_game_provisional} con resultado: {result}")
         return result
     except Exception as e:
-    #     logger.error(f"Error en tarea async_create_game_provisional_task: {str(e)}")
-    #     logger.debug(traceback.format_exc())
+        #     logger.error(f"Error en tarea async_create_game_provisional_task: {str(e)}")
+        #     logger.debug(traceback.format_exc())
         return f"Error: {str(e)}"
 
 
 class SceneCountResponse(BaseModel):
     scene_count: str = Field(..., description="Número de escenas identificadas en el guión")
+
 
 async def extract_scene_count_from_script(script: str) -> int:
     """
@@ -188,7 +190,6 @@ async def extract_scene_count_from_script(script: str) -> int:
     # logger.debug(f"Longitud del guión a analizar: {len(script)} caracteres")
     try:
         # Definimos un modelo Pydantic para la respuesta
-
 
         # logger.debug("Enviando solicitud a GPT para análisis de escenas")
         # Utilizamos GPT para identificar el número de escenas en el guión
@@ -263,12 +264,12 @@ async def generate_scene_interactions(id_game_provisional: str):
         # Generamos las interacciones para cada escena
         # logger.info(f"Generando interacciones para {num_scenes} escenas")
         scene_interactions = []
-        for scene_num in range(1, num_scenes + 1):
+        for scene_num in range(1):
             # logger.debug(f"Procesando escena {scene_num}/{num_scenes}")
             interaction = await generate_interaction_for_scene(script, scene_num)
             scene_interactions.append({
                 "scene_number": scene_num,
-                "interaction": interaction.get("content") ,
+                "interaction": interaction.get("content"),
             })
             # logger.debug(f"Escena {scene_num} procesada: {len(interaction.get('content', ''))} caracteres")
 
@@ -298,8 +299,15 @@ async def generate_scene_interactions(id_game_provisional: str):
             }}
         )
 
+        # Extraer personajes e interacciones para las locaciones
+        # logger.info("Extrayendo personajes e interacciones para las locaciones")
+        characters_result = await extract_characters_and_interactions_for_locations(id_game_provisional)
+        if "Failed" in characters_result:
+            # logger.error(f"Error al extraer personajes: {characters_result}")
+            return f"Locations extracted but failed to extract characters: {characters_result}"
+
         # logger.info(f"Generación de interacciones completada exitosamente para juego {id_game_provisional}")
-        return f"Successfully generated interactions for {num_scenes} scenes"
+        return f"Successfully generated interactions for {num_scenes} scenes and extracted characters for locations"
 
     except Exception as e:
         # logger.error(f"Error en generate_scene_interactions: {str(e)}")
@@ -307,8 +315,10 @@ async def generate_scene_interactions(id_game_provisional: str):
         print(traceback.format_exc())
         return f"Failed to generate scene interactions: {str(e)}"
 
+
 class SceneInteractionResponse(BaseModel):
     content: str = Field(..., description="Contenido de la interacción generada para la escena")
+
 
 async def generate_interaction_for_scene(script: str, scene_num: int):
     """
@@ -386,8 +396,35 @@ async def async_generate_scene_interactions_task(id_game_provisional: str):
         return f"Error: {str(e)}"
 
 
+class PersonajeLocacion(BaseModel):
+    nombre: str = Field(..., description="Nombre del personaje")
+    prompt_descriptivo: str = Field(..., description="Descripción detallada del personaje")
+
+
+class InteraccionPersonajes(BaseModel):
+    tipo: str = Field(..., description="Tipo de conversación: 'one_one' o 'two_way'")
+    dialogo: str = Field(..., description="Diálogo de la interacción")
+
+
+class LocationWithCharacters(BaseModel):
+    titulo: str = Field(..., description="Nombre de la locación")
+    personaje_principal: PersonajeLocacion = Field(..., description="Personaje principal de la locación")
+    personaje_secundario: PersonajeLocacion = Field(..., description="Personaje secundario de la locación")
+    interaccion: InteraccionPersonajes = Field(..., description="Interacción entre personajes")
+
+
+class LocationCharactersResponse(BaseModel):
+    locations_with_characters: list[LocationWithCharacters] = Field(..., description="Lista de locaciones con personajes e interacciones")
+
+
+class LocationInfo(BaseModel):
+    titulo: str = Field(..., description="Nombre de la locación")
+    prompt_user: str = Field(..., description="Descripción detallada de la locación")
+    escena: int = Field(..., description="Número de la escena inicial donde aparece la locación")
+    escenas_donde_se_repite: list[int] = Field(..., description="Lista de todas las escenas donde la locación se repite")
+
 class LocationExtractionResponse(BaseModel):
-    locations: list = Field(..., description="Lista de locaciones extraídas del guion")
+    locations: list[LocationInfo] = Field(..., description="Lista de locaciones extraídas del guión")
 
 async def extract_locations_from_scenes(id_game_provisional: str):
     """
@@ -397,23 +434,24 @@ async def extract_locations_from_scenes(id_game_provisional: str):
         id_game_provisional: ID del juego provisional
 
     Returns:
-        dict: Información estructurada de locaciones
+        list: Lista de locaciones o string con mensaje de error
     """
     try:
         game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(id_game_provisional)})
         if not game_provisional_db:
-            return {"error": "Game provisional not found"}
+            return "Game provisional not found"
+
         script = game_provisional_db.get("script")
         num_scenes = game_provisional_db.get("num_scenes")
         if not script or not num_scenes:
-            return {"error": "Script or num_scenes not found"}
+            return "Script or num_scenes not found"
 
         prompt = (
             "Analiza todas las escenas del siguiente guion y extrae la información de las locaciones en el siguiente formato para cada locación encontrada:\n"
             "- titulo: nombre de la locacion\n"
             "- prompt_user: descripcion de la locacion\n"
             "- escena: escena inicial donde aparece\n"
-            "- escenas donde se repite: todas las escenas donde se repite\n"
+            "- escenas_donde_se_repite: todas las escenas donde se repite\n"
             "Devuelve una lista de objetos JSON, uno por cada locación.\n"
             f"Guion:\n{script}"
         )
@@ -426,14 +464,173 @@ async def extract_locations_from_scenes(id_game_provisional: str):
             model="gpt-4.1",
             response_format=LocationExtractionResponse,
             user_id=None,
-            max_tokens=8000,
             type_generation="extract locations from scenes"
         )
-        if isinstance(locations_response, str):
-            locations_response = json.loads(locations_response)
-        if isinstance(locations_response, dict):
-            locations_response = LocationExtractionResponse(**locations_response)
-        return locations_response.locations
+
+        # Verificar si hubo error en la respuesta
+        if locations_response is None or isinstance(locations_response, str):
+            return f"Error in OpenAI response: {locations_response}"
+
+        # Verificar que el objeto tenga el atributo locations
+        if not hasattr(locations_response, 'locations'):
+            return "No locations attribute found in response"
+
+        # Verificar que locations no esté vacío
+        if not locations_response.locations:
+            return "No locations found in response"
+
+        # Convertir objetos LocationInfo a diccionarios para el almacenamiento
+        locations_dict = []
+        for location in locations_response.locations:
+            if hasattr(location, 'dict'):
+                locations_dict.append(location.dict())
+            elif hasattr(location, 'model_dump'):
+                # Para versiones más nuevas de Pydantic
+                locations_dict.append(location.model_dump())
+            else:
+                # Si ya es un diccionario
+                locations_dict.append(location)
+
+        return locations_dict
     except Exception as e:
         print(traceback.format_exc())
-        return {"error": str(e)}
+        return f"Error extracting locations: {str(e)}"
+
+
+async def extract_characters_and_interactions_for_locations(id_game_provisional: str):
+    """
+    Extrae personajes e interacciones para cada locación del juego provisional.
+    Esta función se ejecuta después de extract_locations_from_scenes.
+
+    Args:
+        id_game_provisional: ID del juego provisional
+
+    Returns:
+        str: Mensaje indicando el resultado de la operación
+    """
+    try:
+        game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(id_game_provisional)})
+        if not game_provisional_db:
+            return "Game provisional not found"
+
+        script = game_provisional_db.get("script")
+        locations = game_provisional_db.get("locations")
+
+        if not script:
+            return "Script not found in game provisional"
+
+        if not locations:
+            return "Locations not found. Please run extract_locations_from_scenes first"
+
+        # Verificar si locations es un string de error
+        if isinstance(locations, str):
+            return f"Locations extraction failed: {locations}"
+
+        # Verificar que locations sea una lista
+        if not isinstance(locations, list):
+            return f"Invalid locations format: expected list, got {type(locations)}"
+
+        # Crear el prompt para extraer personajes e interacciones
+        locations_list = "\n".join(
+            [f"- {loc.get('titulo', 'Sin título')}: {loc.get('prompt_user', 'Sin descripción')}" for loc in locations if isinstance(loc, dict)])
+
+        prompt = (
+            f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones.\n\n"
+            f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
+            f"Para cada locación, devuelve un objeto JSON con:\n"
+            f"- titulo: nombre de la locación (debe coincidir exactamente con las locaciones existentes)\n"
+            f"- personaje_principal: objeto con 'nombre' y 'prompt_descriptivo' (debe ser el mismo personaje en TODAS las locaciones)\n"
+            f"- personaje_secundario: objeto con 'nombre' y 'prompt_descriptivo' (diferente para cada locación)\n"
+            f"- interaccion: objeto con:\n"
+            f"  * tipo: 'one_one' (solo habla el secundario al principal) o 'two_way' (diálogo entre principal y secundario)\n"
+            f"  * dialogo: \n"
+            f"    - Para 'one_one': un diálogo corto que dice el secundario al principal\n"
+            f"    - Para 'two_way': formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario\n\n"
+            f"REGLAS IMPORTANTES:\n"
+            f"- El personaje principal debe ser el MISMO en todas las locaciones\n"
+            f"- Cada locación tiene exactamente 1 personaje secundario (diferente por locación)\n"
+            f"- Exactamente 1 interacción por locación\n"
+            f"- Los tipos son: 'one_one' o 'two_way'\n\n"
+            f"GUION COMPLETO:\n{script}"
+        )
+
+        characters_response = await openai_generator.generate_gpt(
+            content_prompt=[
+                {"role": "system",
+                 "content": "Eres un experto en análisis de guiones y creación de personajes para videojuegos. Analiza cuidadosamente el guión y crea personajes consistentes con interacciones naturales."},
+                {"role": "user", "content": prompt}
+            ],
+            model="gpt-4.1",
+            response_format=LocationCharactersResponse,
+            user_id=None,
+            max_tokens=15000,
+            type_generation="extract characters and interactions for locations"
+        )
+
+        # Verificar si hubo error en la respuesta
+        if not characters_response or isinstance(characters_response, str):
+            return f"Error in characters OpenAI response: {characters_response}"
+
+        # Convertir la respuesta si es necesario
+        if hasattr(characters_response, 'locations_with_characters'):
+            locations_with_chars = characters_response.locations_with_characters
+        else:
+            return "No characters data found in response"
+
+        # Actualizar las locaciones existentes con la información de personajes
+        updated_locations = []
+
+        for location in locations:
+            if not isinstance(location, dict):
+                continue
+
+            # Buscar la información de personajes para esta locación
+            char_info = None
+            for loc_chars in locations_with_chars:
+                # Manejar tanto objetos Pydantic como diccionarios
+                loc_title = loc_chars.titulo if hasattr(loc_chars, 'titulo') else loc_chars.get('titulo', '')
+                if loc_title.lower().strip() == location.get('titulo', '').lower().strip():
+                    char_info = loc_chars
+                    break
+
+            # Crear la locación actualizada
+            updated_location = location.copy()
+            if char_info:
+                # Convertir objetos Pydantic a diccionarios si es necesario
+                if hasattr(char_info, 'dict'):
+                    char_dict = char_info.dict()
+                    updated_location['personaje_principal'] = char_dict.get('personaje_principal')
+                    updated_location['personaje_secundario'] = char_dict.get('personaje_secundario')
+                    updated_location['interaccion'] = char_dict.get('interaccion')
+                else:
+                    updated_location['personaje_principal'] = char_info.get('personaje_principal')
+                    updated_location['personaje_secundario'] = char_info.get('personaje_secundario')
+                    updated_location['interaccion'] = char_info.get('interaccion')
+
+            updated_locations.append(updated_location)
+
+        # Actualizar la base de datos
+        await db["game_provisional"].update_one(
+            {"_id": ObjectId(id_game_provisional)},
+            {"$set": {
+                "locations": updated_locations,
+                "updated_at": datetime.now(pytz.utc)
+            }}
+        )
+
+        return f"Successfully added characters and interactions to {len(updated_locations)} locations"
+
+    except Exception as e:
+        print(traceback.format_exc())
+        return f"Failed to extract characters and interactions: {str(e)}"
+
+
+async def async_extract_characters_and_interactions_task(id_game_provisional: str):
+    """
+    Tarea asíncrona para extraer personajes e interacciones para las locaciones.
+    """
+    try:
+        result = await extract_characters_and_interactions_for_locations(id_game_provisional)
+        return result
+    except Exception as e:
+        return f"Error: {str(e)}"

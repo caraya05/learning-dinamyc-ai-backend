@@ -283,9 +283,9 @@ def upload_file(file: UploadFile, name_bucket: str = 'qwestar'):
         )
 
 conf = ConnectionConfig(
-    MAIL_USERNAME="soporte.varios.proyectos@gmail.com",
-    MAIL_PASSWORD="popjtzxkeygvjmuv",
-    MAIL_FROM="soporte.varios.proyectos@gmail.com",
+    MAIL_USERNAME="cm@qwestar.ai",
+    MAIL_PASSWORD="jeuoplfvazuyfvwt",
+    MAIL_FROM="cm@qwestar.ai",
     MAIL_PORT=465,  # Puerto para SSL
     MAIL_SERVER="smtp.gmail.com",
     MAIL_STARTTLS=False,

@@ -746,3 +746,47 @@ request: Request,
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Community games not found",
         )
+
+
+@router_community.get("/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
+async def get_game(
+        game_id: str,
+):
+    """
+    This endpoint retrieves a game.
+
+    It expects the game's id in the request path.
+    If the game is successfully retrieved, it returns the game's information.
+    If the game does not exist, it raises an HTTPException with status code 404.
+
+    Parameters:
+    game_id (str): The game's id to be retrieved.
+    db (Session): Database session for executing queries.
+
+    Returns:
+    SchemaRetrieveGame: The retrieved game's information.
+
+    Raises:
+    HTTPException: If the game does not exist, an HTTPException is raised with status code 404.
+    """
+
+    try:
+        game_db = await get_game_service(game_id)
+        game_pending = await db['published_game'].find_one({'game_id': game_id})
+        user = await db['user'].find_one({'_id': ObjectId(game_db["created_by"])})
+        game_db["created_by"] = user.get("username", "Unknown User")
+        if game_pending:
+            game_db["status"] = game_pending["status"]
+            game_db["reject_note"] = game_pending["return_note"]
+        else:
+            game_db["status"] = 0
+            game_db["reject_note"] = None
+
+        return game_db
+
+    except Exception as e:
+        print(f"Error getting game: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Game not found",
+        )

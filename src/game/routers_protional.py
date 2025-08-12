@@ -364,12 +364,12 @@ async def update_game_provisional(
 </body>
 </html>
         """
-
-        response = await send_email(
-            recipients=["jn@qwestar.ai"],
-            subject=f"Game Provisional Updated: {game_provisional_db['title']}",
-            body=html
-        )
+        # TODO: Uncomment the following line to send the email
+        # response = await send_email(
+        #     recipients=["jn@qwestar.ai"],
+        #     subject=f"Game Provisional Updated: {game_provisional_db['title']}",
+        #     body=html
+        # )
 
     generate_scene_interactions_task.delay(id_game_provisional=id_game_provisional)
 

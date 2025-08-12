@@ -8,19 +8,14 @@ from fastapi import status
 from fastapi import UploadFile
 from fastapi import Request
 from fastapi import Form
-from fastapi import Body
-from typing import Dict
+
 from fastapi.security import HTTPAuthorizationCredentials
 
 import traceback
-from bson import ObjectId
-
-from pydantic import BaseModel
 
 from auth.auth import auth
 from auth.utils import auth_schema
-from core.database import db
-from utils import upload_file
+
 
 from character.schemas import (
     SchemaUpdateCharacterCollection,
@@ -28,7 +23,6 @@ from character.schemas import (
     SchemaDeactivateCharacter,
     SchemaResponseQuestionOpen, SchemaResponseTalkOpen, SchemaOpenTalk, SchemaOpenAnswer, SchemaOptionMultiple,
 )
-from character.schemas import SchemaAddCharacterLocation
 from character.schemas import SchemaUpdatedCharacterLocation
 from character.schemas import SchemaCreateCharacter
 from character.schemas import SchemaRetrieveCharacter
@@ -41,10 +35,8 @@ from character.services import (
     answer_open_question_service,
     deactivate_character_service, answer_open_talk_service,
 )
-from character.services import generate_image_character_service
 from character.services import create_character_service
 from character.services import delete_character_service
-from character.services import add_character_to_location_service
 from character.services import get_characters_by_location_service
 from character.services import add_or_edit_character_location
 from character.services import get_all_character_service
@@ -52,10 +44,6 @@ from character.services import update_character_service
 
 from game.services import get_character_game_publish_service
 from game.services import get_location_game_publish_service
-
-from gpt_ai.utils import openai_generator
-
-from user.services import disable_user_service
 
 router = APIRouter(prefix='/characters', tags=['Characters'])
 

@@ -109,7 +109,7 @@ async def is_token_valid(token: str) -> bool:
         if payload.get("type") == TokenType.ACCESS.value:
             exp = payload.get("exp")
             if exp:
-                exp_date = datetime.fromtimestamp(exp)
+                exp_date = datetime.fromtimestamp(exp, tz=timezone.utc)  # Asegura que sea offset-aware
                 if exp_date > datetime.now(timezone.utc):
                     return True
     return False
