@@ -843,14 +843,12 @@ async def create_game_by_provisional(id_game_provisional: str):
     Returns:
         str: Mensaje indicando el resultado de la operación
     """
-    # logger.info(f"Iniciando creación de juego a partir del juego provisional ID: {id_game_provisional}")
     try:
         # Aquí iría la lógica para crear el juego a partir del provisional
         # Por ejemplo, copiar los datos necesarios y crear un nuevo registro en la colección de juegos
         game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(id_game_provisional)})
 
         game_db = await create_game_service(user_id=str(game_provisional_db.get("created_by", "anonymous")), )
-
 
         game_update_db = await db["game"].update_one({"_id": game_db.get("_id")}, {"$set": {
             "title": game_provisional_db.get("title"),
@@ -864,7 +862,6 @@ async def create_game_by_provisional(id_game_provisional: str):
         state_game_db = await db["state_game"].find_one({"game_id": str(game_db.get("_id")), "order": 1})
 
         if not state_game_db:
-            # logger.warning(f"StateGame not found for game_id: {game_db.get('game_id')}")
             return "StateGame not found for the created game"
 
         # crear locaciones de las locaciones del juego provisional
@@ -922,6 +919,42 @@ async def create_game_by_provisional(id_game_provisional: str):
                 file=None
             )
 
+            # Crear configuración de la locación con posicionamiento de personajes
+            def generate_random_position():
+                """Genera una posición aleatoria en la cuadrícula de 60x60"""
+                return {
+                    "X": random.randint(25, 45),
+                    "Y": random.randint(25, 45)
+                }
+
+            # Configuración de la locación con personajes posicionados
+            location_configuration = {
+                "characterScale": 1,
+                "GridX": 0,
+                "GridY": 0,
+                "GridPlaneSize": 60,  # Cuadrícula de 60x60
+                "Characters": [
+                    {
+                        "characterId": str(character_principal_db.get("_id")),
+                        **generate_random_position()
+                    },
+                    {
+                        "characterId": str(character_db.get("_id")),
+                        **generate_random_position()
+                    }
+                ],
+                "items": []  # Por ahora sin items, se pueden agregar después
+            }
+
+            # Actualizar la locación con la configuración
+            await db["location"].update_one(
+                {"_id": location_db.get("_id")},
+                {"$set": {
+                    "configuration": location_configuration,
+                    "updated_at": datetime.now(pytz.utc)
+                }}
+            )
+
         #update game provisional with the created game id
         await db["game_provisional"].update_one(
             {"_id": ObjectId(id_game_provisional)},
@@ -933,11 +966,8 @@ async def create_game_by_provisional(id_game_provisional: str):
 
         return "Game created successfully from provisional data"
 
-
-
     except Exception as e:
         print(traceback.format_exc())
-        # logger.error(f"Error en create_game_by_provisional: {str(e)}")
         return f"Failed to create game from provisional: {str(e)}"
 
 
