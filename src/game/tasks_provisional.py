@@ -1,4 +1,7 @@
 import json
+import random
+import string
+from io import BytesIO
 
 import requests
 import base64
@@ -8,16 +11,26 @@ import traceback
 
 import pytz
 from bson import ObjectId
+from fastapi import UploadFile
 
 from openai import NotGiven
 
 from pydantic import BaseModel
 from pydantic import Field
 
-
+from character.models import CharacterGLIC, Character
+from character.schemas import SchemaCreateCharacter
+from character.tasks import async_generate_character_task
 from core.database import db
+from game.models import Game
 
 from gpt_ai.utils import openai_generator
+from location.models import Location, LocationGLIC
+from location.schemas import SchemaCreateLocation
+from location.tasks import async_generate_location_task
+from state_game.services import create_state_game, get_state_game_by_game_id, get_state_game_by_id
+from state_glic.services import create_state_glic
+from task.services import create_task_service
 
 from utils import upload_image
 
@@ -232,88 +245,7 @@ async def extract_scene_count_from_script(script: str) -> int:
         return f"Error: {str(e)}"
 
 
-async def generate_scene_interactions(id_game_provisional: str):
-    """
-    Genera las interacciones para cada escena del juego provisional.
 
-    Args:
-        id_game_provisional: ID del juego provisional
-
-    Returns:
-        str: Mensaje indicando el resultado de la operación
-    """
-    # logger.info(f"Iniciando generación de interacciones para juego provisional ID: {id_game_provisional}")
-    try:
-        # Obtenemos el juego provisional
-        # logger.debug(f"Buscando juego provisional en base de datos: {id_game_provisional}")
-        game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(id_game_provisional)})
-
-        if not game_provisional_db:
-            # logger.warning(f"Juego provisional con ID {id_game_provisional} no encontrado")
-            return "Game provisional not found"
-
-        script = game_provisional_db.get("script")
-        if not script:
-            # logger.warning(f"El juego provisional {id_game_provisional} no tiene guión")
-            return "Script not found in game provisional"
-
-        # logger.debug("Guión encontrado, procediendo a extraer número de escenas")
-        # Extraemos el número de escenas del guión
-        num_scenes = game_provisional_db.get("num_scenes")
-
-        # Generamos las interacciones para cada escena
-        # logger.info(f"Generando interacciones para {num_scenes} escenas")
-        scene_interactions = []
-        for scene_num in range(1):
-            # logger.debug(f"Procesando escena {scene_num}/{num_scenes}")
-            interaction = await generate_interaction_for_scene(script, scene_num)
-            scene_interactions.append({
-                "scene_number": scene_num,
-                "interaction": interaction.get("content"),
-            })
-            # logger.debug(f"Escena {scene_num} procesada: {len(interaction.get('content', ''))} caracteres")
-
-        # Actualiza la base de datos con los datos serializables
-        await db["game_provisional"].update_one(
-            {"_id": ObjectId(id_game_provisional)},
-            {"$set": {
-                "scene_interactions": scene_interactions,
-                "updated_at": datetime.now(pytz.utc)
-            }}
-        )
-
-        # extraer locaciones
-        # logger.info("Extrayendo locaciones de las escenas")
-        locations = await extract_locations_from_scenes(id_game_provisional)
-        if isinstance(locations, str):
-            # logger.error(f"Error al extraer locaciones: {locations}")
-            return f"Failed to extract locations: {locations}"
-
-        # logger.debug(f"Locaciones extraídas: {len(locations)} locaciones encontradas")
-        # Actualiza las locaciones en el juego provisional
-        await db["game_provisional"].update_one(
-            {"_id": ObjectId(id_game_provisional)},
-            {"$set": {
-                "locations": locations,
-                "updated_at": datetime.now(pytz.utc)
-            }}
-        )
-
-        # Extraer personajes e interacciones para las locaciones
-        # logger.info("Extrayendo personajes e interacciones para las locaciones")
-        characters_result = await extract_characters_and_interactions_for_locations(id_game_provisional)
-        if "Failed" in characters_result:
-            # logger.error(f"Error al extraer personajes: {characters_result}")
-            return f"Locations extracted but failed to extract characters: {characters_result}"
-
-        # logger.info(f"Generación de interacciones completada exitosamente para juego {id_game_provisional}")
-        return f"Successfully generated interactions for {num_scenes} scenes and extracted characters for locations"
-
-    except Exception as e:
-        # logger.error(f"Error en generate_scene_interactions: {str(e)}")
-        # logger.debug(traceback.format_exc())
-        print(traceback.format_exc())
-        return f"Failed to generate scene interactions: {str(e)}"
 
 
 class SceneInteractionResponse(BaseModel):
@@ -414,17 +346,21 @@ class LocationWithCharacters(BaseModel):
 
 
 class LocationCharactersResponse(BaseModel):
-    locations_with_characters: list[LocationWithCharacters] = Field(..., description="Lista de locaciones con personajes e interacciones")
+    locations_with_characters: list[LocationWithCharacters] = Field(...,
+                                                                    description="Lista de locaciones con personajes e interacciones")
 
 
 class LocationInfo(BaseModel):
     titulo: str = Field(..., description="Nombre de la locación")
     prompt_user: str = Field(..., description="Descripción detallada de la locación")
     escena: int = Field(..., description="Número de la escena inicial donde aparece la locación")
-    escenas_donde_se_repite: list[int] = Field(..., description="Lista de todas las escenas donde la locación se repite")
+    escenas_donde_se_repite: list[int] = Field(...,
+                                               description="Lista de todas las escenas donde la locación se repite")
+
 
 class LocationExtractionResponse(BaseModel):
     locations: list[LocationInfo] = Field(..., description="Lista de locaciones extraídas del guión")
+
 
 async def extract_locations_from_scenes(id_game_provisional: str):
     """
@@ -532,7 +468,8 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
 
         # Crear el prompt para extraer personajes e interacciones
         locations_list = "\n".join(
-            [f"- {loc.get('titulo', 'Sin título')}: {loc.get('prompt_user', 'Sin descripción')}" for loc in locations if isinstance(loc, dict)])
+            [f"- {loc.get('titulo', 'Sin título')}: {loc.get('prompt_user', 'Sin descripción')}" for loc in locations if
+             isinstance(loc, dict)])
 
         prompt = (
             f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones.\n\n"
@@ -634,3 +571,431 @@ async def async_extract_characters_and_interactions_task(id_game_provisional: st
         return result
     except Exception as e:
         return f"Error: {str(e)}"
+
+async def create_character_service(character: SchemaCreateCharacter, user_id: str, game_id: str, file: UploadFile | None = None):
+    try:
+        if character.prompt_user:
+            response_moderation_prompt_user = await openai_generator.moderation_text(
+                text=character.prompt_user, user_id=user_id
+            )
+            if response_moderation_prompt_user:
+                return "Prompt user not allowed"
+        if character.prompt_user_dialog:
+            response_moderation_dialog = await openai_generator.moderation_text(
+                text=character.prompt_user_dialog, user_id=user_id
+            )
+            if response_moderation_dialog:
+                return "Prompt user dialog not allowed"
+
+        character_db = Character(**character.dict())
+        character_db.created_by = user_id
+        character_db.updated_by = user_id
+
+        character_created = await db["character"].insert_one(character_db.dict())
+
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if game_db:
+            if game_db.get('characters_id'):
+                game_db["characters_id"].append(str(character_created.inserted_id))
+            else:
+                game_db["characters_id"] = [str(character_created.inserted_id)]
+            await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': game_db})
+
+        character_db_state = CharacterGLIC(**character.dict())
+
+        if character.state_game:
+            state_game = await get_state_game_by_id(character.state_game)
+        else:
+            state_game = await get_state_game_by_game_id(game_id)
+
+        if file:
+            file_content = file.file.read()
+            if not file_content:
+                return "File is empty"
+            file.file.seek(0)  # Reset file pointer to the beginning
+            if file.content_type not in ["image/jpeg", "image/png"]:
+                return "File type not allowed"
+            if file.content_type == "image/jpeg":
+                file_name = f"characters-reference/{uuid4()}.jpg"
+            elif file.content_type == "image/png":
+                file_name = f"characters-reference/{uuid4()}.png"
+            else:
+                return "File type not allowed"
+            img_byte_arr = BytesIO(file_content)
+            img_byte_arr.seek(0)
+
+            url_image_reference = upload_image(
+                img_byte_arr=img_byte_arr,
+                file_name=file_name,
+                size=(512, 512),
+            )
+            character_db_state.image_reference = url_image_reference
+
+        if state_game:
+            await create_state_glic(
+                element_id=str(character_created.inserted_id),
+                type_element="character",
+                state=state_game['_id'],
+                order=state_game['order'],
+                created_by=user_id,
+                data=character_db_state.dict(),
+            )
+
+
+        task_db = await create_task_service(
+            _task_id="",
+            _user_id=user_id,
+            _task_data={},
+            _element_id=str(character_created.inserted_id),
+            _element_type="character",
+            _process="create_character",
+        )
+
+        task_celery = await async_generate_character_task(
+            _character_id=str(character_created.inserted_id),
+            _user_id=user_id,
+            _task_id=str(task_db["_id"]),
+            _location_id=character.location_id,
+            _state_game_id=state_game['_id'],
+            _game_id=game_id,
+        )
+
+
+        if character_db := await db["character"].find_one({"_id": character_created.inserted_id}):
+
+            return character_db
+    except Exception as e:
+        print(f"Error in create character service: {str(e)}")
+        return "Error: " + str(e)
+
+async def change_character_principal_game_service(
+        game_id: str, character_principal: str, user_id: str
+):
+    try:
+        game_db = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if game_db:
+            game_db["character_principal"] = character_principal
+            await db['game'].update_one({'_id': ObjectId(game_id)}, {'$set': game_db})
+
+            return game_db
+    except Exception as e:
+        print(f"Error changing character principal game service: {str(e)}")
+        return f"Error: {str(e)}"
+
+
+async def create_location_service(location: SchemaCreateLocation, user_id: str, file: UploadFile = None):
+    """
+    Create a location.
+    """
+
+    moderation_prompt_user = await openai_generator.moderation_text(
+        text=location.prompt_user,
+        user_id=user_id,
+    )
+    if moderation_prompt_user:
+        return "Prompt user not allowed"
+
+    try:
+        location_schema = Location(**location.dict())
+        location_schema.created_by = user_id
+        location_schema.updated_by = user_id
+        location_created = await db['location'].insert_one(location_schema.dict())
+
+        game_db = await db['game'].find_one({'_id': ObjectId(location.game_id)})
+        if game_db:
+            if game_db.get('locations_id'):
+                game_db["locations_id"].append(str(location_created.inserted_id))
+            else:
+                game_db["locations_id"] = [str(location_created.inserted_id)]
+            await db['game'].update_one({'_id': ObjectId(location.game_id)}, {'$set': game_db})
+
+        location_db_state = LocationGLIC(**location.dict())
+
+        if location.state_game:
+            state_game = await get_state_game_by_id(location.state_game)
+        else:
+            state_game = await get_state_game_by_game_id(location.game_id)
+
+        # Procesar la imagen de referencia si se proporciona
+        if file:
+            file_content = file.file.read()
+            if not file_content:
+                return "File is empty"
+            file.file.seek(0)  # Reset file pointer to the beginning
+            if file.content_type not in ["image/jpeg", "image/png"]:
+                return "File type not allowed, only jpeg and png"
+            if file.content_type == "image/jpeg":
+                file_name = f"locations-reference/{uuid4()}.jpg"
+            elif file.content_type == "image/png":
+                file_name = f"locations-reference/{uuid4()}.png"
+            else:
+                return "File type not allowed, only jpeg and png"
+            img_byte_arr = BytesIO(file_content)
+            img_byte_arr.seek(0)
+
+            from utils import upload_image
+            url_image_reference = upload_image(
+                img_byte_arr=img_byte_arr,
+                file_name=file_name,
+                size=(512, 512),
+            )
+            location_db_state.image_reference = url_image_reference
+
+        if state_game:
+            await create_state_glic(
+                element_id=str(location_created.inserted_id),
+                type_element="location",
+                state=state_game["_id"],
+                order=state_game["order"],
+                created_by=user_id,
+                data=location_db_state.dict(),
+            )
+
+        task_db = await create_task_service(
+            _task_id="",
+            _user_id=user_id,
+            _task_data={},
+            _element_id=str(location_created.inserted_id),
+            _element_type="location",
+            _process="generate_location",
+        )
+
+        task_celery = await async_generate_location_task(
+            _location_id=str(location_created.inserted_id),
+            _user_id=user_id,
+            _task_id=str(task_db["_id"]),
+            _state_game_id=state_game["_id"],
+        )
+
+
+        if location_db := await db['location'].find_one({"_id": location_created.inserted_id}):
+            return location_db
+    except Exception as e:
+        print(f"Error in create location service: {e}")
+        print(traceback.print_exc())
+        return "Location not created"
+
+async def create_game_service(user_id: str):
+    try:
+        game_db = Game(
+            updated_by=user_id,
+            created_by=user_id,
+            version=2,
+            code_access=await generate_code_access_game_service(),
+        )
+        if game_created := await db['game'].insert_one(game_db.dict()):
+            # Crear el estado inicial del juego
+            # TODO: Comentar cuando se tenga el servicio de tareas
+            await create_state_game(
+                game_id=str(game_created.inserted_id), order=1, created_by=user_id
+            )
+            return await db['game'].find_one({'_id': game_created.inserted_id})
+    except Exception as e:
+        print(f"Error creating game service: {str(e)}")
+        return f"Error: {str(e)}"
+
+async def generate_code_access_game_service():
+    while True:
+        code = ''.join(
+            random.choices(string.ascii_lowercase, k=2) + random.choices(string.digits, k=2)
+        )
+        code = ''.join(random.sample(code, len(code)))  # Shuffle the characters
+
+        existing_code = await db['game'].find_one({'code_access': code})
+
+        if not existing_code:
+            return code
+
+async def create_game_by_provisional(id_game_provisional: str):
+    """
+    Crea un juego a partir de un juego provisional.
+
+    Args:
+        id_game_provisional: ID del juego provisional
+
+    Returns:
+        str: Mensaje indicando el resultado de la operación
+    """
+    # logger.info(f"Iniciando creación de juego a partir del juego provisional ID: {id_game_provisional}")
+    try:
+        print("llego aca")
+        # Aquí iría la lógica para crear el juego a partir del provisional
+        # Por ejemplo, copiar los datos necesarios y crear un nuevo registro en la colección de juegos
+        game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(id_game_provisional)})
+
+        game_db = await create_game_service(user_id=str(game_provisional_db.get("created_by", "anonymous")), )
+
+        print("gmae_db", game_db)
+
+        game_update_db = await db["game"].update_one({"_id": game_db.get("_id")}, {"$set": {
+            "title": game_provisional_db.get("title"),
+            "script": game_provisional_db.get("script"),
+            "image": game_provisional_db.get("image"),
+            "created_by": game_provisional_db.get("created_by", "anonymous"),
+            "updated_by": game_provisional_db.get("created_by", "anonymous"),
+            "provisional_id": str(game_provisional_db.get("_id")),
+        }})
+
+        print("game creado", game_db)
+
+        state_game_db = await db["state_game"].find_one({"game_id": str(game_db.get("_id")), "order": 1})
+
+        if not state_game_db:
+            # logger.warning(f"StateGame not found for game_id: {game_db.get('game_id')}")
+            return "StateGame not found for the created game"
+
+        # crear locaciones de las locaciones del juego provisional
+        locations = game_provisional_db.get("locations", [])
+
+        locations_db = []
+
+        # logger.info(f"Creating game with {len(locations)} locations from provisional")
+        for location in locations[0:1]:
+            location_db = await create_location_service(
+                location=SchemaCreateLocation(
+                    title=location["titulo"],
+                    prompt_user=location["prompt_user"],
+                    game_id=str(game_db.get("_id")),
+                    state_game=str(state_game_db.get("_id")),
+                ),
+                user_id=str(game_provisional_db.get("created_by", "anonymous")),
+                file=None
+            )
+
+            character_principal_db = await create_character_service(
+                character=SchemaCreateCharacter(
+                    name=location["personaje_principal"]["nombre"],
+                    prompt_user=location["personaje_principal"]["prompt_descriptivo"],
+                    prompt_user_dialog=None,
+                    conversation_type="none",
+                    options_dialog=None,
+                    game_id=str(game_db.get("_id")),
+                    location_id=str(location_db.get("_id")),
+                    state_game=str(state_game_db.get("_id"))
+                ),
+                user_id=game_provisional_db.get("created_by", "anonymous"),
+                game_id=str(game_db.get("_id")),
+                file=None
+            )
+
+            location_change_character_db = await change_character_principal_game_service(
+                game_db.get("_id"), character_principal_db.get("_id"),
+                game_provisional_db.get("created_by", "anonymous")
+            )
+
+            character_db = await create_character_service(
+                character=SchemaCreateCharacter(
+                    name=location["personaje_secundario"]["nombre"],
+                    prompt_user=location["personaje_secundario"]["prompt_descriptivo"],
+                    prompt_user_dialog=location["interaccion"]["dialogo"],
+                    conversation_type=location["interaccion"]["tipo"],
+                    options_dialog=None,
+                    game_id=str(game_db.get("_id")),
+                    location_id=str(location_db.get("_id")),
+                    state_game=str(state_game_db.get("_id"))
+                ),
+                user_id=game_provisional_db.get("created_by", "anonymous"),
+                game_id=str(game_db.get("_id")),
+                file=None
+            )
+
+        print("termino aca")
+
+        return "Game created successfully from provisional data"
+
+
+
+    except Exception as e:
+        print(traceback.format_exc())
+        # logger.error(f"Error en create_game_by_provisional: {str(e)}")
+        return f"Failed to create game from provisional: {str(e)}"
+
+
+async def generate_scene_interactions(id_game_provisional: str):
+    """
+    Genera las interacciones para cada escena del juego provisional.
+
+    Args:
+        id_game_provisional: ID del juego provisional
+
+    Returns:
+        str: Mensaje indicando el resultado de la operación
+    """
+    # logger.info(f"Iniciando generación de interacciones para juego provisional ID: {id_game_provisional}")
+    try:
+        # Obtenemos el juego provisional
+        # logger.debug(f"Buscando juego provisional en base de datos: {id_game_provisional}")
+        game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(id_game_provisional)})
+
+        if not game_provisional_db:
+            # logger.warning(f"Juego provisional con ID {id_game_provisional} no encontrado")
+            return "Game provisional not found"
+
+        script = game_provisional_db.get("script")
+        if not script:
+            # logger.warning(f"El juego provisional {id_game_provisional} no tiene guión")
+            return "Script not found in game provisional"
+
+        # logger.debug("Guión encontrado, procediendo a extraer número de escenas")
+        # Extraemos el número de escenas del guión
+        num_scenes = game_provisional_db.get("num_scenes")
+
+        # Generamos las interacciones para cada escena
+        # logger.info(f"Generando interacciones para {num_scenes} escenas")
+        scene_interactions = []
+        for scene_num in range(1):
+            # logger.debug(f"Procesando escena {scene_num}/{num_scenes}")
+            interaction = await generate_interaction_for_scene(script, scene_num)
+            scene_interactions.append({
+                "scene_number": scene_num,
+                "interaction": interaction.get("content"),
+            })
+            # logger.debug(f"Escena {scene_num} procesada: {len(interaction.get('content', ''))} caracteres")
+
+        # Actualiza la base de datos con los datos serializables
+        await db["game_provisional"].update_one(
+            {"_id": ObjectId(id_game_provisional)},
+            {"$set": {
+                "scene_interactions": scene_interactions,
+                "updated_at": datetime.now(pytz.utc)
+            }}
+        )
+
+        # extraer locaciones
+        # logger.info("Extrayendo locaciones de las escenas")
+        locations = await extract_locations_from_scenes(id_game_provisional)
+        if isinstance(locations, str):
+            # logger.error(f"Error al extraer locaciones: {locations}")
+            return f"Failed to extract locations: {locations}"
+
+        # logger.debug(f"Locaciones extraídas: {len(locations)} locaciones encontradas")
+        # Actualiza las locaciones en el juego provisional
+        await db["game_provisional"].update_one(
+            {"_id": ObjectId(id_game_provisional)},
+            {"$set": {
+                "locations": locations,
+                "updated_at": datetime.now(pytz.utc)
+            }}
+        )
+
+        # Extraer personajes e interacciones para las locaciones
+        # logger.info("Extrayendo personajes e interacciones para las locaciones")
+        characters_result = await extract_characters_and_interactions_for_locations(id_game_provisional)
+        if "Failed" in characters_result:
+            # logger.error(f"Error al extraer personajes: {characters_result}")
+            return f"Locations extracted but failed to extract characters: {characters_result}"
+
+        # logger.info(f"Generación de interacciones completada exitosamente para juego {id_game_provisional}")
+
+        game_result = await create_game_by_provisional(id_game_provisional)
+        if "Failed" in game_result:
+            # logger.error(f"Error al crear el juego a partir del provisional: {game_result}")
+            return f"Failed to create game from provisional: {game_result}"
+
+        return f"Successfully generated interactions for {num_scenes} scenes and extracted characters for locations"
+
+    except Exception as e:
+        # logger.error(f"Error en generate_scene_interactions: {str(e)}")
+        # logger.debug(traceback.format_exc())
+        print(traceback.format_exc())
+        return f"Failed to generate scene interactions: {str(e)}"

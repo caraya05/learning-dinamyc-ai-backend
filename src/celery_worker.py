@@ -13,11 +13,9 @@ from character.tasks import async_generate_character_task
 from character.tasks import async_generate_image_character_task
 from character.tasks import async_update_character_task
 
-# Corregimos las importaciones para usar el archivo directamente, no el paquete
 from game.tasks import async_identify_category_game_task
 from game.tasks import async_generate_image_cover_game_task
-from game.tasks import async_generate_context_new_character_task
-# Importamos las funciones asíncronas del módulo tasks_provisional
+
 from game.tasks_provisional import async_create_game_provisional_task, async_generate_scene_interactions_task
 from voice.task import async_generate_voice_task
 from object.task import async_generate_item, async_updated_item, async_generate_new_interaction_item

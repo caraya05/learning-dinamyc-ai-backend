@@ -144,7 +144,7 @@ async def get_characters_by_location_service(
         return []
 
 
-async def create_character_service(character: SchemaCreateCharacter, user_id: str, game_id: str, file: UploadFile):
+async def create_character_service(character: SchemaCreateCharacter, user_id: str, game_id: str, file: UploadFile | None = None):
     try:
         if character.prompt_user:
             response_moderation_prompt_user = await openai_generator.moderation_text(

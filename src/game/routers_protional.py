@@ -1,6 +1,7 @@
 import asyncio
 import base64
 from io import BytesIO
+from fastapi import Depends
 
 import traceback
 from datetime import datetime
@@ -19,6 +20,9 @@ from fastapi import File
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.websockets import WebSocketState
 from core.database import db
+from fastapi.security import HTTPAuthorizationCredentials
+from auth.auth import auth
+from auth.utils import auth_schema
 
 from utils import upload_file, send_email, upload_image
 
@@ -69,6 +73,8 @@ manager = ConnectionManager()
 @limiter.limit("5/minute", error_message="Intentalo de nuevo más tarde")
 async def create_game(
         request: Request,
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
         file: UploadFile = File(None),
         prompt_user: str = Form(...),
         time_game: str = Form(...),
@@ -92,6 +98,11 @@ async def create_game(
                 "time_game": time_game,
                 "created_at": datetime.now(pytz.utc),
                 "updated_at": datetime.now(pytz.utc),
+                "created_by": str(user["_id"]),
+                "updated_by": str(user["_id"]),
+                "state": "pending",
+                "num_scenes": 0,
+                "scene_interactions": [],
                 "file": url_file,
                 "image": None,
                 "title": None,
@@ -119,6 +130,12 @@ async def create_game(
             "time_game": time_game,
             "created_at": game_provisional_db["created_at"],
             "updated_at": game_provisional_db["updated_at"],
+            "created_by": str(user["_id"]),
+            "updated_by": str(user["_id"]),
+            "state": "pending",
+            "num_scenes": 0,
+            "scene_interactions": [],
+            "task_id": str(tasks.id),
             "file": url_file,
             "image": None,
             "title": None,
@@ -139,6 +156,9 @@ async def create_game(
 async def get_game_provisional(
         request: Request,
         id_game_provisional: str,
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+
 ):
     """
     This endpoint retrieves a game provisional by its ID.
@@ -181,11 +201,14 @@ async def get_game_provisional(
 async def update_game_provisional(
         request: Request,
         id_game_provisional: str,
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
         image: str = Form(None),
         script: str = Form(None),
         title: str = Form(None),
         user_name: str = Form(None),
         user_email: str = Form(None),
+        is_draft: bool = Form(False),
 ):
     """
     This endpoint updates a game provisional by its ID.
@@ -370,8 +393,18 @@ async def update_game_provisional(
         #     subject=f"Game Provisional Updated: {game_provisional_db['title']}",
         #     body=html
         # )
+    if not is_draft:
+        update_fields["state"] = "ready"
+        generate_scene_interactions_task.delay(id_game_provisional=id_game_provisional)
+        game_provisional_db["state"] = "ready"
+    else:
+        update_fields["state"] = "draft"
+        game_provisional_db["state"] = "draft"
 
-    generate_scene_interactions_task.delay(id_game_provisional=id_game_provisional)
+    await db["game_provisional"].update_one(
+        {"_id": ObjectId(id_game_provisional)},
+        {"$set": update_fields}
+    )
 
     return {
         "_id": str(game_provisional_db["_id"]),
@@ -382,6 +415,7 @@ async def update_game_provisional(
         "image": game_provisional_db["image"],
         "title": game_provisional_db["title"],
         "script": game_provisional_db["script"],
+        "state": game_provisional_db["state"]
     }
 
 
@@ -484,8 +518,10 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
             "has_image": bool(game_provisional_db.get("image")),
             "num_scenes": game_provisional_db.get("num_scenes", 0),
             "has_scene_interactions": bool(game_provisional_db.get("scene_interactions")),
-            "created_at": game_provisional_db.get("created_at").isoformat() if game_provisional_db.get("created_at") else None,
-            "updated_at": game_provisional_db.get("updated_at").isoformat() if game_provisional_db.get("updated_at") else None,
+            "created_at": game_provisional_db.get("created_at").isoformat() if game_provisional_db.get(
+                "created_at") else None,
+            "updated_at": game_provisional_db.get("updated_at").isoformat() if game_provisional_db.get(
+                "updated_at") else None,
         }
 
         # Estado de las tareas
