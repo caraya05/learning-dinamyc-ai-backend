@@ -36,6 +36,7 @@ from contextlib import asynccontextmanager
 from config import settings
 
 from game.routers_protional import router as game_provisional_routers
+from game.routers_protional import router_ws as game_provisional_ws_routers
 from proxy import routers as proxy_routers
 
 
@@ -102,6 +103,8 @@ app.include_router(state_game_routers.router, prefix="/v1/api")
 app.include_router(shortener_routers.router, prefix="/v1/api")
 app.include_router(voice_routers.router, prefix="/v1/api")
 app.include_router(user_ws_routers.router, prefix="")
+app.include_router(game_provisional_ws_routers, prefix="")
+
 app.include_router(task_routers.router, prefix="/v1/api")
 app.include_router(event_routers.router, prefix="/v1/api")
 app.include_router(shortener_routers.routerAPP)

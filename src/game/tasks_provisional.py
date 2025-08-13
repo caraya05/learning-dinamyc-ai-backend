@@ -44,6 +44,33 @@ from utils import upload_image
 NOT_GIVEN = NotGiven()
 
 
+async def update_game_provisional_status(id_game_provisional: str, status: str, progress: int = None, progress_text: str = None):
+    """
+    Actualiza el estado del juego provisional.
+
+    Args:
+        id_game_provisional: ID del juego provisional
+        status: Estado actual del proceso
+        progress: Progreso en porcentaje (opcional)
+        progress_text: Texto descriptivo del progreso actual (opcional)
+    """
+    update_data = {
+        "state": status,
+        "updated_at": datetime.now(pytz.utc)
+    }
+
+    if progress is not None:
+        update_data["progress"] = progress
+
+    if progress_text is not None:
+        update_data["progress_text"] = progress_text
+
+    await db["game_provisional"].update_one(
+        {"_id": ObjectId(id_game_provisional)},
+        {"$set": update_data}
+    )
+
+
 class TaskCreateGameProvisional(BaseModel):
     script: str = Field(..., example="script", description="Script for the game provisional")
     title: str = Field(..., example="title", description="Title for the game provisional")
@@ -818,14 +845,12 @@ async def create_game_by_provisional(id_game_provisional: str):
     """
     # logger.info(f"Iniciando creación de juego a partir del juego provisional ID: {id_game_provisional}")
     try:
-        print("llego aca")
         # Aquí iría la lógica para crear el juego a partir del provisional
         # Por ejemplo, copiar los datos necesarios y crear un nuevo registro en la colección de juegos
         game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(id_game_provisional)})
 
         game_db = await create_game_service(user_id=str(game_provisional_db.get("created_by", "anonymous")), )
 
-        print("gmae_db", game_db)
 
         game_update_db = await db["game"].update_one({"_id": game_db.get("_id")}, {"$set": {
             "title": game_provisional_db.get("title"),
@@ -835,8 +860,6 @@ async def create_game_by_provisional(id_game_provisional: str):
             "updated_by": game_provisional_db.get("created_by", "anonymous"),
             "provisional_id": str(game_provisional_db.get("_id")),
         }})
-
-        print("game creado", game_db)
 
         state_game_db = await db["state_game"].find_one({"game_id": str(game_db.get("_id")), "order": 1})
 
@@ -899,7 +922,14 @@ async def create_game_by_provisional(id_game_provisional: str):
                 file=None
             )
 
-        print("termino aca")
+        #update game provisional with the created game id
+        await db["game_provisional"].update_one(
+            {"_id": ObjectId(id_game_provisional)},
+            {"$set": {
+                "game_id": str(game_db.get("_id")),
+                "updated_at": datetime.now(pytz.utc)
+            }}
+        )
 
         return "Game created successfully from provisional data"
 
@@ -923,34 +953,35 @@ async def generate_scene_interactions(id_game_provisional: str):
     """
     # logger.info(f"Iniciando generación de interacciones para juego provisional ID: {id_game_provisional}")
     try:
+        # Actualizar estado: Iniciando proceso
+        await update_game_provisional_status(id_game_provisional, "processing", 0, "Starting the interaction generation process")
+
         # Obtenemos el juego provisional
-        # logger.debug(f"Buscando juego provisional en base de datos: {id_game_provisional}")
         game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(id_game_provisional)})
 
         if not game_provisional_db:
-            # logger.warning(f"Juego provisional con ID {id_game_provisional} no encontrado")
+            await update_game_provisional_status(id_game_provisional, "error", 0, "Game provisional not found")
             return "Game provisional not found"
 
         script = game_provisional_db.get("script")
         if not script:
-            # logger.warning(f"El juego provisional {id_game_provisional} no tiene guión")
+            await update_game_provisional_status(id_game_provisional, "error", 0, "Script not found in game provisional")
             return "Script not found in game provisional"
 
-        # logger.debug("Guión encontrado, procediendo a extraer número de escenas")
+        # Actualizar estado: Generando interacciones de escenas
+        await update_game_provisional_status(id_game_provisional, "generating_scenes", 15, "Generating interactions for game scenes")
+
         # Extraemos el número de escenas del guión
         num_scenes = game_provisional_db.get("num_scenes")
 
         # Generamos las interacciones para cada escena
-        # logger.info(f"Generando interacciones para {num_scenes} escenas")
         scene_interactions = []
         for scene_num in range(1):
-            # logger.debug(f"Procesando escena {scene_num}/{num_scenes}")
             interaction = await generate_interaction_for_scene(script, scene_num)
             scene_interactions.append({
                 "scene_number": scene_num,
                 "interaction": interaction.get("content"),
             })
-            # logger.debug(f"Escena {scene_num} procesada: {len(interaction.get('content', ''))} caracteres")
 
         # Actualiza la base de datos con los datos serializables
         await db["game_provisional"].update_one(
@@ -961,14 +992,15 @@ async def generate_scene_interactions(id_game_provisional: str):
             }}
         )
 
+        # Actualizar estado: Extrayendo locaciones
+        await update_game_provisional_status(id_game_provisional, "extracting_locations", 35, "Extracting locations from script")
+
         # extraer locaciones
-        # logger.info("Extrayendo locaciones de las escenas")
         locations = await extract_locations_from_scenes(id_game_provisional)
         if isinstance(locations, str):
-            # logger.error(f"Error al extraer locaciones: {locations}")
+            await update_game_provisional_status(id_game_provisional, "error", 35, f"Error al extraer locaciones: {locations}")
             return f"Failed to extract locations: {locations}"
 
-        # logger.debug(f"Locaciones extraídas: {len(locations)} locaciones encontradas")
         # Actualiza las locaciones en el juego provisional
         await db["game_provisional"].update_one(
             {"_id": ObjectId(id_game_provisional)},
@@ -978,24 +1010,39 @@ async def generate_scene_interactions(id_game_provisional: str):
             }}
         )
 
+        # Actualizar estado: Extrayendo personajes e interacciones
+        await update_game_provisional_status(id_game_provisional, "extracting_characters", 45, "Extracting characters and interactions for locations")
+
         # Extraer personajes e interacciones para las locaciones
-        # logger.info("Extrayendo personajes e interacciones para las locaciones")
         characters_result = await extract_characters_and_interactions_for_locations(id_game_provisional)
         if "Failed" in characters_result:
-            # logger.error(f"Error al extraer personajes: {characters_result}")
+            await update_game_provisional_status(id_game_provisional, "error", 45, f"Locations extracted but failed to extract characters: {characters_result}")
             return f"Locations extracted but failed to extract characters: {characters_result}"
 
-        # logger.info(f"Generación de interacciones completada exitosamente para juego {id_game_provisional}")
+        # Actualizar estado: Creando juego final
+        await update_game_provisional_status(id_game_provisional, "creating_game", 55, "Creating final game from provisional data")
 
         game_result = await create_game_by_provisional(id_game_provisional)
         if "Failed" in game_result:
-            # logger.error(f"Error al crear el juego a partir del provisional: {game_result}")
+            await update_game_provisional_status(id_game_provisional, "error", 55, f"Failed to create game from provisional: {game_result}")
             return f"Failed to create game from provisional: {game_result}"
+
+        # update game provisional with the created game id
+        await db["game_provisional"].update_one(
+            {"_id": ObjectId(id_game_provisional)},
+            {"$set": {
+                "game_id": game_result.get("_id"),
+                "updated_at": datetime.now(pytz.utc)
+            }}
+        )
+
+        # Actualizar estado: Completado
+        await update_game_provisional_status(id_game_provisional, "completed", 100, "Interaction generation process completed successfully")
 
         return f"Successfully generated interactions for {num_scenes} scenes and extracted characters for locations"
 
     except Exception as e:
-        # logger.error(f"Error en generate_scene_interactions: {str(e)}")
-        # logger.debug(traceback.format_exc())
+        # Actualizar estado: Error
+        await update_game_provisional_status(id_game_provisional, "error", 0, f"Unexpected error: {str(e)}")
         print(traceback.format_exc())
         return f"Failed to generate scene interactions: {str(e)}"

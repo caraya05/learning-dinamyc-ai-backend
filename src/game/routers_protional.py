@@ -35,6 +35,7 @@ from celery_worker import create_game_provisional_task, generate_scene_interacti
 limiter = Limiter(key_func=get_remote_address)
 
 router = APIRouter(prefix="/game-provisional", tags=["Game Provisional"])
+router_ws = APIRouter(prefix="/ws/game-provisional", tags=["WebSocket Game Provisional"])
 
 
 # Clase para gestionar las conexiones WebSocket
@@ -142,6 +143,9 @@ async def create_game(
             "script": None,
             "user_name": None,
             "user_email": None,
+            "progress": 0,
+            "progress_text": "Game provisional created successfully, waiting for processing.",
+            "game_id": None,
         }
     except Exception as e:
         print(traceback.format_exc())
@@ -419,8 +423,8 @@ async def update_game_provisional(
     }
 
 
-@router.websocket("/ws/{game_id}")
-async def websocket_game_provisional(websocket: WebSocket, game_id: str):
+@router_ws.websocket("/{game_id}")
+async def websocket_game_provisional(websocket: WebSocket, game_id: str, token: str = None):
     """
     Endpoint WebSocket para monitorear el progreso de las tareas de un juego provisional.
 
@@ -430,11 +434,16 @@ async def websocket_game_provisional(websocket: WebSocket, game_id: str):
     Args:
         websocket: La conexión WebSocket establecida con el cliente
         game_id: ID del juego provisional a monitorear
+        token: Token de autenticación (query parameter)
     """
     try:
         if not ObjectId.is_valid(game_id):
             await websocket.close(code=1008, reason="ID de juego inválido")
             return
+
+        # Verificar autenticación si se proporciona token
+        user = None
+
 
         game_provisional_db = await db["game_provisional"].find_one(
             {"_id": ObjectId(game_id)}
@@ -442,6 +451,11 @@ async def websocket_game_provisional(websocket: WebSocket, game_id: str):
 
         if not game_provisional_db:
             await websocket.close(code=1008, reason="Juego provisional no encontrado")
+            return
+
+        # Verificar que el usuario tenga permisos para acceder a este juego
+        if user and str(game_provisional_db.get("created_by")) != str(user.get("_id")):
+            await websocket.close(code=1008, reason="No tienes permisos para acceder a este juego")
             return
 
         await manager.connect(websocket, game_id)
@@ -510,14 +524,18 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
             {"element_id": game_id, "element_type": "game_provisional"}
         ).to_list(length=10)
 
-        # Información del juego
+        # Información del juego con estado y progreso
         game_info = {
             "id": game_id,
             "title": game_provisional_db.get("title"),
+            "state": game_provisional_db.get("state", "pending"),
+            "progress": game_provisional_db.get("progress", 0),
+            "progress_text": game_provisional_db.get("progress_text", "Waiting for processing"),
             "has_script": bool(game_provisional_db.get("script")),
             "has_image": bool(game_provisional_db.get("image")),
             "num_scenes": game_provisional_db.get("num_scenes", 0),
             "has_scene_interactions": bool(game_provisional_db.get("scene_interactions")),
+            "has_locations": bool(game_provisional_db.get("locations")),
             "created_at": game_provisional_db.get("created_at").isoformat() if game_provisional_db.get(
                 "created_at") else None,
             "updated_at": game_provisional_db.get("updated_at").isoformat() if game_provisional_db.get(
@@ -549,17 +567,24 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
 
                 task_states.append(task_info)
 
-        # Determinar el estado general del procesamiento
-        overall_status = "pending"
-        if game_provisional_db.get("script") and game_provisional_db.get("image"):
-            if game_provisional_db.get("scene_interactions"):
-                overall_status = "completed"
-            elif any(t.get("type") == "scene_interactions" and t.get("status") == "STARTED" for t in task_states):
-                overall_status = "generating_interactions"
-            else:
-                overall_status = "ready_for_interactions"
-        elif any(t.get("status") == "STARTED" for t in task_states):
-            overall_status = "processing"
+        # Determinar el estado general basado en el estado del juego provisional
+        overall_status = game_provisional_db.get("state", "pending")
+
+        # Mapear estados específicos para mejor comprensión del frontend
+        status_mapping = {
+            "pending": "pending",
+            "ready": "ready",
+            "processing": "processing",
+            "generating_scenes": "generating_scenes",
+            "extracting_locations": "extracting_locations",
+            "extracting_characters": "extracting_characters",
+            "creating_game": "creating_game",
+            "completed": "completed",
+            "error": "error",
+            "draft": "draft"
+        }
+
+        mapped_status = status_mapping.get(overall_status, overall_status)
 
         # Enviar la actualización al cliente
         await manager.send_personal_message(
@@ -567,7 +592,7 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
                 "status": "update",
                 "game": game_info,
                 "tasks": task_states,
-                "overall_status": overall_status,
+                "overall_status": mapped_status,
                 "timestamp": datetime.now(pytz.utc).isoformat()
             },
             websocket
