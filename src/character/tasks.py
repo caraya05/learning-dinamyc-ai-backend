@@ -643,7 +643,7 @@ async def generate_character_body_type(_character_id, _user_id, _state_game_id):
 
         response_character_type = await openai_generator.generate_gpt(
             content_prompt=[
-                {"role": "system", "content": "Eres un identificador de tipo de personaje"},
+                {"role": "system", "content": "Eres un identificador de tipo de personaje, no te debes salir de los tipos de cuerpo de personajes que se envian."},
                 {
                     "role": "user",
                     "content": [
@@ -1100,7 +1100,7 @@ async def generate_option_character(
                 content_prompt=[
                     {
                         "role": "system",
-                        "content": f" Correct spelling on the text of dialogue in the {language_detection} language. ",
+                        "content": f" Correct spelling on the text of the dialogue in the {language_detection} language. ",
                     },
                     {
                         "role": "user",
@@ -1123,11 +1123,10 @@ async def generate_option_character(
             conversation_ = [
                 {
                     "id_character": str(character_other_db["_id"]),
-                    "dialog": dialog.dialog,
+                    "dialog": element_state_db['data']['options_dialog']['prompt_user_question'],
                     "audio": None,
                     "audio_mp3": None,
                 }
-                for dialog in response.conversation
             ]
 
             element_state_db["data"]['options_dialog']['prompt_user_question'] = conversation_
@@ -1233,6 +1232,7 @@ async def generate_option_character(
             interaction["type_conversation"] = "option_multiple"
             interaction["options"] = element_state_db["data"]["options"]
             interaction["prompt_user_question"] = element_state_db["data"]["prompt_user_question"]
+            interaction["prompt_user_guideline"] = element_state_db["data"]["prompt_user_guideline"]
             interaction_exists = True
             break
 
@@ -1740,41 +1740,50 @@ async def async_generate_character_task(
         _state_game_id,
         _game_id,
 ):
-    await update_task_service(_id=_task_id, _status="pending")
+    if _task_id and _task_id != "" and _task_id is not None:
+        await update_task_service(_id=_task_id, _status="pending")
+
     character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
     if not character_db:
-        await update_task_service(
-            _id=_task_id,
-            _status="failed",
-            _message=f"Error can't find character with id {_character_id}",
-        )
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id,
+                _status="failed",
+                _message=f"Error can't find character with id {_character_id}",
+            )
         return f"Error can't find character with id {_character_id}"
+
     response_description = await generate_character_description(
         _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
     )
     if not response_description:
-        await update_task_service(
-            _id=_task_id, _status="failed", _message="Error in generate character description"
-        )
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id, _status="failed", _message="Error in generate character description"
+            )
         return "Error in generate character description"
+
     response_body_type = await generate_character_body_type(
         _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
     )
     if not response_body_type:
-        await update_task_service(
-            _id=_task_id, _status="failed", _message="Error in generate character body type"
-        )
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id, _status="failed", _message="Error in generate character body type"
+            )
         return "Error in generate character body type"
+
     response_image, message = await generate_image_character_face(
         _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
     )
     if not response_image:
-        await update_task_service(
-            _id=_task_id,
-            _status="failed",
-            _message=message,
-            _status_updated=1,
-        )
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id,
+                _status="failed",
+                _message=message,
+                _status_updated=1,
+            )
         return message
 
     element_state_db = await db["state_glic"].find_one(
@@ -1786,9 +1795,10 @@ async def async_generate_character_task(
     )
 
     if not detection_personalization:
-        await update_task_service(
-            _id=_task_id, _status="failed", _message="Error in generate character personalization"
-        )
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id, _status="failed", _message="Error in generate character personalization"
+            )
         return "Error in generate character personalization"
 
     voice_generated = await generate_voice_character(
@@ -1803,14 +1813,16 @@ async def async_generate_character_task(
     )
 
     if not voice_generated:
-        await update_task_service(
-            _id=_task_id, _status="failed", _message="Error voice not generated"
-        )
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id, _status="failed", _message="Error voice not generated"
+            )
         return "Error voice not generated"
 
-    await update_task_service(
-        _id=_task_id, _status="completed", _message="Character generate successfully"
-    )
+    if _task_id and _task_id != "" and _task_id is not None:
+        await update_task_service(
+            _id=_task_id, _status="completed", _message="Character generate successfully"
+        )
     return "Character generate successfully"
 
 
@@ -1824,42 +1836,51 @@ async def async_update_character_task(
         _state_game_id,
         _location_id,
 ):
-    await update_task_service(_id=_task_id, _status="pending")
+    if _task_id and _task_id != "" and _task_id is not None:
+        await update_task_service(_id=_task_id, _status="pending")
+
     if _updated_data:
         character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
         if not character_db:
-            await update_task_service(
-                _id=_task_id,
-                _status="failed",
-                _message=f"Error can't find character with id {_character_id}",
-            )
+            if _task_id and _task_id != "" and _task_id is not None:
+                await update_task_service(
+                    _id=_task_id,
+                    _status="failed",
+                    _message=f"Error can't find character with id {_character_id}",
+                )
             return f"Error can't find character with id {_character_id}"
+
         response_description = await generate_character_description(
             _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
         )
         if not response_description:
-            await update_task_service(
-                _id=_task_id, _status="failed", _message="Error in generate character description"
-            )
+            if _task_id and _task_id != "" and _task_id is not None:
+                await update_task_service(
+                    _id=_task_id, _status="failed", _message="Error in generate character description"
+                )
             return "Error in generate character description"
+
         response_body_type = await generate_character_body_type(
             _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
         )
         if not response_body_type:
-            await update_task_service(
-                _id=_task_id, _status="failed", _message="Error in generate character body type"
-            )
+            if _task_id and _task_id != "" and _task_id is not None:
+                await update_task_service(
+                    _id=_task_id, _status="failed", _message="Error in generate character body type"
+                )
             return "Error in generate character body type"
+
         response_image, message = await generate_image_character_face(
             _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
         )
         if not response_image:
-            await update_task_service(
-                _id=_task_id,
-                _status="failed",
-                _message=message,
-                _status_updated=1,
-            )
+            if _task_id and _task_id != "" and _task_id is not None:
+                await update_task_service(
+                    _id=_task_id,
+                    _status="failed",
+                    _message=message,
+                    _status_updated=1,
+                )
             return message
 
         detection_personalization = await generate_character_personalization(
@@ -1867,9 +1888,10 @@ async def async_update_character_task(
         )
 
         if not detection_personalization:
-            await update_task_service(
-                _id=_task_id, _status="failed", _message="Error in generate character personalization"
-            )
+            if _task_id and _task_id != "" and _task_id is not None:
+                await update_task_service(
+                    _id=_task_id, _status="failed", _message="Error in generate character personalization"
+                )
             return "Error in generate character personalization"
 
     if _updated_voice:
@@ -1888,19 +1910,21 @@ async def async_update_character_task(
             prompt_user_dialog=element_state_db["data"]["prompt_user_dialog"],
         )
         if not voice_generated:
-            await update_task_service(
-                _id=_task_id,
-                _status="failed",
-                _message="Error voice not generated",
-                _status_updated=1,
-            )
+            if _task_id and _task_id != "" and _task_id is not None:
+                await update_task_service(
+                    _id=_task_id,
+                    _status="failed",
+                    _message="Error voice not generated",
+                    _status_updated=1,
+                )
             return "Error voice not generated"
 
-    await update_task_service(
-        _id=_task_id,
-        _status="completed",
-        _message="Character updated successfully",
-    )
+    if _task_id and _task_id != "" and _task_id is not None:
+        await update_task_service(
+            _id=_task_id,
+            _status="completed",
+            _message="Character updated successfully",
+        )
 
     return "Character updated successfully"
 

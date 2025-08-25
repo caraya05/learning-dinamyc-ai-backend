@@ -401,9 +401,13 @@ async def update_game_provisional(
         update_fields["state"] = "ready"
         generate_scene_interactions_task.delay(id_game_provisional=id_game_provisional)
         game_provisional_db["state"] = "ready"
+
     else:
         update_fields["state"] = "draft"
         game_provisional_db["state"] = "draft"
+
+    update_fields["progress"] = 0
+    update_fields["progress_text"] = "Game provisional is ready, waiting for processing."
 
     await db["game_provisional"].update_one(
         {"_id": ObjectId(id_game_provisional)},
@@ -540,6 +544,7 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
                 "created_at") else None,
             "updated_at": game_provisional_db.get("updated_at").isoformat() if game_provisional_db.get(
                 "updated_at") else None,
+            "game_id": str(game_provisional_db.get("game_id")) if game_provisional_db.get("game_id") else None,
         }
 
         # Estado de las tareas

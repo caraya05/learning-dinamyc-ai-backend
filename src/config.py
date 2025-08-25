@@ -25,5 +25,7 @@ class Settings(BaseSettings):
 
     ELEVENLABS_API_KEY: str = os.environ["ELEVENLABS_API_KEY"]
 
+    MODE_TEST: bool = os.environ.get("MODE_TEST", "False").lower() in ("true", "1", "yes")
+
 
 settings = Settings()

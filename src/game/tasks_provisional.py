@@ -30,9 +30,10 @@ from location.schemas import SchemaCreateLocation
 from location.tasks import async_generate_location_task
 from state_game.services import create_state_game, get_state_game_by_game_id, get_state_game_by_id
 from state_glic.services import create_state_glic
-from task.services import create_task_service
 
 from utils import upload_image
+
+from config import settings
 
 # Configuración del sistema de logs
 # logging.basicConfig(
@@ -44,7 +45,8 @@ from utils import upload_image
 NOT_GIVEN = NotGiven()
 
 
-async def update_game_provisional_status(id_game_provisional: str, status: str, progress: int = None, progress_text: str = None):
+async def update_game_provisional_status(id_game_provisional: str, status: str, progress: int = None,
+                                         progress_text: str = None):
     """
     Actualiza el estado del juego provisional.
 
@@ -83,11 +85,21 @@ async def create_game_provisional(_id_game_provisional: str):
     """
     # logger.info(f"Iniciando creación de juego provisional con ID: {_id_game_provisional}")
     try:
+        # Actualizar estado: Iniciando proceso
+        await update_game_provisional_status(_id_game_provisional, "processing", 0,
+                                             "Game provisional creation started, initializing process.")
+
         game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(_id_game_provisional)})
 
         if not game_provisional_db:
+            await update_game_provisional_status(_id_game_provisional, "error", 0,
+                                                 "Game provisional not found in database.")
             # logger.warning(f"Juego provisional con ID {_id_game_provisional} no encontrado")
             return "Game provisional not found"
+
+        # Actualizar estado: Descargando archivo
+        await update_game_provisional_status(_id_game_provisional, "downloading_file", 10,
+                                             "Downloading source file for processing.")
 
         # logger.debug(f"Juego provisional encontrado: {game_provisional_db.get('_id')}")
         file_url = game_provisional_db["file"]
@@ -101,28 +113,36 @@ async def create_game_provisional(_id_game_provisional: str):
             base64_string = base64.b64encode(data).decode("utf-8")
             # logger.debug(f"Archivo codificado en base64 (primeros 100 caracteres): {base64_string[:100]}...")
         else:
+            await update_game_provisional_status(_id_game_provisional, "error", 10,
+                                                 f"Failed to download file. HTTP status: {response.status_code}")
             # logger.error(f"Error al descargar archivo. Código de estado: {response.status_code}")
             return "Error generating file"
+
+        # Actualizar estado: Generando contenido del juego
+        await update_game_provisional_status(_id_game_provisional, "generating_content", 25,
+                                             "Generating game script and title using AI.")
 
         # logger.info("Generando contenido del juego con GPT-4.1")
         source_game_response = await openai_generator.generate_gpt(
             content_prompt=[
                 {
                     "role": "system",
-                    "content": """Crea un entrenamiento interactivo en formato "elige tu propia aventura" para un nuevo representante de ventas en una empresa de tecnología (TechCorp).
-                                El objetivo es enseñar buenas prácticas de ventas a través de decisiones narrativas.
-                                Estructura:
-                                Introducción breve con contexto.
-                                Múltiples escenas (3 a 5), cada una con una situación clave (primera reunión, manejo de objeciones, cierre de venta, etc.)
-                                En cada escena, presenta una decisión con 3 opciones (A, B, C).
-                                No des la respuesta correcta de inmediato. Permite que el usuario elija y luego ofrece una retroalimentación adaptativa basada en su elección.
-                                Usa un tono profesional, pero dinámico y conversacional.
-                                Incluye una conclusión que resuma el estilo de ventas del jugador según sus elecciones y ofrezca consejos prácticos."""
+                    "content": """Crea un entrenamiento interactivo en formato de historia narrativa tipo "elige tu propia aventura" para un nuevo representante de ventas en una empresa de tecnología (TechCorp).
+                                El objetivo es enseñar buenas prácticas de ventas a través de situaciones narradas de forma fluida, como si fuera un capítulo de un libro.
+                                 🔹 Instrucciones:
+                                Empieza con una introducción inmersiva, presentando al protagonista y su primer día en TechCorp.
+                                Desarrolla entre 3 y 5 escenas clave (ej: primera reunión con un cliente, manejo de objeciones, negociación de condiciones, cierre de la venta).
+                                Cada escena debe contarse como parte de la historia, sin dividir en apartados rígidos. Dentro del relato, presenta un momento de decisión donde el protagonista puede actuar de diferentes formas.
+                                Formula las opciones de decisión como parte de la narración, manteniendo un estilo literario y fluido (ejemplo: “Podría responder de inmediato con argumentos técnicos… o tomar una pausa y preguntar más sobre las necesidades del cliente”).
+                                No indiques la opción correcta de inmediato. Tras la elección del jugador, ofrece una retroalimentación adaptativa: explica las consecuencias de su decisión dentro de la historia y cómo afecta su reputación, confianza del cliente y habilidades de venta.
+                                Usa un tono profesional, dinámico y conversacional, evitando rigidez académica.
+                                Finaliza con una conclusión personalizada, que resuma el estilo de ventas del jugador según sus elecciones (ejemplo: persuasivo, consultivo, apresurado, etc.) y ofrezca consejos prácticos para mejorar."""
                 },
                 {
                     "role": "user",
                     "content": f"nesecito que me ayudes a crear un juego basado en el archivo PDF proporcionado."
                                f"nesecito que el juego tenga un guion y un titulo ambos en ingles, el guion debe ser una historia que se pueda jugar en formato de texto"
+                               f"prompt del usuario: {game_provisional_db.get('prompt_user', 'No prompt provided')}"
                 },
                 {
                     "role": "user",
@@ -145,35 +165,60 @@ async def create_game_provisional(_id_game_provisional: str):
         )
 
         if not source_game_response:
+            await update_game_provisional_status(_id_game_provisional, "error", 25,
+                                                 "Failed to generate game content from AI.")
             # logger.error("No se recibió respuesta de la API de OpenAI")
             return "Failed to generate game provisional"
 
-        # logger.info(f"Contenido generado correctamente. Título: '{source_game_response.title}'")
-        # logger.debug(f"Longitud del guión generado: {len(source_game_response.script)} caracteres")
+        # Verificar si estamos en modo test para omitir generación de imágenes
+        if settings.MODE_TEST:
+            # En modo test, omitir generación y subida de imágenes
+            await update_game_provisional_status(_id_game_provisional, "skipping_image_test", 80,
+                                                 "Test mode active: skipping image generation and upload.")
 
-        # logger.info("Generando imagen de portada para el juego")
-        image_game_provisional = await openai_generator.generate_image(
-            prompt=f"Genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego ."
-                   f"basado en el  script: {source_game_response.script} "
-                   f"que ejemplifique una escena del juego con un personaje principal que represente el estilo del juego, no debe tener texto.",
-            model="gpt-image-1",
-            size="1024x1536",
-            style=None
-        )
+            # Usar una imagen por defecto en modo test
+            url_image = "https://via.placeholder.com/512x896.jpg?text=Test+Mode+Image"
+        else:
+            # Actualizar estado: Generando imagen de portada
+            await update_game_provisional_status(_id_game_provisional, "generating_image", 60,
+                                                 "Generating cover image for the game.")
 
-        # logger.debug("Imagen generada, decodificando base64")
-        image_bytes = base64.b64decode(image_game_provisional)
+            # logger.info(f"Contenido generado correctamente. Título: '{source_game_response.title}'")
+            # logger.debug(f"Longitud del guión generado: {len(source_game_response.script)} caracteres")
 
-        # logger.info("Subiendo imagen a almacenamiento")
-        url_image = upload_image(
-            img_byte_arr=image_bytes,
-            file_name=f"game-provisional/{uuid4()}.jpg",
-            size=(512, 896)
-        )
+            # logger.info("Generando imagen de portada para el juego")
+            image_game_provisional = await openai_generator.generate_image(
+                prompt=f"Genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego ."
+                       f"basado en el  script: {source_game_response.script} "
+                       f"que ejemplifique una escena del juego con un personaje principal que represente el estilo del juego, no debe tener texto.",
+                model="gpt-image-1",
+                size="1024x1536",
+                style=None
+            )
 
-        if not url_image:
-            # logger.error("Error al subir la imagen generada")
-            return "Failed to upload image"
+            # Actualizar estado: Subiendo imagen
+            await update_game_provisional_status(_id_game_provisional, "uploading_image", 80,
+                                                 "Uploading generated cover image to storage.")
+
+            # logger.debug("Imagen generada, decodificando base64")
+            image_bytes = base64.b64decode(image_game_provisional)
+
+            # logger.info("Subiendo imagen a almacenamiento")
+            url_image = upload_image(
+                img_byte_arr=image_bytes,
+                file_name=f"game-provisional/{uuid4()}.jpg",
+                size=(512, 896)
+            )
+
+            if not url_image:
+                await update_game_provisional_status(_id_game_provisional, "error", 80,
+                                                     "Failed to upload generated image to storage.")
+                # logger.error("Error al subir la imagen generada")
+                return "Failed to upload image"
+
+        # Actualizar estado: Guardando en base de datos
+        await update_game_provisional_status(_id_game_provisional, "saving_data", 90,
+                                             "Saving provisional game data to database.")
 
         # logger.debug(f"Imagen subida correctamente: {url_image}")
 
@@ -189,9 +234,15 @@ async def create_game_provisional(_id_game_provisional: str):
             {"$set": game_provisional_db}
         )
 
+        # Actualizar estado: Completado
+        await update_game_provisional_status(_id_game_provisional, "completed", 100,
+                                             "Game provisional created successfully, waiting for processing.")
+
         # logger.info(f"Juego provisional creado exitosamente: {_id_game_provisional}")
         return "game provisional created successfully"
     except Exception as e:
+        # Actualizar estado: Error
+        await update_game_provisional_status(_id_game_provisional, "error", 0, f"Unexpected error occurred: {str(e)}")
         # logger.error(f"Error en create_game_provisional: {str(e)}")
         # logger.debug(traceback.format_exc())
         return "Failed to create game provisional"
@@ -270,9 +321,6 @@ async def extract_scene_count_from_script(script: str) -> int:
         # logger.debug(traceback.format_exc())
         print(traceback.format_exc())
         return f"Error: {str(e)}"
-
-
-
 
 
 class SceneInteractionResponse(BaseModel):
@@ -599,7 +647,9 @@ async def async_extract_characters_and_interactions_task(id_game_provisional: st
     except Exception as e:
         return f"Error: {str(e)}"
 
-async def create_character_service(character: SchemaCreateCharacter, user_id: str, game_id: str, file: UploadFile | None = None):
+
+async def create_character_service(character: SchemaCreateCharacter, user_id: str, game_id: str,
+                                   file: UploadFile | None = None):
     try:
         if character.prompt_user:
             response_moderation_prompt_user = await openai_generator.moderation_text(
@@ -669,31 +719,22 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
             )
 
 
-        task_db = await create_task_service(
-            _task_id="",
-            _user_id=user_id,
-            _task_data={},
-            _element_id=str(character_created.inserted_id),
-            _element_type="character",
-            _process="create_character",
-        )
 
         task_celery = await async_generate_character_task(
             _character_id=str(character_created.inserted_id),
             _user_id=user_id,
-            _task_id=str(task_db["_id"]),
+            _task_id="",
             _location_id=character.location_id,
             _state_game_id=state_game['_id'],
             _game_id=game_id,
         )
 
-
         if character_db := await db["character"].find_one({"_id": character_created.inserted_id}):
-
             return character_db
     except Exception as e:
         print(f"Error in create character service: {str(e)}")
         return "Error: " + str(e)
+
 
 async def change_character_principal_game_service(
         game_id: str, character_principal: str, user_id: str
@@ -778,22 +819,14 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str, 
                 data=location_db_state.dict(),
             )
 
-        task_db = await create_task_service(
-            _task_id="",
-            _user_id=user_id,
-            _task_data={},
-            _element_id=str(location_created.inserted_id),
-            _element_type="location",
-            _process="generate_location",
-        )
+
 
         task_celery = await async_generate_location_task(
             _location_id=str(location_created.inserted_id),
             _user_id=user_id,
-            _task_id=str(task_db["_id"]),
+            _task_id="",
             _state_game_id=state_game["_id"],
         )
-
 
         if location_db := await db['location'].find_one({"_id": location_created.inserted_id}):
             return location_db
@@ -801,6 +834,7 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str, 
         print(f"Error in create location service: {e}")
         print(traceback.print_exc())
         return "Location not created"
+
 
 async def create_game_service(user_id: str):
     try:
@@ -821,6 +855,7 @@ async def create_game_service(user_id: str):
         print(f"Error creating game service: {str(e)}")
         return f"Error: {str(e)}"
 
+
 async def generate_code_access_game_service():
     while True:
         code = ''.join(
@@ -832,6 +867,7 @@ async def generate_code_access_game_service():
 
         if not existing_code:
             return code
+
 
 async def create_game_by_provisional(id_game_provisional: str):
     """
@@ -852,8 +888,9 @@ async def create_game_by_provisional(id_game_provisional: str):
 
         game_update_db = await db["game"].update_one({"_id": game_db.get("_id")}, {"$set": {
             "title": game_provisional_db.get("title"),
-            "script": game_provisional_db.get("script"),
+            "history": game_provisional_db.get("script"),
             "image": game_provisional_db.get("image"),
+            "image_minimalist": game_provisional_db.get("image"),
             "created_by": game_provisional_db.get("created_by", "anonymous"),
             "updated_by": game_provisional_db.get("created_by", "anonymous"),
             "provisional_id": str(game_provisional_db.get("_id")),
@@ -899,7 +936,7 @@ async def create_game_by_provisional(id_game_provisional: str):
             )
 
             location_change_character_db = await change_character_principal_game_service(
-                game_db.get("_id"), character_principal_db.get("_id"),
+                str(game_db.get("_id")), str(character_principal_db.get("_id")),
                 game_provisional_db.get("created_by", "anonymous")
             )
 
@@ -923,16 +960,17 @@ async def create_game_by_provisional(id_game_provisional: str):
             def generate_random_position():
                 """Genera una posición aleatoria en la cuadrícula de 60x60"""
                 return {
-                    "X": random.randint(25, 45),
-                    "Y": random.randint(25, 45)
+                    "index": 0,  # Índice de la cuadrícula
+                    "X": random.randint(28, 35),
+                    "Y": random.randint(28, 35)
                 }
 
             # Configuración de la locación con personajes posicionados
             location_configuration = {
-                "characterScale": 1,
+                "characterScale": 1.7,
                 "GridX": 0,
                 "GridY": 0,
-                "GridPlaneSize": 60,  # Cuadrícula de 60x60
+                "GridPlaneSize": 0,  # Cuadrícula de 60x60
                 "Characters": [
                     {
                         "characterId": str(character_principal_db.get("_id")),
@@ -946,16 +984,19 @@ async def create_game_by_provisional(id_game_provisional: str):
                 "items": []  # Por ahora sin items, se pueden agregar después
             }
 
-            # Actualizar la locación con la configuración
-            await db["location"].update_one(
-                {"_id": location_db.get("_id")},
+            location_state_db = await db["state_glic"].find_one(
+                {"element_id": str(location_db.get("_id")), "type_element": "location"}
+            )
+
+            location_state_db["data"]["configuration"] = location_configuration
+            await db["state_glic"].update_one(
+                {"_id": location_state_db["_id"]},
                 {"$set": {
-                    "configuration": location_configuration,
+                    "data": location_state_db["data"],
                     "updated_at": datetime.now(pytz.utc)
                 }}
             )
-
-        #update game provisional with the created game id
+        # update game provisional with the created game id
         await db["game_provisional"].update_one(
             {"_id": ObjectId(id_game_provisional)},
             {"$set": {
@@ -984,7 +1025,8 @@ async def generate_scene_interactions(id_game_provisional: str):
     # logger.info(f"Iniciando generación de interacciones para juego provisional ID: {id_game_provisional}")
     try:
         # Actualizar estado: Iniciando proceso
-        await update_game_provisional_status(id_game_provisional, "processing", 0, "Starting the interaction generation process")
+        await update_game_provisional_status(id_game_provisional, "processing", 0,
+                                             "Starting the interaction generation process")
 
         # Obtenemos el juego provisional
         game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(id_game_provisional)})
@@ -995,11 +1037,13 @@ async def generate_scene_interactions(id_game_provisional: str):
 
         script = game_provisional_db.get("script")
         if not script:
-            await update_game_provisional_status(id_game_provisional, "error", 0, "Script not found in game provisional")
+            await update_game_provisional_status(id_game_provisional, "error", 0,
+                                                 "Script not found in game provisional")
             return "Script not found in game provisional"
 
         # Actualizar estado: Generando interacciones de escenas
-        await update_game_provisional_status(id_game_provisional, "generating_scenes", 15, "Generating interactions for game scenes")
+        await update_game_provisional_status(id_game_provisional, "generating_scenes", 15,
+                                             "Generating interactions for game scenes")
 
         # Extraemos el número de escenas del guión
         num_scenes = game_provisional_db.get("num_scenes")
@@ -1023,12 +1067,14 @@ async def generate_scene_interactions(id_game_provisional: str):
         )
 
         # Actualizar estado: Extrayendo locaciones
-        await update_game_provisional_status(id_game_provisional, "extracting_locations", 35, "Extracting locations from script")
+        await update_game_provisional_status(id_game_provisional, "extracting_locations", 35,
+                                             "Extracting locations from script")
 
         # extraer locaciones
         locations = await extract_locations_from_scenes(id_game_provisional)
         if isinstance(locations, str):
-            await update_game_provisional_status(id_game_provisional, "error", 35, f"Error al extraer locaciones: {locations}")
+            await update_game_provisional_status(id_game_provisional, "error", 35,
+                                                 f"Error al extraer locaciones: {locations}")
             return f"Failed to extract locations: {locations}"
 
         # Actualiza las locaciones en el juego provisional
@@ -1041,33 +1087,29 @@ async def generate_scene_interactions(id_game_provisional: str):
         )
 
         # Actualizar estado: Extrayendo personajes e interacciones
-        await update_game_provisional_status(id_game_provisional, "extracting_characters", 45, "Extracting characters and interactions for locations")
+        await update_game_provisional_status(id_game_provisional, "extracting_characters", 45,
+                                             "Extracting characters and interactions for locations")
 
         # Extraer personajes e interacciones para las locaciones
         characters_result = await extract_characters_and_interactions_for_locations(id_game_provisional)
         if "Failed" in characters_result:
-            await update_game_provisional_status(id_game_provisional, "error", 45, f"Locations extracted but failed to extract characters: {characters_result}")
+            await update_game_provisional_status(id_game_provisional, "error", 45,
+                                                 f"Locations extracted but failed to extract characters: {characters_result}")
             return f"Locations extracted but failed to extract characters: {characters_result}"
 
         # Actualizar estado: Creando juego final
-        await update_game_provisional_status(id_game_provisional, "creating_game", 55, "Creating final game from provisional data")
+        await update_game_provisional_status(id_game_provisional, "creating_game", 60,
+                                             "Creating final game from provisional data")
 
         game_result = await create_game_by_provisional(id_game_provisional)
         if "Failed" in game_result:
-            await update_game_provisional_status(id_game_provisional, "error", 55, f"Failed to create game from provisional: {game_result}")
+            await update_game_provisional_status(id_game_provisional, "error", 60,
+                                                 f"Failed to create game from provisional: {game_result}")
             return f"Failed to create game from provisional: {game_result}"
 
-        # update game provisional with the created game id
-        await db["game_provisional"].update_one(
-            {"_id": ObjectId(id_game_provisional)},
-            {"$set": {
-                "game_id": game_result.get("_id"),
-                "updated_at": datetime.now(pytz.utc)
-            }}
-        )
-
         # Actualizar estado: Completado
-        await update_game_provisional_status(id_game_provisional, "completed", 100, "Interaction generation process completed successfully")
+        await update_game_provisional_status(id_game_provisional, "completed", 100,
+                                             "Interaction generation process completed successfully")
 
         return f"Successfully generated interactions for {num_scenes} scenes and extracted characters for locations"
 

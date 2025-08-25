@@ -293,9 +293,15 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
         url_image_voxel = "https://storage.googleapis.com/qwestar/voxel_.jpg"
 
+        url_imagen_voxel_alejada = "https://storage.googleapis.com/qwestar/escenario-alejado.jpg"
+
         response_image_voxel = requests.get(url_image_voxel)
         image_voxel_bytes = BytesIO(response_image_voxel.content)
         image_voxel_base64 = base64.b64encode(image_voxel_bytes.getvalue()).decode('utf-8')
+
+        response_image_voxel_alejada = requests.get(url_imagen_voxel_alejada)
+        image_voxel_alejada_bytes = BytesIO(response_image_voxel_alejada.content)
+        image_voxel_alejada_base64 = base64.b64encode(image_voxel_alejada_bytes.getvalue()).decode('utf-8')
 
         # Verificar si existe una imagen de referencia y hay un prompt_user
         if element_state_db["data"].get("image_reference") and element_state_db["data"]["image_reference"] != "" and \
@@ -306,34 +312,42 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
             image_base64 = base64.b64encode(image_bytes.getvalue()).decode('utf-8')
 
+            print("entro aca")
+
             image_location = await openai_generator.generate_gpt(
                 content_prompt=[
-
                     {
                         "role": "user",
-              "content": [
-                  {
-                      "type": "input_text",
-                      "text": "Genera una imagen horizontal 1536x1024 de una locación en estilo 3D low poly en vista"
-                              " isométrica, con fondo de color negro. Si es un espacio abierto, "
-                              "no generes las paredes de la vista isométrica, solo el suelo. "
-                              "Si es un sitio cerrado, incluye las paredes en la vista isométrica,"
-                              "replica la imagen referencia en la vista isométrica.",
-                  },
-                  {
-                      "type": "input_image",
-                      "image_url": f"data:image/jpeg;base64,{image_voxel_base64}",
-                  },
-                  {
-                      "type": "input_text",
-                      "text": f"Descripción adicional de la locación: {element_state_db['data']['description']}. "
-                              "Imagen de referencia a continuación:",
-                  },
-                  {
-                      "type": "input_image",
-                      "image_url": f"data:image/jpeg;base64,{image_base64}",
-                  }
-              ],
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": """Genera una imagen en vista isométrica desde arriba, en estilo 3D medium-poly,
+                                         y resolución wide, sin personas, con los objetos
+                                         únicamente a los costados de las paredes arriba-derecha y arriba-izquierda, 
+                                        y el resto suelo despejado, ambientado con la mejor iluminación para este escenario, replica la imagen referencia en la vista isométrica.""",
+                            },
+                            {
+                                "type": "input_text",
+                                "text": f"Descripción adicional de la locación: {element_state_db['data']['prompt_user']}. "
+                                        "Imagen de referencia a imitar a continuación:",
+                            },
+                            {
+                                "type": "input_image",
+                                "image_url": f"data:image/jpeg;base64,{image_base64}",
+                            },
+                            {
+                                "type": "input_image",
+                                "image_url": f"data:image/jpeg;base64,{image_voxel_base64}",
+                            },
+                            {
+                                "type": "input_text",
+                                "text": f"Toma en cuenta la imagen del bosque de referencia para los tamaños de la locación. ",
+                            },
+                            {
+                                "type": "input_image",
+                                "image_url": f"data:image/jpeg;base64,{image_voxel_alejada_base64}",
+                            },
+                        ],
                     },
                 ],
                 model="gpt-4.1",
@@ -383,11 +397,23 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                         "content": [
                             {
                                 "type": "input_text",
-                                "text": "Genera una imagen horizontal 1536x1024 de una locación en estilo 3D low poly en vista isométrica, con fondo de color negro.",
+                                "text": """Genera una imagen en vista isométrica desde arriba, en estilo 3D mediumpoly, 
+                                       y resolución wide, sin personas, con los objetos 
+                                       únicamente a los costados de las paredes arriba-derecha y arriba-izquierda,
+                                       y el resto suelo despejado, ambientado con la mejor iluminación para este
+                                       escenario. Usa la imagen de referencia proporcionada para guiar el diseño.""",
                             },
                             {
                                 "type": "input_image",
                                 "image_url": f"data:image/jpeg;base64,{image_voxel_base64}",
+                            },
+                            {
+                                "type": "input_text",
+                                "text": f"Toma en cuenta la imagen del bosque de referencia para los tamaños de la locación",
+                            },
+                            {
+                                "type": "input_image",
+                                "image_url": f"data:image/jpeg;base64,{image_voxel_alejada_base64}",
                             },
                             {
                                 "type": "input_text",
@@ -448,78 +474,100 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 async def async_generate_location_task(
         _location_id: str, _user_id: str, _task_id: str, _state_game_id: str
 ):
-    await update_task_service(_id=_task_id, _status="pending")
+    if _task_id and _task_id != "" and _task_id is not None:
+        await update_task_service(_id=_task_id, _status="pending")
+
     location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
     if not location_db:
-        await update_task_service(
-            _id=_task_id,
-            _status="failed",
-            _message=f"Error can't find location with id {_location_id}",
-        )
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id,
+                _status="failed",
+                _message=f"Error can't find location with id {_location_id}",
+            )
         return f"Error can't find location with id {_location_id}"
+
     response_description = await generate_location_description(
         _location_id, _user_id, _state_game_id
     )
     if not response_description:
-        await update_task_service(
-            _id=_task_id,
-            _status="failed",
-            _message="Error in generate location description service.",
-        )
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id,
+                _status="failed",
+                _message="Error in generate location description service.",
+            )
         return "Error in generate location description service."
+
     response_sound = await identify_location_sound(_location_id, _user_id, _state_game_id)
     if not response_sound:
-        await update_task_service(
-            _id=_task_id, _status="failed", _message="Error in identify location sound service."
-        )
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id, _status="failed", _message="Error in identify location sound service."
+            )
         return "Error in identify location sound service."
+
     response_image, message = await generate_location_image(_location_id, _user_id, _state_game_id)
     if not response_image:
-        await update_task_service(
-            _id=_task_id, _status="failed", _message=message, _status_updated=1
-        )
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id, _status="failed", _message=message, _status_updated=1
+            )
         return message
+
     response_environment = await generate_environment_location(
         _location_id, _user_id, _state_game_id
     )
     if not response_environment:
-        await update_task_service(
-            _id=_task_id,
-            _status="failed",
-            _message="Error in generate environment location service.",
-        )
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id,
+                _status="failed",
+                _message="Error in generate environment location service.",
+            )
         return "Error in generate environment location service."
-    await update_task_service(
-        _id=_task_id, _status="completed", _message="Location generate successfully"
-    )
+
+    if _task_id and _task_id != "" and _task_id is not None:
+        await update_task_service(
+            _id=_task_id, _status="completed", _message="Location generate successfully"
+        )
     return "Location generate successfully"
 
 
 async def async_generate_image_location_task(_location_id: str, _user_id: str, _task_id: str):
-    await update_task_service(_id=_task_id, _status="pending")
+    if _task_id and _task_id != "" and _task_id is not None:
+        await update_task_service(_id=_task_id, _status="pending")
+
     location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
     if not location_db:
-        await update_task_service(
-            _id=_task_id,
-            _status="failed",
-            _message=f"Error can't find location with id {_location_id}",
-        )
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id,
+                _status="failed",
+                _message=f"Error can't find location with id {_location_id}",
+            )
         return f"Error can't find location with id {_location_id}"
+
     response_image, message = await generate_location_image(_location_id, _user_id)
     if not response_image:
-        await update_task_service(
-            _id=_task_id, _status="failed", _message=message, _status_updated=1
-        )
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id, _status="failed", _message=message, _status_updated=1
+            )
         return message
+
     response_environment = await generate_environment_location(_location_id, _user_id)
     if not response_environment:
-        await update_task_service(
-            _id=_task_id,
-            _status="failed",
-            _message="Error in generate environment location service.",
-        )
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id,
+                _status="failed",
+                _message="Error in generate environment location service.",
+            )
         return "Error in generate environment location service."
-    await update_task_service(
-        _id=_task_id, _status="completed", _message="Location image generate successfully"
-    )
+
+    if _task_id and _task_id != "" and _task_id is not None:
+        await update_task_service(
+            _id=_task_id, _status="completed", _message="Location image generate successfully"
+        )
     return "Location image generate successfully"
