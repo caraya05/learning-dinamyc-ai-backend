@@ -57,12 +57,25 @@ class ConnectionManager:
                 del self.active_connections[game_id]
 
     async def send_personal_message(self, message: dict, websocket: WebSocket):
-        if websocket.client_state == WebSocketState.CONNECTED:
-            await websocket.send_json(message)
+        try:
+            if websocket.client_state == WebSocketState.CONNECTED:
+                await websocket.send_json(message)
+        except Exception as e:
+            # Si hay error al enviar, desconectar el websocket
+            print(f"Error enviando mensaje WebSocket: {str(e)}")
+            # Buscar y remover esta conexión de todas las listas activas
+            for game_id, connections in list(self.active_connections.items()):
+                if websocket in connections:
+                    connections.remove(websocket)
+                    if not connections:
+                        del self.active_connections[game_id]
+                    break
 
     async def broadcast(self, message: dict, game_id: str):
         if game_id in self.active_connections:
-            for connection in self.active_connections[game_id]:
+            # Crear una copia de la lista para evitar modificaciones durante la iteración
+            connections = self.active_connections[game_id].copy()
+            for connection in connections:
                 await self.send_personal_message(message, connection)
 
 
@@ -146,6 +159,7 @@ async def create_game(
             "progress": 0,
             "progress_text": "Game provisional created successfully, waiting for processing.",
             "game_id": None,
+            "category": None
         }
     except Exception as e:
         print(traceback.format_exc())
@@ -197,6 +211,7 @@ async def get_game_provisional(
         "script": game_provisional_db["script"],
         "user_name": game_provisional_db.get("user_name"),
         "user_email": game_provisional_db.get("user_email"),
+        "category": game_provisional_db.get("category"),
     }
 
 

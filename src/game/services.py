@@ -684,6 +684,52 @@ async def get_my_games_v2_service(user_id: str, skip: int = 0, limit: int = 100)
         )
 
 
+async def get_community_games_service(*, skip: int = 1, limit: int = 100):
+    """
+    Obtiene juegos comunitarios que están publicados y tienen categorías específicas.
+
+    Returns:
+        tuple: (games_list, total_count)
+    """
+    # Categorías permitidas para juegos comunitarios
+    community_categories = [
+        "Marketing",
+        "Talent Development",
+        "Compliance",
+        "Recruiting",
+        "Events",
+        "Fan Engagement",
+        "Health & Wellness",
+        "Data Collection",
+        "Storytelling",
+        "Social Impact",
+        "Learning"
+    ]
+
+    # Query para buscar juegos publicados con las categorías especificadas
+    games_query = {
+        'version': 2,
+        'published': {'$exists': True},  # Solo juegos publicados
+        'is_published': True,
+        'category_id': {'$in': community_categories},  # Que tengan alguna de las categorías
+    }
+
+    games_db = (
+        await db['game']
+        .find(games_query)
+        .sort("created_at", -1)
+        .skip((skip - 1) * limit)
+        .limit(limit)
+        .to_list(None)
+    )
+
+    count_games = await db['game'].count_documents(games_query)
+    return games_db, count_games
+
+
+
+
+
 async def get_games_played_recent_service(user_id: str):
     try:
         games_played = await get_first_5_records_by_user(user_id)
@@ -904,3 +950,438 @@ async def get_games_of_reviewer(user_id: str):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Games not found",
         )
+
+
+async def clone_game_service(game_id: str, user_id: str):
+    """
+    Clona un juego completo con todos sus elementos asociados (characters, locations, items)
+    creando nuevos IDs para cada elemento y actualizando las referencias correspondientes.
+
+    Este método también clona:
+    - Estados del juego (state_game)
+    - Estados GLIC asociados (state_glic)
+    - Datos de configuración adicionales
+    - Referencias cruzadas entre elementos
+
+    Orden de clonado:
+    1. Game
+    2. State_game
+    3. Locations
+    4. Characters
+    5. Items
+    """
+    try:
+        # Obtener el juego original
+        original_game = await db['game'].find_one({'_id': ObjectId(game_id)})
+        if not original_game:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Game not found",
+            )
+
+        # Mapas para almacenar la correspondencia entre IDs originales y nuevos
+        all_id_mappings = {}  # Mapa global con todos los IDs (game, states, locations, characters, items)
+        location_id_map = {}
+        character_id_map = {}
+        item_id_map = {}
+        state_game_id_map = {}
+
+        # 1. CLONAR EL GAME PRIMERO
+        new_game = original_game.copy()
+        del new_game['_id']
+
+        # Actualizar información del nuevo juego
+        new_game['title'] = f"{original_game.get('title', 'Game')} (Copy)"
+        new_game['created_by'] = user_id
+        new_game['updated_by'] = user_id
+        new_game['created_at'] = datetime.utcnow()
+        new_game['updated_at'] = datetime.utcnow()
+        new_game['code_access'] = await generate_code_access_game_service()
+
+        # Limpiar campos de publicación y tareas
+        new_game.pop('published', None)
+        new_game.pop('published_version', None)
+        new_game.pop('is_published', None)
+        new_game.pop('published_at', None)
+        new_game['tasks_request'] = []
+        new_game['tasks_notified'] = []
+        new_game['status'] = 0
+
+        # Limpiar likes (el nuevo juego empieza sin likes)
+        new_game['likes'] = []
+
+        # Limpiar ID provisional si existe
+        new_game.pop('provisional_id', None)
+
+        # Limpiar campos de error si existen
+        new_game.pop('error_message', None)
+
+        # Preservar campos importantes del juego original pero limpiar referencias
+        # Los campos como synopsis, description, summary, event_init, event_end,
+        # prompt_image, category_id, history se mantienen del juego original
+
+        # Inicializar arrays vacíos para elementos (se actualizarán después)
+        new_game['locations_id'] = []
+        new_game['characters_id'] = []
+        new_game['items_id'] = []
+        new_game['character_principal'] = None
+
+        # Insertar el nuevo juego
+        game_result = await db['game'].insert_one(new_game)
+        new_game_id = str(game_result.inserted_id)
+
+        # Agregar mapeo del game ID
+        all_id_mappings[game_id] = new_game_id
+
+        # 2. CLONAR ESTADOS DEL JUEGO (state_game)
+        original_game_states = await db['state_game'].find({'game_id': game_id}).to_list(None)
+        cloned_states_count = 0
+
+        if original_game_states:
+            for state in original_game_states:
+                old_state_id = str(state['_id'])
+                new_state = state.copy()
+                del new_state['_id']
+                new_state['game_id'] = new_game_id
+                new_state['created_by'] = user_id
+                new_state['updated_by'] = user_id
+                new_state['created_at'] = datetime.utcnow()
+                new_state['updated_at'] = datetime.utcnow()
+
+                # Asegurar que todos los campos requeridos estén presentes
+                if 'order' not in new_state:
+                    new_state['order'] = 1
+
+                result = await db['state_game'].insert_one(new_state)
+                new_state_id = str(result.inserted_id)
+
+                # Guardar mapeo de IDs de estados
+                state_game_id_map[old_state_id] = new_state_id
+                all_id_mappings[old_state_id] = new_state_id
+
+                cloned_states_count += 1
+
+            print(f"Clonados {cloned_states_count} estados de juego para el nuevo juego {new_game_id}")
+        else:
+            # Si no hay estados originales, crear estado inicial del juego
+            await create_state_game(
+                game_id=new_game_id, order=1, created_by=user_id
+            )
+            cloned_states_count = 1
+            print(f"Creado estado inicial para el nuevo juego {new_game_id}")
+
+        # 3. CLONAR LOCATIONS con sus estados GLIC
+        new_locations_id = []
+        if original_game.get('locations_id'):
+            for location_id in original_game['locations_id']:
+                original_location = await db['location'].find_one({'_id': ObjectId(location_id)})
+                if original_location:
+                    # Crear nueva location
+                    new_location = original_location.copy()
+                    del new_location['_id']
+                    new_location['game_id'] = new_game_id
+                    new_location['created_by'] = user_id
+                    new_location['updated_by'] = user_id
+                    new_location['created_at'] = datetime.utcnow()
+                    new_location['updated_at'] = datetime.utcnow()
+
+                    # Limpiar tareas
+                    new_location['tasks_request'] = []
+                    new_location['tasks_notified'] = []
+                    new_location['status'] = 0
+
+                    result = await db['location'].insert_one(new_location)
+                    new_location_id = str(result.inserted_id)
+                    new_locations_id.append(new_location_id)
+
+                    # Guardar mapeo de IDs de locations
+                    location_id_map[location_id] = new_location_id
+                    all_id_mappings[location_id] = new_location_id
+
+                    # Clonar estados GLIC de la location
+                    original_states = await db['state_glic'].find({
+                        'element_id': location_id,
+                        'type_element': 'location'
+                    }).to_list(None)
+
+                    for state in original_states:
+                        old_glic_id = str(state['_id'])
+                        new_state = state.copy()
+                        del new_state['_id']
+                        new_state['element_id'] = new_location_id
+                        new_state['created_by'] = user_id
+                        new_state['updated_by'] = user_id
+                        new_state['created_at'] = datetime.utcnow()
+                        new_state['updated_at'] = datetime.utcnow()
+
+                        glic_result = await db['state_glic'].insert_one(new_state)
+                        new_glic_id = str(glic_result.inserted_id)
+                        all_id_mappings[old_glic_id] = new_glic_id
+
+        # 4. CLONAR CHARACTERS con sus estados GLIC (actualizando locations_id si es necesario)
+        new_characters_id = []
+        if original_game.get('characters_id'):
+            for character_id in original_game['characters_id']:
+                original_character = await db['character'].find_one({'_id': ObjectId(character_id)})
+                if original_character:
+                    # Crear nuevo character
+                    new_character = original_character.copy()
+                    del new_character['_id']
+                    new_character['game_id'] = new_game_id
+                    new_character['created_by'] = user_id
+                    new_character['updated_by'] = user_id
+                    new_character['created_at'] = datetime.utcnow()
+                    new_character['updated_at'] = datetime.utcnow()
+
+                    # Limpiar tareas
+                    new_character['tasks_request'] = []
+                    new_character['tasks_notified'] = []
+                    new_character['status'] = 0
+
+                    # Actualizar locations_id si existe y está en el mapa
+                    if new_character.get('locations_id') and new_character['locations_id'] in location_id_map:
+                        new_character['locations_id'] = location_id_map[new_character['locations_id']]
+
+                    result = await db['character'].insert_one(new_character)
+                    new_character_id = str(result.inserted_id)
+                    new_characters_id.append(new_character_id)
+
+                    # Guardar mapeo de IDs de characters
+                    character_id_map[character_id] = new_character_id
+                    all_id_mappings[character_id] = new_character_id
+
+                    # Clonar estados GLIC del character
+                    original_states = await db['state_glic'].find({
+                        'element_id': character_id,
+                        'type_element': 'character'
+                    }).to_list(None)
+
+                    for state in original_states:
+                        old_glic_id = str(state['_id'])
+                        new_state = state.copy()
+                        del new_state['_id']
+                        new_state['element_id'] = new_character_id
+                        new_state['created_by'] = user_id
+                        new_state['updated_by'] = user_id
+                        new_state['created_at'] = datetime.utcnow()
+                        new_state['updated_at'] = datetime.utcnow()
+
+                        glic_result = await db['state_glic'].insert_one(new_state)
+                        new_glic_id = str(glic_result.inserted_id)
+                        all_id_mappings[old_glic_id] = new_glic_id
+
+        # 5. CLONAR ITEMS/OBJECTS con sus estados GLIC (actualizando location_id si es necesario)
+        new_items_id = []
+        if original_game.get('items_id'):
+            for item_id in original_game['items_id']:
+                original_item = await db['item'].find_one({'_id': ObjectId(item_id)})
+                if original_item:
+                    # Crear nuevo item
+                    new_item = original_item.copy()
+                    del new_item['_id']
+                    new_item['game_id'] = new_game_id
+                    new_item['created_by'] = user_id
+                    new_item['updated_by'] = user_id
+                    new_item['created_at'] = datetime.utcnow()
+                    new_item['updated_at'] = datetime.utcnow()
+
+                    # Limpiar tareas
+                    new_item['tasks_request'] = 0
+                    new_item['tasks_notified'] = []
+                    new_item['status'] = 0
+
+                    # Actualizar location_id si existe y está en el mapa
+                    if new_item.get('location_id') and new_item['location_id'] in location_id_map:
+                        new_item['location_id'] = location_id_map[new_item['location_id']]
+
+                    result = await db['item'].insert_one(new_item)
+                    new_item_id = str(result.inserted_id)
+                    new_items_id.append(new_item_id)
+
+                    # Guardar mapeo de IDs de items
+                    item_id_map[item_id] = new_item_id
+                    all_id_mappings[item_id] = new_item_id
+
+                    # Clonar estados GLIC del item
+                    original_states = await db['state_glic'].find({
+                        'element_id': item_id,
+                        'type_element': 'item'
+                    }).to_list(None)
+
+                    for state in original_states:
+                        old_glic_id = str(state['_id'])
+                        new_state = state.copy()
+                        del new_state['_id']
+                        new_state['element_id'] = new_item_id
+                        new_state['created_by'] = user_id
+                        new_state['updated_by'] = user_id
+                        new_state['created_at'] = datetime.utcnow()
+                        new_state['updated_at'] = datetime.utcnow()
+
+                        glic_result = await db['state_glic'].insert_one(new_state)
+                        new_glic_id = str(glic_result.inserted_id)
+                        all_id_mappings[old_glic_id] = new_glic_id
+
+        # 6. ACTUALIZAR EL GAME con los IDs de elementos clonados
+        update_data = {
+            'locations_id': new_locations_id,
+            'characters_id': new_characters_id,
+            'items_id': new_items_id
+        }
+
+        # Actualizar character_principal si existe y está en el mapa
+        if original_game.get('character_principal') and original_game['character_principal'] in character_id_map:
+            update_data['character_principal'] = character_id_map[original_game['character_principal']]
+
+        await db['game'].update_one(
+            {'_id': game_result.inserted_id},
+            {'$set': update_data}
+        )
+
+        # 7. REEMPLAZAR TODOS LOS IDs ANTIGUOS EN TODOS LOS OBJETOS CLONADOS
+        print(f"Iniciando reemplazo de IDs antiguos. Total de mapeos: {len(all_id_mappings)}")
+
+        # Reemplazar IDs en locations
+        for new_location_id in new_locations_id:
+            location = await db['location'].find_one({'_id': ObjectId(new_location_id)})
+            if location:
+                updated_location = await replace_old_ids_in_object(location, all_id_mappings)
+                await db['location'].update_one(
+                    {'_id': ObjectId(new_location_id)},
+                    {'$set': updated_location}
+                )
+
+        # Reemplazar IDs en characters
+        for new_character_id in new_characters_id:
+            character = await db['character'].find_one({'_id': ObjectId(new_character_id)})
+            if character:
+                updated_character = await replace_old_ids_in_object(character, all_id_mappings)
+                await db['character'].update_one(
+                    {'_id': ObjectId(new_character_id)},
+                    {'$set': updated_character}
+                )
+
+        # Reemplazar IDs en items
+        for new_item_id in new_items_id:
+            item = await db['item'].find_one({'_id': ObjectId(new_item_id)})
+            if item:
+                updated_item = await replace_old_ids_in_object(item, all_id_mappings)
+                await db['item'].update_one(
+                    {'_id': ObjectId(new_item_id)},
+                    {'$set': updated_item}
+                )
+
+        # Reemplazar IDs en estados del juego
+        for new_state_id in state_game_id_map.values():
+            state = await db['state_game'].find_one({'_id': ObjectId(new_state_id)})
+            if state:
+                updated_state = await replace_old_ids_in_object(state, all_id_mappings)
+                await db['state_game'].update_one(
+                    {'_id': ObjectId(new_state_id)},
+                    {'$set': updated_state}
+                )
+
+        # Reemplazar IDs en estados GLIC
+        all_new_glic_states = await db['state_glic'].find({
+            'element_id': {'$in': new_locations_id + new_characters_id + new_items_id}
+        }).to_list(None)
+
+        for glic_state in all_new_glic_states:
+            updated_glic_state = await replace_old_ids_in_object(glic_state, all_id_mappings)
+            await db['state_glic'].update_one(
+                {'_id': glic_state['_id']},
+                {'$set': updated_glic_state}
+            )
+
+        # Reemplazar IDs en el game
+        game = await db['game'].find_one({'_id': game_result.inserted_id})
+        if game:
+            updated_game = await replace_old_ids_in_object(game, all_id_mappings)
+            await db['game'].update_one(
+                {'_id': game_result.inserted_id},
+                {'$set': updated_game}
+            )
+
+        print(f"Completado reemplazo de IDs antiguos en todos los objetos")
+
+        # 8. Clonar progreso del juego si existe
+        original_game_progress = await db['game_progress'].find({'game_id': game_id}).to_list(None)
+        cloned_progress_count = 0
+
+        for progress in original_game_progress:
+            new_progress = progress.copy()
+            del new_progress['_id']
+            new_progress['game_id'] = new_game_id
+            new_progress['created_by'] = user_id
+            new_progress['updated_by'] = user_id
+            new_progress['created_at'] = datetime.utcnow()
+            new_progress['updated_at'] = datetime.utcnow()
+            # Resetear progreso para el nuevo juego
+            new_progress['progress'] = 0
+            new_progress['is_completed'] = False
+
+            # Reemplazar IDs antiguos en el progreso
+            updated_progress = await replace_old_ids_in_object(new_progress, all_id_mappings)
+            await db['game_progress'].insert_one(updated_progress)
+            cloned_progress_count += 1
+
+        # Retornar el juego clonado completo
+        cloned_game = await db['game'].find_one({'_id': game_result.inserted_id})
+
+        # Agregar información adicional para la respuesta
+        cloned_game['cloned_from'] = game_id
+        cloned_game['cloned_at'] = datetime.utcnow()
+        cloned_game['total_elements_cloned'] = {
+            'locations': len(new_locations_id),
+            'characters': len(new_characters_id),
+            'items': len(new_items_id),
+            'states': cloned_states_count,
+            'id_mappings_applied': len(all_id_mappings)
+        }
+
+        return cloned_game
+
+    except Exception as e:
+        print(f"Error cloning game service: {str(e)}")
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error al clonar el juego: {str(e)}",
+        )
+
+
+async def replace_old_ids_in_object(obj: dict, id_mappings: dict) -> dict:
+    """
+    Reemplaza recursivamente todos los IDs antiguos por los nuevos en un objeto JSON.
+
+    Args:
+        obj: El objeto (diccionario) en el que buscar y reemplazar IDs
+        id_mappings: Diccionario con mapeo de IDs antiguos -> IDs nuevos
+
+    Returns:
+        El objeto con los IDs reemplazados
+    """
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            if isinstance(value, str) and value in id_mappings:
+                # Reemplazar ID encontrado
+                obj[key] = id_mappings[value]
+            elif isinstance(value, list):
+                # Procesar lista
+                for i, item in enumerate(value):
+                    if isinstance(item, str) and item in id_mappings:
+                        value[i] = id_mappings[item]
+                    elif isinstance(item, (dict, list)):
+                        value[i] = await replace_old_ids_in_object(item, id_mappings)
+            elif isinstance(value, dict):
+                # Procesar diccionario anidado recursivamente
+                obj[key] = await replace_old_ids_in_object(value, id_mappings)
+    elif isinstance(obj, list):
+        for i, item in enumerate(obj):
+            if isinstance(item, str) and item in id_mappings:
+                obj[i] = id_mappings[item]
+            elif isinstance(item, (dict, list)):
+                obj[i] = await replace_old_ids_in_object(item, id_mappings)
+
+    return obj
+

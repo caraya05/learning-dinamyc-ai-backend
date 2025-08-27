@@ -77,6 +77,7 @@ class TaskCreateGameProvisional(BaseModel):
     script: str = Field(..., example="script", description="Script for the game provisional")
     title: str = Field(..., example="title", description="Title for the game provisional")
     num_scenes: int = Field(..., example=1, description="Number of scenes in the game provisional")
+    category: str = Field(..., example="Learning", description="Category of the game based on its content and purpose")
 
 
 async def create_game_provisional(_id_game_provisional: str):
@@ -133,10 +134,25 @@ async def create_game_provisional(_id_game_provisional: str):
                                 Empieza con una introducción inmersiva, presentando al protagonista y su primer día en TechCorp.
                                 Desarrolla entre 3 y 5 escenas clave (ej: primera reunión con un cliente, manejo de objeciones, negociación de condiciones, cierre de la venta).
                                 Cada escena debe contarse como parte de la historia, sin dividir en apartados rígidos. Dentro del relato, presenta un momento de decisión donde el protagonista puede actuar de diferentes formas.
-                                Formula las opciones de decisión como parte de la narración, manteniendo un estilo literario y fluido (ejemplo: “Podría responder de inmediato con argumentos técnicos… o tomar una pausa y preguntar más sobre las necesidades del cliente”).
+                                Formula las opciones de decisión como parte de la narración, manteniendo un estilo literario y fluido (ejemplo: "Podría responder de inmediato con argumentos técnicos… o tomar una pausa y preguntar más sobre las necesidades del cliente").
                                 No indiques la opción correcta de inmediato. Tras la elección del jugador, ofrece una retroalimentación adaptativa: explica las consecuencias de su decisión dentro de la historia y cómo afecta su reputación, confianza del cliente y habilidades de venta.
                                 Usa un tono profesional, dinámico y conversacional, evitando rigidez académica.
-                                Finaliza con una conclusión personalizada, que resuma el estilo de ventas del jugador según sus elecciones (ejemplo: persuasivo, consultivo, apresurado, etc.) y ofrezca consejos prácticos para mejorar."""
+                                Finaliza con una conclusión personalizada, que resuma el estilo de ventas del jugador según sus elecciones (ejemplo: persuasivo, consultivo, apresurado, etc.) y ofrezca consejos prácticos para mejorar.
+                                
+                                🔹 Categorización del juego:
+                                Después de crear el contenido, categoriza el juego en UNA de las siguientes categorías basándote en el propósito principal y contenido del juego:
+                                
+                                - Marketing: Juegos enfocados en promoción de productos, branding, campañas publicitarias, estrategias de mercadeo
+                                - Talent Development: Juegos para desarrollo de habilidades profesionales, liderazgo, capacitación laboral, crecimiento personal
+                                - Compliance: Juegos sobre cumplimiento normativo, políticas empresariales, regulaciones, procedimientos legales
+                                - Recruiting: Juegos para procesos de selección, evaluación de candidatos, onboarding, atracción de talento
+                                - Events: Juegos para eventos corporativos, conferencias, actividades de equipo, celebraciones
+                                - Fan Engagement: Juegos para fidelización de clientes, comunidades de fans, engagement de audiencias
+                                - Health & Wellness: Juegos sobre bienestar, salud mental, ejercicio, hábitos saludables, prevención
+                                - Data Collection: Juegos para recopilar información, encuestas interactivas, investigación de mercado
+                                - Storytelling: Juegos narrativos, historias interactivas, experiencias inmersivas, entretenimiento educativo
+                                - Social Impact: Juegos sobre responsabilidad social, sostenibilidad, causas benéficas, impacto comunitario
+                                - Learning: Juegos educativos, entrenamiento académico, desarrollo de conocimientos específicos, enseñanza"""
                 },
                 {
                     "role": "user",
@@ -226,6 +242,7 @@ async def create_game_provisional(_id_game_provisional: str):
         game_provisional_db["image"] = url_image
         game_provisional_db["title"] = source_game_response.title
         game_provisional_db["script"] = source_game_response.script
+        game_provisional_db["category"] = source_game_response.category
         game_provisional_db["updated_at"] = datetime.now(pytz.utc)
         game_provisional_db["num_scenes"] = source_game_response.num_scenes
 
@@ -894,6 +911,7 @@ async def create_game_by_provisional(id_game_provisional: str):
             "created_by": game_provisional_db.get("created_by", "anonymous"),
             "updated_by": game_provisional_db.get("created_by", "anonymous"),
             "provisional_id": str(game_provisional_db.get("_id")),
+            "category_id": game_provisional_db.get("category"),
         }})
 
         state_game_db = await db["state_game"].find_one({"game_id": str(game_db.get("_id")), "order": 1})

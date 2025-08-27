@@ -27,6 +27,7 @@ from game.services import (
     get_game_service,
     get_game_by_code_access_service,
     get_games_played_recent_service,
+    get_community_games_service,
 )
 from game.services import create_game_v2_service
 from game.services import change_character_principal_game_service
@@ -36,6 +37,7 @@ from game.services import get_my_games_v2_service
 from game.services import get_games_service
 from game.services import delete_game_service
 from game.services import update_likes_game_service
+from game.services import clone_game_service
 
 from game.utils import number_players_have_played_game_util, last_date_played_game_util
 
@@ -710,26 +712,89 @@ async def my_games_in_progress(
         )
 
 
-@router_community.get("/community-games", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
-async def get_community_games(
-request: Request,
-        page: int = 1,
-        count: int = 10
+@router.post("/clone/{game_id}", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveGame)
+async def clone_game(
+        game_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
-    This endpoint retrieves community games that are visible to everyone.
+    Este endpoint clona un juego completo con todos sus elementos asociados.
 
-    It uses a predefined list of game IDs.
+    Clona el juego especificado creando una copia completa que incluye:
+    - El juego principal con nuevos metadatos
+    - Todas las ubicaciones (locations) asociadas
+    - Todos los personajes (characters) asociados
+    - Todos los objetos/items asociados
+
+    Se crean nuevos IDs para todos los elementos y se actualizan las referencias
+    cruzadas entre ellos. El juego clonado pertenecerá al usuario autenticado.
+
+    Parameters:
+    game_id (str): El ID del juego a clonar
+    user_db (dict): Usuario autenticado obtenido del token
+    Token (HTTPAuthorizationCredentials): Token de autorización
+
+    Returns:
+    SchemaRetrieveGame: La información del juego clonado
+
+    Raises:
+    HTTPException: Si el juego no existe o hay errores en la clonación
     """
-
     try:
-        # Predefined list of community game IDs
-        community_game_ids = ["68797abb7c0788e693f98d9b"]
+        # Verificar si el usuario tiene suficientes estrellas para clonar
+        if user_db.get("stars", 0) <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No tienes suficientes estrellas para clonar un juego",
+            )
 
-        games_db, count_pages = await get_games_service(
+        # Llamar al servicio de clonación
+        cloned_game = await clone_game_service(game_id, str(user_db.get("_id")))
+
+        # Convertir ObjectId a string para la respuesta
+        cloned_game["_id"] = str(cloned_game["_id"])
+
+        return cloned_game
+
+    except HTTPException:
+        # Re-lanzar HTTPExceptions sin modificar
+        raise
+    except Exception as e:
+        print(f"Error cloning game: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error al clonar el juego",
+        )
+
+
+@router_community.get("/community-games", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
+async def get_community_games(
+    request: Request,
+    page: int = 1,
+    count: int = 10
+):
+    """
+    This endpoint retrieves community games that are published and have specific categories.
+
+    Returns games that are published and belong to one of the following categories:
+    - Marketing: Games focused on product promotion, branding, advertising campaigns
+    - Talent Development: Games for professional skill development, leadership, training
+    - Compliance: Games about regulatory compliance, company policies, legal procedures
+    - Recruiting: Games for selection processes, candidate evaluation, onboarding
+    - Events: Games for corporate events, conferences, team activities
+    - Fan Engagement: Games for customer loyalty, fan communities, audience engagement
+    - Health & Wellness: Games about wellbeing, mental health, exercise, healthy habits
+    - Data Collection: Games for information gathering, interactive surveys, market research
+    - Storytelling: Narrative games, interactive stories, immersive experiences
+    - Social Impact: Games about social responsibility, sustainability, charitable causes
+    - Learning: Educational games, academic training, specific knowledge development
+    """
+    try:
+        # Use the new community games service that filters by categories
+        games_db, count_pages = await get_community_games_service(
             skip=page,
-            limit=count,
-            games_id=community_game_ids
+            limit=count
         )
 
         for game in games_db:
