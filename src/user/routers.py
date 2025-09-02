@@ -157,6 +157,38 @@ async def update_photo_user(
     return await update_photo_service(user_id=str(user_db['_id']), photo=url_photo)
 
 
+@router.post(
+    "/joint-waitlist/",
+    response_model=SchemaRetrieveUser,
+    status_code=status.HTTP_201_CREATED,
+    include_in_schema=False,
+)
+async def create_user(user: SchemaUser):
+    """
+    This endpoint creates a new user.
+
+    It expects the user's information in the request body. If the user is successfully created, it returns the user's information.
+    If the user already exists, it raises an HTTPException with status code 400.
+
+    Parameters:
+    user (SchemaUser): The user's information to be created.
+    db (Session): Database session for executing queries.
+
+    Returns:
+    SchemaRetrieveUser: The created user's information.
+
+    Raises:
+    HTTPException: If the user already exists, an HTTPException is raised with status code 400.
+    """
+    db_user = await create_user_service(user=user)
+    if db_user:
+        return db_user
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="User already registered",
+        )
+
 # @router.put("/{id}", response_model=SchemaRetrieveUser)
 # async def update_user(id: str,
 #                       user: SchemaUpdateUser,

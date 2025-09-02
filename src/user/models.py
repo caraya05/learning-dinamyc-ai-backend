@@ -22,3 +22,4 @@ class User(BaseModel):
     created_by: str = Field(default="system", example="system")
     updated_at: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
     updated_by: str = Field(default="system", example="system")
+    is_preview: bool = Field(default=False, example=False)

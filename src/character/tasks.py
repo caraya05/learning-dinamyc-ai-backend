@@ -740,9 +740,7 @@ async def generate_character_personalization(_character_id, _user_id, _state_gam
                         },
                         {
                             "type": "text",
-                            "text": f"nombre del personaje: {element_state_db['data']['name']} , descripción del personaje por "
-                                    f"parte del usuario: {element_state_db['data']['prompt_user']} y descripción del personaje por "
-                                    f"parte de la IA: {element_state_db['data']['description']}",
+                            "text": f"parte de la IA: {element_state_db['data']['description']}",
                         }
                     ],
                 },
@@ -760,7 +758,45 @@ async def generate_character_personalization(_character_id, _user_id, _state_gam
                     "role": "system",
                     "content": "Eres un generador de personalización de personajes, "
                                "debes generar una lista de personalización de personajes, "
-                               "como colores. describe colores pastel u oscurecidos, y los colores deben estar en formato hexadecimal.",
+                               "como colores. describe colores pastel u oscurecidos, y los colores deben estar en formato hexadecimal."
+                               "paleta de tonos de piel: Piel muy clara: #F9E0D9, Piel clara: #F1C27D, Piel media: #C68642, Piel oscura: #8D5524."
+                               "paleta de tonos de cabello: Rubio claro: #F4E1B3, Castaño claro: #A9745B, Castaño oscuro: #5C4033, Negro azabache: #2C2220, Pelirrojo: #B55239"
+                               """
+                               Usa la siguiente paleta de colores para la ropa:
+                                Tonos neutros:
+                                - Blanco puro (#FFFFFF)
+                                - Marfil (#F8F4E3)
+                                - Beige (#F5F5DC)
+                                - Gris claro (#D3D3D3)
+                                - Gris medio (#808080)
+                                - Gris oscuro (#4B4B4B)
+                                - Negro (#000000)
+                                
+                                Tonos pasteles:
+                                - Rosa pastel (#F8C8DC)
+                                - Azul pastel (#AEC6CF)
+                                - Verde menta (#98FF98)
+                                - Amarillo suave (#FFFACD)
+                                - Lavanda (#E6E6FA)
+                                - Durazno (#FFDAB9)
+                                
+                                Tonos vivos:
+                                - Rojo carmín (#B22222)
+                                - Naranja brillante (#FF7F00)
+                                - Amarillo intenso (#FFD700)
+                                - Verde esmeralda (#50C878)
+                                - Azul real (#4169E1)
+                                - Púrpura profundo (#800080)
+                                - Fucsia (#FF00FF)
+                                
+                                Tonos oscuros:
+                                - Burdeos (#800020)
+                                - Verde botella (#006400)
+                                - Azul marino (#000080)
+                                - Marrón chocolate (#4B3621)
+                                - Mostaza oscura (#B8860B)
+                                - Teal oscuro (#008080)
+                               """,
                 },
                 {
                     "role": "user",

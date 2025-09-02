@@ -137,7 +137,7 @@ async def send_verification_code(request: VerificationRequest, background_tasks:
     <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns="http://www.w3.org/1999/xhtml"
-      style="color-scheme: light dark; supported-color-schemes: light dark;">
+      style="color-scheme: light; supported-color-schemes: light ;">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <meta name="x-apple-disable-message-reformatting"/>
@@ -208,11 +208,21 @@ async def send_verification_code(request: VerificationRequest, background_tasks:
         Please use the following verification code to proceed:
     </p>
    <div style="padding:24px; margin:24px auto; box-shadow:0 2px 8px #0001;">
-     <div style="text-align:center; font-size:1.5rem; font-weight:700; color:#ec4899;">
+     <div style="text-align:center; font-size:1.5rem; font-weight:700; color:#293c72;">
        {code}
      </div>
    </div>
+   <p>If you have any questions, feel free to contact us.</p>
+<p style="margin-top: 30px;">
+     Best regards,<br>
+    <strong>The Qwestar Team</strong>
+</p>
+<div style="background-color: #343a40; color: white; text-align: center; padding: 15px;">
+    <p style="margin: 0; font-size: 12px;">© 2025 Qwestar. All rights reserved.</p>
 </div>
+</div>
+
+
 </body>
 </html>
     """

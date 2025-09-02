@@ -27,6 +27,7 @@ class Game(BaseModel):
     code_access: Optional[str] = Field(None, example="123456")
     tasks_request: Optional[list[str]] = Field([], example=["task1", "task2"])
     tasks_notified: Optional[list[str]] = Field([], example=["task1", "task2"])
+    is_active: Optional[bool] = Field(True, example=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     created_by: Optional[str] = Field(default="system", example="system")
     updated_at: datetime = Field(default_factory=datetime.utcnow)

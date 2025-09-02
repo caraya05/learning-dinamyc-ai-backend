@@ -9,7 +9,7 @@ from core.schemas import ResponseModel
 class SchemaUser(BaseModel):
     username: str = Field(..., min_length=3, max_length=100, example="Jhon Doe")
     email: EmailStr = Field(..., strip_whitespace=True, unique=True, example="jhon@gmail.com")
-    password: str = Field(..., min_length=8, example="password123")
+    password: str = Field(None, min_length=8, example="password123")
 
 
 class SchemaRetrieveUser(ResponseModel):

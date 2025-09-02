@@ -14,6 +14,7 @@ from core.database import db
 from user.models import User
 
 from configuration.services import get_configurations_service
+from utils import send_email
 
 
 async def create_user_service(user: SchemaUser):
@@ -35,6 +36,87 @@ async def create_user_service(user: SchemaUser):
 
     return user_created
 
+
+async def joint_user_waitlist_service(user: SchemaUser):
+    if user_db := await db["user"].find_one({"email": user.email}):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Correo electrónico ya registrado - email",
+        )
+    if user_db := await db["user"].find_one({"username": user.username}):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nombre de usuario ya registrado - username",
+        )
+
+    db_user = User(**user.dict())
+    db_user.password = get_password_hash(db_user.password)
+    new_user = await db["user"].insert_one(db_user.dict())
+    user_created = await db["user"].find_one({"_id": new_user.inserted_id})
+
+    # Enviar correo de bienvenida a la lista de espera
+    try:
+        email_subject = "Welcome to the Qwestar AI Waitlist!"
+        email_body = f"""
+           <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns="http://www.w3.org/1999/xhtml"
+      style="color-scheme: light ; supported-color-schemes: light ;">
+        <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <div style="background-color: #ec4899; padding: 8px; text-align: center; border-radius:4px">
+                <h1 style="color: #ffffff;">Welcome to Qwestar!</h1>
+            </div>
+            
+            <div style="padding: 20px;">
+                <p>Hello <strong>{user.username}</strong>,</p>
+                
+                <p>Thank you for joining our waitlist! We are excited to have you as part of the Qwestar community.</p>
+                
+                <p>Your registration was successful with the following details:</p>
+                <ul>
+                    <li><strong>Username:</strong> {user.username}</li>
+                    <li><strong>Email:</strong> {user.email}</li>
+                    <li><strong>Registration Date:</strong> {datetime.now(datetime.UTC).strftime('%d/%m/%Y %H:%M')}</li>
+                </ul>
+                
+                <p>We will notify you as soon as we have updates and access to the platform becomes available.</p>
+                
+                <div style="background-color: #e9ecef; padding: 15px; margin: 20px 0; border-radius: 5px;">
+                    <p style="margin: 0;"><strong>What's next?</strong></p>
+                    <p style="margin: 5px 0 0 0;">Stay tuned to your email for updates on the launch of Qwestar.</p>
+                </div>
+                
+                <p>If you have any questions, feel free to contact us.</p>
+                
+                <p>Thank you for your patience and for being part of this exciting journey!</p>
+                
+                <p style="margin-top: 30px;">
+                    Best regards,<br>
+                    <strong>The Qwestar Team</strong>
+                </p>
+            </div>
+            
+            <div style="background-color: #343a40; color: white; text-align: center; padding: 15px;">
+                <p style="margin: 0; font-size: 12px;">© 2025 Qwestar. All rights reserved.</p>
+            </div>
+        </body>
+        </html>
+        """
+
+        await send_email(
+            subject=email_subject,
+            recipients=[user.email],
+            body=email_body
+        )
+
+        print(f"Correo de bienvenida enviado exitosamente a {user.email}")
+
+    except Exception as e:
+        print(f"Error al enviar correo de bienvenida: {str(e)}")
+        # No lanzamos excepción aquí para que el registro del usuario no falle
+        # solo por un problema con el envío del correo
+
+    return user_created
 
 async def get_user_by_field(field: str, value: str):
     game_db = await db["user"].find_one({field: value})

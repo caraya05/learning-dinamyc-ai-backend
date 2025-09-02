@@ -59,7 +59,7 @@ async def get_categories_actives(
 @router.get("/", response_model=SchemaListCategory)
 async def get_categories(
     skip: int = 0,
-    limit: int = 10,
+    limit: int = 100,
     user_db: dict = Depends(auth),
     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):

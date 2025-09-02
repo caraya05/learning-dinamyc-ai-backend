@@ -76,7 +76,7 @@ async def generate_image_event(
 
         validate_prompt = await openai_generator.moderation_text(
             text=f"Eres un diseñador de videojuegos y te han encargado"
-                 f"Genera una imagen de portada en estilo Toon 3D de calidad extraordinaria para el juego {game_db['title']}"
+                 f"Genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego  {game_db['title']}"
                  f" con el personaje {character_principal_state_game['data']['prompt_user']}. "
                  f"La imagen debe ser protrait y tener el contenido vertical."
                  f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen."
@@ -95,11 +95,9 @@ async def generate_image_event(
             content_prompt=[
                 {
                     "role": "system",
-                    "content": f"Eres un diseñador de videojuegos y te han encargado"
-                               f"Genera una imagen de portada en estilo 3D low poly para el juego {game_db['title']}"
-                               f" con el personaje {character_principal_state_game['data']['prompt_user']}. "
-                               f"con proporciones realistas."
-                               f"La imagen debe ser protrait y tener el contenido vertical. sin texto."
+                    "content": f"Genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego {game_db['title']}"
+                               f" con el personaje {character_principal_state_game['data']['prompt_user']}."
+                               f"La imagen debe ser portrait y tener el contenido vertical. sin texto."
                                f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen."
                 },
                 {
@@ -161,7 +159,8 @@ async def async_generate_image_event(
         _prompt_user_image: str,
         _task_id: str,
 ):
-    await update_task_service(_id=_task_id, _status="pending")
+    if _task_id:
+        await update_task_service(_id=_task_id, _status="pending")
 
     response_image_event, message = await generate_image_event(
         game_id=_game_id,
@@ -172,15 +171,16 @@ async def async_generate_image_event(
     )
 
     if not response_image_event:
-        await update_task_service(
-            _id=_task_id,
-            _status="failed",
-            _message=message,
-            _status_updated=1,
-        )
+        if _task_id:
+            await update_task_service(
+                _id=_task_id,
+                _status="failed",
+                _message=message,
+                _status_updated=1,
+            )
         return message
-    print("paso", response_image_event)
-    await update_task_service(
-        _id=_task_id, _status="completed", _message="Image event generated successfully"
-    )
+    if _task_id:
+        await update_task_service(
+            _id=_task_id, _status="completed", _message="Image event generated successfully"
+        )
     return "Image event generated successfully"

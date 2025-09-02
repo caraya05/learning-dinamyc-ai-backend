@@ -22,12 +22,15 @@ from character.models import CharacterGLIC, Character
 from character.schemas import SchemaCreateCharacter
 from character.tasks import async_generate_character_task
 from core.database import db
+from event.models import Event
+from event.schemas import SchemaCreateEvent
 from game.models import Game
 
 from gpt_ai.utils import openai_generator
 from location.models import Location, LocationGLIC
 from location.schemas import SchemaCreateLocation
 from location.tasks import async_generate_location_task
+from event.tasks import async_generate_image_event
 from state_game.services import create_state_game, get_state_game_by_game_id, get_state_game_by_id
 from state_glic.services import create_state_glic
 
@@ -206,7 +209,7 @@ async def create_game_provisional(_id_game_provisional: str):
             image_game_provisional = await openai_generator.generate_image(
                 prompt=f"Genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego ."
                        f"basado en el  script: {source_game_response.script} "
-                       f"que ejemplifique una escena del juego con un personaje principal que represente el estilo del juego, no debe tener texto.",
+                       f"que ejemplifique una escena del juego con un personaje principal que represente el estilo del juego, no debe tener texto o título.",
                 model="gpt-image-1",
                 size="1024x1536",
                 style=None
@@ -654,17 +657,6 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
         return f"Failed to extract characters and interactions: {str(e)}"
 
 
-async def async_extract_characters_and_interactions_task(id_game_provisional: str):
-    """
-    Tarea asíncrona para extraer personajes e interacciones para las locaciones.
-    """
-    try:
-        result = await extract_characters_and_interactions_for_locations(id_game_provisional)
-        return result
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-
 async def create_character_service(character: SchemaCreateCharacter, user_id: str, game_id: str,
                                    file: UploadFile | None = None):
     try:
@@ -873,6 +865,52 @@ async def create_game_service(user_id: str):
         return f"Error: {str(e)}"
 
 
+async def create_event_service(event: SchemaCreateEvent, user_id: str):
+
+    event_schema = Event(
+        name=event.name,
+        prompt_user_image=event.prompt_user_image,
+        prompt_user_text=event.prompt_user_text,
+        type_conversation=event.type_conversation,
+        option_number=event.option_number,
+        character_id=event.character_id,
+        character_principal="",
+        state_game_init=event.state_game_init,
+        state_game_end=event.state_game_end,
+        location_state_game_init=event.location_state_game_init,
+        location_state_game_end=event.location_state_game_end,
+        text_image=event.prompt_user_text,
+        image=None,
+        game_id=event.game_id,
+        created_by=user_id,
+        updated_by=user_id,
+        created_at=datetime.utcnow(),
+        updated_at=datetime.utcnow(),
+        is_final=event.is_final,
+    )
+
+    event_created = await db["event"].insert_one(event_schema.dict())
+
+    if event.prompt_user_image:
+
+        task_celery = await async_generate_image_event(
+            _game_id=event.game_id,
+            _event_id=str(event_created.inserted_id),
+            _state_game=event.state_game_init,
+            _user_id=user_id,
+            _prompt_user_image=event.prompt_user_image,
+            _task_id="",
+        )
+
+        event_db = await db["event"].find_one({"_id": event_created.inserted_id})
+        event_db["_id"] = str(event_db["_id"])
+        return event_db
+
+    event_db = await db["event"].find_one({"_id": event_created.inserted_id})
+    event_db["_id"] = str(event_db["_id"])
+    return event_db
+
+
 async def generate_code_access_game_service():
     while True:
         code = ''.join(
@@ -912,6 +950,7 @@ async def create_game_by_provisional(id_game_provisional: str):
             "updated_by": game_provisional_db.get("created_by", "anonymous"),
             "provisional_id": str(game_provisional_db.get("_id")),
             "category_id": game_provisional_db.get("category"),
+            "is_active": True
         }})
 
         state_game_db = await db["state_game"].find_one({"game_id": str(game_db.get("_id")), "order": 1})
@@ -1125,6 +1164,18 @@ async def generate_scene_interactions(id_game_provisional: str):
                                                  f"Failed to create game from provisional: {game_result}")
             return f"Failed to create game from provisional: {game_result}"
 
+        # Actualizar estado: Creando evento inicial
+        await update_game_provisional_status(id_game_provisional, "creating_initial_event", 80,
+                                             "Creating initial event for the game")
+
+        # Crear evento inicial después de que se haya creado el juego
+        initial_event_result = await extract_and_create_initial_event_from_scenes(id_game_provisional)
+        if initial_event_result.get("error"):
+            print(f"Warning: Failed to create initial event: {initial_event_result['error']}")
+            # No fallar todo el proceso por el evento, solo registrar la advertencia
+        else:
+            print(f"Initial event created successfully: {initial_event_result.get('message', 'Unknown result')}")
+
         # Actualizar estado: Completado
         await update_game_provisional_status(id_game_provisional, "completed", 100,
                                              "Interaction generation process completed successfully")
@@ -1136,3 +1187,158 @@ async def generate_scene_interactions(id_game_provisional: str):
         await update_game_provisional_status(id_game_provisional, "error", 0, f"Unexpected error: {str(e)}")
         print(traceback.format_exc())
         return f"Failed to generate scene interactions: {str(e)}"
+
+
+class InitialEventResponse(BaseModel):
+    event_name: str = Field(..., description="Nombre del evento inicial")
+    prompt_image: str = Field(..., description="Prompt para generar la imagen del evento inicial")
+    prompt_text: str = Field(..., description="Texto descriptivo del evento inicial")
+
+
+async def extract_and_create_initial_event_from_scenes(id_game_provisional: str):
+    """
+    Extrae un evento inicial previo a las escenas del guego provisional y crea el evento usando create_event_service.
+
+    Args:
+        id_game_provisional: ID del juego provisional
+
+    Returns:
+        dict: Información del evento creado o mensaje de error
+    """
+    try:
+        # Obtener el juego provisional
+        game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(id_game_provisional)})
+        if not game_provisional_db:
+            return {"error": "Game provisional not found"}
+
+        # Verificar que existe un juego asociado
+        game_id = game_provisional_db.get("game_id")
+        if not game_id:
+            return {"error": "No game associated with this provisional game"}
+
+        # Obtener información del juego
+        game_db = await db["game"].find_one({"_id": ObjectId(game_id)})
+        if not game_db:
+            return {"error": "Associated game not found"}
+
+        # Obtener el script y las locaciones
+        script = game_provisional_db.get("script")
+        locations = game_provisional_db.get("locations", [])
+
+        if not script:
+            return {"error": "Script not found in game provisional"}
+
+        # Obtener estado inicial del juego
+        state_game_db = await db["state_game"].find_one({"game_id": game_id, "order": 1})
+        if not state_game_db:
+            return {"error": "Initial game state not found"}
+
+        # Obtener la primera locación para el evento
+        first_location_id = None
+        if locations and len(locations) > 0:
+            # Buscar la locación real en la base de datos usando el título
+            location_title = locations[0].get("titulo", "")
+            if location_title:
+                location_db = await db["location"].find_one({
+                    "title": location_title,
+                    "game_id": game_id
+                })
+                if location_db:
+                    first_location_id = str(location_db["_id"])
+
+        # Si no encontramos la locación por título, usar la primera de la lista del juego
+        if not first_location_id and game_db.get("locations_id"):
+            first_location_id = game_db["locations_id"][0]
+
+        # Construir información de contexto para el prompt
+        locations_info = ""
+        if locations:
+            locations_info = "\n".join([
+                f"- {loc.get('titulo', 'Sin título')}: {loc.get('prompt_user', 'Sin descripción')}"
+                for loc in locations[:3]  # Solo primeras 3 locaciones para no sobrecargar
+            ])
+
+        # Generar el evento inicial con GPT
+        initial_event_response = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": """Eres un experto en crear eventos iniciales para juegos narrativos interactivos.
+                    Tu tarea es crear un evento que sirva como introducción o prólogo al juego, estableciendo 
+                    el contexto y la atmósfera antes de que el jugador comience su aventura en las locaciones.
+                    
+                    El evento debe:
+                    1. Crear expectativa y emoción
+                    2. Establecer el tono del juego
+                    3. Introducir brevemente el contexto sin revelar demasiado
+                    4. Ser visualmente atractivo para la generación de imágenes"""
+                },
+                {
+                    "role": "user",
+                    "content": f"""Crea un evento inicial previo a las escenas principales para el juego "{game_db.get('title', 'Sin título')}" basándote en la siguiente información:
+
+                    Historia/Guión del juego:
+                    {script[:2000]}...  # Limitamos para no sobrecargar el prompt
+
+                    Primeras locaciones donde se desarrollará la acción:
+                    {locations_info}
+
+                    El evento debe ser una introducción o prólogo que prepare al jugador para lo que está por venir.
+                    
+                    Genera:
+                    - event_name: Un nombre atractivo y descriptivo para este evento inicial (máximo 60 caracteres)
+                    - prompt_image: Un prompt detallado en español para generar una imagen que capture la esencia del momento inicial del juego (describe la escena, personajes)
+                    - prompt_text: Un texto narrativo que establezca el contexto inicial del juego y enganche al jugador (30 palabras) sea corto y evocador.
+                    
+                    El prompt de imagen debe ser específico y visual, mencionando detalles como el ambiente, la iluminación, los personajes presentes y el estilo artístico."""
+                }
+            ],
+            max_tokens=1000,
+            model="gpt-4o-mini",
+            response_format=InitialEventResponse,
+            user_id=game_provisional_db.get("created_by", "anonymous"),
+            type_generation="extract_initial_event_from_scenes"
+        )
+
+        if not initial_event_response:
+            return {"error": "Failed to generate initial event content"}
+
+        # Crear el evento usando la función existente create_event_service
+        event_data = SchemaCreateEvent(
+            name=initial_event_response.event_name,
+            prompt_user_image=initial_event_response.prompt_image,
+            prompt_user_text=initial_event_response.prompt_text,
+            character_id=game_db.get("character_principal"),  # Usar el personaje principal si existe
+            type_conversation=None,
+            option_number=None,
+            state_game_init=str(state_game_db["_id"]),
+            state_game_end=None,
+            location_state_game_init=first_location_id,
+            location_state_game_end=None,
+            game_id=game_id,
+            is_final=False
+        )
+
+        # Crear el evento usando el servicio existente
+        created_event = await create_event_service(
+            event=event_data,
+            user_id=game_provisional_db.get("created_by", "anonymous")
+        )
+
+        # Actualizar el juego con el evento inicial
+        await db["game"].update_one(
+            {"_id": ObjectId(game_id)},
+            {"$set": {"event_init": created_event.get("_id")}}
+        )
+
+        return {
+            "success": True,
+            "event": created_event,
+            "message": f"Initial event '{initial_event_response.event_name}' created successfully"
+        }
+
+    except Exception as e:
+        print(f"Error extrayendo y creando evento inicial: {str(e)}")
+        print(traceback.format_exc())
+        return {"error": f"Failed to extract and create initial event: {str(e)}"}
+

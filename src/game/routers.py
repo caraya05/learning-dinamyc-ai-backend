@@ -253,7 +253,6 @@ async def publish_game(
 
             if not game_db.get("published", None):
                 published_game = {
-                    "published": True,
                     "created_at": now_bog_minus_5,
                     "created_by": str(user_db.get("_id")),
                     "updated_at": now_bog_minus_5,
@@ -267,11 +266,15 @@ async def publish_game(
                     "reviewer": None,
                     "reviewed_at": None,
                     "reviewed_by": None,
+                    'published': str(user_db.get("_id")),
+                    'published_version': version,
+                    'is_published': True,
+                    'published_at': datetime.utcnow(),
+                    'is_active': False,
                 }
             else:
                 game_db["_id"] = str(game_db["_id"])
                 published_game = {
-                    "published": True,
                     "created_at": now_bog_minus_5,
                     "created_by": str(user_db.get("_id")),
                     "updated_at": now_bog_minus_5,
@@ -284,6 +287,11 @@ async def publish_game(
                     "reviewer": str(user_db.get("_id")),
                     "reviewed_at": now_bog_minus_5,
                     "reviewed_by": str(user_db.get("_id")),
+                    'published': str(user_db.get("_id")),
+                    'published_version': version,
+                    'is_published': True,
+                    'published_at': datetime.utcnow(),
+                    'is_active': False,
                 }
 
             if published_game_db := await db['published_game'].insert_one(published_game):
@@ -770,9 +778,9 @@ async def clone_game(
 
 @router_community.get("/community-games", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
 async def get_community_games(
-    request: Request,
-    page: int = 1,
-    count: int = 10
+        request: Request,
+        page: int = 1,
+        count: int = 10
 ):
     """
     This endpoint retrieves community games that are published and have specific categories.

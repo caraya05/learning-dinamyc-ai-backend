@@ -711,6 +711,7 @@ async def get_community_games_service(*, skip: int = 1, limit: int = 100):
         'version': 2,
         'published': {'$exists': True},  # Solo juegos publicados
         'is_published': True,
+        'is_active': True,
         'category_id': {'$in': community_categories},  # Que tengan alguna de las categorías
     }
 
