@@ -981,11 +981,12 @@ async def clone_game_service(game_id: str, user_id: str):
             )
 
         # Mapas para almacenar la correspondencia entre IDs originales y nuevos
-        all_id_mappings = {}  # Mapa global con todos los IDs (game, states, locations, characters, items)
+        all_id_mappings = {}  # Mapa global con todos los IDs (game, states, locations, characters, items, events)
         location_id_map = {}
         character_id_map = {}
         item_id_map = {}
         state_game_id_map = {}
+        event_id_map = {}
 
         # 1. CLONAR EL GAME PRIMERO
         new_game = original_game.copy()
@@ -1223,6 +1224,67 @@ async def clone_game_service(game_id: str, user_id: str):
                         new_glic_id = str(glic_result.inserted_id)
                         all_id_mappings[old_glic_id] = new_glic_id
 
+        # 5.5. CLONAR EVENTOS asociados al juego
+        new_events_id = []
+        original_events = await db['event'].find({'game_id': game_id}).to_list(None)
+        cloned_events_count = 0
+
+        if original_events:
+            for event in original_events:
+                old_event_id = str(event['_id'])
+                new_event = event.copy()
+                del new_event['_id']
+                new_event['game_id'] = new_game_id
+                new_event['created_by'] = user_id
+                new_event['updated_by'] = user_id
+                new_event['created_at'] = datetime.utcnow()
+                new_event['updated_at'] = datetime.utcnow()
+
+                # Limpiar tareas
+                new_event['tasks_request'] = []
+                new_event['tasks_notified'] = []
+                new_event['status'] = 0
+
+                # Actualizar referencias de personajes en el evento
+                if new_event.get('character_id') and new_event['character_id'] in character_id_map:
+                    new_event['character_id'] = character_id_map[new_event['character_id']]
+
+                # Actualizar referencias de locaciones en el evento
+                if new_event.get('location_id') and new_event['location_id'] in location_id_map:
+                    new_event['location_id'] = location_id_map[new_event['location_id']]
+
+                # Actualizar arrays de personajes si existen
+                if new_event.get('characters_id'):
+                    updated_characters_id = []
+                    for char_id in new_event['characters_id']:
+                        if char_id in character_id_map:
+                            updated_characters_id.append(character_id_map[char_id])
+                        else:
+                            updated_characters_id.append(char_id)
+                    new_event['characters_id'] = updated_characters_id
+
+                # Actualizar arrays de locaciones si existen
+                if new_event.get('locations_id'):
+                    updated_locations_id = []
+                    for loc_id in new_event['locations_id']:
+                        if loc_id in location_id_map:
+                            updated_locations_id.append(location_id_map[loc_id])
+                        else:
+                            updated_locations_id.append(loc_id)
+                    new_event['locations_id'] = updated_locations_id
+
+                result = await db['event'].insert_one(new_event)
+                new_event_id = str(result.inserted_id)
+                new_events_id.append(new_event_id)
+
+                # Guardar mapeo de IDs de eventos
+                event_id_map[old_event_id] = new_event_id
+                all_id_mappings[old_event_id] = new_event_id
+
+                cloned_events_count += 1
+
+            print(f"Clonados {cloned_events_count} eventos para el nuevo juego {new_game_id}")
+
         # 6. ACTUALIZAR EL GAME con los IDs de elementos clonados
         update_data = {
             'locations_id': new_locations_id,
@@ -1270,6 +1332,16 @@ async def clone_game_service(game_id: str, user_id: str):
                 await db['item'].update_one(
                     {'_id': ObjectId(new_item_id)},
                     {'$set': updated_item}
+                )
+
+        # Reemplazar IDs en eventos
+        for new_event_id in new_events_id:
+            event = await db['event'].find_one({'_id': ObjectId(new_event_id)})
+            if event:
+                updated_event = await replace_old_ids_in_object(event, all_id_mappings)
+                await db['event'].update_one(
+                    {'_id': ObjectId(new_event_id)},
+                    {'$set': updated_event}
                 )
 
         # Reemplazar IDs en estados del juego
@@ -1385,4 +1457,3 @@ async def replace_old_ids_in_object(obj: dict, id_mappings: dict) -> dict:
                 obj[i] = await replace_old_ids_in_object(item, id_mappings)
 
     return obj
-
