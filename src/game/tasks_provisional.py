@@ -84,7 +84,7 @@ async def update_game_provisional_status(id_game_provisional: str, status: str, 
 
 
 class TaskCreateGameProvisional(BaseModel):
-    script: str = Field(..., example="script", description="Script for the game provisional")
+    script: str = Field(..., example="script", description="Script for the game provisional en markdown format")
     title: str = Field(..., example="title", description="Title for the game provisional")
     num_scenes: int = Field(..., example=1, description="Number of scenes in the game provisional")
     category: str = Field(..., example="Learning", description="Category of the game based on its content and purpose")
@@ -135,38 +135,61 @@ async def create_game_provisional(_id_game_provisional: str):
 
         template_definition = get_template_definition(game_provisional_db.get("template_type", None))
 
-
         # logger.info("Generando contenido del juego con GPT-4.1")
         source_game_response = await openai_generator.generate_gpt(
             content_prompt=[
                 {
                     "role": "system",
                     "content": f"""Crea un entrenamiento interactivo en formato de historia narrativa tipo "elige tu propia aventura" para un nuevo representante de ventas en una empresa.
-                                El objetivo es transformar el documento a través de situaciones narradas de forma fluida, como si fuera un capítulo de un libro.
-                                 🔹 Instrucciones:
-                                Comienza con una introducción inmersiva que sitúe al protagonista en su primer día como representante de ventas en una empresa, destacando su entusiasmo y nerviosismo al enfrentarse a este nuevo desafío. 
-                                Desarrolla entre 3 y 5 escenas clave que narren momentos cruciales de su experiencia, como su primera reunión con un cliente, el manejo de objeciones inesperadas, la negociación de condiciones bajo presión y el emocionante cierre de su primera venta. 
-                                Cada escena debe fluir como un capítulo de una novela, integrando momentos de decisión en los que el protagonista debe elegir entre diferentes acciones. Por ejemplo, podría decidir si responder de inmediato con argumentos técnicos o tomarse una pausa para indagar más sobre las necesidades del cliente, todo narrado de manera fluida y literaria.
-                                No reveles de inmediato cuál es la mejor opción. En su lugar, tras cada decisión, describe las consecuencias de manera narrativa: cómo afecta la confianza del cliente, la reputación del protagonista y sus habilidades de venta, integrando estas reflexiones en la historia.
-                                Usa un tono profesional, dinámico y conversacional, pero con un estilo literario que mantenga al lector inmerso en la experiencia. Finaliza con una conclusión personalizada que resuma el estilo de ventas del protagonista según sus elecciones, como si fuera una evaluación narrativa de su desempeño, y ofrece consejos prácticos para mejorar en el futuro.
-                                        
-                                🔹 Detalles técnicos:
-                                {template_definition}
+                            El objetivo es transformar el documento a través de situaciones narradas de forma fluida, como si fuera un capítulo de un libro, no debe tener titulo cortando las cosas.
+                            
+                            El guion debe incluir:
+                              {template_definition}
+                              - no se debe mencionar el titulo en el script
                                 
-                                🔹 Categorización del juego:
-                                Después de crear el contenido, categoriza el juego en UNA de las siguientes categorías basándote en el propósito principal y contenido del juego:
-                                
-                                - Marketing: Juegos enfocados en promoción de productos, branding, campañas publicitarias, estrategias de mercadeo
-                                - Talent Development: Juegos para desarrollo de habilidades profesionales, liderazgo, capacitación laboral, crecimiento personal
-                                - Compliance: Juegos sobre cumplimiento normativo, políticas empresariales, regulaciones, procedimientos legales
-                                - Recruiting: Juegos para procesos de selección, evaluación de candidatos, onboarding, atracción de talento
-                                - Events: Juegos para eventos corporativos, conferencias, actividades de equipo, celebraciones
-                                - Fan Engagement: Juegos para fidelización de clientes, comunidades de fans, engagement de audiencias
-                                - Health & Wellness: Juegos sobre bienestar, salud mental, ejercicio, hábitos saludables, prevención
-                                - Data Collection: Juegos para recopilar información, encuestas interactivas, investigación de mercado
-                                - Storytelling: Juegos narrativos, historias interactivas, experiencias inmersivas, entretenimiento educativo
-                                - Social Impact: Juegos sobre responsabilidad social, sostenibilidad, causas benéficas, impacto comunitario
-                                - Learning: Juegos educativos, entrenamiento académico, desarrollo de conocimientos específicos, enseñanza"""
+                            🔹 Categorización del juego:
+                            Después de crear el contenido, categoriza el juego en UNA de las siguientes categorías basándote en el propósito principal y contenido del juego:
+                            
+                            - Marketing: Juegos enfocados en promoción de productos, branding, campañas publicitarias, estrategias de mercadeo
+                            - Talent Development: Juegos para desarrollo de habilidades profesionales, liderazgo, capacitación laboral, crecimiento personal
+                            - Compliance: Juegos sobre cumplimiento normativo, políticas empresariales, regulaciones, procedimientos legales
+                            - Recruiting: Juegos para procesos de selección, evaluación de candidatos, onboarding, atracción de talento
+                            - Events: Juegos para eventos corporativos, conferencias, actividades de equipo, celebraciones
+                            - Fan Engagement: Juegos para fidelización de clientes, comunidades de fans, engagement de audiencias
+                            - Health & Wellness: Juegos sobre bienestar, salud mental, ejercicio, hábitos saludables, prevención
+                            - Data Collection: Juegos para recopilar información, encuestas interactivas, investigación de mercado
+                            - Storytelling: Juegos narrativos, historias interactivas, experiencias inmersivas, entretenimiento educativo
+                            - Social Impact: Juegos sobre responsabilidad social, sostenibilidad, causas benéficas, impacto comunitario
+                            - Learning: Juegos educativos, entrenamiento académico, desarrollo de conocimientos específicos, enseñanza"""
+                },
+                {
+                    "role": "user",
+                    "content": """
+                            Ejemplo del scrpt esperado:
+                            En una pequeña aldea rodeada de montañas y ríos, los habitantes buscan nuevas formas de obtener energía sin dañar la naturaleza. El sabio del pueblo reúne a dos jóvenes aprendices y les explica:
+“Hoy comenzarán un viaje para entender el concepto de energía renovable. Aprenderán, explorarán y al final podrán compartir sus conclusiones con toda la comunidad.”
+
+Los aprendices llegan a un cruce con varios personajes que los guían por diferentes senderos. Si siguen al ingeniero, él les explica cómo funciona la energía solar, mostrando paneles que convierten la luz en electricidad. 
+Si deciden acompañar al agricultor, escuchan cómo aprovechan el viento con molinos antiguos y modernos para moler grano y generar energía. Si eligen atender al pescador, este les habla sobre la fuerza del agua en ríos y 
+cómo mueve turbinas. Y si van con la maestra, ella enseña cómo se puede explicar a los niños el ciclo natural de la energía. Cada elección brinda ejemplos claros y refuerza el mismo concepto: la energía renovable proviene
+ de fuentes naturales que se regeneran constantemente.
+
+Tras su exploración, ambos aprendices comparten lo aprendido con los aldeanos. Descubren que, aunque cada fuente es distinta, todas buscan reducir la dependencia de combustibles fósiles y cuidar el ambiente. El sabio sonríe
+ y los invita a profundizar más.
+
+En la plaza central, los personajes del pueblo ofrecen nuevas perspectivas. Si debaten con el carpintero, este explica cómo los materiales para construir turbinas y paneles deben ser sostenibles. Al hablar con la curandera,
+ descubren cómo la energía limpia mejora la salud del aire y reduce enfermedades respiratorias. Si conversan con el comerciante, aprenden que los costos de la energía renovable pueden beneficiar la economía local. Y al escuchar
+  a los niños, oyen cómo imaginan un futuro con casas que funcionen solo con energía limpia. Cada interacción agrega un matiz distinto y vincula el concepto con la vida cotidiana de la aldea.
+
+Los aprendices concluyen que la energía renovable no solo es técnica, también es social y cultural: cambia vidas, economías y relaciones con la naturaleza.
+
+Ahora deben pensar en cómo aplicar lo aprendido. Pueden proponer paneles solares en la escuela para que los niños estudien con luz limpia y constante, o instalar un molino en la plaza que, además de generar energía, se convierta
+ en símbolo de unión comunitaria. También podrían plantar árboles alrededor del río para proteger la fuente de agua que mueve turbinas, crear un mural educativo que explique las diferentes fuentes de energía renovable, o organizar
+  un taller práctico en el que los habitantes construyan juntos pequeños prototipos de energía limpia. Todas las acciones conducen a un mismo objetivo: aplicar el conocimiento de forma práctica y compartida.
+
+De regreso ante el sabio, los aprendices relatan sus experiencias. Él concluye con serenidad:
+“Han comprendido que la energía renovable no es solo tecnología, sino una forma de vivir en armonía con el entorno. El conocimiento se multiplica cuando se comparte, y hoy ustedes se han convertido en guías para toda la comunidad.”
+                    """,
                 },
                 {
                     "role": "user",
@@ -207,7 +230,7 @@ async def create_game_provisional(_id_game_provisional: str):
                                                  "Test mode active: skipping image generation and upload.")
 
             # Usar una imagen por defecto en modo test
-            url_image = "https://via.placeholder.com/512x896.jpg?text=Test+Mode+Image"
+            url_image = "https://storage.googleapis.com/qwestar/voxel_.jpg"
         else:
             # Actualizar estado: Generando imagen de portada
             await update_game_provisional_status(_id_game_provisional, "generating_image", 60,
@@ -420,7 +443,7 @@ async def generate_interaction_for_scene(script: str, scene_num: int, template_t
 
         # logger.debug(f"Respuesta recibida para escena {scene_num}. Longitud: {len(interaction_response) if interaction_response else 0} caracteres")
 
-        # Analizamos la respuesta para estructurarla adecuadamente
+        # Analizamos la respuesta para estructurala adecuadamente
         result = {
             "content": interaction_response.content,
             "created_at": datetime.now(pytz.utc),
@@ -605,7 +628,7 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
             f"- personaje_principal: objeto con 'nombre' y 'prompt_descriptivo' (debe ser el mismo personaje en TODAS las locaciones)\n"
             f"- personaje_secundario: objeto con 'nombre' y 'prompt_descriptivo' (diferente para cada locación)\n"
             f"- interaccion: objeto con:\n"
-            f"  * tipo: 'one_one' (solo habla el secundario al principal) o 'two_way' (diálogo entre principal y secundario)\n"
+            f"  * tipo: 'one_way' (solo habla el secundario al principal) o 'two_way' (diálogo entre principal y secundario)\n"
             f"  * dialogo: \n"
             f"    - Para 'one_one': un diálogo corto que dice el secundario al principal\n"
             f"    - Para 'two_way': formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario\n\n"
@@ -758,8 +781,6 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
                 data=character_db_state.dict(),
             )
 
-
-
         task_celery = await async_generate_character_task(
             _character_id=str(character_created.inserted_id),
             _user_id=user_id,
@@ -859,8 +880,6 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str, 
                 data=location_db_state.dict(),
             )
 
-
-
         task_celery = await async_generate_location_task(
             _location_id=str(location_created.inserted_id),
             _user_id=user_id,
@@ -897,7 +916,6 @@ async def create_game_service(user_id: str):
 
 
 async def create_event_service(event: SchemaCreateEvent, user_id: str):
-
     event_schema = Event(
         name=event.name,
         prompt_user_image=event.prompt_user_image,
@@ -923,7 +941,6 @@ async def create_event_service(event: SchemaCreateEvent, user_id: str):
     event_created = await db["event"].insert_one(event_schema.dict())
 
     if event.prompt_user_image:
-
         task_celery = await async_generate_image_event(
             _game_id=event.game_id,
             _event_id=str(event_created.inserted_id),
@@ -995,7 +1012,7 @@ async def create_game_by_provisional(id_game_provisional: str):
         locations_db = []
 
         # logger.info(f"Creating game with {len(locations)} locations from provisional")
-        for location in locations[0:1]:
+        for location in locations:
             location_db = await create_location_service(
                 location=SchemaCreateLocation(
                     title=location["titulo"],
@@ -1006,6 +1023,7 @@ async def create_game_by_provisional(id_game_provisional: str):
                 user_id=str(game_provisional_db.get("created_by", "anonymous")),
                 file=None
             )
+
 
             character_principal_db = await create_character_service(
                 character=SchemaCreateCharacter(
@@ -1027,6 +1045,14 @@ async def create_game_by_provisional(id_game_provisional: str):
                 str(game_db.get("_id")), str(character_principal_db.get("_id")),
                 game_provisional_db.get("created_by", "anonymous")
             )
+
+            print(f"character,"
+                  f" nombre: {location['personaje_secundario']['nombre']}, "
+                  f"prompt: {location['personaje_secundario']['prompt_descriptivo']},"
+                  f" dialogo: {location['interaccion']['dialogo']},"
+                  f" tipo: {location['interaccion']['tipo']},"
+                  f" game_id: {str(game_db.get('_id'))},")
+
 
             character_db = await create_character_service(
                 character=SchemaCreateCharacter(
@@ -1231,6 +1257,7 @@ class InitialEventResponse(BaseModel):
 
 async def extract_and_create_initial_event_from_scenes(id_game_provisional: str):
     """
+    DEPRECATED: Use extract_and_create_all_events_from_scenes instead.
     Extrae un evento inicial previo a las escenas del guego provisional y crea el evento usando create_event_service.
 
     Args:
@@ -1377,301 +1404,214 @@ async def extract_and_create_initial_event_from_scenes(id_game_provisional: str)
         return {"error": f"Failed to extract and create initial event: {str(e)}"}
 
 
-async def create_game_provisional_with_narrative_template(_id_game_provisional: str, template_type: TemplateType):
+class EventExtractionResponse(BaseModel):
+    events: list[dict] = Field(..., description="Lista de eventos extraídos del guión")
+
+
+async def extract_and_create_all_events_from_scenes(id_game_provisional: str):
     """
-    Crear un juego provisional usando el sistema de templates de narrativa interactiva.
+    Extrae todos los eventos (inicial, intermedios y final) de las escenas del juego provisional y los crea usando create_event_service.
 
     Args:
-        _id_game_provisional: ID del juego provisional
-        template_type: Tipo de template a usar (TemplateType.LEARN, EVALUATION, TRIVIA, SOLVE, EXPERT)
+        id_game_provisional: ID del juego provisional
+
+    Returns:
+        dict: Información de los eventos creados o mensaje de error
     """
     try:
-        # Actualizar estado: Iniciando proceso con templates
-        await update_game_provisional_status(_id_game_provisional, "processing", 0,
-                                             "Iniciando creación con template de narrativa interactiva.")
-
-        game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(_id_game_provisional)})
-
+        # Obtener el juego provisional
+        game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(id_game_provisional)})
         if not game_provisional_db:
-            await update_game_provisional_status(_id_game_provisional, "error", 0,
-                                                 "Game provisional not found in database.")
-            return "Game provisional not found"
+            return {"error": "Game provisional not found"}
 
-        # Obtener la definición específica del template
-        template_definition = get_template_definition(template_type)
+        # Verificar que existe un juego asociado
+        game_id = game_provisional_db.get("game_id")
+        if not game_id:
+            return {"error": "No game associated with this provisional game"}
 
-        # Obtener el script del usuario o generar uno desde el archivo
-        script_content = game_provisional_db.get('script')
+        # Obtener información del juego
+        game_db = await db["game"].find_one({"_id": ObjectId(game_id)})
+        if not game_db:
+            return {"error": "Associated game not found"}
 
-        if not script_content:
-            # Si no hay script, generarlo desde el archivo PDF como antes
-            await update_game_provisional_status(_id_game_provisional, "downloading_file", 10,
-                                                 "Descargando archivo para generar script.")
+        # Obtener el script y las locaciones
+        script = game_provisional_db.get("script")
+        locations = game_provisional_db.get("locations", [])
+        num_scenes = game_provisional_db.get("num_scenes", 3)
 
-            file_url = game_provisional_db["file"]
-            response = requests.get(file_url)
+        if not script:
+            return {"error": "Script not found in game provisional"}
 
-            if response.status_code == 200:
-                data = response.content
-                base64_string = base64.b64encode(data).decode("utf-8")
+        # Obtener estado inicial del juego
+        state_game_db = await db["state_game"].find_one({"game_id": game_id, "order": 1})
+        if not state_game_db:
+            return {"error": "Initial game state not found"}
 
-                # Generar script usando GPT con la definición específica del template
-                await update_game_provisional_status(_id_game_provisional, "generating_script", 25,
-                                                     f"Generando script base para template {template_type.value}.")
+        # Obtener la primera locación para los eventos
+        first_location_id = None
+        if locations and len(locations) > 0:
+            # Buscar la locación real en la base de datos usando el título
+            location_title = locations[0].get("titulo", "")
+            if location_title:
+                location_db = await db["location"].find_one({
+                    "title": location_title,
+                    "game_id": game_id
+                })
+                if location_db:
+                    first_location_id = str(location_db["_id"])
 
-                script_response = await openai_generator.generate_gpt(
-                    content_prompt=[
-                        {
-                            "role": "system",
-                            "content": f"""Eres un experto en diseño de narrativas interactivas. Tu tarea es crear un script que se adapte específicamente al tipo de template solicitado.
+        # Si no encontramos la locación por título, usar la primera de la lista del juego
+        if not first_location_id and game_db.get("locations_id"):
+            first_location_id = game_db["locations_id"][0]
 
-{template_definition}
+        # Construir información de contexto para el prompt
+        locations_info = ""
+        if locations:
+            locations_info = "\n".join([
+                f"- {loc.get('titulo', 'Sin título')}: {loc.get('prompt_user', 'Sin descripción')}"
+                for loc in locations[:3]  # Solo primeras 3 locaciones para no sobrecargar
+            ])
 
-INSTRUCCIONES PARA EL SCRIPT:
-1. Extrae el contenido relevante del documento proporcionado
-2. Adapta la narrativa para que se ajuste EXACTAMENTE a la estructura y reglas del template especificado
-3. Crea personajes, locaciones y diálogos que funcionen con el tipo de interacción requerido
-4. Asegúrate de que la progresión narrativa respete las restricciones del template
-5. El script debe ser coherente y educativo, siguiendo las mejores prácticas del tipo de template
+        # Obtener la definición del template si está disponible
+        template_type = game_provisional_db.get("template_type")
+        template_definition = ""
+        if template_type:
+            try:
+                if isinstance(template_type, str):
+                    template_type_enum = TemplateType(template_type)
+                else:
+                    template_type_enum = template_type
+                template_definition = get_template_definition(template_type_enum)
+            except (ValueError, AttributeError):
+                template_definition = ""
 
-El script resultante debe ser una historia completa que permita implementar las interacciones específicas del template {template_type.value}."""
-                        },
-                        {
-                            "role": "user",
-                            "content": f"""Basándote en el documento proporcionado y las especificaciones del template {template_type.value}, crea un script narrativo interactivo.
+        template_context = f"\n\nDEFINICIÓN DEL TEMPLATE:\n{template_definition}\n\nAsegúrate de que los eventos generados sigan las reglas específicas del template mencionado arriba." if template_definition else ""
 
-Prompt del usuario: {game_provisional_db.get('prompt_user', 'No prompt provided')}
+        # Generar todos los eventos con GPT
+        events_response = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": """Eres un experto en crear eventos para juegos narrativos interactivos.
+                    Tu tarea es crear una secuencia completa de eventos que conecten las escenas del juego:
+                    1. Un evento inicial (prólogo/introducción)
+                    2. Eventos intermedios (transiciones entre escenas)
+                    3. Un evento final (conclusión/epílogo)
+                    
+                    Cada evento debe:
+                    - Tener un propósito narrativo claro
+                    - Ser visualmente atractivo para la generación de imágenes
+                    - Conectar coherentemente con la historia
+                    - Mantener el tono y estilo del juego"""
+                },
+                {
+                    "role": "user",
+                    "content": f"""Crea una secuencia completa de eventos para el juego "{game_db.get('title', 'Sin título')}" basándote en la siguiente información:
 
-Asegúrate de que el script permita implementar las reglas específicas del template:
-- Para LEARN: Enfoque en exploración y aprendizaje gradual
-- Para EVALUATION: Diseñado para recopilar datos sin validación
-- Para TRIVIA: Preguntas de conocimiento con progresión condicionada
-- Para SOLVE: Resolución de problemas con acceso condicionado al final
-- Para EXPERT: Conversaciones abiertas con un experto"""
-                        },
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "file",
-                                    "file": {
-                                        "filename": "archivo.pdf",
-                                        "file_data": f"data:application/pdf;base64,{base64_string}",
-                                    }
-                                }
-                            ]
-                        }
-                    ],
-                    model="gpt-4o-mini",
-                    max_tokens=4096,
-                )
+                    Historia/Guión del juego:
+                    {script[:3000]}...  # Aumentamos el límite para mejor contexto
 
-                script_content = script_response
-            else:
-                await update_game_provisional_status(_id_game_provisional, "error", 10,
-                                                     f"Error descargando archivo. Estado HTTP: {response.status_code}")
-                return "Error downloading file"
-        else:
-            # Si ya existe un script, adaptarlo al template específico
-            await update_game_provisional_status(_id_game_provisional, "adapting_script", 25,
-                                                 f"Adaptando script existente para template {template_type.value}.")
+                    Número de escenas: {num_scenes}
+                    
+                    Locaciones donde se desarrollará la acción:
+                    {locations_info}
+                    {template_context}
 
-            adapted_script_response = await openai_generator.generate_gpt(
-                content_prompt=[
-                    {
-                        "role": "system",
-                        "content": f"""Eres un experto en adaptación de narrativas para templates interactivos específicos.
+                    Crea exactamente {num_scenes + 1} eventos en el siguiente orden:
+                    1. UN evento inicial (prólogo/introducción que establezca el contexto)
+                    2. {num_scenes - 1} eventos intermedios (transiciones entre escenas que mantengan la narrativa)
+                    3. UN evento final (conclusión/epílogo que cierre la historia)
 
-{template_definition}
+                    Para cada evento, genera un objeto JSON con:
+                    - event_name: Nombre descriptivo del evento (máximo 60 caracteres)
+                    - prompt_image: Prompt detallado en español para generar imagen (describe escena, personajes, ambiente)
+                    - prompt_text: Texto narrativo corto y evocador (30-50 palabras)
+                    - event_type: "initial", "intermediate", o "final"
+                    - is_final: true solo para el último evento, false para los demás
+                    - order: número de orden del evento (1, 2, 3, etc.)
 
-Tu tarea es adaptar el script existente para que se ajuste perfectamente a las reglas y estructura del template {template_type.value}."""
-                    },
-                    {
-                        "role": "user",
-                        "content": f"""Adapta el siguiente script para que funcione específicamente con el template {template_type.value}:
-
-SCRIPT ORIGINAL:
-{script_content}
-
-INSTRUCCIONES DE ADAPTACIÓN:
-1. Mantén la esencia de la historia original
-2. Ajusta la estructura narrativa a las reglas del template
-3. Modifica los diálogos y situaciones para que permitan el tipo de interacción requerido
-4. Asegúrate de que la progresión respete las restricciones específicas del template
-5. Optimiza para el objetivo educativo del template
-
-El script adaptado debe ser coherente con las reglas específicas del template {template_type.value}."""
-                    }
-                ],
-                model="gpt-4o-mini",
-                max_tokens=4096,
-            )
-
-            script_content = adapted_script_response
-
-        # Crear datos para el template con el tipo especificado
-        await update_game_provisional_status(_id_game_provisional, "creating_template", 40,
-                                             f"Creando template tipo {template_type.value} con script adaptado.")
-
-        script_data = SchemaGenerateFromScript(
-            script=script_content,
-            template_type=template_type,
-            title=game_provisional_db.get('title', 'Historia Interactiva'),
-            num_scenes=game_provisional_db.get('num_scenes', 3),
-            category=game_provisional_db.get('category', 'Learning')
+                    Los eventos deben fluir narrativamente y mantener la coherencia de la historia."""
+                }
+            ],
+            max_tokens=4000,
+            model="gpt-4.1",
+            response_format=EventExtractionResponse,
+            user_id=game_provisional_db.get("created_by", "anonymous"),
+            type_generation="extract_all_events_from_scenes"
         )
 
-        # Generar el template de narrativa
-        template_id = await create_narrative_template_from_script(script_data)
+        if not events_response or not events_response.events:
+            return {"error": "Failed to generate events content"}
 
-        # Actualizar estado: Extrayendo elementos del template
-        await update_game_provisional_status(_id_game_provisional, "extracting_elements", 70,
-                                             "Extrayendo personajes, locaciones y eventos del template.")
+        created_events = []
 
-        # Extraer elementos del template
-        extraction_result = await extract_template_elements(template_id)
+        # Crear cada evento usando el servicio existente
+        for event_data in events_response.events:
+            try:
+                event_schema = SchemaCreateEvent(
+                    name=event_data.get("event_name", "Event"),
+                    prompt_user_image=event_data.get("prompt_image", ""),
+                    prompt_user_text=event_data.get("prompt_text", ""),
+                    character_id=game_db.get("character_principal"),  # Usar el personaje principal si existe
+                    type_conversation=None,
+                    option_number=None,
+                    state_game_init=str(state_game_db["_id"]),
+                    state_game_end=None,
+                    location_state_game_init=first_location_id,
+                    location_state_game_end=None,
+                    game_id=game_id,
+                    is_final=event_data.get("is_final", False)
+                )
 
-        # Actualizar estado: Creando componentes del juego
-        await update_game_provisional_status(_id_game_provisional, "creating_game_components", 85,
-                                             "Creando personajes, locaciones y eventos en la base de datos.")
+                # Crear el evento usando el servicio existente
+                created_event = await create_event_service(
+                    event=event_schema,
+                    user_id=game_provisional_db.get("created_by", "anonymous")
+                )
 
-        # Crear componentes del juego basados en la extracción
-        game_components = await create_game_components_from_template(extraction_result, _id_game_provisional)
+                if created_event:
+                    created_events.append({
+                        "event_id": created_event.get("_id"),
+                        "name": event_data.get("event_name"),
+                        "type": event_data.get("event_type"),
+                        "order": event_data.get("order", len(created_events) + 1),
+                        "is_final": event_data.get("is_final", False)
+                    })
 
-        # Actualizar el juego provisional con los IDs de los componentes creados
+            except Exception as e:
+                print(f"Error creating event: {str(e)}")
+                continue
+
+        if not created_events:
+            return {"error": "No events could be created"}
+
+        # Actualizar el juego con el evento inicial (el primero de la lista)
+        initial_event = next((event for event in created_events if event.get("type") == "initial"), created_events[0])
+        if initial_event:
+            await db["game"].update_one(
+                {"_id": ObjectId(game_id)},
+                {"$set": {"event_init": initial_event["event_id"]}}
+            )
+
+        # Actualizar el juego provisional con la información de eventos creados
         await db["game_provisional"].update_one(
-            {"_id": ObjectId(_id_game_provisional)},
+            {"_id": ObjectId(id_game_provisional)},
             {"$set": {
-                "template_id": template_id,
-                "template_type": template_type.value,
-                "template_definition": template_definition,  # Guardar la definición usada
-                "script": script_content,  # Actualizar con el script adaptado
-                "characters_id": game_components["characters"],
-                "locations_id": game_components["locations"],
-                "events_id": game_components["events"],
-                "narrative_structure": extraction_result.dict(),
+                "created_events": created_events,
                 "updated_at": datetime.now(pytz.utc)
             }}
         )
 
-        # Finalizar proceso
-        await update_game_provisional_status(_id_game_provisional, "completed", 100,
-                                             f"Juego provisional creado exitosamente con template {template_type.value}.")
-
-        return f"Game provisional created successfully with template {template_id}"
-
-    except Exception as e:
-        await update_game_provisional_status(_id_game_provisional, "error", 0,
-                                             f"Error en creación con template: {str(e)}")
-        return f"Error creating game provisional with template: {str(e)}"
-
-
-async def create_game_components_from_template(extraction_result: SchemaTemplateExtractionResult,
-                                               game_provisional_id: str) -> dict:
-    """
-    Crea los componentes del juego (personajes, locaciones, eventos) basados en la extracción del template.
-    """
-    created_components = {
-        "characters": [],
-        "locations": [],
-        "events": []
-    }
-
-    try:
-        # Crear personajes
-        for character_data in extraction_result.characters:
-            character_id = str(uuid4())
-            character_doc = {
-                "_id": ObjectId(),
-                "character_id": character_id,
-                "name": character_data.get("name", "Personaje"),
-                "description": character_data.get("description", ""),
-                "personality": character_data.get("personality", ""),
-                "game_provisional_id": game_provisional_id,
-                "template_reference": extraction_result.template_id,
-                "created_at": datetime.now(pytz.utc),
-                "created_by": "template_system"
-            }
-
-            await db["characters"].insert_one(character_doc)
-            created_components["characters"].append(character_id)
-
-        # Crear locaciones
-        for location_data in extraction_result.locations:
-            location_id = str(uuid4())
-            location_doc = {
-                "_id": ObjectId(),
-                "location_id": location_id,
-                "name": location_data.get("name", "Locación"),
-                "description": location_data.get("description", ""),
-                "environment": location_data.get("environment", ""),
-                "game_provisional_id": game_provisional_id,
-                "template_reference": extraction_result.template_id,
-                "created_at": datetime.now(pytz.utc),
-                "created_by": "template_system"
-            }
-
-            await db["locations"].insert_one(location_doc)
-            created_components["locations"].append(location_id)
-
-        # Crear eventos
-        for event_data in extraction_result.events:
-            event_id = str(uuid4())
-            event_doc = {
-                "_id": ObjectId(),
-                "event_id": event_id,
-                "name": event_data.get("event_name", "Evento"),
-                "description": event_data.get("description", ""),
-                "event_type": event_data.get("event_type", "narrative"),
-                "is_intro": event_data.get("is_intro", False),
-                "is_final": event_data.get("is_final", False),
-                "condition_type": event_data.get("condition_type", "always"),
-                "game_provisional_id": game_provisional_id,
-                "template_reference": extraction_result.template_id,
-                "created_at": datetime.now(pytz.utc),
-                "created_by": "template_system"
-            }
-
-            await db["events"].insert_one(event_doc)
-            created_components["events"].append(event_id)
-
-        return created_components
-
-    except Exception as e:
-        raise Exception(f"Error creando componentes del juego: {str(e)}")
-
-
-async def get_narrative_template_status(_id_game_provisional: str):
-    """
-    Obtiene el estado de generación del template de narrativa para un juego provisional.
-    """
-    try:
-        game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(_id_game_provisional)})
-
-        if not game_provisional_db:
-            return {"error": "Game provisional not found"}
-
-        template_id = game_provisional_db.get("template_id")
-
-        if not template_id:
-            return {"status": "no_template", "message": "No template associated with this game"}
-
-        template_status = await get_template_generation_status(template_id)
-
-        if not template_status:
-            return {"error": "Template status not found"}
-
         return {
-            "template_id": template_id,
-            "status": template_status.status,
-            "progress": template_status.progress,
-            "progress_text": template_status.progress_text,
-            "current_step": template_status.current_step,
-            "estimated_time_remaining": template_status.estimated_time_remaining
+            "success": True,
+            "events": created_events,
+            "message": f"Successfully created {len(created_events)} events: {len([e for e in created_events if e.get('type') == 'initial'])} initial, {len([e for e in created_events if e.get('type') == 'intermediate'])} intermediate, {len([e for e in created_events if e.get('is_final')])} final"
         }
 
     except Exception as e:
-        return {"error": f"Error retrieving template status: {str(e)}"}
+        print(f"Error extracting and creating all events: {str(e)}")
+        print(traceback.format_exc())
+        return {"error": f"Failed to extract and create all events: {str(e)}"}
 
 
 def get_template_definition(template_type: TemplateType) -> str:
@@ -1689,19 +1629,19 @@ def get_template_definition(template_type: TemplateType) -> str:
 TEMPLATE TIPO: LEARN (Aprendizaje)
 
 DEFINICIÓN:
-Un recorrido narrativo enfocado en aprender un concepto. Cada escena ofrece dos posibles caminos (Two Ways), generando exploración y reforzando el aprendizaje. Siempre se llega al evento final.
+Un recorrido narrativo enfocado en aprender un concepto. Cada escena ofrece dos posibles caminos (two_way), generando exploración y reforzando el aprendizaje. Siempre se llega al evento final.
 
 ESTRUCTURA REQUERIDA:
 - Evento Intro: ✅ (Presentación del tema a aprender)
-- Escena A: Personajes con interacción "Two Ways" (2 caminos de exploración)
+- Escena A: Personajes con interacción "Two Ways" (2 caminos de exploración), dos personajes y una locación.
 - Evento A → B: ✅ (Transición que refuerza lo aprendido)
-- Escena B: Personajes con interacción "Two Ways" (2 caminos de profundización)
+- Escena B: Personajes con interacción "Two Ways" (2 caminos de profundización), dos personajes y una locación.
 - Evento B → C: ✅ (Consolidación del conocimiento)
-- Escena C: Personajes con interacción "Two Ways" (2 caminos de aplicación)
+- Escena C: Personajes con interacción "Two Ways" (2 caminos de aplicación), dos personajes y una locación.
 - Evento Final: ✅ (Resumen y conclusiones del aprendizaje)
 
 REGLAS ESPECÍFICAS:
-- Interacciones tipo "Two Ways" (dos caminos) de 4 a 6 opciones
+- Interacciones tipo "two_way" (dos caminos) de 4 a 6 interracciones
 - Todas las rutas llevan al progreso (sin bloqueos por respuestas incorrectas)
 - Enfoque en exploración y comprensión gradual del concepto
 - Las contrarespuestas varían para enriquecer el aprendizaje
