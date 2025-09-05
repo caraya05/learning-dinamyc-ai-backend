@@ -15,20 +15,20 @@ services:
       - "9000:9000"
       - "9001:9001"
 
-  nginx:
-    container_name: nginx
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    depends_on:
-      - fastapi
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx:/etc/nginx/conf.d/:ro
-#      - ./nginx/ssl:/etc/ssl/:ro
-      - ./src/static:/code/static
+#  nginx:
+#    container_name: nginx
+#    build:
+#      context: ./nginx
+#      dockerfile: Dockerfile
+#    depends_on:
+#      - fastapi
+#    ports:
+#      - "80:80"
+#      - "443:443"
+#    volumes:
+#      - ./nginx:/etc/nginx/conf.d/:ro
+##      - ./nginx/ssl:/etc/ssl/:ro
+#      - ./src/static:/code/static
 
   redis:
     container_name: redis

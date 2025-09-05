@@ -504,7 +504,6 @@ async def generate_image_character_face(_character_id, _user_id, _state_game_id)
 
             character_state_db["data"]["image"] = image_generated
 
-
             await db["state_glic"].update_one(
                 {"_id": character_state_db["_id"]},
                 {
@@ -643,7 +642,11 @@ async def generate_character_body_type(_character_id, _user_id, _state_game_id):
 
         response_character_type = await openai_generator.generate_gpt(
             content_prompt=[
-                {"role": "system", "content": "Eres un identificador de tipo de personaje, no te debes salir de los tipos de cuerpo de personajes que se envian."},
+                {
+                    "role": "system",
+                    "content":
+                        "Eres un identificador de tipo de personaje, no te debes salir de los tipos de cuerpo de personajes que se envian."
+                        f"escoge uno de los siquientes tipos de personajes: {character_type_db}"},
                 {
                     "role": "user",
                     "content": [
@@ -651,11 +654,7 @@ async def generate_character_body_type(_character_id, _user_id, _state_game_id):
                             "type": "text",
                             "text": f"nombre del personaje: {character_state_db['data']['name']} y descripción del personaje por "
                                     f"parte del usuario: {character_state_db['data']['prompt_user']}",
-                        },
-                        {
-                            "type": "text",
-                            "text": f"escoge uno de los siquientes tipos de personajes: {character_type_db}",
-                        },
+                        }
                     ],
                 },
             ],
@@ -666,9 +665,23 @@ async def generate_character_body_type(_character_id, _user_id, _state_game_id):
             user_id=_user_id,
         )
 
+        body_type_selected = await  db["character_type"].find_one(
+            {"character_type": response_character_type.character_type}
+        )
+
+        if not body_type_selected:
+            if response_type_genre.genre == "man":
+                body_type_selected = "man_casual"
+            elif response_type_genre.genre == "woman":
+                body_type_selected = "woman_casual"
+            else:
+                body_type_selected = "man_casual"
+        else:
+            body_type_selected = body_type_selected.get("character_type", None)
+
         character_state_db["data"]["body_type"] = response_type_genre.body_type
         character_state_db["data"]["genre"] = response_type_genre.genre
-        character_state_db["data"]["character_type"] = response_character_type.character_type
+        character_state_db["data"]["character_type"] = body_type_selected
 
         await db["state_glic"].update_one(
             {"_id": character_state_db["_id"]},
@@ -968,7 +981,7 @@ async def generate_conversation_character(
             type_generation="create_conversation_character",
         )
         conversation_ = [
-            {"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None, "audio_mp3": None,}
+            {"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None, "audio_mp3": None, }
             for dialog in response.conversation
         ]
 
@@ -1690,7 +1703,8 @@ async def generate_monologue_character(
         )
 
         conversation_ = [
-            {"id_character": str(character_other_db["_id"]), "dialog": dialog.dialog, "audio": None,"audio_mp3": None, }
+            {"id_character": str(character_other_db["_id"]), "dialog": dialog.dialog, "audio": None,
+             "audio_mp3": None, }
             for dialog in response.conversation
         ]
 

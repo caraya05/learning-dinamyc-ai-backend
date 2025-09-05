@@ -75,10 +75,9 @@ async def generate_image_event(
         #     return False
 
         validate_prompt = await openai_generator.moderation_text(
-            text=f"Eres un diseñador de videojuegos y te han encargado"
-                 f"Genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego  {game_db['title']}"
+            text=f"Genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego  {game_db['title']}"
                  f" con el personaje {character_principal_state_game['data']['prompt_user']}. "
-                 f"La imagen debe ser protrait y tener el contenido vertical."
+                 f"La imagen debe ser portrait y tener el contenido vertical."
                  f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen."
                  f" {prompt_user_image}"
                  f"Game: {game_db['title']}\n"
@@ -95,13 +94,13 @@ async def generate_image_event(
             content_prompt=[
                 {
                     "role": "system",
-                    "content": f"Genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego {game_db['title']}"
+                    "content": f"Crea un prompt para genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego {game_db['title']}"
                                f" con el personaje {character_principal_state_game['data']['prompt_user']}."
                                f"La imagen debe ser portrait y tener el contenido vertical. sin texto."
                                f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen."
                 },
                 {
-                    "role": "assistant",
+                    "role": "user",
                     "content": f"Game: {game_db['title']}\n"
                                f"Character Principal: {character_principal_state_game['data']['prompt_user']}\n"
                                f"Characters: {characters_state_game}\n"
