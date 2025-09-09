@@ -64,6 +64,8 @@ async def get_list_state_glic_by_element_id(element_id: str) -> list:
                         print(state_glic[j]["data"]["interaction"][i])
                         if state_glic[j]["data"]["interaction"][i].get("type_conversation", None):
                             if state_glic[j]["data"]["interaction"][i]["type_conversation"] in ["one_way", "two_way"]:
+
+                                print("llego aca", state_glic[j]["data"]["interaction"][i],)
                                 event_db = await db["event"].find_one(
                                     {
                                         "game_id": state_glic[j]["data"]["game_id"],
@@ -75,6 +77,9 @@ async def get_list_state_glic_by_element_id(element_id: str) -> list:
                                             "type_conversation"],
                                     }
                                 )
+
+                                print("evquent db", event_db)
+
                                 if event_db and event_db["type_conversation"] in ["one_way", "two_way"]:
                                     state_glic[j]["data"]["interaction"][i]["event_id"] = str(event_db["_id"])
                             if (state_glic[j]["data"]["interaction"][i]["type_conversation"] in ["open_question",

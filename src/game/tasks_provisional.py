@@ -49,6 +49,75 @@ from config import settings
 NOT_GIVEN = NotGiven()
 
 
+async def deactivate_character_service(character_id: str, state_game: str, active: bool):
+    try:
+        if character_db := await db["character"].find_one({"_id": ObjectId(character_id)}):
+            state_element_db = await db["state_glic"].find_one(
+                {"element_id": character_id, "type_element": "character", "state": state_game}
+            )
+
+            state_game_max = await db["state_game"].find_one({"game_id": character_db["game_id"]}, sort=[("order", -1)])
+
+            if not state_element_db:
+                state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
+                order = state_game_db["order"] + 1
+                state_element_db = None
+
+                while state_element_db is None:
+                    state_element_db = await db["state_glic"].find_one(
+                        {"element_id": character_id, "type_element": "character", "order": order}
+                    )
+                    if state_element_db:
+                        break
+                    if order > state_game_max['order']:
+                        break
+                    order += 1
+
+                if state_element_db is None:
+                    state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
+                    order = state_game_db["order"] - 1
+                    state_element_db = None
+
+                    while state_element_db is None:
+                        state_element_db = await db["state_glic"].find_one(
+                            {"element_id": character_id, "type_element": "character", "order": order}
+                        )
+                        if state_element_db:
+                            break
+                        if order < 1:
+                            break
+                        order -= 1
+                    if not state_element_db:
+                        return "failed deactivate / activate character"
+
+                    state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
+
+                    state_element_db['data']['is_active'] = active
+                    state_element_db['data']['interaction'] = []
+
+                    state_element_db = await create_state_glic(
+                        element_id=str(character_id),
+                        type_element="character",
+                        state=state_game,
+                        order=state_game_db['order'],
+                        created_by=state_game_db['created_by'],
+                        data=state_element_db['data'],
+                    )
+
+                    return "Character created and deactivated / activate successfully"
+
+            state_element_db['data']['is_active'] = active
+            await db["state_glic"].update_one(
+                {"_id": state_element_db["_id"]}, {"$set": {"data": state_element_db["data"]}}
+            )
+
+            return "Character deactivated / activate successfully"
+    except Exception as e:
+        print(traceback.print_exc())
+        print(f"Error in deactivate character service: {e}")
+        return "failed deactivate / activate character"
+
+
 async def update_game_provisional_status(id_game_provisional: str, status: str, progress: int = None,
                                          progress_text: str = None):
     """
@@ -452,11 +521,25 @@ class InteraccionPersonajes(BaseModel):
     dialogo: str = Field(..., description="Diálogo de la interacción")
 
 
+class Options(BaseModel):
+    prompt_user_answer: str = Field(..., description="Retroalimentación a la opción de respuesta")
+    prompt_user_option: str = Field(..., description="Opción de respuesta que verá el usuario")
+    prompt_user_guideline: str = Field(..., description="Opción de respuesta")
+
+
+class OptionsDialogo(BaseModel):
+    prompt_user_question: str = Field(...,
+                                      description="Pregunta que hace el personaje secundario al principal puede ser el dialogo 1 y 2 como el two_way en esta parte")
+    options: list[Options] = Field(..., description="Opciones de respuesta")
+    index_opcion_correcta: int = Field(..., description="Índice de la opción correcta (0 basado en cero)")
+
+
 class LocationWithCharacters(BaseModel):
     titulo: str = Field(..., description="Nombre de la locación")
     personaje_principal: PersonajeLocacion = Field(..., description="Personaje principal de la locación")
     personaje_secundario: PersonajeLocacion = Field(..., description="Personaje secundario de la locación")
     interaccion: InteraccionPersonajes = Field(..., description="Interacción entre personajes")
+    options_dialogo: OptionsDialogo = Field(None, description="Opciones de diálogo si aplica")
 
 
 class LocationCharactersResponse(BaseModel):
@@ -502,12 +585,11 @@ async def extract_locations_from_scenes(id_game_provisional: str):
         for i, scene in enumerate(scenes_generated):
             info_scenes += f"Escena {i + 1}:\n{scene.get('interaction', '')}\n\n"
 
-        print(f"info escenes: {info_scenes}")
 
         prompt = (
             "Analiza todas las escenas del siguiente guion y extrae la información de las locaciones en el siguiente formato para cada locación encontrada:\n"
             "- titulo: nombre de la locacion\n"
-            "- prompt_user: descripcion de la locacion\n"
+            "- prompt_user: descripcion de la locacion. La descripción debe especificar que los objetos pequeños estén ubicados en las paredes en la vista isométrica, y que no haya objetos en la mitad de la vista para facilitar la navegación.\n"
             "- escena: escena inicial donde aparece\n"
             "- escenas_donde_se_repite: todas las escenas donde se repite\n"
             "Devuelve una lista de objetos JSON, uno por cada locación.\n"
@@ -516,7 +598,8 @@ async def extract_locations_from_scenes(id_game_provisional: str):
 
         locations_response = await openai_generator.generate_gpt(
             content_prompt=[
-                {"role": "system", "content": "Eres un experto en análisis de guiones para videojuegos. solo deben ser 3 locaciones"},
+                {"role": "system",
+                 "content": "Eres un experto en análisis de guiones para videojuegos. solo deben ser 3 locaciones"},
                 {"role": "user", "content": prompt}
             ],
             model="gpt-4.1",
@@ -524,8 +607,6 @@ async def extract_locations_from_scenes(id_game_provisional: str):
             user_id=None,
             type_generation="extract locations from scenes"
         )
-
-        print(f"locations_response: {locations_response}")
 
         # Verificar si hubo error en la respuesta
         if locations_response is None or isinstance(locations_response, str):
@@ -595,6 +676,10 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
             [f"- {loc.get('titulo', 'Sin título')}: {loc.get('prompt_user', 'Sin descripción')}" for loc in locations if
              isinstance(loc, dict)])
 
+        type_template = get_template_definition(game_provisional_db.get("template_type", None))
+        if type_template:
+            locations_list += f"\n\nDEFINICIÓN DEL TEMPLATE:\n{type_template}\n\nAsegúrate de que los personajes e interacciones generados sigan las reglas específicas del template mencionado arriba."
+
         prompt = (
             f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones.\n\n"
             f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
@@ -603,15 +688,25 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
             f"- personaje_principal: objeto con 'nombre' y 'prompt_descriptivo' (debe ser el mismo personaje en TODAS las locaciones)\n"
             f"- personaje_secundario: objeto con 'nombre' y 'prompt_descriptivo' (diferente para cada locación)\n"
             f"- interaccion: objeto con:\n"
-            f"  * tipo: 'one_way' (solo habla el secundario al principal) o 'two_way' (diálogo entre principal y secundario)\n"
+            f"  * tipo: "
+            f"    - 'one_way' (solo habla el secundario al principal).\n"
+            f"    - 'two_way' (diálogo entre principal y secundario).\n"
+            f"    - 'option_multiple' (el principal elige entre varias opciones para responder al secundario, no numeradas).\n\n"
             f"  * dialogo: \n"
             f"    - Para 'one_way': un diálogo corto que dice el secundario al principal\n"
             f"    - Para 'two_way': formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario\n\n"
+            f"  * Opciones de dialogo:\n"
+            f"    ** prompt_user_question: pregunta que hace el secundario al principal puede ser el dialogo 1 y 2 como el two_way en esta parte\n"
+            f"    ** opciones: opciones de respuesta\n"
+            f"      ** prompt_user_guideline: opcion de respuesta\n"
+            f"      ** prompt_user_answer: retroalimentacion a la opcion de respuesta\n"
+            f"  * Index de la opcion correcta (0 basado en cero)\n\n"
+
             f"REGLAS IMPORTANTES:\n"
             f"- El personaje principal debe ser el MISMO en todas las locaciones\n"
             f"- Cada locación tiene exactamente 1 personaje secundario (diferente por locación)\n"
             f"- Exactamente 1 interacción por locación\n"
-            f"- Los tipos son: 'one_way' o 'two_way'\n\n"
+            f"- Los tipos son: 'one_way' , 'two_way' , 'option_multiple'\n\n"
             f"GUION COMPLETO:\n{script}"
         )
 
@@ -663,10 +758,18 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
                     updated_location['personaje_principal'] = char_dict.get('personaje_principal')
                     updated_location['personaje_secundario'] = char_dict.get('personaje_secundario')
                     updated_location['interaccion'] = char_dict.get('interaccion')
+                    if char_dict.get('interaccion', {}).get('tipo') == 'option_multiple' and char_dict.get(
+                            'options_dialogo'):
+                        options_dialogo = char_dict['options_dialogo']
+                        for option in options_dialogo['options']:
+                            if 'prompt_user_guideline' in option:
+                                del option['prompt_user_guideline']
+                        updated_location['options_dialogo'] = options_dialogo
                 else:
                     updated_location['personaje_principal'] = char_info.get('personaje_principal')
                     updated_location['personaje_secundario'] = char_info.get('personaje_secundario')
                     updated_location['interaccion'] = char_info.get('interaccion')
+                    updated_location['options_dialogo'] = char_info.get('options_dialogo')
 
             updated_locations.append(updated_location)
 
@@ -690,7 +793,7 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
                                    file: UploadFile | None = None):
     try:
 
-        print("Starting character creation service...",character)
+        print("Starting character creation service...", character)
 
         if character.prompt_user:
             response_moderation_prompt_user = await openai_generator.moderation_text(
@@ -1003,6 +1106,8 @@ async def create_game_by_provisional(id_game_provisional: str):
 
                 states_game_db.append(str(state_game_new.get("_id", None)))
 
+                await deactivate_character_service(characters_db[0], str(state_game_new.get("_id", None)), True)
+
             location_db = await create_location_service(
                 location=SchemaCreateLocation(
                     title=location["titulo"],
@@ -1046,7 +1151,7 @@ async def create_game_by_provisional(id_game_provisional: str):
                     prompt_user=location["personaje_secundario"]["prompt_descriptivo"],
                     prompt_user_dialog=location["interaccion"]["dialogo"],
                     conversation_type=location["interaccion"]["tipo"],
-                    options_dialog=None,
+                    options_dialog=location.get("options_dialogo", None),
                     game_id=str(game_db.get("_id")),
                     location_id=str(location_db.get("_id")),
                     state_game=states_game_db[i]
@@ -1104,26 +1209,27 @@ async def create_game_by_provisional(id_game_provisional: str):
             if event_current:
 
                 event_current = event_current[i]
-                event_final = (True if i == len(locations) - 1 else False)
 
                 state_game_final = None
                 location_state_game_end = None
 
                 if i == 0:
-                    character_id = characters_db[i]
-                    state_game_init = states_game_db[i]
-                    location_stata_game_init = str(location_db.get("_id"))
-                elif i == len(locations) - 1:
-                    character_id = characters_db[i + 1]
+                    character_id = ""
                     state_game_init = states_game_db[i]
                     location_stata_game_init = locations_db[i]
+                    location_state_game_end = locations_db[i]
+                elif i == len(locations) - 1:
+                    character_id = characters_db[i]
+                    state_game_init = states_game_db[i - 1]
+                    state_game_final = states_game_db[i]
+                    location_stata_game_init = locations_db[i - 1]
+                    location_state_game_end = locations_db[i]
                 else:
                     state_game_init = states_game_db[i - 1]
                     state_game_final = states_game_db[i]
-                    location_stata_game_init = None
-                    location_state_game_end = None
-                    character_id = characters_db[i + 1]
-
+                    location_stata_game_init = locations_db[i - 1]
+                    location_state_game_end = locations_db[i]
+                    character_id = characters_db[i]
 
                 # Crear el evento usando la función existente create_event_service
                 event_data = SchemaCreateEvent(
@@ -1132,13 +1238,13 @@ async def create_game_by_provisional(id_game_provisional: str):
                     prompt_user_text=event_current.get("prompt_text", "Description of the event"),
                     character_id=character_id,
                     type_conversation=location["interaccion"]["tipo"],
-                    option_number=0,
+                    option_number=location.get("options_dialogo", {}).get("index_opcion_correcta", 0),
                     state_game_init=state_game_init,
                     state_game_end=state_game_final,
                     location_state_game_init=location_stata_game_init,
                     location_state_game_end=location_state_game_end,
                     game_id=str(game_db.get("_id")),
-                    is_final=event_final
+                    is_final=False
                 )
 
                 # Crear el evento usando el servicio existente
@@ -1153,10 +1259,35 @@ async def create_game_by_provisional(id_game_provisional: str):
                         {"_id": ObjectId(str(game_db.get("_id")))},
                         {"$set": {"event_init": created_event.get("_id")}}
                     )
+
                 if i == len(locations) - 1:
+                    event_current = game_provisional_db.get("events_generated", False)
+                    event_current = event_current[i + 1]
+                    # Crear el evento usando la función existente create_event_service
+                    event_data = SchemaCreateEvent(
+                        name=event_current.get("event_name", f"Event for {location['titulo']}"),
+                        prompt_user_image=event_current.get("prompt_image", "A detailed image of the scene"),
+                        prompt_user_text=event_current.get("prompt_text", "Description of the event"),
+                        character_id=characters_db[i + 1],
+                        type_conversation=location["interaccion"]["tipo"],
+                        option_number=0,
+                        state_game_init=states_game_db[i],
+                        state_game_end="",
+                        location_state_game_init=locations_db[i],
+                        location_state_game_end="",
+                        game_id=str(game_db.get("_id")),
+                        is_final=True
+                    )
+
+                    # Crear el evento usando el servicio existente
+                    created_event = await create_event_service(
+                        event=event_data,
+                        user_id=game_provisional_db.get("created_by", "anonymous")
+                    )
+
                     await db["game"].update_one(
                         {"_id": ObjectId(str(game_db.get("_id")))},
-                        {"$set": {"event_final": created_event.get("_id")}}
+                        {"$set": {"event_final": str(created_event.get("_id"))}}
                     )
 
         # update game provisional with the created game id
@@ -1185,7 +1316,6 @@ async def generate_scene_interactions(id_game_provisional: str):
     Returns:
         str: Mensaje indicando el resultado de la operación
     """
-    # logger.info(f"Iniciando generación de interacciones para juego provisional ID: {id_game_provisional}")
     try:
         # Actualizar estado: Iniciando proceso
         await update_game_provisional_status(id_game_provisional, "processing", 0,
@@ -1205,7 +1335,7 @@ async def generate_scene_interactions(id_game_provisional: str):
             return "Script not found in game provisional"
 
         # Actualizar estado: Generando interacciones de escenas
-        await update_game_provisional_status(id_game_provisional, "generating_scenes", 15,
+        await update_game_provisional_status(id_game_provisional, "generating_scenes", 10,
                                              "Generating interactions for game scenes")
 
         # Extraemos el número de escenas del guión
@@ -1233,13 +1363,13 @@ async def generate_scene_interactions(id_game_provisional: str):
         )
 
         # Actualizar estado: Extrayendo locaciones
-        await update_game_provisional_status(id_game_provisional, "extracting_locations", 35,
+        await update_game_provisional_status(id_game_provisional, "extracting_locations", 20,
                                              "Extracting locations from script")
 
         # extraer locaciones
         locations = await extract_locations_from_scenes(id_game_provisional)
         if isinstance(locations, str):
-            await update_game_provisional_status(id_game_provisional, "error", 35,
+            await update_game_provisional_status(id_game_provisional, "error", 20,
                                                  f"Error al extraer locaciones: {locations}")
             return f"Failed to extract locations: {locations}"
 
@@ -1253,18 +1383,18 @@ async def generate_scene_interactions(id_game_provisional: str):
         )
 
         # Actualizar estado: Extrayendo personajes e interacciones
-        await update_game_provisional_status(id_game_provisional, "extracting_characters", 45,
+        await update_game_provisional_status(id_game_provisional, "extracting_characters", 30,
                                              "Extracting characters and interactions for locations")
 
         # Extraer personajes e interacciones para las locaciones
         characters_result = await extract_characters_and_interactions_for_locations(id_game_provisional)
         if "Failed" in characters_result:
-            await update_game_provisional_status(id_game_provisional, "error", 45,
+            await update_game_provisional_status(id_game_provisional, "error", 30,
                                                  f"Locations extracted but failed to extract characters: {characters_result}")
             return f"Locations extracted but failed to extract characters: {characters_result}"
 
         # Actualizar estado: Creando juego final
-        await update_game_provisional_status(id_game_provisional, "creating_game", 60,
+        await update_game_provisional_status(id_game_provisional, "creating_game", 40,
                                              "Creating final game from provisional data")
 
         # Crear evento inicial después de que se haya creado el juego
@@ -1273,23 +1403,20 @@ async def generate_scene_interactions(id_game_provisional: str):
             print(f"Warning: Failed to create initial event: {initial_event_result['error']}")
             # No fallar todo el proceso por el evento, solo registrar la advertencia
 
-        # Actualizar estado: Completado
-        await update_game_provisional_status(id_game_provisional, "completed", 60,
-                                             "Interaction generation process completed successfully")
-
         game_result = await create_game_by_provisional(id_game_provisional)
         if "Failed" in game_result:
-            await update_game_provisional_status(id_game_provisional, "error", 60,
+            await update_game_provisional_status(id_game_provisional, "error", 40,
                                                  f"Failed to create game from provisional: {game_result}")
             return f"Failed to create game from provisional: {game_result}"
 
         # Actualizar estado: Creando evento inicial
-        await update_game_provisional_status(id_game_provisional, "creating_initial_event", 100,
+        await update_game_provisional_status(id_game_provisional, "creating_initial_event", 80,
                                              "Creating initial event for the game")
 
+        # Actualizar estado: Completado
+        await update_game_provisional_status(id_game_provisional, "completed", 100,
+                                             "Interaction generation process completed successfully")
 
-
-        # logger.info(f"Juego provisional creado exitosamente: {_id_game_provisional}")
         return f"Successfully generated game"
 
     except Exception as e:
@@ -1339,9 +1466,28 @@ async def extract_events_for_scenes(id_game_provisional: str):
 
         events_all = []
 
-        for i, scene in enumerate(game_provisional_db["scene_interactions"]):
+        # Determinar el número total de eventos a generar (4)
+        total_events = 4
+        scene_interactions = game_provisional_db["scene_interactions"]
+        num_scenes = len(scene_interactions)
 
-            # Generar el evento inicial con GPT
+        for i in range(total_events):
+            # Determinar qué escena usar
+            if i < num_scenes:
+                scene = scene_interactions[i]
+            else:
+                # Usar la última escena para los eventos restantes
+                scene = scene_interactions[-1]
+
+            # Determinar el tipo de evento
+            if i == 0:
+                event_type = "inicial"
+            elif i == total_events - 1:
+                event_type = "final"
+            else:
+                event_type = "intermedio"
+
+            # Generar el evento con GPT
             initial_event_response = await openai_generator.generate_gpt(
                 content_prompt=[
                     {
@@ -1358,22 +1504,22 @@ async def extract_events_for_scenes(id_game_provisional: str):
                     },
                     {
                         "role": "user",
-                        "content": f"""Crea un evento {"inicial" if i == 0 else "intermedio" if i == 1 else "final"} previo a las escenas principales para el juego, basándote en la siguiente información:    
+                        "content": f"""Crea un evento {event_type} previo a las escenas principales para el juego, basándote en la siguiente información:    
                         
-                        {"" if i == 0 else f"Escena anterior: {game_provisional_db["scene_interactions"][0]} " if i == 1 else ""} 
+                        {"" if i == 0 else f"Escena anterior: {scene_interactions[0]['interaction'] if 'interaction' in scene_interactions[0] else scene_interactions[0]} " if i == 1 else ""} 
                         
-                        {"Escena inicial: " if i == 0 else "Escena intermedia: " if i == 1 else "Escena final: "} 
-                        {scene}
+                        Escena {event_type}: 
+                        {scene['interaction'] if isinstance(scene, dict) and 'interaction' in scene else scene}
                         
                         Primeras locaciones donde se desarrollará la acción:
                         {locations_info}
-    
+        
                         El evento debe ser una introducción o prólogo que prepare al jugador para lo que está por venir.
                         
                         Genera:
-                        - event_name: Un nombre atractivo y descriptivo para este evento inicial (máximo 60 caracteres)
-                        - prompt_image: Un prompt detallado en español para generar una imagen que capture la esencia del momento inicial del juego (describe la escena, personajes)
-                        - prompt_text: Un texto narrativo que establezca el contexto inicial del juego y enganche al jugador (30 palabras) sea corto y evocador.
+                        - event_name: Un nombre atractivo y descriptivo para este evento {event_type} (máximo 60 caracteres)
+                        - prompt_image: Un prompt detallado en español para generar una imagen que capture la esencia del momento {event_type} del juego (describe la escena, personajes)
+                        - prompt_text: Un texto narrativo que establezca el contexto {event_type} del juego y enganche al jugador (30 palabras) sea corto y evocador.
                         
                         El prompt de imagen debe ser específico y visual, mencionando detalles como el ambiente, la iluminación, los personajes presentes y el estilo artístico."""
                     }
@@ -1392,7 +1538,8 @@ async def extract_events_for_scenes(id_game_provisional: str):
                 "event_name": initial_event_response.event_name,
                 "prompt_image": initial_event_response.prompt_image,
                 "prompt_text": initial_event_response.prompt_text,
-                "type": "initial" if i == 0 else "intermediate" if i == 1 else "final"
+                "type": event_type,
+                "scene_index": min(i, num_scenes - 1)  # Para saber qué escena se usó
             })
 
         # Guardar todos los eventos generados en el juego
@@ -1418,7 +1565,6 @@ async def extract_events_for_scenes(id_game_provisional: str):
 
 class EventExtractionResponse(BaseModel):
     events: list[dict] = Field(..., description="Lista de eventos extraídos del guión")
-
 
 
 def get_template_definition(template_type: TemplateType) -> str:
@@ -1486,11 +1632,11 @@ Formato de prueba de conocimiento. Cada escena presenta preguntas con múltiples
 
 ESTRUCTURA REQUERIDA:
 - Evento Intro: ✅ (Presentación del desafío de conocimientos)
-- Escena A: Personajes con interacción "Two Ways + Multiple" (pregunta de trivia)
+- Escena A: Personajes con interacción "option_multiple" (pregunta de trivia)
 - Evento A → B: ✅ (Solo si respuesta es correcta)
-- Escena B: Personajes con interacción "Two Ways + Multiple" (segunda pregunta)
+- Escena B: Personajes con interacción "option_multiple" (segunda pregunta)
 - Evento B → C: ✅ (Solo si respuesta es correcta)
-- Escena C: Personajes con interacción "Two Ways + Multiple" (pregunta final)
+- Escena C: Personajes con interacción "option_multiple" (pregunta final)
 - Evento Final: ✅ (Solo acceden quienes responden todas correctamente)
 
 REGLAS ESPECÍFICAS:
@@ -1549,4 +1695,3 @@ REGLAS ESPECÍFICAS:
     }
 
     return definitions.get(template_type, "Template type not found")
-
