@@ -178,7 +178,7 @@ async def generate_location_description(_location_id: str, _user_id: str, state_
                 {
                     "role": "system",
                     "content": (
-                        "Eres un generador de elementos interiores para locaciones de videojuegos en una vista isométrica en 3D de estilo low poly. "
+                        "Eres un generador de elementos interiores para locaciones de videojuegos en una vista isométrica en 3D de estilo medium poly. "
                         "Proporciona una lista detallada de los elementos que deben estar presentes en el interior de la locación solicitada por el usuario, "
                     )
                 },
@@ -321,8 +321,8 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                         "content": [
                             {
                                 "type": "input_text",
-                                "text": """Genera una imagen en vista isométrica desde arriba, en estilo 3D medium-poly,
-                                         y resolución wide, sin personas, con los objetos
+                                "text": """Genera una imagen en vista isométrica desde arriba, en estilo 3D medium poly,
+                                         y resolución wide, sin personajes, con los objetos
                                          únicamente a los costados de las paredes arriba-derecha y arriba-izquierda, 
                                         y el resto suelo despejado, ambientado con la mejor iluminación para este escenario, replica la imagen referencia en la vista isométrica.""",
                             },
@@ -339,14 +339,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                                 "type": "input_image",
                                 "image_url": f"data:image/jpeg;base64,{image_voxel_base64}",
                             },
-                            {
-                                "type": "input_text",
-                                "text": f"Toma en cuenta la imagen del bosque de referencia para los tamaños de la locación. ",
-                            },
-                            {
-                                "type": "input_image",
-                                "image_url": f"data:image/jpeg;base64,{image_voxel_alejada_base64}",
-                            },
+
                         ],
                     },
                 ],
@@ -380,7 +373,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
         # Si no hay imagen de referencia pero hay prompt_user, generar imagen normal
         elif not element_state_db['data'].get('image_reference') and element_state_db['data'].get('prompt_user'):
-            prompt_db_image_location = f"genera una imagen en vista interior isométrica en 3D de estilo low poly de {element_state_db['data']['description']}, con fondo de color negro, el suelo debe estar lo mas despejado posible, los elementos deben ser pequeños."
+            prompt_db_image_location = f"genera una imagen en vista interior isométrica en 3D de estilo medium poly de {element_state_db['data']['description']}, con fondo de color negro, el suelo debe estar lo mas despejado posible, los elementos deben ser pequeños."
 
             validate_prompt = await openai_generator.moderation_text(
                 text=prompt_db_image_location, user_id=_user_id
@@ -397,11 +390,14 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                         "content": [
                             {
                                 "type": "input_text",
-                                "text": """Genera una imagen en vista isométrica desde arriba, en estilo 3D mediumpoly, 
-                                       y resolución wide, sin personas, con los objetos 
-                                       únicamente a los costados de las paredes arriba-derecha y arriba-izquierda,
-                                       y el resto suelo despejado, ambientado con la mejor iluminación para este
-                                       escenario. Usa la imagen de referencia proporcionada para guiar el diseño.""",
+                                "text": """
+                                   Genera una imagen en vista isométrica desde arriba, en estilo 3D medium poly, 
+                                   y resolución ultra wide, sin personajes, con los objetos miniaturas 
+                                   (muebles, árboles, estructuras, etc) 
+                                   únicamente a los costados de las paredes arriba-derecha y arriba-izquierda,
+                                   y el resto suelo despejado, el espacio interno es el doble de amplio, 
+                                   ambientado con la mejor iluminación para este escenario y poco detalle en las texturas.
+                                       """,
                             },
                             {
                                 "type": "input_image",
