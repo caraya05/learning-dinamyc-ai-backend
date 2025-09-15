@@ -312,8 +312,6 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
             image_base64 = base64.b64encode(image_bytes.getvalue()).decode('utf-8')
 
-            print("entro aca")
-
             image_location = await openai_generator.generate_gpt(
                 content_prompt=[
                     {

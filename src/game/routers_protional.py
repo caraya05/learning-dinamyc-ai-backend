@@ -442,6 +442,38 @@ async def update_game_provisional(
     }
 
 
+@router.get("/in-progress", status_code=status.HTTP_200_OK)
+@limiter.limit("10/minute", error_message="Intentalo de nuevo más tarde")
+async def get_games_in_progress(request: Request, user: dict = Depends(auth), Token: HTTPAuthorizationCredentials = Depends(auth_schema)):
+    """
+    Devuelve un listado de juegos provisionales en progreso (no draft, sin game_id, y no más de 2 días de antigüedad).
+    """
+    now = datetime.now(pytz.utc)
+    two_days_ago = now - timedelta(days=2)
+    query = {
+        "state": {"$nin": ["draft", "completed", "error"]},
+        "game_id": {"$in": [None, "", False]},
+        "created_by": str(user["_id"]),
+        "created_at": {"$gte": two_days_ago}
+    }
+    games_cursor = db["game_provisional"].find(query)
+    games = []
+    async for game in games_cursor:
+        games.append({
+            "_id": str(game["_id"]),
+            "title": game.get("title"),
+            "state": game.get("state"),
+            "created_at": game.get("created_at"),
+            "updated_at": game.get("updated_at"),
+            "progress": game.get("progress", 0),
+            "progress_text": game.get("progress_text", ""),
+            "game_id": game.get("game_id"),
+            "user_name": game.get("user_name"),
+            "user_email": game.get("user_email"),
+        })
+    return {"games_in_progress": games}
+
+
 @router_ws.websocket("/{game_id}")
 async def websocket_game_provisional(websocket: WebSocket, game_id: str, token: str = None):
     """

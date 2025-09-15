@@ -585,11 +585,17 @@ async def extract_locations_from_scenes(id_game_provisional: str):
         for i, scene in enumerate(scenes_generated):
             info_scenes += f"Escena {i + 1}:\n{scene.get('interaction', '')}\n\n"
 
+        type_template = game_provisional_db.get("type_template")
+        if type_template:
+            type_template_definition = get_template_definition(type_template)
+            if type_template_definition:
+                info_scenes += f"\n\nDEFINICIÓN DEL TEMPLATE:\n{type_template_definition}\n\nAsegúrate de que las locaciones generadas sigan las reglas específicas del template mencionado arriba."
+
 
         prompt = (
             "Analiza todas las escenas del siguiente guion y extrae la información de las locaciones en el siguiente formato para cada locación encontrada:\n"
-            "- titulo: nombre de la locacion\n"
-            "- prompt_user: descripcion de la locacion. La descripción debe especificar que los objetos pequeños estén ubicados en las paredes en la vista isométrica, y que no haya objetos en la mitad de la vista para facilitar la navegación.\n"
+            "- titulo: nombre de la locación\n"
+            "- prompt_user: descripción de la locacion. La descripción debe especificar que los objetos pequeños estén ubicados en las paredes en la vista isométrica, y que no haya objetos en la mitad de la vista para facilitar la navegación.\n"
             "- escena: escena inicial donde aparece\n"
             "- escenas_donde_se_repite: todas las escenas donde se repite\n"
             "Devuelve una lista de objetos JSON, uno por cada locación.\n"
@@ -680,40 +686,114 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
         if type_template:
             locations_list += f"\n\nDEFINICIÓN DEL TEMPLATE:\n{type_template}\n\nAsegúrate de que los personajes e interacciones generados sigan las reglas específicas del template mencionado arriba."
 
-        prompt = (
-            f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones.\n\n"
-            f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
-            f"Para cada locación, devuelve un objeto JSON con:\n"
-            f"- titulo: nombre de la locación (debe coincidir exactamente con las locaciones existentes)\n"
-            f"- personaje_principal: objeto con 'nombre' y 'prompt_descriptivo' (debe ser el mismo personaje en TODAS las locaciones)\n"
-            f"- personaje_secundario: objeto con 'nombre' y 'prompt_descriptivo' (diferente para cada locación)\n"
-            f"- interaccion: objeto con:\n"
-            f"  * tipo: "
-            f"    - 'one_way' (solo habla el secundario al principal).\n"
-            f"    - 'two_way' (diálogo entre principal y secundario).\n"
-            f"    - 'option_multiple' (el principal elige entre varias opciones para responder al secundario, no numeradas).\n\n"
-            f"  * dialogo: \n"
-            f"    - Para 'one_way': un diálogo corto que dice el secundario al principal\n"
-            f"    - Para 'two_way': formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario\n\n"
-            f"  * Opciones de dialogo:\n"
-            f"    ** prompt_user_question: pregunta que hace el secundario al principal puede ser el dialogo 1 y 2 como el two_way en esta parte\n"
-            f"    ** opciones: opciones de respuesta\n"
-            f"      ** prompt_user_guideline: opcion de respuesta\n"
-            f"      ** prompt_user_answer: retroalimentacion a la opcion de respuesta\n"
-            f"  * Index de la opcion correcta (0 basado en cero)\n\n"
+        if type_template == "learn":
+            prompt = (
+                f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones. el tipo de interacción debe concordar con lo deseado \n\n"
+                f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
+                f"Para cada locación, devuelve un objeto JSON con:\n"
+                f"- titulo: nombre de la locación (debe coincidir exactamente con las locaciones existentes)\n"
+                f"- personaje_principal: objeto con 'nombre' y 'prompt_descriptivo' (debe ser el mismo personaje en TODAS las locaciones)\n"
+                f"- personaje_secundario: objeto con 'nombre' y 'prompt_descriptivo' (diferente para cada locación)\n"
+                f"- interaccion: objeto con:\n"
+                f"  * tipo: "
+                f"    - 'one_way' (solo habla el secundario al principal). solo para el tipo de template (learn)\n"
+                f"    - 'two_way' (diálogo entre principal y secundario). solo para el tipo de template (learn)\n"
+                f"  * dialogo: \n"
+                f"    - Para 'one_way': un diálogo corto que dice el secundario al principal solo para el tipo de template (learn)\n"
+                f"    - Para 'two_way': formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario de 4 a 6 interacciones solo para el tipo de template (learn)\n\n"
+                f"REGLAS IMPORTANTES:\n"
+                f"- El personaje principal debe ser el MISMO en todas las locaciones\n"
+                f"- Cada locación tiene exactamente 1 personaje secundario (diferente por locación)\n"
+                f"- Exactamente 1 interacción por locación\n"
+                f"- Los tipos son: 'one_way' , 'two_way'\n\n"
+                f"EJEMPL0 DE RESPUESTA:\n"
+                f"[\n"
+                f"  {{\n"
+                f"    'titulo': 'Locación 1',\n"
+                f"    'personaje_principal': {{'nombre': 'Nombre Principal', 'prompt_descriptivo': 'Descripción del personaje principal'}},\n"
+                f"    'personaje_secundario': {{'nombre': 'Nombre Secundario', 'prompt_descriptivo': 'Descripción del personaje secundario'}},\n"
+                f"    'interaccion': {{'tipo': 'one_way', 'dialogo': 'Diálogo del secundario al principal'}}\n"
+                f"  }},\n"
+                f"  {{\n"
+                f"    'titulo': 'Locación 2',\n"
+                f"    'personaje_principal': {{'nombre': 'Nombre Principal', 'prompt_descriptivo': 'Descripción del personaje principal'}},\n"
+                f"    'personaje_secundario': {{'nombre': 'Nombre Secundario', 'prompt_descriptivo': 'Descripción del personaje secundario'}},\n"
+                f"    'interaccion': {{'tipo': 'two_way', 'dialogo': '1 Hola 2 Hola, ¿cómo estás? 1 Bien, ¿y tú? 2 Muy bien, gracias.'}}\n"
+                f"  }}\n"
+                f"]\n\n"
+            )
+        elif type_template == "trivia":
+            prompt = (
+                f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones. el tipo de interacción debe concordar con lo deseado \n\n"
+                f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
+                f"Para cada locación, devuelve un objeto JSON con:\n"
+                f"- titulo: nombre de la locación (debe coincidir exactamente con las locaciones existentes)\n"
+                f"- personaje_principal: objeto con 'nombre' y 'prompt_descriptivo' (debe ser el mismo personaje en TODAS las locaciones)\n"
+                f"- personaje_secundario: objeto con 'nombre' y 'prompt_descriptivo' (diferente para cada locación)\n"
+                f"- interaccion: objeto con:\n"
+                f"  * tipo: "
+                f"    - 'option_multiple' (el principal elige entre varias opciones para responder al secundario, no numeradas). solo para el tipo de template (trivia) \n\n"
+                f"  * Opciones de dialogo:\n"
+                f"    ** prompt_user_question: interacción llevando hacia la pregunta antes de las opciones que hace el secundario al principal puede ser formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario de 4 a 6 interacciones \n"
+                f"    ** opciones: opciones de respuesta solo para el tipo de interaccion 'option_multiple'\n"
+                f"      ** prompt_user_guideline: opcion de respuesta\n"
+                f"      ** prompt_user_answer: retroalimentación a la opcion de respuesta\n"
+                f"  * Index de la opcion correcta (0 basado en cero) solo para el tipo de interacción 'option_multiple'\n\n"
+                f"REGLAS IMPORTANTES:\n"
+                f"- El personaje principal debe ser el MISMO en todas las locaciones\n"
+                f"- Cada locación tiene exactamente 1 personaje secundario (diferente por locación)\n"
+                f"- Exactamente 1 interacción por locación\n"
+                f"- Los tipos son:'option_multiple'\n\n"
+                f"EJEMPL0 DE RESPUESTA:\n"
+                f"[\n"
+                f"  {{\n"
+                f"    'titulo': 'Locación 1',\n"
+                f"    'personaje_principal': {{'nombre': 'Nombre Principal', 'prompt_descriptivo': 'Descripción del personaje principal'}},\n"
+                f"    'personaje_secundario': {{'nombre': 'Nombre Secundario', 'prompt_descriptivo': 'Descripción del personaje secundario'}},\n"
+                f"    'interaccion': {{'tipo': 'option_multiple'}},\n"
+                f"    'options_dialogo': {{'prompt_user_question': '1 Hola 2 ¿Listo para la pregunta? 1 Sí, adelante.', 'options': [\n"
+                f"        {{'prompt_user_guideline': 'Opción A', 'prompt_user_answer': 'Respuesta para Opción A'}},\n"
+                f"        {{'prompt_user_guideline': 'Opción B', 'prompt_user_answer': 'Respuesta para Opción B'}},\n"
+                f"        {{'prompt_user_guideline': 'Opción C', 'prompt_user_answer': 'Respuesta para Opción C'}}\n"
+                f"      ], 'index_opcion_correcta': 1}}\n"
+                f"  }}\n"
+                f"]\n\n"
 
-            f"REGLAS IMPORTANTES:\n"
-            f"- El personaje principal debe ser el MISMO en todas las locaciones\n"
-            f"- Cada locación tiene exactamente 1 personaje secundario (diferente por locación)\n"
-            f"- Exactamente 1 interacción por locación\n"
-            f"- Los tipos son: 'one_way' , 'two_way' , 'option_multiple'\n\n"
-            f"GUION COMPLETO:\n{script}"
-        )
+            )
+        else:
+            prompt = (
+                f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones. el tipo de interacción debe concordar con lo deseado \n\n"
+                f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
+                f"Para cada locación, devuelve un objeto JSON con:\n"
+                f"- titulo: nombre de la locación (debe coincidir exactamente con las locaciones existentes)\n"
+                f"- personaje_principal: objeto con 'nombre' y 'prompt_descriptivo' (debe ser el mismo personaje en TODAS las locaciones)\n"
+                f"- personaje_secundario: objeto con 'nombre' y 'prompt_descriptivo' (diferente para cada locación)\n"
+                f"- interaccion: objeto con:\n"
+                f"  * tipo: "
+                f"    - 'one_way' (solo habla el secundario al principal). \n"
+                f"    - 'two_way' (diálogo entre principal y secundario). \n"
+                f"    - 'option_multiple' (el principal elige entre varias opciones para responder al secundario, no numeradas). \n\n"
+                f"  * dialogo o Opciones de dialogo según el tipo:\n"
+                f"    - Para 'one_way': un diálogo corto que dice el secundario al principal \n"
+                f"    - Para 'two_way': formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario de 4 a 6 interacciones \n"
+                f"    - Para 'option_multiple':\n"
+                f"      ** prompt_user_question: interacción llevando hacia la pregunta antes de las opciones que hace el secundario al principal puede ser formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario de 4 a 6 interacciones \n"
+                f"      ** opciones: opciones de respuesta\n"
+                f"        ** prompt_user_guideline: opcion de respuesta\n"
+                f"        ** prompt_user_answer: retroalimentación a la opcion de respuesta\n"
+                f"      ** Index de la opcion correcta (0 basado en cero)\n\n"
+
+                f"REGLAS IMPORTANTES:\n"
+                f"- El personaje principal debe ser el MISMO en todas las locaciones\n"
+                f"- Cada locación tiene exactamente 1 personaje secundario (diferente por locación)\n"
+                f"- Exactamente 1 interacción por locación\n"
+                f"- Los tipos son: 'one_way' , 'two_way' , 'option_multiple'\n\n"
+            )
 
         characters_response = await openai_generator.generate_gpt(
             content_prompt=[
                 {"role": "system",
-                 "content": "Eres un experto en análisis de guiones y creación de personajes para videojuegos. Analiza cuidadosamente el guión y crea personajes consistentes con interacciones naturales."},
+                 "content": "Eres un experto en análisis de guiones y creación de personajes para videojuegos. Analiza cuidadosamente el guión y crea personajes consistentes con interacciones naturales. y que acople al template"},
                 {"role": "user", "content": prompt}
             ],
             model="gpt-4.1",
@@ -1174,7 +1254,7 @@ async def create_game_by_provisional(id_game_provisional: str):
 
             # Configuración de la locación con personajes posicionados
             location_configuration = {
-                "characterScale": 2,
+                "characterScale": 1.6,
                 "GridX": 0,
                 "GridY": 0,
                 "GridPlaneSize": 0,  # Cuadrícula de 60x60
@@ -1594,7 +1674,7 @@ ESTRUCTURA REQUERIDA:
 - Evento Final: ✅ (Resumen y conclusiones del aprendizaje)
 
 REGLAS ESPECÍFICAS:
-- Interacciones tipo "two_way" (dos caminos) de 4 a 6 interracciones
+- Interacciones tipo "two_way"  de 4 a 6 interracciones
 - Todas las rutas llevan al progreso (sin bloqueos por respuestas incorrectas)
 - Enfoque en exploración y comprensión gradual del concepto
 - Las contrarespuestas varían para enriquecer el aprendizaje
@@ -1628,7 +1708,7 @@ REGLAS ESPECÍFICAS:
 TEMPLATE TIPO: TRIVIA (Test de Conocimientos)
 
 DEFINICIÓN:
-Formato de prueba de conocimiento. Cada escena presenta preguntas con múltiples opciones. Solo se avanza si se responde correctamente. El personaje da contrarespuestas distintas según acierto o error, reforzando el aprendizaje mediante retroalimentación.
+Formato de prueba de conocimiento de 3 escenas. Cada escena presenta preguntas con múltiples opciones. Solo se avanza si se responde correctamente. El personaje da contrarespuestas distintas según acierto o error, reforzando el aprendizaje mediante retroalimentación.
 
 ESTRUCTURA REQUERIDA:
 - Evento Intro: ✅ (Presentación del desafío de conocimientos)
@@ -1640,7 +1720,7 @@ ESTRUCTURA REQUERIDA:
 - Evento Final: ✅ (Solo acceden quienes responden todas correctamente)
 
 REGLAS ESPECÍFICAS:
-- Si hay error, el jugador solo avanza al responder correctamente (2way de 2 a 4 opciones)
+- Si hay error, el jugador solo avanza al responder correctamente (two_way de la pregunta de 4 a 6 interracciones y 3 opciones de respuestas)
 - La contrarespuesta del personaje cambia según si acierta o falla
 - Progresión bloqueada hasta respuesta correcta
 - Retroalimentación educativa en respuestas incorrectas
