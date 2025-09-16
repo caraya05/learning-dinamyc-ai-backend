@@ -1,9 +1,8 @@
 import asyncio
 import os
-
 from celery import Celery
-
-# Importamos la instancia Celery desde el nuevo módulo
+from celery.signals import worker_ready, celeryd_after_setup, worker_init
+import redis
 
 from event.tasks import async_generate_image_event
 from location.tasks import async_generate_location_task
@@ -21,10 +20,88 @@ from voice.task import async_generate_voice_task
 from object.task import async_generate_item, async_updated_item, async_generate_new_interaction_item
 
 
+# Configuración de broker y backend con manejo de errores
+def get_redis_url():
+    """Obtiene la URL de Redis con fallback a valores por defecto"""
+    broker_url = os.getenv("CELERY_BROKER_URL", "redis://redisARM:6379/0")
+    if "redis://" not in broker_url:
+        broker_url = f"redis://{broker_url}"
+    return broker_url
+
 celery = Celery(__name__)
-celery.conf.broker_url = os.getenv("CELERY_BROKER_URL", "redis://redis:6379/0")
-celery.conf.result_backend = os.getenv("CELERY_RESULT_BACKEND", "redis://redis:6379/0")
-celery.conf.update(worker_max_drift=60)  # Permitir hasta 60 segundos de desviación
+
+# Configuración base de Celery
+broker_url = get_redis_url()
+result_backend = os.getenv("CELERY_RESULT_BACKEND", broker_url)
+
+celery.conf.update(
+    # Conexión con broker
+    broker_url=broker_url,
+    result_backend=result_backend,
+    broker_connection_retry=True,
+    broker_connection_max_retries=None,
+    broker_connection_timeout=10,
+
+    # Configuración de worker
+    worker_max_tasks_per_child=1000,
+    worker_prefetch_multiplier=1,
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
+
+    # Timeouts y reintentos
+    task_soft_time_limit=3600,
+    task_time_limit=7200,
+
+    # Persistencia y resultados
+    result_expires=259200,
+    worker_max_drift=60,
+
+    # Configuración de eventos para Flower
+    worker_send_task_events=True,
+    task_send_sent_event=True,
+    task_track_started=True,
+    task_track_received=True,
+    worker_pool_restarts=True,
+)
+
+# Configurar colas específicas
+task_routes = {
+    'generate_character_task': {'queue': 'character_queue'},
+    'generate_location_task': {'queue': 'location_queue'},
+    'generate_image_*': {'queue': 'image_queue'},
+    'generate_voice_task': {'queue': 'voice_queue'},
+    '*': {'queue': 'default'},
+}
+
+celery.conf.update(task_routes=task_routes)
+
+@worker_init.connect
+def init_worker(**kwargs):
+    """Inicializa el worker y activa los eventos"""
+    print("🚀 Iniciando worker de Celery...")
+    celery.conf.update(worker_send_task_events=True)
+
+# Señal para verificar que el worker inició correctamente
+@worker_ready.connect
+def worker_ready_handler(**kwargs):
+    """Verifica la conexión con Redis cuando el worker está listo"""
+    try:
+        redis_client = redis.Redis.from_url(broker_url)
+        redis_client.ping()
+        print(f"✅ Celery worker conectado exitosamente a Redis en: {broker_url}")
+        print(f"🔄 Colas configuradas: {list(task_routes.keys())}")
+        print("📊 Eventos activados para monitoreo con Flower")
+    except redis.ConnectionError as e:
+        print(f"❌ Error conectando a Redis: {str(e)}")
+        print(f"🔍 URL de Redis: {broker_url}")
+
+@celeryd_after_setup.connect
+def setup_direct_queues(sender, instance, **kwargs):
+    """Configura las colas después de iniciar el worker"""
+    print(f"🚀 Worker {sender} iniciado y listo para procesar tareas")
+    print(f"📩 Procesando colas: {instance.app.conf.task_queues}")
+    print("🔌 Eventos de monitoreo activados")
+
 
 
 

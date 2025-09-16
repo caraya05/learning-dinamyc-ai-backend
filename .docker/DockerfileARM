@@ -1,34 +1,39 @@
-FROM arm64v8/python:3.12-alpine AS builder
+FROM arm64v8/python:3.12-alpine
 
 ENV PYTHONUNBUFFERED=1
 ENV C_FORCE_ROOT=1
 
 WORKDIR /code
 
-# Install build dependencies
-RUN apk add --no-cache git cmake libffi-dev linux-headers g++ ffmpeg
+# Install build and runtime dependencies
+RUN apk add --no-cache \
+    git \
+    cmake \
+    libffi-dev \
+    linux-headers \
+    g++ \
+    ffmpeg \
+    python3-dev \
+    musl-dev \
+    gcc \
+    make \
+    build-base \
+    bash \
+    curl \
+    tini
 
 # Install Python dependencies
 COPY ./src/requirements.txt /code/requirements.txt
-RUN pip install "Cython<3.0" pyyaml --no-build-isolation \
-    && pip install --no-cache-dir --upgrade -r /code/requirements.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install "Cython<3.0" pyyaml --no-build-isolation && \
+    CFLAGS="-march=native -O3" pip install --no-cache-dir google-crc32c --no-binary :all: && \
+    pip install --no-cache-dir --upgrade -r /code/requirements.txt && \
+    pip install --no-cache-dir "flower>=2.0.0" redis
+
+# Create directories and config files
+RUN mkdir -p /data
 
 COPY ./src/. /code
-# Stage 2: Final
-#FROM arm64v8/python:3.12-alpine
-#
-#ENV PYTHONUNBUFFERED=1
-#ENV C_FORCE_ROOT=1
-#
-## Install runtime dependencies
-#RUN apk add gdal libpq git cmake gettext libffi-dev gcc g++ musl-dev linux-headers \
-#    && apk del git cmake libffi-dev gcc g++ musl-dev linux-headers
-#
-#WORKDIR /code
-#
-## Copy installed Python packages from builder stage
-#COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
-#COPY --from=builder /usr/local/bin /usr/local/bin
-#
-## Copy application code
-#COPY ./src/. /code
+
+# Use tini as init system
+ENTRYPOINT ["/sbin/tini", "--"]

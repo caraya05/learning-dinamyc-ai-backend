@@ -591,7 +591,6 @@ async def extract_locations_from_scenes(id_game_provisional: str):
             if type_template_definition:
                 info_scenes += f"\n\nDEFINICIÓN DEL TEMPLATE:\n{type_template_definition}\n\nAsegúrate de que las locaciones generadas sigan las reglas específicas del template mencionado arriba."
 
-
         prompt = (
             "Analiza todas las escenas del siguiente guion y extrae la información de las locaciones en el siguiente formato para cada locación encontrada:\n"
             "- titulo: nombre de la locación\n"
@@ -662,6 +661,7 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
 
         script = game_provisional_db.get("script")
         locations = game_provisional_db.get("locations")
+        template_type = game_provisional_db.get("template_type", "").lower()
 
         if not script:
             return "Script not found in game provisional"
@@ -682,9 +682,10 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
             [f"- {loc.get('titulo', 'Sin título')}: {loc.get('prompt_user', 'Sin descripción')}" for loc in locations if
              isinstance(loc, dict)])
 
-        type_template = get_template_definition(game_provisional_db.get("template_type", None))
-        if type_template:
-            locations_list += f"\n\nDEFINICIÓN DEL TEMPLATE:\n{type_template}\n\nAsegúrate de que los personajes e interacciones generados sigan las reglas específicas del template mencionado arriba."
+        type_template = game_provisional_db.get("type_template", None)
+        template_select = get_template_definition(type_template)
+        if template_select:
+            locations_list += f"\n\nDEFINICIÓN DEL TEMPLATE:\n{template_select}\n\nAsegúrate de que los personajes e interacciones generados sigan las reglas específicas del template mencionado arriba."
 
         if type_template == "learn":
             prompt = (
@@ -775,9 +776,9 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
                 f"    - 'option_multiple' (el principal elige entre varias opciones para responder al secundario, no numeradas). \n\n"
                 f"  * dialogo o Opciones de dialogo según el tipo:\n"
                 f"    - Para 'one_way': un diálogo corto que dice el secundario al principal \n"
-                f"    - Para 'two_way': formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario de 4 a 6 interacciones \n"
+                f"    - Para 'two_way': formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario de 4 a 6 interracciones \n"
                 f"    - Para 'option_multiple':\n"
-                f"      ** prompt_user_question: interacción llevando hacia la pregunta antes de las opciones que hace el secundario al principal puede ser formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario de 4 a 6 interacciones \n"
+                f"      ** prompt_user_question: interacción llevando hacia la pregunta antes de las opciones que hace el secundario al principal puede ser formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario de 4 a 6 interracciones \n"
                 f"      ** opciones: opciones de respuesta\n"
                 f"        ** prompt_user_guideline: opcion de respuesta\n"
                 f"        ** prompt_user_answer: retroalimentación a la opcion de respuesta\n"
@@ -813,6 +814,21 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
         else:
             return "No characters data found in response"
 
+        # Validar tipos de interacción para cada locación
+
+        if not type_template:
+            type_template = "learn"  # O el valor por defecto que corresponda
+
+        for loc in locations_with_chars:
+            if hasattr(loc, 'interaccion') and hasattr(loc.interaccion, 'tipo'):
+                is_valid, expected_types = await validate_interaction_type(
+                    type_template,
+                    loc.interaccion.tipo
+                )
+                if not is_valid:
+                    print(
+                        f"Invalid interaction type '{loc.interaccion.tipo}' for template '{type_template}'. Expected types: {expected_types}")
+                    return f"error interaction type '{loc.interaccion.tipo}' for template '{type_template}'. Expected types: {expected_types}"
         # Actualizar las locaciones existentes con la información de personajes
         updated_locations = []
 
@@ -1775,3 +1791,28 @@ REGLAS ESPECÍFICAS:
     }
 
     return definitions.get(template_type, "Template type not found")
+
+
+async def validate_interaction_type(template_type: str, interaction_type: str) -> tuple[bool, str]:
+    """
+    Valida si el tipo de interacción coincide con el template especificado.
+
+    Args:
+        template_type: Tipo de template (learn, trivia, etc.)
+        interaction_type: Tipo de interacción (one_way, two_way, option_multiple)
+
+    Returns:
+        tuple: (es_valido, tipo_esperado)
+    """
+    template_interactions = {
+        "learn": ["one_way", "two_way"],
+        "trivia": ["option_multiple"],
+        "evaluation": ["two_way"],
+        "solve": ["two_way"],
+        "expert": ["opentalk"]
+    }
+
+    expected_types = template_interactions.get(template_type.lower(), [])
+    is_valid = interaction_type.lower() in expected_types
+
+    return is_valid, ", ".join(expected_types)

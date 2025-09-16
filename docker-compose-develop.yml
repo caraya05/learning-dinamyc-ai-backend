@@ -12,6 +12,7 @@ services:
       - .env
     volumes:
       - ./src/:/code
+      - /etc/localtime:/etc/localtime:ro  # Sincronización de tiempo con el host
     ports:
       - "9000:9000"
 
@@ -33,20 +34,37 @@ services:
   redis:
     container_name: redis-dev
     image: redis:6.2-alpine
+    volumes:
+      - /etc/localtime:/etc/localtime:ro  # Sincronización de tiempo con el host
 
   celery_worker:
     container_name: celery_worker
     build:
       context: .
       dockerfile: .docker/Dockerfile
-    command: celery -A celery_worker.celery worker --loglevel=info
+    command: >
+      celery -A celery_worker.celery worker
+      --loglevel=info
+      --concurrency=4
+      --max-tasks-per-child=1000
+      --queues=character_queue,location_queue,image_queue,voice_queue,default
+      --prefetch-multiplier=1
+      --pool=prefork
     volumes:
       - ./src/:/code
+      - /etc/localtime:/etc/localtime:ro
     env_file:
       - .env
     depends_on:
       - fastapi
       - redis
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    restart: unless-stopped
 
   flower:
     container_name: flower-dev

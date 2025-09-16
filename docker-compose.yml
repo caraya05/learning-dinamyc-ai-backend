@@ -11,6 +11,7 @@ services:
       - .env
     volumes:
       - ./src/:/code
+      - /etc/localtime:/etc/localtime:ro  # Sincronización de tiempo con el host
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -33,6 +34,8 @@ services:
   redis:
     container_name: redis
     image: redis:6.2-alpine
+    volumes:
+      - /etc/localtime:/etc/localtime:ro  # Sincronización de tiempo con el host
 
   celery_worker:
     container_name: celery_worker
@@ -42,6 +45,7 @@ services:
     command: celery -A celery_worker.celery worker --loglevel=info
     volumes:
       - ./src/:/code
+      - /etc/localtime:/etc/localtime:ro  # Sincronización de tiempo con el host
     env_file:
       - .env
     depends_on:

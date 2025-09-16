@@ -7,61 +7,129 @@ services:
     command: ./fastapi-entrypoint-loc.sh
     env_file:
       - .env
+    environment:
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
     volumes:
       - ./src/:/code
+      - /etc/localtime:/etc/localtime:ro
     ports:
       - "9000:9000"
-#
-#  nginx:
-#    container_name: nginxARM
-#    build:
-#      context: ./nginx
-#      dockerfile: DockerfileARM
-#    #    image: nginx:latest
-#    depends_on:
-#      - fastapi
-#    ports:
-#      - "80:80"
-#      - "443:443"
-#    volumes:
-#      - ./nginx/local/:/etc/nginx/conf.d/:ro
-##      - ./nginx/ssl:/etc/ssl/:ro
-#      - ./src/static:/code/static
+    networks:
+      - app-network
+    depends_on:
+      - redis
 
   redis:
     container_name: redisARM
     image: arm64v8/redis:6.2-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --protected-mode no
     volumes:
       - redis-data:/data
-
-  flower:
-    container_name: flowerARM
-    build:
-      context: .
-      dockerfile: .docker/DockerfileARM
-    command: celery -A celery_worker.celery flower --port=5555 --url_prefix=/flower
+      - /etc/localtime:/etc/localtime:ro
     ports:
-      - "5556:5555"
-    env_file:
-      - .env
-    depends_on:
-      - celery_worker
-    volumes:
-      - flower-data:/data
+      - "6379:6379"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
 
   celery_worker:
     container_name: celery_workerARM
     build:
       context: .
       dockerfile: .docker/DockerfileCelery
-    command: celery -A celery_worker.celery worker --loglevel=info --pool=solo
+    command: >
+      celery -A celery_worker.celery worker
+      --loglevel=info
+      --concurrency=2
+      --max-tasks-per-child=1000
+      --queues=character_queue,location_queue,image_queue,voice_queue,default
+      --prefetch-multiplier=1
+      --pool=solo
+      --hostname=worker@%h
+      --events
     volumes:
       - ./src/:/code
       - celery-data:/data
+      - /etc/localtime:/etc/localtime:ro
     env_file:
       - .env
+    environment:
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      C_FORCE_ROOT: "true"
+      PYTHONPATH: /code
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "sleep 5 && /usr/local/bin/celery-healthcheck.sh"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+
+  flower:
+    container_name: flowerARM
+    build:
+      context: .
+      dockerfile: .docker/DockerfileARM
+    command: >
+      sh -c "
+      sleep 10 &&
+      celery flower
+      --app=celery_worker.celery
+      --address=0.0.0.0
+      --port=5555
+      --broker=redis://:${REDIS_PASSWORD}@redisARM:6379/0
+      --basic_auth=${FLOWER_USER}:${FLOWER_PASSWORD}
+      --persistent=True
+      --state_save_interval=10000
+      --db=/data/flower.db
+      "
+    ports:
+      - "5556:5555"
+    env_file:
+      - .env
+    environment:
+      PYTHONPATH: /code
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+    volumes:
+      - ./src/:/code
+      - flower-data:/data
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5555/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
   redis-data:

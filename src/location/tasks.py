@@ -319,7 +319,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                         "content": [
                             {
                                 "type": "input_text",
-                                "text": """Genera una imagen en vista isométrica desde arriba, en estilo 3D medium poly,
+                                "text": """Genera una imagen en vista isométrica desde arriba, en estilo 3D detallada,,
                                          y resolución wide, sin personajes, con los objetos
                                          únicamente a los costados de las paredes arriba-derecha y arriba-izquierda, 
                                         y el resto suelo despejado, ambientado con la mejor iluminación para este escenario, replica la imagen referencia en la vista isométrica.""",
@@ -371,7 +371,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
         # Si no hay imagen de referencia pero hay prompt_user, generar imagen normal
         elif not element_state_db['data'].get('image_reference') and element_state_db['data'].get('prompt_user'):
-            prompt_db_image_location = f"genera una imagen en vista interior isométrica en 3D de estilo medium poly de {element_state_db['data']['description']}, con fondo de color negro, el suelo debe estar lo mas despejado posible, los elementos deben ser pequeños."
+            prompt_db_image_location = f"genera una imagen en vista interior isométrica en estilo 3D detallada, de {element_state_db['data']['description']}, con fondo de color negro, el suelo debe estar lo mas despejado posible, los elementos deben ser pequeños."
 
             validate_prompt = await openai_generator.moderation_text(
                 text=prompt_db_image_location, user_id=_user_id
@@ -389,7 +389,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                             {
                                 "type": "input_text",
                                 "text": """
-                                   Genera una imagen en vista isométrica desde arriba, en estilo 3D medium poly, 
+                                   Genera una imagen en vista isométrica desde arriba, en estilo 3D detallada, 
                                    y resolución ultra wide, sin personajes, con los objetos miniaturas 
                                    (muebles, árboles, estructuras, etc) 
                                    únicamente a los costados de las paredes arriba-derecha y arriba-izquierda,
