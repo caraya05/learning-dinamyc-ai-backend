@@ -7,6 +7,8 @@ from bson import ObjectId
 
 from fastapi import HTTPException
 from fastapi import status
+from celery.result import AsyncResult
+from celery.worker.control import revoke
 
 from core.database import db
 
@@ -114,3 +116,52 @@ async def get_task_pending_service(user_id: str, ids: str = None, is_list: bool 
     except Exception as e:
         print("Error in get task pending", e)
         return None
+
+
+async def revoke_task(task_id: str, terminate: bool = False) -> dict:
+    """
+    Revoca una tarea de Celery. Si terminate es True, la tarea será terminada forzosamente.
+
+    Args:
+        task_id: ID de la tarea a revocar
+        terminate: Si es True, termina la tarea forzosamente
+
+    Returns:
+        dict: Estado de la operación
+    """
+    try:
+        # Obtener la tarea
+        task = AsyncResult(task_id)
+
+        if task.state in ['PENDING', 'STARTED', 'RETRY']:
+            # Revocar la tarea
+            revoke(task_id, terminate=terminate)
+
+            # Actualizar el estado en la base de datos
+            await db["task"].update_one(
+                {"_id": ObjectId(task_id)},
+                {
+                    "$set": {
+                        "status": "revoked",
+                        "message": "Task revoked by user"
+                    }
+                }
+            )
+
+            return {
+                "success": True,
+                "message": f"Task {task_id} has been revoked",
+                "terminated": terminate
+            }
+        else:
+            return {
+                "success": False,
+                "message": f"Task {task_id} cannot be revoked (current state: {task.state})"
+            }
+
+    except Exception as e:
+        print(f"Error revoking task {task_id}: {str(e)}")
+        return {
+            "success": False,
+            "message": f"Error revoking task: {str(e)}"
+        }

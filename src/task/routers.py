@@ -8,6 +8,8 @@ from fastapi.security import HTTPAuthorizationCredentials
 from auth.auth import auth
 from auth.utils import auth_schema
 from task.services import get_task_pending_service
+from task.services import revoke_task
+from task.schemas import TaskRevokeResponse
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
@@ -24,3 +26,21 @@ async def get_tasks(
         results_tasks.append(task["_id"])
 
     return {"results": tasks_db, "tasks": results_tasks}
+
+
+@router.post("/{task_id}/revoke", response_model=TaskRevokeResponse)
+async def revoke_task_endpoint(task_id: str, terminate: bool = False):
+    """
+    Revoca o termina una tarea en ejecución.
+
+    Args:
+        task_id: ID de la tarea a revocar
+        terminate: Si es True, termina la tarea forzosamente
+    """
+    result = await revoke_task(task_id, terminate)
+    if not result["success"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=result["message"]
+        )
+    return result

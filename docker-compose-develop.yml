@@ -10,11 +10,18 @@ services:
       /bin/sh -c "echo 'Qwestar AI Backend' | figlet && sleep 1 && uvicorn main:app --reload --host 0.0.0.0 --port 9000 --forwarded-allow-ips='*' --proxy-headers"
     env_file:
       - .env
+    environment:
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redis-dev:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redis-dev:6379/0"
     volumes:
       - ./src/:/code
-      - /etc/localtime:/etc/localtime:ro  # Sincronización de tiempo con el host
+      - /etc/localtime:/etc/localtime:ro
     ports:
       - "9000:9000"
+    networks:
+      - app-network
+    depends_on:
+      - redis
 
   nginx:
     container_name: nginx-dev
@@ -30,15 +37,30 @@ services:
       - ./nginx/dev/:/etc/nginx/conf.d/:ro
       - ./nginx/ssl:/etc/ssl/:ro
       - ./src/static:/code/static
+    networks:
+      - app-network
 
   redis:
     container_name: redis-dev
     image: redis:6.2-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --protected-mode no
     volumes:
-      - /etc/localtime:/etc/localtime:ro  # Sincronización de tiempo con el host
+      - redis-data:/data
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
 
   celery_worker:
-    container_name: celery_worker
+    container_name: celery_worker-dev
     build:
       context: .
       dockerfile: .docker/Dockerfile
@@ -50,14 +72,25 @@ services:
       --queues=character_queue,location_queue,image_queue,voice_queue,default
       --prefetch-multiplier=1
       --pool=prefork
+      --hostname=worker@%h
+      --events
     volumes:
       - ./src/:/code
+      - celery-data:/data
       - /etc/localtime:/etc/localtime:ro
     env_file:
       - .env
+    environment:
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redis-dev:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redis-dev:6379/0"
+      C_FORCE_ROOT: "true"
+      PYTHONPATH: /code
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     depends_on:
-      - fastapi
-      - redis
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
     deploy:
       resources:
         limits:
@@ -65,18 +98,62 @@ services:
         reservations:
           memory: 512M
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "sleep 5 && /usr/local/bin/celery-healthcheck.sh"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
 
   flower:
     container_name: flower-dev
     build:
       context: .
       dockerfile: .docker/Dockerfile
-    command: celery -A celery_worker.celery flower --port=5555
+    command: >
+      sh -c "
+      sleep 10 &&
+      celery flower
+      --app=celery_worker.celery
+      --address=0.0.0.0
+      --port=5555
+      --broker=redis://:${REDIS_PASSWORD}@redis-dev:6379/0
+      --basic_auth=${FLOWER_USER}:${FLOWER_PASSWORD}
+      --persistent=True
+      --state_save_interval=10000
+      --db=/data/flower.db
+      "
     ports:
       - "5556:5555"
     env_file:
       - .env
+    environment:
+      PYTHONPATH: /code
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redis-dev:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redis-dev:6379/0"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - ./src/:/code
+      - flower-data:/data
+      - /etc/localtime:/etc/localtime:ro
     depends_on:
-      - fastapi
-      - redis
-      - celery_worker
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5555/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  flower-data:
+  celery-data:

@@ -51,7 +51,7 @@ dev-up-pro:
 	docker-compose -f docker-compose-develop.yml up -d
 
 dev-down:
-	docker-compose -f docker-compose-develop.yml down
+	docker-compose -f docker-compose-develop.yml down -v
 
 dev-stop:
 	docker-compose -f docker-compose-develop.yml stop
@@ -82,7 +82,7 @@ stage-up-pro:
 	docker-compose -f docker-compose-stage.yml up -d
 
 stage-down:
-	docker-compose -f docker-compose-stage.yml down
+	docker-compose -f docker-compose-stage.yml down -v
 
 stage-stop:
 	docker-compose -f docker-compose-stage.yml stop
@@ -110,7 +110,7 @@ arm-up:
 	docker-compose -f docker-compose-arm.yml up
 
 arm-down:
-	docker-compose -f docker-compose-arm.yml down
+	docker-compose -f docker-compose-arm.yml down -v
 
 arm-stop:
 	docker-compose -f docker-compose-arm.yml stop

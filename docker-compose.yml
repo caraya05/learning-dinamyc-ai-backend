@@ -3,66 +3,140 @@ version: '3.8'
 services:
   fastapi:
     container_name: fastapi
-    build:
-      context: .
-      dockerfile: .docker/Dockerfile
-    command: ./fastapi-entrypoint-loc.sh
+    image: us-east4-docker.pkg.dev/qwestar-ai/back-qwestar-ai/backend-dev:latest
+    command: >
+      /bin/sh -c "echo 'Qwestar AI Backend' && sleep 1 && uvicorn main:app --reload --host 0.0.0.0 --port 9000 --forwarded-allow-ips='*' --proxy-headers"
     env_file:
       - .env
-    volumes:
-      - ./src/:/code
-      - /etc/localtime:/etc/localtime:ro  # Sincronización de tiempo con el host
+    environment:
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redis:6379/0"
     ports:
       - "9000:9000"
-      - "9001:9001"
-
-#  nginx:
-#    container_name: nginx
-#    build:
-#      context: ./nginx
-#      dockerfile: Dockerfile
-#    depends_on:
-#      - fastapi
-#    ports:
-#      - "80:80"
-#      - "443:443"
-#    volumes:
-#      - ./nginx:/etc/nginx/conf.d/:ro
-##      - ./nginx/ssl:/etc/ssl/:ro
-#      - ./src/static:/code/static
+    networks:
+      - app-network
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
 
   redis:
     container_name: redis
     image: redis:6.2-alpine
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --protected-mode no
     volumes:
-      - /etc/localtime:/etc/localtime:ro  # Sincronización de tiempo con el host
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    restart: unless-stopped
 
   celery_worker:
     container_name: celery_worker
-    build:
-      context: .
-      dockerfile: .docker/Dockerfile
-    command: celery -A celery_worker.celery worker --loglevel=info
+    image: us-east4-docker.pkg.dev/qwestar-ai/back-qwestar-ai/backend-dev:latest
+    command: >
+      sh -c "
+      cd /code &&
+      celery -A celery_worker worker
+      --loglevel=info
+      --concurrency=4
+      --max-tasks-per-child=1000
+      --queues=character_queue,location_queue,image_queue,voice_queue,default
+      --prefetch-multiplier=1
+      --pool=prefork
+      --hostname=worker@%h
+      --events
+      "
     volumes:
-      - ./src/:/code
-      - /etc/localtime:/etc/localtime:ro  # Sincronización de tiempo con el host
+      - celery-data:/data
+    working_dir: /code
     env_file:
       - .env
+    environment:
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      C_FORCE_ROOT: "true"
+      PYTHONPATH: /code
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     depends_on:
-      - fastapi
-      - redis
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "cd /code && celery -A celery_worker inspect ping -d 'worker@%h' --broker='redis://:${REDIS_PASSWORD}@redis:6379/0'"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
 
   flower:
     container_name: flower
-    build:
-      context: .
-      dockerfile: .docker/Dockerfile
-    command: celery -A celery_worker.celery flower --port=5555
-    ports:
-      - "5556:5555"
+    image: us-east4-docker.pkg.dev/qwestar-ai/back-qwestar-ai/backend-dev:latest
+    command: >
+      sh -c "
+      cd /code &&
+      mkdir -p /data &&
+      sleep 15 &&
+      celery 
+      -A celery_worker
+      flower
+      --address=0.0.0.0
+      --port=5555
+      --basic_auth=${FLOWER_USER}:${FLOWER_PASSWORD}
+      --persistent=True
+      --db=/data/flower.db
+      --state_save_interval=10000
+      --broker_api=redis://:${REDIS_PASSWORD}@redis:6379/0
+      --max_tasks=100000
+      "
+    volumes:
+      - flower-data:/data
+    working_dir: /code
     env_file:
       - .env
+    environment:
+      PYTHONPATH: /code
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      FLOWER_UNAUTHENTICATED_API: "true"
+      FLOWER_PERSISTENT: "true"
+      FLOWER_STATE_SAVE_INTERVAL: "10000"
+      FLOWER_PORT: "5555"
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     depends_on:
-      - fastapi
-      - redis
-      - celery_worker
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://localhost:5555/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+  flower-data:
+  celery-data:
