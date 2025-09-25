@@ -1,8 +1,8 @@
 import traceback
-from http.client import HTTPException
 from io import BytesIO
 from uuid import uuid4
 import base64
+import os
 
 from bson import ObjectId
 import requests
@@ -284,6 +284,14 @@ class SchemaLocationImage(BaseModel):
 
 
 async def generate_location_image(_location_id: str, _user_id: str, _state_game_id: str):
+    if os.environ.get("MODE_TEST", False):
+        # En modo test, no generar imagen, solo asignar la imagen estática
+        url_image = "https://storage.googleapis.com/qwestar/voxel_.jpg"
+        element_state_db = await db["state_glic"].find_one({"element_id": _location_id, "state": _state_game_id})
+        element_state_db["data"]["image"] = url_image
+        await db["state_glic"].update_one({"_id": element_state_db["_id"]}, {"$set": {"data": element_state_db["data"]}})
+        return True, "Image set to static test image"
+
     try:
         location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
 
@@ -382,7 +390,6 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
             # Usar generate_gpt en lugar de generate_image, incluyendo la imagen de referencia voxel
             image_location = await openai_generator.generate_gpt(
                 content_prompt=[
-
                     {
                         "role": "user",
                         "content": [

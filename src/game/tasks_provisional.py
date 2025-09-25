@@ -147,7 +147,7 @@ async def update_game_provisional_status(id_game_provisional: str, status: str, 
 
 
 class TaskCreateGameProvisional(BaseModel):
-    script: str = Field(..., example="script", description="Script for the game provisional en markdown format")
+    script: str = Field(..., example="script", description="Script extens for the game  in text format")
     title: str = Field(..., example="title", description="Title for the game provisional")
     num_scenes: int = Field(..., example=1, description="Number of scenes in the game provisional")
     category: str = Field(..., example="Learning", description="Category of the game based on its content and purpose")
@@ -203,33 +203,52 @@ async def create_game_provisional(_id_game_provisional: str):
             content_prompt=[
                 {
                     "role": "system",
-                    "content": f"""Crea un entrenamiento interactivo en formato de historia narrativa tipo "elige tu propia aventura", en 3 escenas.
-                            El objetivo es transformar el documento a través de situaciones narradas de forma fluida, como si fuera un capítulo de un libro, no debe tener titulo cortando las cosas.
-                            
-                            El guion debe incluir:
-                              {template_definition}
-                              - no se debe mencionar el titulo en el script
-                                
-                            🔹 Categorización del juego:
-                            Después de crear el contenido, categoriza el juego en UNA de las siguientes categorías basándote en el propósito principal y contenido del juego:
-                            
-                            - Marketing: Juegos enfocados en promoción de productos, branding, campañas publicitarias, estrategias de mercadeo
-                            - Talent Development: Juegos para desarrollo de habilidades profesionales, liderazgo, capacitación laboral, crecimiento personal
-                            - Compliance: Juegos sobre cumplimiento normativo, políticas empresariales, regulaciones, procedimientos legales
-                            - Recruiting: Juegos para procesos de selección, evaluación de candidatos, onboarding, atracción de talento
-                            - Events: Juegos para eventos corporativos, conferencias, actividades de equipo, celebraciones
-                            - Fan Engagement: Juegos para fidelización de clientes, comunidades de fans, engagement de audiencias
-                            - Health & Wellness: Juegos sobre bienestar, salud mental, ejercicio, hábitos saludables, prevención
-                            - Data Collection: Juegos para recopilar información, encuestas interactivas, investigación de mercado
-                            - Storytelling: Juegos narrativos, historias interactivas, experiencias inmersivas, entretenimiento educativo
-                            - Social Impact: Juegos sobre responsabilidad social, sostenibilidad, causas benéficas, impacto comunitario
-                            - Learning: Juegos educativos, entrenamiento académico, desarrollo de conocimientos específicos, enseñanza"""
+                    "content": f"""Crea un entrenamiento interactivo en formato de historia narrativa, en 3 escenas.
+El guion debe tener la siguiente estructura exacta:
+
+- Evento inicial
+- Escena 1
+  - Locación 1
+  - Personaje principal
+  - Personaje secundario
+  - Interacción según el template
+  - Evento después de esa interacción y con la nueva información
+- Escena 2
+  - Locación 2
+  - Personaje principal
+  - Personaje secundario 2
+  - Interacción según el template
+- Escena 3
+  - Locación 3
+  - Personaje principal
+  - Personaje secundario 3
+  - Interacción según el template
+  - Evento final
+
+Asegúrate de que cada elemento esté presente y bien identificado en el texto, siguiendo el template correspondiente. No agregues títulos ni cortes innecesarios. El objetivo es transformar el documento a través de situaciones narradas de forma fluida, como si fuera un capítulo de un libro.
+
+{template_definition}
+- no se debe mencionar el titulo en el script
+
+Categorización del juego:
+Después de crear el contenido, categoriza el juego en UNA de las siguientes categorías basándote en el propósito principal y contenido del juego:
+
+- Marketing: Juegos enfocados en promoción de productos, branding, campañas publicitarias, estrategias de mercadeo
+- Talent Development: Juegos para desarrollo de habilidades profesionales, liderazgo, capacitación laboral, crecimiento personal
+- Compliance: Juegos sobre cumplimiento normativo, políticas empresariales, regulaciones, procedimientos legales
+- Recruiting: Juegos para procesos de selección, evaluación de candidatos, onboarding, atracción de talento
+- Events: Juegos para eventos corporativos, conferencias, actividades de equipo, celebraciones
+- Fan Engagement: Juegos para fidelización de clientes, comunidades de fans, engagement de audiencias
+- Health & Wellness: Juegos sobre bienestar, salud mental, ejercicio, hábitos saludables, prevención
+- Data Collection: Juegos para recopilar información, encuestas interactivas, investigación de mercado
+- Storytelling: Juegos narrativos, historias interactivas, experiencias inmersivas, entretenimiento educativo
+- Social Impact: Juegos sobre responsabilidad social, sostenibilidad, causas benéficas, impacto comunitario
+- Learning: Juegos educativos, entrenamiento académico, desarrollo de conocimientos específicos, enseñanza"""
                 },
                 {
                     "role": "user",
-                    "content": f"nesecito que me ayudes a crear un juego basado en el archivo PDF proporcionado."
-                               f"nesecito que el juego tenga un guion y un titulo ambos en ingles, el guion debe ser una historia que se pueda jugar en formato de texto"
-                               f"prompt del usuario: {game_provisional_db.get('prompt_user', 'No prompt provided')}"
+                    "content":
+                        f"prompt del usuario: {game_provisional_db.get('prompt_user', 'No prompt provided')}"
                 },
                 {
                     "role": "user",
@@ -453,15 +472,12 @@ async def generate_interaction_for_scene(script: str, scene_num: int, template_t
             content_prompt=[
                 {
                     "role": "system",
-                    "content": "Eres un diseñador de juegos narrativos especializados en crear interacciones para juegos basados en texto."
+                    "content": "Eres un asisyente que extrae las interacciones de los personajes en formato de diálogo"
                 },
                 {
                     "role": "user",
                     "content": f"""
-                            De la escena de escena {scene_num} del guión, define con que personajes y con que objetos (que no sean su ropa ni objetos que el protagonista tenga en su haber) el protagonista debe interactuar.
-                            De estos personajes y objetos con los que debe interactuar escoge uno solo, el cual será el personaje u objeto clave para avanzar en la historia, salir de esta escena y pasar a la siguiente.
-                            Definido lo anterior, para los personajes que no sea personaje clave, redacta lo que seria un dialogo finito entre el protagonista y este. Mientras que para el personaje clave, si lo hay, define un dialogo que termine en una pregunta la cual el protagonista debe responder correctamente para avanzar en la historia al siguiente escenario, define la respuesta que daría el personaje tanto si responde correctamente como si responde incorrectamente.
-                            De manera similar, para los objetos que no sean objeto clave, redacta lo que seria el texto de lo que pensaría el protagonista al ver este objeto. Mientras que para el objeto clave, si lo hay, define una auto-pregunta que se haga el protagonista y llame a la acción, acción que el protagonista debe realizar para avanzar en la historia al siguiente escenario, define lo que sucedería y lo que pensaría el protagonista, tanto si realiza la acción correcta, como si no la realiza.
+                            De la escena de escena {scene_num} del guión, extre con que personajes interactúa el jugador y extrae la interacción en formato de diálogo.
                             {template_context}
                             Aquí está el guión completo:
                             {script}
@@ -598,7 +614,7 @@ async def extract_locations_from_scenes(id_game_provisional: str):
             "- escena: escena inicial donde aparece\n"
             "- escenas_donde_se_repite: todas las escenas donde se repite\n"
             "Devuelve una lista de objetos JSON, uno por cada locación.\n"
-            f"Guion:\n{info_scenes}"
+            f"Escenas:\n{info_scenes}"
         )
 
         locations_response = await openai_generator.generate_gpt(
@@ -663,6 +679,15 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
         locations = game_provisional_db.get("locations")
         template_type = game_provisional_db.get("template_type", "").lower()
 
+        scenes_generated = game_provisional_db.get("scene_interactions", [])
+
+        if not scenes_generated:
+            return "No scenes interactions found in game provisional"
+
+        info_scenes = ""
+        for i, scene in enumerate(scenes_generated):
+            info_scenes += f"Escena {i + 1}:\n{scene.get('interaction', '')}\n\n"
+
         if not script:
             return "Script not found in game provisional"
 
@@ -690,6 +715,7 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
         if type_template == "learn":
             prompt = (
                 f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones. el tipo de interacción debe concordar con lo deseado \n\n"
+                f"INFO DE LAS ESCENAS:\n{info_scenes}\n\n"
                 f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
                 f"Para cada locación, devuelve un objeto JSON con:\n"
                 f"- titulo: nombre de la locación (debe coincidir exactamente con las locaciones existentes)\n"
@@ -725,7 +751,7 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
             )
         elif type_template == "trivia":
             prompt = (
-                f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones. el tipo de interacción debe concordar con lo deseado \n\n"
+                f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones. el tipo de interacción debe concordar con lo deseado que siempre este algo en las opciones de respuestas \n\n"
                 f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
                 f"Para cada locación, devuelve un objeto JSON con:\n"
                 f"- titulo: nombre de la locación (debe coincidir exactamente con las locaciones existentes)\n"
@@ -735,9 +761,9 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
                 f"  * tipo: "
                 f"    - 'option_multiple' (el principal elige entre varias opciones para responder al secundario, no numeradas). solo para el tipo de template (trivia) \n\n"
                 f"  * Opciones de dialogo:\n"
-                f"    ** prompt_user_question: interacción llevando hacia la pregunta antes de las opciones que hace el secundario al principal puede ser formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario de 4 a 6 interacciones \n"
+                f"    ** prompt_user_question: interacción llevando hacia la pregunta antes de las opciones que hace el secundario al principal puede ser formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario de 4 a 6 interracciones \n"
                 f"    ** opciones: opciones de respuesta solo para el tipo de interaccion 'option_multiple'\n"
-                f"      ** prompt_user_guideline: opcion de respuesta\n"
+                f"      ** prompt_user_guideline: opción de respuesta\n"
                 f"      ** prompt_user_answer: retroalimentación a la opcion de respuesta\n"
                 f"  * Index de la opcion correcta (0 basado en cero) solo para el tipo de interacción 'option_multiple'\n\n"
                 f"REGLAS IMPORTANTES:\n"
@@ -764,6 +790,7 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
         else:
             prompt = (
                 f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones. el tipo de interacción debe concordar con lo deseado \n\n"
+                f"INFO DE LAS ESCENAS:\n{info_scenes}\n\n"
                 f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
                 f"Para cada locación, devuelve un objeto JSON con:\n"
                 f"- titulo: nombre de la locación (debe coincidir exactamente con las locaciones existentes)\n"
@@ -1493,7 +1520,7 @@ async def generate_scene_interactions(id_game_provisional: str):
         await update_game_provisional_status(id_game_provisional, "creating_game", 40,
                                              "Creating final game from provisional data")
 
-        # Crear evento inicial después de que se haya creado el juego
+        # Crear todos los eventos, incluyendo el inicial y final
         initial_event_result = await extract_events_for_scenes(id_game_provisional)
         if initial_event_result.get("error"):
             print(f"Warning: Failed to create initial event: {initial_event_result['error']}")
@@ -1530,14 +1557,13 @@ class InitialEventResponse(BaseModel):
 
 async def extract_events_for_scenes(id_game_provisional: str):
     """
-    DEPRECATED: Use extract_and_create_all_events_from_scenes instead.
-    Extrae un evento inicial previo a las escenas del guego provisional y crea el evento usando create_event_service.
+    Extrae eventos para cada escena del juego provisional, considerando el contexto y las interacciones de las escenas.
 
     Args:
         id_game_provisional: ID del juego provisional
 
     Returns:
-        dict: Información del evento creado o mensaje de error
+        dict: Información de los eventos creados o mensaje de error
     """
     try:
         # Obtener el juego provisional
@@ -1548,6 +1574,7 @@ async def extract_events_for_scenes(id_game_provisional: str):
         # Obtener el script y las locaciones
         script = game_provisional_db.get("script")
         locations = game_provisional_db.get("locations", [])
+        scene_interactions = game_provisional_db.get("scene_interactions", [])
 
         if not script:
             return {"error": "Script not found in game provisional"}
@@ -1557,60 +1584,101 @@ async def extract_events_for_scenes(id_game_provisional: str):
         if locations:
             locations_info = "\n".join([
                 f"- {loc.get('titulo', 'Sin título')}: {loc.get('prompt_user', 'Sin descripción')}"
-                for loc in locations[:3]  # Solo primeras 3 locaciones para no sobrecargar
+                for loc in locations[:3]
             ])
 
         events_all = []
-
-        # Determinar el número total de eventos a generar (4)
         total_events = 4
-        scene_interactions = game_provisional_db["scene_interactions"]
-        num_scenes = len(scene_interactions)
 
         for i in range(total_events):
-            # Determinar qué escena usar
-            if i < num_scenes:
-                scene = scene_interactions[i]
-            else:
-                # Usar la última escena para los eventos restantes
-                scene = scene_interactions[-1]
-
-            # Determinar el tipo de evento
+            # Determinar el tipo de evento y el contexto específico
             if i == 0:
+                # Evento inicial - usar contexto de la primera escena
                 event_type = "inicial"
+                context = {
+                    "current_scene": scene_interactions[0] if scene_interactions else None,
+                    "next_scene": None,
+                    "previous_interaction": None
+                }
             elif i == total_events - 1:
+                # Evento final - usar contexto de la última interacción
                 event_type = "final"
+                context = {
+                    "current_scene": scene_interactions[-1] if scene_interactions else None,
+                    "previous_interaction": locations[-1].get("interaccion", {}) if locations else None,
+                    "final_state": True
+                }
             else:
+                # Eventos intermedios - usar contexto de dos escenas consecutivas
                 event_type = "intermedio"
+                scene_index = min(i, len(scene_interactions) - 1)
+                context = {
+                    "current_scene": scene_interactions[scene_index - 1] if scene_index > 0 else None,
+                    "next_scene": scene_interactions[scene_index] if scene_index < len(scene_interactions) else None,
+                    "previous_interaction": locations[scene_index - 1].get("interaccion",
+                                                                           {}) if scene_index > 0 and locations else None
+                }
+
+            # Construir el prompt específico según el tipo de evento
+            context_prompt = ""
+            if event_type == "inicial":
+                context_prompt = f"""
+                Escena inicial que introduce el jugador:
+                {context['current_scene'].get('interaction', '') if context['current_scene'] else 'No hay información de escena'}
+                
+                Esta es la primera interacción que el jugador tendrá, debe establecer el tono y contexto adecuado.
+                """
+            elif event_type == "final":
+                context_prompt = f"""
+                Última interacción completada:
+                {context['previous_interaction'].get('dialogo', '') if context['previous_interaction'] else 'No hay información de interacción'}
+                
+                Estado final de la última escena:
+                {context['current_scene'].get('interaction', '') if context['current_scene'] else 'No hay información de escena'}
+                """
+            else:
+                context_prompt = f"""
+                Escena anterior completada:
+                {context['current_scene'].get('interaction', '') if context['current_scene'] else 'No hay información de escena anterior'}
+                
+                Última interacción realizada:
+                {context['previous_interaction'].get('dialogo', '') if context['previous_interaction'] else 'No hay información de interacción'}
+                
+                Próxima escena:
+                {context['next_scene'].get('interaction', '') if context['next_scene'] else 'No hay información de próxima escena'}
+                """
 
             # Generar el evento con GPT
             initial_event_response = await openai_generator.generate_gpt(
                 content_prompt=[
                     {
                         "role": "system",
-                        "content": """Eres un experto en crear eventos iniciales, intermedios y finales para juegos narrativos interactivos.
-                        Tu tarea es crear un evento que sirva como introducción o prólogo al juego, estableciendo 
-                        el contexto y la atmósfera antes de que el jugador comience su aventura en las locaciones.
+                        "content": f"""Eres un experto en crear eventos narrativos para juegos interactivos.
+                        Estás creando un evento {event_type} que debe:
                         
-                        El evento debe:
-                        1. Crear expectativa y emoción
-                        2. Establecer el tono del juego
-                        3. Introducir brevemente el contexto sin revelar demasiado
-                        4. Ser visualmente atractivo para la generación de imágenes"""
+                        Para eventos iniciales:
+                        - Introducir el contexto de la primera escena
+                        - Preparar al jugador para la primera interacción
+                        - Establecer el tono y la atmósfera del juego
+                        
+                        Para eventos intermedios:
+                        - Conectar la conclusión de la escena anterior con la siguiente
+                        - Mantener la continuidad narrativa
+                        - Reflejar el resultado de la interacción previa
+                        
+                        Para eventos finales:
+                        - Proporcionar un cierre satisfactorio
+                        - Reflejar el resultado de la última interacción
+                        - Concluir la narrativa de manera coherente"""
                     },
                     {
                         "role": "user",
-                        "content": f"""Crea un evento {event_type} previo a las escenas principales para el juego, basándote en la siguiente información:    
+                        "content": f"""Crea un evento {event_type} para el juego, considerando el siguiente contexto:
                         
-                        {"" if i == 0 else f"Escena anterior: {scene_interactions[0]['interaction'] if 'interaction' in scene_interactions[0] else scene_interactions[0]} " if i == 1 else ""} 
+                        {context_prompt}
                         
-                        Escena {event_type}: 
-                        {scene['interaction'] if isinstance(scene, dict) and 'interaction' in scene else scene}
-                        
-                        Primeras locaciones donde se desarrollará la acción:
+                        Locaciones donde se desarrolla la acción:
                         {locations_info}
-        
-                        El evento debe ser una introducción o prólogo que prepare al jugador para lo que está por venir.
                         
                         Genera:
                         - event_name: Un nombre atractivo y descriptivo para este evento {event_type} (máximo 60 caracteres)
@@ -1628,14 +1696,14 @@ async def extract_events_for_scenes(id_game_provisional: str):
             )
 
             if not initial_event_response:
-                return {"error": "Failed to generate initial event content"}
+                return {"error": "Failed to generate event content"}
 
             events_all.append({
                 "event_name": initial_event_response.event_name,
                 "prompt_image": initial_event_response.prompt_image,
                 "prompt_text": initial_event_response.prompt_text,
                 "type": event_type,
-                "scene_index": min(i, num_scenes - 1)  # Para saber qué escena se usó
+                "scene_index": i
             })
 
         # Guardar todos los eventos generados en el juego
@@ -1650,13 +1718,13 @@ async def extract_events_for_scenes(id_game_provisional: str):
         return {
             "success": True,
             "event": events_all,
-            "message": f"Alls events created successfully"
+            "message": "All events created successfully with proper context"
         }
 
     except Exception as e:
-        print(f"Error extrayendo y creando evento inicial: {str(e)}")
+        print(f"Error extrayendo y creando eventos: {str(e)}")
         print(traceback.format_exc())
-        return {"error": f"Failed to extract and create initial event: {str(e)}"}
+        return {"error": f"Failed to extract and create events: {str(e)}"}
 
 
 class EventExtractionResponse(BaseModel):
@@ -1678,42 +1746,43 @@ def get_template_definition(template_type: TemplateType) -> str:
 TEMPLATE TIPO: LEARN (Aprendizaje)
 
 DEFINICIÓN:
-Un recorrido narrativo enfocado en aprender un concepto de 3 escenas. Cada escena ofrece dos posibles caminos (two_way), generando exploración y reforzando el aprendizaje. Siempre se llega al evento final.
+Un recorrido narrativo enfocado en aprender un concepto en 3 escenas. Cada escena presenta una conversación lineal entre dos personajes, sin opciones de decisión para el jugador. El objetivo es explorar y reforzar el aprendizaje a través del diálogo. Siempre se llega al evento final.
 
 ESTRUCTURA REQUERIDA:
 - Evento Intro: ✅ (Presentación del tema a aprender)
-- Escena A: Personajes con interacción "Two Ways" (2 caminos de exploración), dos personajes y una locación.
-- Evento A → B: ✅ (Transición que refuerza lo aprendido)
-- Escena B: Personajes con interacción "Two Ways" (2 caminos de profundización), dos personajes y una locación.
-- Evento B → C: ✅ (Consolidación del conocimiento)
-- Escena C: Personajes con interacción "Two Ways" (2 caminos de aplicación), dos personajes y una locación.
+- Escena 1: Personajes con interacción "two_way", dos personajes y una locación.
+- Evento 1 → 2: ✅ (Transición que refuerza lo aprendido)
+- Escena 2: Personajes con interacción "two_way", dos personajes y una locación.
+- Evento 2 → 3: ✅ (Consolidación del conocimiento)
+- Escena 3: Personajes con interacción "two_way", dos personajes y una locación.
 - Evento Final: ✅ (Resumen y conclusiones del aprendizaje)
 
 REGLAS ESPECÍFICAS:
-- Interacciones tipo "two_way"  de 4 a 6 interracciones
-- Todas las rutas llevan al progreso (sin bloqueos por respuestas incorrectas)
-- Enfoque en exploración y comprensión gradual del concepto
-- Las contrarespuestas varían para enriquecer el aprendizaje
-- Objetivo: Enseñar y reforzar conocimientos de manera interactiva
+- Interacciones tipo "two_way" de 4 a 6 intervenciones, en formato de diálogo lineal, sin opciones de decisión.
+- Cada escena tiene dos personajes y una locación, uno de los personajes puede ser el mismo en todas las escenas (el principal).
+- Enfoque en comprensión gradual del concepto a través del diálogo.
+- Las contrarespuestas varían para enriquecer el aprendizaje.
+- Objetivo: Enseñar y reforzar conocimientos de manera interactiva, sin bifurcaciones ni elecciones del jugador.
 """,
 
         TemplateType.EVALUATION: """
 TEMPLATE TIPO: EVALUATION (Evaluación o Data Collection)
 
 DEFINICIÓN:
-Diseñado para recoger información del jugador. Combina respuestas cerradas (2way) con una opción abierta (OpenA). La contrarespuesta del personaje es siempre la misma, independientemente de lo que se elija, porque lo importante es capturar datos y no validar respuestas.
+Diseñado para recoger información del jugador. Combina respuestas cerradas (two_way) con una opción abierta (open_answer). La contrarespuesta del personaje es siempre la misma, independientemente de lo que se elija, porque lo importante es capturar datos y no validar respuestas.
 
 ESTRUCTURA REQUERIDA:
 - Evento Intro: ✅ (Explicación del propósito de la evaluación)
-- Escena A: Personajes con interacción "Two Ways + OpenA" (recolección de datos)
+- Escena A: Personajes con interacción "two_way + open_answer"
 - Evento A → B: ✅ (Transición neutral)
-- Escena B: Personajes con interacción "Two Ways + OpenA" (más datos)
+- Escena B: Personajes con interacción "two_way + open_answer"
 - Evento B → C: ✅ (Transición neutral)
-- Escena C: Personajes con interacción "Two Ways + OpenA" (finalización de datos)
+- Escena C: Personajes con interacción "two_way + open_answer" 
 - Evento Final: ✅ (Agradecimiento por participar)
 
 REGLAS ESPECÍFICAS:
-- No hay respuestas incorrectas (2way de 2 a 4 opciones + OpenA)
+- No hay respuestas incorrectas (two_way de 4 a 6 interacciones antes de la respuesta abierta)
+- Cada escena tiene dos personajes y una locación, uno de los personajes puede ser el mismo en todas las escenas que es el principal
 - La contrarespuesta del personaje siempre es la misma, independiente de la respuesta del jugador
 - Enfoque en recopilación de información, opiniones o preferencias
 - Sin validación de respuestas - todas son válidas
@@ -1736,7 +1805,8 @@ ESTRUCTURA REQUERIDA:
 - Evento Final: ✅ (Solo acceden quienes responden todas correctamente)
 
 REGLAS ESPECÍFICAS:
-- Si hay error, el jugador solo avanza al responder correctamente (two_way de la pregunta de 4 a 6 interracciones y 3 opciones de respuestas)
+- Si hay error, el jugador solo avanza al responder correctamente, el tipo de interacción option_multiple tiene un conversacion previa de 4 a 6 interacciones, luego una pregunta con 3 opciones cada una con retroalimentación y cual es es la correcta
+- Cada escena tiene dos personajes y una locación, uno de los personajes puede ser el mismo en todas las escenas que es el principal
 - La contrarespuesta del personaje cambia según si acierta o falla
 - Progresión bloqueada hasta respuesta correcta
 - Retroalimentación educativa en respuestas incorrectas
@@ -1747,20 +1817,21 @@ REGLAS ESPECÍFICAS:
 TEMPLATE TIPO: SOLVE (Resolución de Problemas)
 
 DEFINICIÓN:
-Basado en resolver un problema o reto. El jugador avanza a través de decisiones (Two Ways) y finalmente enfrenta una escena abierta (2way + OpenA). Solo quienes resuelven correctamente acceden al evento final, diferenciando entre éxito o fracaso.
+Basado en resolver un problema o reto. El jugador avanza a través de decisiones (two_way) y finalmente enfrenta una escena abierta (two_way + open_answer). Solo quienes resuelven correctamente acceden al evento final, diferenciando entre éxito o fracaso.
 
 ESTRUCTURA REQUERIDA:
 - Evento Intro: ✅ (Presentación del problema a resolver)
-- Escena A: Personajes con interacción "Two Ways" (análisis del problema)
+- Escena A: Personajes con interacción "two_way" (análisis del problema)
 - Evento A → B: ✅ (Progresión en la resolución)
-- Escena B: Personajes con interacción "Two Ways" (desarrollo de la solución)
+- Escena B: Personajes con interacción "two_way" (desarrollo de la solución)
 - Evento B → C: ✅ (Aproximación a la solución)
-- Escena C: Personajes con interacción "Two Ways + OpenA" (propuesta de solución)
+- Escena C: Personajes con interacción  open_answer" (propuesta de solución)
 - Evento Final: ✅ (Solo acceden quienes resuelven correctamente)
 
 REGLAS ESPECÍFICAS:
 - Interacciones 2way de 2 a 4 opciones en escenas A y B
 - Escena C combina opciones cerradas con respuesta abierta
+- Cada escena tiene dos personajes y una locación, uno de los personajes puede ser el mismo en todas las escenas que es el principal
 - Contrarespuesta del personaje distinta según acierto o error
 - Acceso al evento final condicionado a resolver correctamente
 - Objetivo: Desarrollar habilidades de resolución de problemas

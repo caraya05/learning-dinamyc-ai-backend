@@ -2,6 +2,7 @@ import random
 import traceback
 import requests
 import base64
+import os
 
 from uuid import uuid4
 
@@ -435,6 +436,15 @@ async def generate_voice_character(
 
 
 async def generate_image_character_face(_character_id, _user_id, _state_game_id) -> tuple:
+    if os.environ.get("MODE_TEST", False):
+        # En modo test, no generar imagen, solo asignar la imagen estática
+        url_image = "https://storage.googleapis.com/qwestar/voxel_.jpg"
+        _character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
+        character_state_db = await db["state_glic"].find_one({"element_id": _character_id, "state": _state_game_id})
+        character_state_db["data"]["image"] = url_image
+        await db["state_glic"].update_one({"_id": character_state_db["_id"]}, {"$set": {"data": character_state_db["data"]}})
+        return True, "Image set to static test image"
+
     try:
         _character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
 

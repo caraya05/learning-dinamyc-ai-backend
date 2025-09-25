@@ -1,10 +1,13 @@
+from io import BytesIO
+
 from bson import ObjectId
 import traceback
 import base64
+import os
 
 from state_game.services import get_state_game_by_game_id
 from task.services import update_task_service
-from utils import upload_image
+from utils import upload_image, upload_file
 from openai import BaseModel
 from pydantic import Field
 
@@ -12,6 +15,8 @@ from core.database import db
 from gpt_ai.utils import openai_generator
 
 from uuid import uuid4
+
+from voice.elevenlabs import generate_audio
 
 
 class SchemaPromptImage(BaseModel):
@@ -21,6 +26,17 @@ class SchemaPromptImage(BaseModel):
 async def generate_image_event(
         game_id: str, event_id: str, state_game: str, user_id: str, prompt_user_image: str
 ):
+    if os.environ.get("MODE_TEST", False):
+        # En modo test, no generar imagen, solo asignar la imagen estática
+        url_image = "https://storage.googleapis.com/qwestar/voxel_.jpg"
+        event_db = await db["event"].find_one({"_id": ObjectId(event_id)})
+        if not event_db:
+            print("Error event not found")
+            return False
+        event_db["image"] = url_image
+        await db["event"].update_one({"_id": event_db["_id"]}, {"$set": {"image": url_image}})
+        return True, "Image set to static test image"
+
     try:
         event_db = await db["event"].find_one({"_id": ObjectId(event_id)})
         if not event_db:
@@ -90,54 +106,70 @@ async def generate_image_event(
             print("Error validate prompt")
             return False, "Prompt no allowed"
 
+        # Generar audio del texto del evento
+        if event_db.get("prompt_user_text"):
+            try:
+                audio = await generate_audio(
+                    text=event_db["prompt_user_text"],
+                    user_id=user_id,
+                    voice_id="alFofuDn3cOwyoz1i44T"
+                )
+
+                if audio:
+                        # Actualizar el evento con la URL del audio
+                        await db["event"].update_one(
+                            {"_id": ObjectId(event_id)},
+                            {"$set": {"audio": audio.get("ogg"),
+                                      "audio_mp3": audio.get("mp3")}}
+                        )
+            except Exception as audio_error:
+                print(traceback.format_exc())
+                print(f"Error generating audio: {audio_error}")
+                # No fallar todo el proceso si falla el audio
+                pass
+
         response_prompt_image = await openai_generator.generate_gpt(
             content_prompt=[
                 {
-                    "role": "system",
-                    "content": f"Crea un prompt para genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego {game_db['title']}"
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": f"Genera una imagen de portada en estilo 3D medium poly de proporciones realistas para el juego {game_db['title']}"
                                f" con el personaje {character_principal_state_game['data']['prompt_user']}."
                                f"La imagen debe ser portrait y tener el contenido vertical. sin texto."
                                f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen."
-                },
-                {
-                    "role": "user",
-                    "content": f"Game: {game_db['title']}\n"
+                        },
+                        {
+                            "type": "input_text",
+                            "text": f"prompt del usuario: {prompt_user_image}",
+                        },
+                        {
+                            "type": "input_text",
+                            "text":  f"Game: {game_db['title']}\n"
                                f"Character Principal: {character_principal_state_game['data']['prompt_user']}\n"
                                f"Characters: {characters_state_game}\n"
                                f"Locations: {locations_state_game}\n",
-                },
-                {"role": "user", "content": [{"type": "text", "text": prompt_user_image}]},
+                        }
+                    ]
+                }
             ],
-            model="gpt-4o-mini-2024-07-18",
-            max_tokens=4096,
-            response_format=SchemaPromptImage,
+            model="gpt-4.1",
             type_generation="create_prompt_image",
+            tools=[{"type": "image_generation"}],
+            image=True,
             user_id=user_id,
         )
 
-        validate_prompt = await openai_generator.moderation_text(
-            text=response_prompt_image.prompt_user_image,
-        )
-
-        if validate_prompt:
-            return False, "Prompt no allowed"
-
-        response_image = await openai_generator.generate_image(
-            prompt=response_prompt_image.prompt_user_image,
-            model="gpt-image-1",
-            size="1024x1536",
-            style=None
-        )
-
-        image_bytes = base64.b64decode(response_image)
+        image_bytes = base64.b64decode(response_prompt_image)
+        image_face = BytesIO(image_bytes)
 
         image_generated = upload_image(
-            img_byte_arr=image_bytes,
+            img_byte_arr=image_face,
             file_name=f"event/{uuid4()}.jpg",
             size=(512, 896),
         )
 
-        # event_db["image"] = image_generated
 
         await db["event"].update_one(
             {"_id": ObjectId(event_id)}, {"$set": {"image": image_generated}}

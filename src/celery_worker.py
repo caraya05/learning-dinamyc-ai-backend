@@ -2,20 +2,17 @@ import asyncio
 import os
 from celery import Celery
 from celery.signals import worker_ready, celeryd_after_setup, worker_init
+from celery.schedules import crontab
+from datetime import timedelta
 import redis
 
 from event.tasks import async_generate_image_event
-from location.tasks import async_generate_location_task
-from location.tasks import async_generate_image_location_task
-
-from character.tasks import async_generate_character_task
-from character.tasks import async_generate_image_character_task
-from character.tasks import async_update_character_task
-
-from game.tasks import async_identify_category_game_task
-from game.tasks import async_generate_image_cover_game_task
-
+from location.tasks import async_generate_location_task, async_generate_image_location_task
+from character.tasks import async_generate_character_task, async_generate_image_character_task, async_update_character_task
+from game.tasks import async_identify_category_game_task, async_generate_image_cover_game_task
 from game.tasks_provisional import async_create_game_provisional_task, async_generate_scene_interactions_task
+from voice.elevenlabs import get_voices
+from voice.services import add_voice_service
 from voice.task import async_generate_voice_task
 from object.task import async_generate_item, async_updated_item, async_generate_new_interaction_item
 
@@ -34,6 +31,10 @@ celery = Celery(__name__)
 broker_url = get_redis_url()
 result_backend = os.getenv("CELERY_RESULT_BACKEND", broker_url)
 
+# Credenciales para Flower
+flower_user = os.getenv("FLOWER_USER", "admin")
+flower_password = os.getenv("FLOWER_PASSWORD", "admin")
+
 celery.conf.update(
     # Conexión con broker
     broker_url=broker_url,
@@ -47,6 +48,11 @@ celery.conf.update(
     worker_prefetch_multiplier=1,
     task_acks_late=True,
     task_reject_on_worker_lost=True,
+
+    # Configuración de Flower
+    flower_basic_auth=[f"{flower_user}:{flower_password}"],
+    flower_port=5555,
+    flower_address='0.0.0.0',
 
     # Timeouts y reintentos
     task_soft_time_limit=3600,
@@ -62,6 +68,15 @@ celery.conf.update(
     task_track_started=True,
     task_track_received=True,
     worker_pool_restarts=True,
+
+    # Configuración de zona horaria
+    timezone='America/Bogota',
+    enable_utc=True,
+
+    # Configuración de serialización
+    task_serializer='json',
+    accept_content=['json'],
+    result_serializer='json',
 )
 
 # Configurar colas específicas
@@ -70,10 +85,25 @@ task_routes = {
     'generate_location_task': {'queue': 'location_queue'},
     'generate_image_*': {'queue': 'image_queue'},
     'generate_voice_task': {'queue': 'voice_queue'},
+    'update_voice_list': {'queue': 'maintenance_queue'},  # Nueva cola para tareas de mantenimiento
     '*': {'queue': 'default'},
 }
 
-celery.conf.update(task_routes=task_routes)
+# Configuración de tareas periódicas
+beat_schedule = {
+    'update-voice-list': {
+        'task': 'celery_worker.update_voice_list',  # Nombre completo de la tarea
+        'schedule': crontab(minute='15'),  # Se ejecuta a los 15 minutos de cada hora
+        'options': {
+            'queue': 'maintenance_queue'
+        }
+    }
+}
+
+celery.conf.update(
+    task_routes=task_routes,
+    beat_schedule=beat_schedule
+)
 
 @worker_init.connect
 def init_worker(**kwargs):
@@ -91,6 +121,9 @@ def worker_ready_handler(**kwargs):
         print(f"✅ Celery worker conectado exitosamente a Redis en: {broker_url}")
         print(f"🔄 Colas configuradas: {list(task_routes.keys())}")
         print("📊 Eventos activados para monitoreo con Flower")
+        print("⏰ Tareas periódicas configuradas:")
+        for task_name in beat_schedule.keys():
+            print(f"  - {task_name}")
     except redis.ConnectionError as e:
         print(f"❌ Error conectando a Redis: {str(e)}")
         print(f"🔍 URL de Redis: {broker_url}")
@@ -103,6 +136,32 @@ def setup_direct_queues(sender, instance, **kwargs):
     print("🔌 Eventos de monitoreo activados")
 
 
+@celery.task(name='celery_worker.update_voice_list')
+def update_voice_list():
+    """
+    Tarea periódica que actualiza la lista de voces disponibles de ElevenLabs.
+    Se ejecuta en los minutos 15 de cada hora.
+    """
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        async def _update_voices():
+            try:
+                voices_elevenlabs = get_voices()
+                result = await add_voice_service(voices=voices_elevenlabs)
+                print("✅ Lista de voces actualizada exitosamente")
+                return f"Successfully updated voice list: {len(voices_elevenlabs)} voices synchronized"
+            except Exception as e:
+                print(f"❌ Error updating voice list: {str(e)}")
+                return f"Error updating voice list: {str(e)}"
+            finally:
+                loop.close()
+
+        return loop.run_until_complete(_update_voices())
+    except Exception as e:
+        print(f"❌ Error in voice update task: {str(e)}")
+        return f"Error in voice update task: {str(e)}"
 
 
 # Desde aca va lo nuevo

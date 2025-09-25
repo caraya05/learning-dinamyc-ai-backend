@@ -291,127 +291,6 @@ async def update_game_provisional(
             detail="Game provisional not found",
         )
 
-    # if game_provisional_db["user_name"] and game_provisional_db["user_email"]:
-#         html = f"""
-#         <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-#         "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-# <html xmlns="http://www.w3.org/1999/xhtml" xmlns="http://www.w3.org/1999/xhtml"
-#       style="color-scheme: light dark; supported-color-schemes: light dark;">
-# <head>
-#     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-#     <meta name="x-apple-disable-message-reformatting"/>
-#     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-#     <meta name="color-scheme" content="light dark"/>
-#     <meta name="supported-color-schemes" content="light dark"/>
-#     <title></title>
-#
-#     <style>
-#         body {{
-#             background-color: #f3f4f6;
-#             color: #1f2937;
-#             font-family: Arial, sans-serif;
-#         }}
-#
-#         .container {{
-#             max-width: 640px;
-#             margin: 0 auto;
-#             padding: 24px;
-#             background-color: #ffffff;
-#         }}
-#
-#         .header {{
-#             text-align: center;
-#             padding: 24px 0;
-#         }}
-#
-#         .header h1 {{
-#             font-size: 1.5rem;
-#             font-weight: bold;
-#             color: #ffffff;
-#             background-color: #ec4899;
-#             padding: 8px;
-#             display: inline-block;
-#         }}
-#
-#         .title {{
-#             font-size: 1.125rem;
-#             font-weight: 600;
-#             color: #4b5563;
-#         }}
-#
-#         .text {{
-#             margin-top: 16px;
-#             font-size: 0.875rem;
-#             color: #374151;
-#         }}
-#
-#         .text span {{
-#             font-family: monospace;
-#             color: #6b7280;
-#         }}
-#     </style>
-#
-# </head>
-# <body>
-#
-# <div class="container">
-#     <div class="header"
-#          style="position:relative; text-align:center; padding:12px 0; background-color:#ec4899; border-radius:4px;">
-#
-#         <h1 style="position:relative; z-index:1; font-size:1.5rem; font-weight:700; color:#ffffff; margin:0; padding:8px;">
-#             Qwestar
-#          </h1>
-#     </div>
-#     <h2 class="title">Game Creation Request</h2>
-#     <p class="text">
-#         The following company has requested the creation of a game with the following information:
-#     </p>
-#    <div style="padding:24px; margin:24px auto; box-shadow:0 2px 8px #0001;">
-#      <div style="display:flex; align-items:center; gap:16px; margin-bottom:16px;">
-#  <div style="background:#fff; padding:8px; display:flex; justify-content:center; align-items:center;">
-#    <img src="{game_provisional_db["image"]}" alt="Example image" style="object-fit:contain; width:200px; height:280px;" />
-#  </div>
-#        <div style="margin-left:8px;">
-#          <div style="font-size:1.1rem; font-weight:700; color:#ec4899;">{game_provisional_db["title"]}</div>
-#             <span style="color:#6b7280;">Game time: {game_provisional_db["time_game"]}</span>
-#               <div style="margin-bottom:8px; margin-top:4px; ">
-#        <span style="font-weight:600; color:#374151;">Description:</span>
-#        <span style="color:#6b7280;">{game_provisional_db["prompt_user"]}</span>
-#      </div>
-#               <div style="margin-bottom:8px;">
-#        <span style="font-weight:600; color:#374151;">Company:</span>
-#        <span style="color:#6b7280;">{game_provisional_db["user_name"]}</span>
-#      </div>
-#      <div style="margin-bottom:8px;">
-#        <span style="font-weight:600; color:#374151;">Email:</span>
-#        <span style="color:#6b7280;">{game_provisional_db["user_email"]}</span>
-#      </div>
-#     <div style="margin-top:12px;">
-#        <a href="{game_provisional_db["file"]}" download style="color:#ec4899; text-decoration:underline; font-weight:600;">
-#          Download file
-#        </a>
-#      </div>
-#        </div>
-#      </div>
-#
-#     <div style="margin-bottom:8px;">
-#        <span style="font-weight:600; color:#374151; display:block; margin-bottom:4px;">Script:</span>
-#        <div style=" padding:10px 12px; color:#6b7280; font-size:0.95rem; text-align:justify;">
-#          {game_provisional_db["script"] if game_provisional_db["script"] else "No script provided."}
-#        </div>
-#      </div>
-#
-#    </div>
-# </div>
-# </body>
-# </html>
-#         """
-        # TODO: Uncomment the following line to send the email
-        # response = await send_email(
-        #     recipients=["jn@qwestar.ai"],
-        #     subject=f"Game Provisional Updated: {game_provisional_db['title']}",
-        #     body=html
-        # )
     if not is_draft:
         update_fields["state"] = "ready"
         generate_scene_interactions_task.delay(id_game_provisional=id_game_provisional)
@@ -442,7 +321,7 @@ async def update_game_provisional(
     }
 
 
-@router.get("/in-progress", status_code=status.HTTP_200_OK)
+@router.get("/in-progress/", status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute", error_message="Intentalo de nuevo más tarde")
 async def get_games_in_progress(request: Request, user: dict = Depends(auth), Token: HTTPAuthorizationCredentials = Depends(auth_schema)):
     """
@@ -451,14 +330,14 @@ async def get_games_in_progress(request: Request, user: dict = Depends(auth), To
     now = datetime.now(pytz.utc)
     two_days_ago = now - timedelta(days=2)
     query = {
-        "state": {"$nin": ["draft", "completed", "error"]},
+        "state": {"$nin": ["draft", "creating_game", "error"]},
         "game_id": {"$in": [None, "", False]},
         "created_by": str(user["_id"]),
         "created_at": {"$gte": two_days_ago}
     }
-    games_cursor = db["game_provisional"].find(query)
+    games_cursor = await db["game_provisional"].find(query).to_list(None)
     games = []
-    async for game in games_cursor:
+    for game in games_cursor:
         games.append({
             "_id": str(game["_id"]),
             "title": game.get("title"),

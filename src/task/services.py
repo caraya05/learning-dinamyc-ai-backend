@@ -135,18 +135,18 @@ async def revoke_task(task_id: str, terminate: bool = False) -> dict:
 
         if task.state in ['PENDING', 'STARTED', 'RETRY']:
             # Revocar la tarea
-            revoke(task_id, terminate=terminate)
+            task.revoke(terminate=terminate)
 
             # Actualizar el estado en la base de datos
-            await db["task"].update_one(
-                {"_id": ObjectId(task_id)},
-                {
-                    "$set": {
-                        "status": "revoked",
-                        "message": "Task revoked by user"
-                    }
-                }
-            )
+            # await db["task"].update_one(
+            #     {"_id": ObjectId(task_id)},
+            #     {
+            #         "$set": {
+            #             "status": "revoked",
+            #             "message": "Task revoked by user"
+            #         }
+            #     }
+            # )
 
             return {
                 "success": True,

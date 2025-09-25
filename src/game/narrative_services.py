@@ -62,7 +62,7 @@ async def generate_narrative_structure_from_script(script_data: SchemaGenerateFr
         TemplateType.LEARN: """
         Crea una estructura de narrativa interactiva tipo LEARN con:
         - Evento Intro de presentación
-        - 3 Escenas (A, B, C) con interacciones tipo "two_way" de 4-6 opciones cada una
+        - 3 Escenas (1, 2, 3) con interacciones tipo "two_way" de 4-6 opciones cada una
         - Eventos de transición entre escenas
         - Evento Final de cierre
         - Enfoque en aprendizaje progresivo
@@ -71,7 +71,7 @@ async def generate_narrative_structure_from_script(script_data: SchemaGenerateFr
         TemplateType.EVALUATION: """
         Crea una estructura de narrativa interactiva tipo EVALUATION con:
         - Evento Intro de explicación
-        - 3 Escenas (A, B, C) con interacciones "two_way" + "open_answer" de 2-4 opciones
+        - 3 Escenas (1, 2, 3) con interacciones "two_way" + "open_answer" de 2-4 opciones
         - Sin manejo de errores (todas las respuestas son válidas)
         - La contrarespuesta del personaje es siempre consistente
         - Eventos de transición automáticos
@@ -81,7 +81,7 @@ async def generate_narrative_structure_from_script(script_data: SchemaGenerateFr
         TemplateType.TRIVIA: """
         Crea una estructura de narrativa interactiva tipo TRIVIA con:
         - Evento Intro de instrucciones
-        - 3 Escenas (A, B, C) con interacciones "two_way" + "option_multiple" de 2-4 opciones
+        - 3 Escenas (1, 2, 3) con interacciones "two_way" + "option_multiple" de 2-4 opciones
         - Solo se avanza con respuesta correcta
         - Contrarespuesta del personaje cambia según acierto/error
         - Eventos condicionados a respuestas correctas

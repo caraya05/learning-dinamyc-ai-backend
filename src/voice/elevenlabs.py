@@ -17,7 +17,7 @@ XI_API_KEY = settings.ELEVENLABS_API_KEY
 def get_voices() -> list:
     querystring = {"show_legacy": "true"}
     # querystring = {"language": "en", "page_size": "100", "page": "1"}
-    url = "https://api.elevenlabs.io/v1/voices"
+    url = "https://api.elevenlabs.io/v2/voices?page_size=100"
     headers = {
         "Accept": "application/json",
         "xi-api-key": XI_API_KEY,
@@ -25,13 +25,14 @@ def get_voices() -> list:
     }
     response = requests.get(url, headers=headers, params=querystring)
     data = response.json()
+    print(data)
     return data['voices']
 
 
 async def generate_audio(
     text: str,
     voice_id: str,
-    model_id: str = "eleven_multilingual_v2",
+    model_id: str = "eleven_v3",
     stability: float = 0.5,
     similarity_boost: float = 0.8,
     style: float = 0.0,
@@ -39,7 +40,7 @@ async def generate_audio(
     chunk_size: int = 1024,
     user_id: str = None,
 ):
-    tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}/stream"
+    tts_url = f"https://api.elevenlabs.io/v1/text-to-speech/{voice_id}"
     headers = {"Accept": "application/json", "xi-api-key": XI_API_KEY}
     data = {
         "text": text,
