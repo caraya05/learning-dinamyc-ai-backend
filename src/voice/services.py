@@ -20,6 +20,10 @@ async def add_voice_service(voices: list):
                     "name": voice["name"],
                     "age": voice["labels"]["age"],
                     "gender": voice["labels"]["gender"],
+                    "language": voice.get("labels", {}).get("language", ""),
+                    "accent": voice.get("labels", {}).get("accent", ""),
+                    "use_case": voice["labels"]["use_case"],
+                    "description": voice.get("description", ""),
                     "created_at": datetime.utcnow(),
                     "updated_at": datetime.utcnow(),
                 }

@@ -26,6 +26,7 @@ from io import BytesIO
 class SchemaVoiceIdentification(BaseModel):
     age: str = Field(..., description="Age of the voice according to the description")
     genre: str = Field(..., description="Genre of the voice according to the description")
+    accent: str = Field(..., description="Accent of the voice according to the description")
 
 
 async def generate_voice_character(
@@ -70,16 +71,27 @@ async def generate_voice_character(
                 user_id=user_id,
             )
 
-            voice_by_gender = (
-                await db["voice"].find({"gender": response_generated.genre}).to_list(None)
-            )
-            voice_by_age = [
-                voice for voice in voice_by_gender if voice["age"] == response_generated.age
-            ]
-            if voice_by_age:
+            # Filtra por género
+            voice_by_gender = await db["voice"].find({"gender": response_generated.genre}).to_list(None)
+            # Filtra por edad dentro del género
+            voice_by_age = [voice for voice in voice_by_gender if voice["age"] == response_generated.age]
+            # Filtra por acento dentro de género y edad
+            voice_by_accent = [voice for voice in voice_by_age if voice["accent"] == "North American"]
+
+            if voice_by_accent:
+                voice = voice_by_accent[0]
+            elif voice_by_age:
                 voice = voice_by_age[0]
             else:
-                voice = random.choice(voice_by_gender)
+                # Buscar por género y acento
+                voice_by_gender_accent = [voice for voice in voice_by_gender if voice["accent"] == "North American"]
+                if voice_by_gender_accent:
+                    voice = voice_by_gender_accent[0]
+                elif voice_by_gender:
+                    voice = voice_by_gender[0]
+                else:
+                    # Si no hay nada, elige cualquiera
+                    voice = await db["voice"].find_one()
             await db["character"].update_one(
                 {"_id": ObjectId(character_id)}, {"$set": {"voice_id": str(voice["voice_id"])}}
             )
