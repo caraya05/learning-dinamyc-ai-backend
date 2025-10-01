@@ -252,7 +252,9 @@ No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al p
             elif tipo == "expert":
                 template_interaction_instruction = "IMPORTANTE: Todas las interacciones deben ser de tipo 'open_talk' (conversación abierta con el experto)."
         # Generación de contenido (sin reintentos)
-        content_prompt = get_template_prompt(type_template, template_definition, game_provisional_db.get('prompt_user', 'No prompt provided'), base64_string)
+        content_prompt = get_template_prompt(type_template, template_definition,
+                                             game_provisional_db.get('prompt_user', 'No prompt provided'),
+                                             base64_string)
         source_game_response = await openai_generator.generate_gpt(
             content_prompt=content_prompt,
             model="gpt-4.1",
@@ -265,7 +267,6 @@ No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al p
             await update_game_provisional_status(_id_game_provisional, "error", 25,
                                                  "Failed to generate game content from AI.")
             return "Failed to generate game provisional"
-
 
         if not source_game_response:
             await update_game_provisional_status(_id_game_provisional, "error", 25,
@@ -748,7 +749,81 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
             )
         elif type_template == "trivia":
             prompt = (
-                f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones. el tipo de interacción debe concordar con lo deseado que siempre este algo en las opciones de respuestas \n\n"
+                f"IMPORTANTE: El template es TRIVIA. TODAS las escenas deben tener interacción de tipo 'option_multiple', siguiendo exactamente el formato del ejemplo. No incluyas interacciones de tipo 'two_way' ni 'one_way'. Si no sigues el formato, el resultado será rechazado.\n\n"
+                f"Ejemplo de interacción option_multiple:\nPrincipal: Mago\nSecundario: Aprendiz\ninteracción:\n1: Hola, ¿listo para la pregunta?\\n2: Sí, adelante.\\n1: ¿Cuál es la capital de Francia?\nOpciones:\n  - París\n  - Madrid\n  - Berlín\nRespuestas:\n  - París: ¡Correcto! París es la capital de Francia.\n  - Madrid: Incorrecto. Madrid es la capital de España.\n  - Berlín: Incorrecto. Berlín es la capital de Alemania.\n\n"
+                f"Estructura exacta:\n- Evento inicial\n- Escena 1\n  - Locación 1\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (option_multiple): [formato del ejemplo]\n  - Evento después de la interacción\n- Escena 2\n  - Locación 2\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (option_multiple): [formato del ejemplo]\n- Escena 3\n  - Locación 3\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (option_multiple): [formato del ejemplo]\n  - Evento final\n\n"
+                f"No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al pie de la letra.\n\n"
+                f"INFO DE LAS ESCENAS:\n{info_scenes}\n\nLOCACIONES EXISTENTES:\n{locations_list}\n\n{template_select}"
+            )
+        elif type_template == "evaluation":
+            prompt = (
+                f"IMPORTANTE: El template es EVALUATION.\n"
+                f"- Las tres escenas deben ser de tipo 'open_question' (el jugador responde libremente a una pregunta del personaje).\n"
+                f"- No incluyas interacciones de tipo 'option_multiple', 'one_way' ni 'two_way'.\n"
+                f"- Si no sigues el formato, el resultado será rechazado.\n\n"
+                f"EJEMPLOS:\n"
+                f"Interacción open_question:\n"
+                f"- open_question: Diálogo donde el jugador puede responder libremente a una pregunta o comentario del personaje.\n"
+                f"  Ejemplo:\n"
+                f"    interacción:\n"
+                f"Opciones de dialgo (ptions_dialog):\n"
+                f"   pregunta (prompt_user_question): \n"
+                f"  1: Hola, ¿listo para la pregunta?\n"
+                f"  2: Sí, adelante.\n"
+                f"  1: ¿Cuál es la capital de Francia?\n"
+                f"  2: [Respuesta libre del jugador]\n\n"
+                f"  Opciones de guia (prompt_user_guideline) :\n"
+                f"    - París\n"
+                f"    - Madrid\n"
+                f"    - Berlín\n"
+                f"  Respuestas de las opciones (prompt_user_answer) :\n"
+                f"    - París: ¡Correcto! París es la capital de Francia.\n"
+                f"    - Madrid: Incorrecto. Madrid es la capital de España.\n"
+                f"    - Berlín: Incorrecto. Berlín es la capital de Alemania.\n\n"
+                f"Estructura de las opciones de guía y respuestas:\n"
+                f"- prompt_user_question es el diálogo previo con la pregunta que se quiere preguntar.\n"
+                f"- options es una lista de objetos, cada uno con:\n"
+                f"  - prompt_user_guideline: la respuesta esperada o patrón a evaluar (puede ser texto libre, no solo opción cerrada).\n"
+                f"  - prompt_user_answer: la retroalimentación que se da si la respuesta del usuario coincide (o es similar) con el guideline.\n\n"
+                f"La lógica debe ser: si la respuesta del usuario es similar a alguno de los prompt_user_guideline, se responde con el prompt_user_answer correspondiente. Si no hay coincidencia, se puede dar la retroalimentación genérica o la del guideline más cercano.\n\n"
+                f"ESTRUCTURA EXACTA:\n"
+                f"- Evento inicial\n"
+                f"- Escena 1\n"
+                f"  - Locación 1\n"
+                f"  - Personaje principal\n"
+                f"  - Personaje secundario\n"
+                f"  - Interacción (open_question): [formato del ejemplo]\n"
+                f"  - Evento después de la interacción\n"
+                f"- Escena 2\n"
+                f"  - Locación 2\n"
+                f"  - Personaje principal\n"
+                f"  - Personaje secundario\n"
+                f"  - Interacción (open_question): [formato del ejemplo]\n"
+                f"- Escena 3\n"
+                f"  - Locación 3\n"
+                f"  - Personaje principal\n"
+                f"  - Personaje secundario\n"
+                f"  - Interacción (open_question): [formato del ejemplo]\n"
+                f"  - Evento final\n\n"
+                f"No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al pie de la letra.\n\n"
+                f"INFO DE LAS ESCENAS:\n{info_scenes}\n\n"
+                f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
+                f"{template_select}"
+            )
+        elif type_template == "solve":
+            prompt = (
+                f"IMPORTANTE: El template es SOLVE. Las dos primeras escenas deben tener interacción de tipo 'two_way' (diálogo bidireccional entre personajes, orientado a analizar y desarrollar la solución). La tercera escena debe ser de tipo 'open_question' (el jugador propone una solución libremente). No incluyas interacciones de tipo 'option_multiple' ni 'one_way'. Si no sigues el formato, el resultado será rechazado.\n\n"
+                f"Ejemplo de interacción two_way:\nPrincipal: Mentor\nSecundario: Aprendiz\ninteracción:\n1: ¿Qué harías en esta situación?\\n2: Buscaría ayuda.\\n1: ¿Por qué?\\n2: Porque es importante aprender de otros.\n\n"
+                f"Ejemplo de interacción open_question:\nPrincipal: Mentor\nSecundario: Aprendiz\ninteracción:\n1: ¿Cuál crees que es la mejor solución?\\n2: Yo propondría...\n\n"
+                f"Estructura exacta:\n- Evento inicial\n- Escena 1\n  - Locación 1\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (two_way): [formato del ejemplo]\n  - Evento después de la interacción\n- Escena 2\n  - Locación 2\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (two_way): [formato del ejemplo]\n- Escena 3\n  - Locación 3\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (open_question): [formato del ejemplo]\n  - Evento final\n\n"
+                f"No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al pie de la letra.\n\n"
+                f"INFO DE LAS ESCENAS:\n{info_scenes}\n\nLOCACIONES EXISTENTES:\n{locations_list}\n\n{template_select}"
+            )
+
+        elif type_template == "storytelling":
+            prompt = (
+                f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones. el tipo de interacción debe concordar con lo deseado \n\n"
+                f"INFO DE LAS ESCENAS:\n{info_scenes}\n\n"
                 f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
                 f"Para cada locación, devuelve un objeto JSON con:\n"
                 f"- titulo: nombre de la locación (debe coincidir exactamente con las locaciones existentes)\n"
@@ -756,33 +831,31 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
                 f"- personaje_secundario: objeto con 'nombre' y 'prompt_descriptivo' (diferente para cada locación)\n"
                 f"- interaccion: objeto con:\n"
                 f"  * tipo: "
-                f"    - 'option_multiple' (el principal elige entre varias opciones para responder al secundario, no numeradas). solo para el tipo de template (trivia) \n\n"
-                f"  * Opciones de dialogo:\n"
-                f"    ** prompt_user_question: interacción llevando hacia la pregunta antes de las opciones que hace el secundario al principal puede ser formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario de 4 a 6 interracciones \n"
-                f"    ** opciones: opciones de respuesta solo para el tipo de interaccion 'option_multiple'\n"
-                f"      ** prompt_user_option: opción de respuesta\n"
-                f"      ** prompt_user_answer: retroalimentación a la opcion de respuesta\n"
-                f"  * Index de la opcion correcta (0 basado en cero) solo para el tipo de interacción 'option_multiple'\n\n"
+                f"    - 'one_way' (solo habla el secundario al principal). solo para el tipo de template (learn)\n"
+                f"    - 'two_way' (diálogo entre principal y secundario). solo para el tipo de template (learn)\n"
+                f"  * dialogo: \n"
+                f"    - Para 'one_way': un diálogo corto que dice el secundario al principal solo para el tipo de template (learn)\n"
+                f"    - Para 'two_way': formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario de 4 a 6 interacciones solo para el tipo de template (learn)\n\n"
                 f"REGLAS IMPORTANTES:\n"
                 f"- El personaje principal debe ser el MISMO en todas las locaciones\n"
                 f"- Cada locación tiene exactamente 1 personaje secundario (diferente por locación)\n"
                 f"- Exactamente 1 interacción por locación\n"
-                f"- Los tipos son:'option_multiple'\n\n"
+                f"- Los tipos son: 'one_way' , 'two_way'\n\n"
                 f"EJEMPL0 DE RESPUESTA:\n"
                 f"[\n"
                 f"  {{\n"
                 f"    'titulo': 'Locación 1',\n"
                 f"    'personaje_principal': {{'nombre': 'Nombre Principal', 'prompt_descriptivo': 'Descripción del personaje principal'}},\n"
                 f"    'personaje_secundario': {{'nombre': 'Nombre Secundario', 'prompt_descriptivo': 'Descripción del personaje secundario'}},\n"
-                f"    'interaccion': {{'tipo': 'option_multiple'}},\n"
-                f"    'options_dialogo': {{'prompt_user_question': '1 Hola 2 ¿Listo para la pregunta? 1 Sí, adelante.', 'options': [\n"
-                f"        {{'prompt_user_option': 'Opción A respuesta', 'prompt_user_answer': 'Respuesta para Opción A'}},\n"
-                f"        {{'prompt_user_option': 'Opción B respuesta', 'prompt_user_answer': 'Respuesta para Opción B'}},\n"
-                f"        {{'prompt_user_option': 'Opción C respuesta', 'prompt_user_answer': 'Respuesta para Opción C'}}\n"
-                f"      ], 'index_opcion_correcta': 1}}\n"
+                f"    'interaccion': {{'tipo': 'one_way', 'dialogo': 'Diálogo del secundario al principal'}}\n"
+                f"  }},\n"
+                f"  {{\n"
+                f"    'titulo': 'Locación 2',\n"
+                f"    'personaje_principal': {{'nombre': 'Nombre Principal', 'prompt_descriptivo': 'Descripción del personaje principal'}},\n"
+                f"    'personaje_secundario': {{'nombre': 'Nombre Secundario', 'prompt_descriptivo': 'Descripción del personaje secundario'}},\n"
+                f"    'interaccion': {{'tipo': 'two_way', 'dialogo': '1 Hola 2 Hola, ¿cómo estás? 1 Bien, ¿y tú? 2 Muy bien, gracias.'}}\n"
                 f"  }}\n"
                 f"]\n\n"
-
             )
         else:
             prompt = (
@@ -840,7 +913,8 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
 
         # Validar tipos de interacción para cada locación
 
-        print("tipo template", template_type,"interacciones", [loc.interaccion.tipo for loc in locations_with_chars if hasattr(loc, 'interaccion')])
+        print("tipo template", template_type, "interacciones",
+              [loc.interaccion.tipo for loc in locations_with_chars if hasattr(loc, 'interaccion')])
 
         if not template_type:
             template_type = "learn"  # O el valor por defecto que corresponda
@@ -908,7 +982,7 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
 
     except Exception as e:
         print(traceback.format_exc())
-        return f"Failed to extract characters and interactions: {str(e)}"
+    return f"Failed to extract characters and interactions: {str(e)}"
 
 
 async def create_character_service(character: SchemaCreateCharacter, user_id: str, game_id: str,
@@ -1773,10 +1847,10 @@ REGLAS ESPECÍFICAS:
 """,
 
         TemplateType.EVALUATION: """
-TEMPLATE TIPO: EVALUATION (Evaluación o Data Collection)
+TEMPLATE TIPO: EVALUATION (Evaluación)
 
 DEFINICIÓN:
-Diseñado para recoger información del jugador. Combina respuestas cerradas (two_way) con una opción abierta (open_question). La contrarespuesta del personaje es siempre la misma, independientemente de lo que se elija, porque lo importante es capturar datos y no validar respuestas.
+Diseñado para evaluar el conocimiento del jugador.una opción abierta (open_question). La contrarespuesta del personaje puede variar según la respuesta del jugador, ya que el objetivo es medir y retroalimentar el nivel de conocimiento.
 
 ESTRUCTURA REQUERIDA:
 - Evento Intro: ✅ 
@@ -1811,8 +1885,8 @@ GUIA DE INTERACCIÓN
 La lógica debe ser: si la respuesta del usuario es similar a alguno de los prompt_user_guideline, se responde con el prompt_user_answer correspondiente. Si no hay coincidencia, se puede dar la retroalimentación genérica o la del guideline más cercano.
     
 REGLAS ESPECÍFICAS:
-- No hay respuestas incorrectas (two_way de 4 a 6 interacciones antes de la respuesta abierta)
-- Cada escena tiene dos personajes y una locación, uno de los personajes puede ser el mismo en todas las escenas que es el principal
+- No hay respuestas incorrectas (4 a 6 interacciones antes de la respuesta abierta)
+- Cada escena tiene dos personajes y una locación, uno de los personajes puede ser el mismo en todas las escenas (el principal).
 - La contrarespuesta del personaje siempre es la misma, independiente de la respuesta del jugador
 - Enfoque en recopilación de información, opiniones o preferencias
 - Sin validación de respuestas - todas son válidas
@@ -1899,6 +1973,40 @@ REGLAS ESPECÍFICAS:
 - Sin restricciones en el flujo conversacional
 - Enfoque en exploración de ideas y intercambio de conocimientos
 - Objetivo: Facilitar consultas expertas y reflexiones profundas
+""",
+
+        TemplateType.STORYTELLING: """
+TEMPLATE TIPO: STORYTELLING (Narrativa)
+
+DEFINICIÓN:
+Un recorrido narrativo enfocado en contar una historia en 3 escenas. Cada escena presenta una conversación lineal entre dos personajes, sin opciones de decisión para el jugador. El objetivo es explorar y reforzar la narrativa a través del diálogo.
+
+ESTRUCTURA REQUERIDA:
+- Evento Intro: ✅ 
+- Escena 1: Personajes con interacción "two_way", dos personajes y una locación.
+- Evento 1 → 2: ✅ 
+- Escena 2: Personajes con interacción "two_way", dos personajes y una locación.
+- Evento 2 → 3: ✅ 
+- Escena 3: Personajes con interacción "two_way", dos personajes y una locación.
+- Evento Final: ✅ 
+
+GUIA DE INTERACCIÓN
+- two_way: Diálogo bidireccional donde ambos personajes intercambian líneas de diálogo.
+  Ejemplo:
+  1: Hola, ¿cómo estás?
+  2: Muy bien, gracias. ¿Y tú?
+  1: También bien, ¿qué planes tienes hoy?
+  2: Voy a escribir una historia y luego salir a caminar.
+
+REGLAS ESPECÍFICAS:
+- Antes de cada bloque de interacción, indica explícitamente el nombre del personaje principal y el secundario, usando el formato:
+  Principal: [nombre]
+  Secundario: [nombre]
+- El bloque de interacción debe iniciar con la palabra 'interacción:' y luego el diálogo entre los personajes.
+- No incluyas opciones ni respuestas, solo el diálogo.
+- No incluyas el título en el script.
+- El output debe ser solo texto, siguiendo el formato del ejemplo al pie de la letra.
+{template_definition}
 """
     }
 
@@ -1919,9 +2027,9 @@ async def validate_interaction_type(template_type: str, interaction_type: str) -
     template_interactions = {
         "learn": ["one_way", "two_way"],
         "trivia": ["option_multiple"],
-        "evaluation": ["two_way"],
+        "evaluation": ["open_question"],
         "solve": ["two_way"],
-        "expert": ["opentalk"]
+        "expert": ["open_talk"],
     }
 
     expected_types = template_interactions.get(template_type.lower(), [])
@@ -2027,21 +2135,54 @@ REGLAS:
             {
                 "role": "system",
                 "content": f"""
-Crea un juego de evaluación en 3 escenas. Todas las interacciones deben ser de tipo 'open_question' (el jugador responde libremente a una pregunta del personaje). El objetivo es recopilar información del usuario.
+IMPORTANTE: El template es EVALUATION. (diálogo bidireccional entre personajes, con pregunta y respuesta para evaluar conocimiento). Las tres escenas debe ser de tipo 'open_question' (el jugador responde libremente a una pregunta del personaje). No incluyas interacciones de tipo 'option_multiple' ni 'one_way'. Si no sigues el formato, el resultado será rechazado.
+
 
 Ejemplo de interacción open_question:
-Principal: Entrevistador
-Secundario: Participante
-interacción:
-1: ¿Cómo te llamas?\n2: Me llamo Ana.
-1: ¿Cuál es tu color favorito?\n2: Azul.
+- open_question: Diálogo donde el jugador puede responder libremente a una pregunta o comentario del personaje.
+  Ejemplo:
+    interacción:
+  1: Hola, ¿listo para la pregunta?
+  2: Sí, adelante.
+  1: ¿Cuál es la capital de Francia?
+  Opciones de guia:
+    - París
+    - Madrid
+    - Berlín
+  Respuestas de las opciones
+    - París: ¡Correcto! París es la capital de Francia.
+    - Madrid: Incorrecto. Madrid es la capital de España.
+    - Berlín: Incorrecto. Berlín es la capital de Alemania.
 
-REGLAS:
-- {instruccion_personajes}
-- El bloque de interacción debe iniciar con la palabra 'interacción:' y luego el diálogo entre los personajes.
-- No incluyas el título en el script.
-- El output debe ser solo texto, siguiendo el formato del ejemplo al pie de la letra.
-{template_definition}
+- prompt_user_question es el diálogo previo con la pregunta que se quiere preguntar.
+- options es una lista de objetos, cada uno con:
+  - prompt_user_guideline: la respuesta esperada o patrón a evaluar (puede ser texto libre, no solo opción cerrada).
+  - prompt_user_answer: la retroalimentación que se da si la respuesta del usuario coincide (o es similar) con el guideline.
+
+La lógica debe ser: si la respuesta del usuario es similar a alguno de los prompt_user_guideline, se responde con el prompt_user_answer correspondiente. Si no hay coincidencia, se puede dar la retroalimentación genérica o la del guideline más cercano.
+
+Estructura exacta:
+- Evento inicial
+- Escena 1
+  - Locación 1
+  - Personaje principal
+  - Personaje secundario
+  - Interacción (open_question): [formato del ejemplo]
+  - Evento después de la interacción
+- Escena 2
+  - Locación 2
+  - Personaje principal
+  - Personaje secundario
+  - Interacción (open_question): [formato del ejemplo]
+- Escena 3
+  - Locación 3
+  - Personaje principal
+  - Personaje secundario
+  - Interacción (open_question): [formato del ejemplo]
+  - Evento final
+
+No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al pie de la letra.
+
 """
             },
             {
@@ -2066,26 +2207,42 @@ REGLAS:
             {
                 "role": "system",
                 "content": f"""
-Crea un juego de resolución de problemas en 3 escenas. Las primeras dos escenas deben ser 'two_way' y la última 'open_question'. El objetivo es que el jugador resuelva un reto a través del diálogo y una respuesta abierta final.
+IMPORTANTE: El template es SOLVE. Las dos primeras escenas deben tener interacción de tipo 'two_way' (diálogo bidireccional entre personajes, orientado a analizar y desarrollar la solución). La tercera escena debe ser de tipo 'open_question' (el jugador propone una solución libremente). No incluyas interacciones de tipo 'option_multiple' ni 'one_way'. Si no sigues el formato, el resultado será rechazado.
 
 Ejemplo de interacción two_way:
 Principal: Mentor
 Secundario: Aprendiz
 interacción:
-1: ¿Qué harías en esta situación?\n2: Buscaría ayuda.\n1: ¿Por qué?\n2: Porque es importante aprender de otros.
+1: ¿Qué harías en esta situación?\\n2: Buscaría ayuda.\\n1: ¿Por qué?\\n2: Porque es importante aprender de otros.
 
 Ejemplo de interacción open_question:
 Principal: Mentor
 Secundario: Aprendiz
 interacción:
-1: ¿Cuál crees que es la mejor solución?\n2: Yo propondría...
+1: ¿Cuál crees que es la mejor solución?\\n2: Yo propondría...
 
-REGLAS:
-- {instruccion_personajes}
-- El bloque de interacción debe iniciar con la palabra 'interacción:' y luego el diálogo entre los personajes.
-- No incluyas el título en el script.
-- El output debe ser solo texto, siguiendo el formato del ejemplo al pie de la letra.
-{template_definition}
+Estructura exacta:
+- Evento inicial
+- Escena 1
+  - Locación 1
+  - Personaje principal
+  - Personaje secundario
+  - Interacción (two_way): [formato del ejemplo]
+  - Evento después de la interacción
+- Escena 2
+  - Locación 2
+  - Personaje principal
+  - Personaje secundario
+  - Interacción (two_way): [formato del ejemplo]
+- Escena 3
+  - Locación 3
+  - Personaje principal
+  - Personaje secundario
+  - Interacción (open_question): [formato del ejemplo]
+  - Evento final
+
+No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al pie de la letra.
+
 """
             },
             {
@@ -2105,22 +2262,25 @@ REGLAS:
                 ]
             }
         ]
-    elif tipo == "expert":
+    elif tipo == "storytelling":
         return [
             {
                 "role": "system",
                 "content": f"""
-Crea un juego de consulta con experto en 3 escenas. Todas las interacciones deben ser de tipo 'open_talk' (conversación abierta con el experto). El objetivo es explorar ideas o reflexiones a través del diálogo.
+Crea una historia narrativa interactiva en 3 escenas. Todas las interacciones deben ser de tipo 'two_way' (diálogo bidireccional entre personajes, sin opciones de respuesta). Cada escena debe tener dos personajes y una locación. El objetivo es explorar y reforzar la narrativa a través del diálogo.
 
-Ejemplo de interacción open_talk:
-Principal: Experto
-Secundario: Consultante
+Ejemplo de interacción two_way:
+Principal: Narrador
+Secundario: Protagonista
 interacción:
-1: ¿En qué puedo ayudarte hoy?\n2: Tengo dudas sobre mi proyecto.\n1: Cuéntame más.\n2: Quiero mejorar la eficiencia.
+1: Hola, ¿cómo estás?\n2: Muy bien, gracias. ¿Y tú?\n1: También bien, ¿qué planes tienes hoy?\n2: Voy a escribir una historia y luego salir a caminar.
 
-REGLAS:
-- {instruccion_personajes}
+REGLAS ESPECÍFICAS:
+- Antes de cada bloque de interacción, indica explícitamente el nombre del personaje principal y el secundario, usando el formato:
+  Principal: [nombre]
+  Secundario: [nombre]
 - El bloque de interacción debe iniciar con la palabra 'interacción:' y luego el diálogo entre los personajes.
+- No incluyas opciones ni respuestas, solo el diálogo.
 - No incluyas el título en el script.
 - El output debe ser solo texto, siguiendo el formato del ejemplo al pie de la letra.
 {template_definition}
@@ -2128,7 +2288,7 @@ REGLAS:
             },
             {
                 "role": "user",
-                "content": f"Quiero un juego usando el template EXPERT. Prompt del usuario: {prompt_user}"
+                "content": f"Quiero un juego usando el template STORYTELLING. Prompt del usuario: {prompt_user}"
             },
             {
                 "role": "user",
@@ -2154,4 +2314,3 @@ REGLAS:
                 "content": f"Prompt del usuario: {prompt_user}"
             }
         ]
-

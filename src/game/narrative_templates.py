@@ -6,10 +6,11 @@ from datetime import datetime
 
 class TemplateType(str, Enum):
     LEARN = "learn"
-    EVALUATION = "evaluation"
+    EVALUATION = " "
     TRIVIA = "trivia"
     SOLVE = "solve"
     EXPERT = "expert"
+    STORYTELLING = "storytelling"
 
 
 class InteractionType(str, Enum):
