@@ -1,9 +1,11 @@
+import time
 from io import BytesIO
 
 from bson import ObjectId
 import traceback
 import base64
 import os
+import requests
 
 from state_game.services import get_state_game_by_game_id
 from task.services import update_task_service
@@ -128,32 +130,53 @@ async def generate_image_event(
                 # No fallar todo el proceso si falla el audio
                 pass
 
+        time.sleep(1000)
+        # Construir info de personajes y adjuntar imágenes
+        personajes_info = []
+        personajes_images = []
+        for personaje in characters_state_game:
+            data = personaje.get('data', {})
+            nombre = data.get('name', 'Personaje')
+            prompt_personaje = data.get('prompt_user', '')
+            imagen = data.get('image') or data.get('image_reference')
+            if imagen:
+                personajes_info.append(f"{nombre}: {prompt_personaje} (imagen: {imagen})")
+                personajes_images.append(imagen)
+            else:
+                personajes_info.append(f"{nombre}: {prompt_personaje}")
+        personajes_str = '\n'.join(personajes_info)
+
+        # Construir el prompt base y la estructura de content_prompt
+        prompt_base = (
+            f"Genera una imagen de portada en estilo 3D medium poly de proporciones realistas para el juego {game_db['title']} "
+            f"con el personaje principal {character_principal_state_game['data']['prompt_user']}. "
+            f"La imagen debe ser portrait y tener el contenido vertical. Sin texto. "
+            f"Usa la info de los personajes y locaciones para crear la escena.\n"
+            f"Personajes en la escena (usa sus imágenes como referencia):\n{personajes_str}\n"
+            f"prompt del usuario: {prompt_user_image}"
+        )
+        content_prompt = [
+            {"role": "user", "content": [
+                {"type": "input_text", "text": prompt_base}
+            ]}
+        ]
+        # Adjuntar imágenes de personajes
+        for imagen in personajes_images:
+            try:
+                response = requests.get(imagen)
+                image_bytes = BytesIO(response.content)
+                image_base64 = base64.b64encode(image_bytes.getvalue()).decode('utf-8')
+                content_prompt[0]["content"].append({
+                    "type": "input_image",
+                    "image_url": f"data:image/jpeg;base64,{image_base64}"
+                })
+            except Exception as e:
+                print(f"Error adjuntando imagen de personaje: {imagen}", e)
+                continue
+
+
         response_prompt_image = await openai_generator.generate_gpt(
-            content_prompt=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": f"Genera una imagen de portada en estilo 3D medium poly de proporciones realistas para el juego {game_db['title']}"
-                               f" con el personaje {character_principal_state_game['data']['prompt_user']}."
-                               f"La imagen debe ser portrait y tener el contenido vertical. sin texto."
-                               f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen."
-                        },
-                        {
-                            "type": "input_text",
-                            "text": f"prompt del usuario: {prompt_user_image}",
-                        },
-                        {
-                            "type": "input_text",
-                            "text":  f"Game: {game_db['title']}\n"
-                               f"Character Principal: {character_principal_state_game['data']['prompt_user']}\n"
-                               f"Characters: {characters_state_game}\n"
-                               f"Locations: {locations_state_game}\n",
-                        }
-                    ]
-                }
-            ],
+            content_prompt=content_prompt,
             model="gpt-4.1",
             type_generation="create_prompt_image",
             tools=[{"type": "image_generation"}],

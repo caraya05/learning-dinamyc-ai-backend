@@ -3,7 +3,8 @@ from io import BytesIO
 from uuid import uuid4
 import base64
 import os
-
+import time
+import asyncio
 from bson import ObjectId
 import requests
 
@@ -283,7 +284,7 @@ class SchemaLocationImage(BaseModel):
     )
 
 
-async def generate_location_image(_location_id: str, _user_id: str, _state_game_id: str):
+async def generate_location_image(_location_id: str, _user_id: str, _state_game_id: str, _type_game: str = "2d"):
     if os.environ.get("MODE_TEST", False):
         # En modo test, no generar imagen, solo asignar la imagen estática
         url_image = "https://storage.googleapis.com/qwestar/voxel_.jpg"
@@ -294,10 +295,108 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
     try:
         location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
+        element_state_db = await db["state_glic"].find_one({"element_id": _location_id, "state": _state_game_id})
 
-        element_state_db = await db["state_glic"].find_one(
-            {"element_id": _location_id, "state": _state_game_id}
-        )
+        # --- NUEVA LÓGICA PARA 2D ---
+        if _type_game == "2d":
+            time.sleep(1000)
+            prompt_user = element_state_db['data'].get('prompt_user', '')
+            imagen_loc = element_state_db['data'].get('image') or element_state_db['data'].get('image_reference')
+            # Buscar personajes asociados a la localización (si aplica)
+            personajes_cursor = db["state_glic"].find({
+                'type_element': 'character',
+                'state': _state_game_id
+            })
+
+            personajes_info = []
+            count = 0
+            start_time = time.time()
+            async for personaje in personajes_cursor:
+                data = personaje.get('data', {})
+                nombre = data.get('name', 'Personaje')
+                prompt_personaje = data.get('prompt_user', '')
+                imagen = data.get('image') or data.get('image_reference')
+                if imagen:
+                    personajes_info.append(f"{nombre}: {prompt_personaje} (imagen: {imagen})")
+                else:
+                    personajes_info.append(f"{nombre}: {prompt_personaje}")
+                count += 1
+                if count >= 2 or (time.time() - start_time) >= 20:
+                    break
+                await asyncio.sleep(0)  # Cede el control al event loop
+            personajes_str = '\n'.join(personajes_info)
+            # Construir el prompt base + situacional + imágenes
+            prompt = (
+                "Genera una imagen en resolución portrait (1024x1536) de estilo 3D low poly animado detallado y vista aérea isométrica aérea (tipo juego RPG sin GUI) "
+                f"\nSituación: {prompt_user}\n"
+                f"\nPersonajes en la escena (usa sus imágenes como referencia):\n{personajes_str}\n"
+                f"\nImagen de la localización (usa como referencia): {imagen_loc if imagen_loc else 'Sin imagen'}\n"
+                f"\nInstrucciones adicionales:\n"
+                f"- La imagen debe tener una perspectiva isométrica aérea, como si se viera desde arriba en un juego RPG.\n"
+                f"- La imagen debe ser vertical (portrait) con una resolución de 1024x1536 píxeles.\n"
+                f"- La escena debe estar ambientada según la descripción proporcionada.\n"
+                f"- Si hay personajes, deben estar integrados en la escena de manera coherente.\n"
+                f"- Si hay una imagen de la localización, úsala como referencia para el estilo y los elementos del entorno.\n"
+                f"- No incluyas texto, logos, marcas de agua, ni interfaces de usuario en la imagen.\n"
+                f"- La iluminación debe ser coherente con la escena y resaltar los elementos clave.\n"
+                f"- Usa una paleta de colores vibrante y atractiva, adecuada para un juego de fantasía.\n"
+                f"- Usa las imagenes de cara de los personajes para poder colocarlos en la escena de manera coherente.\n"
+            )
+            # Adjuntar imágenes como archivos en el prompt (solo si existen)
+            content_prompt = [
+                {"role": "user", "content": [
+                    {"type": "input_text", "text": prompt}
+                ]}
+            ]
+            if imagen_loc:
+                # Adjuntar imagen de la localización
+                response = requests.get(imagen_loc)
+                image_bytes = BytesIO(response.content)
+                image_base64 = base64.b64encode(image_bytes.getvalue()).decode('utf-8')
+                content_prompt[0]["content"].append({
+                    "type": "input_image",
+                    "image_url": f"data:image/jpeg;base64,{image_base64}"
+                })
+            # Adjuntar imágenes de personajes
+            personajes_cursor = db["state_glic"].find({
+                'data.location_id': _location_id,
+                'type_element': 'character',
+                'state': _state_game_id
+            })
+            async for personaje in personajes_cursor:
+                data = personaje.get('data', {})
+                imagen = data.get('image') or data.get('image_reference')
+                if imagen:
+                    response = requests.get(imagen)
+                    image_bytes = BytesIO(response.content)
+                    image_base64 = base64.b64encode(image_bytes.getvalue()).decode('utf-8')
+                    content_prompt[0]["content"].append({
+                        "type": "input_image",
+                        "image_url": f"data:image/jpeg;base64,{image_base64}"
+                    })
+
+            # Generar imagen
+            image_location = await openai_generator.generate_gpt(
+                content_prompt=content_prompt,
+                model="gpt-4.1",
+                user_id=_user_id,
+                type_generation="location_image_2d",
+                image=True,
+                tools=[{"type": "image_generation"}]
+            )
+            image_data = base64.b64decode(image_location)
+            image_face = BytesIO(image_data)
+            image_generated = upload_image(
+                img_byte_arr=image_face,
+                file_name=f"locations/{uuid4()}.jpg",
+                size=(2436, 1372),
+            )
+            element_state_db["data"]["image"] = image_generated
+            await db["state_glic"].update_one(
+                {"_id": element_state_db["_id"]}, {"$set": {"data": element_state_db["data"]}}
+            )
+            return True, "Image generated successfully for 2D"
+        # --- FIN LÓGICA 2D ---
 
         url_image_voxel = "https://storage.googleapis.com/qwestar/voxel_.jpg"
 
@@ -473,7 +572,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
 
 async def async_generate_location_task(
-        _location_id: str, _user_id: str, _task_id: str, _state_game_id: str
+        _location_id: str, _user_id: str, _task_id: str, _state_game_id: str, _type_game: str = "2d"
 ):
     if _task_id and _task_id != "" and _task_id is not None:
         await update_task_service(_id=_task_id, _status="pending")
@@ -508,7 +607,7 @@ async def async_generate_location_task(
             )
         return "Error in identify location sound service."
 
-    response_image, message = await generate_location_image(_location_id, _user_id, _state_game_id)
+    response_image, message = await generate_location_image(_location_id, _user_id, _state_game_id,_type_game)
     if not response_image:
         if _task_id and _task_id != "" and _task_id is not None:
             await update_task_service(

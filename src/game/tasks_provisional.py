@@ -475,7 +475,7 @@ async def generate_interaction_for_scene(script: str, scene_num: int, template_t
                 {
                     "role": "user",
                     "content": f"""
-                            De la escena de escena {scene_num} del guión, extre con que personajes interactúa el jugador y extrae la interacción en formato de diálogo.
+                            De la escena de escena {scene_num + 1} del guión, extre con que personajes interactúa el jugador y extrae la interacción en formato de diálogo.
                             {template_context}
                             Aquí está el guión completo:
                             {script}
@@ -608,7 +608,7 @@ async def extract_locations_from_scenes(id_game_provisional: str):
         prompt = (
             "Analiza todas las escenas del siguiente guion y extrae la información de las locaciones en el siguiente formato para cada locación encontrada:\n"
             "- titulo: nombre de la locación\n"
-            "- prompt_user: descripción de la locacion. La descripción debe especificar que los objetos pequeños estén ubicados en las paredes en la vista isométrica, y que no haya objetos en la mitad de la vista para facilitar la navegación.\n"
+            "- prompt_user: descripción de la situación que ocurre en la locación. El resultado debe ser una descripción situacional similar al ejemplo dado, mencionando personajes, qué hacen y su ubicación, pero generada dinámicamente según la escena.\n"   
             "- escena: escena inicial donde aparece\n"
             "- escenas_donde_se_repite: todas las escenas donde se repite\n"
             "Devuelve una lista de objetos JSON, uno por cada locación.\n"
@@ -751,7 +751,7 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
             prompt = (
                 f"IMPORTANTE: El template es TRIVIA. TODAS las escenas deben tener interacción de tipo 'option_multiple', siguiendo exactamente el formato del ejemplo. No incluyas interacciones de tipo 'two_way' ni 'one_way'. Si no sigues el formato, el resultado será rechazado.\n\n"
                 f"Ejemplo de interacción option_multiple:\nPrincipal: Mago\nSecundario: Aprendiz\ninteracción:\n1: Hola, ¿listo para la pregunta?\\n2: Sí, adelante.\\n1: ¿Cuál es la capital de Francia?\nOpciones:\n  - París\n  - Madrid\n  - Berlín\nRespuestas:\n  - París: ¡Correcto! París es la capital de Francia.\n  - Madrid: Incorrecto. Madrid es la capital de España.\n  - Berlín: Incorrecto. Berlín es la capital de Alemania.\n\n"
-                f"Estructura exacta:\n- Evento inicial\n- Escena 1\n  - Locación 1\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (option_multiple): [formato del ejemplo]\n  - Evento después de la interacción\n- Escena 2\n  - Locación 2\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (option_multiple): [formato del ejemplo]\n- Escena 3\n  - Locación 3\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (option_multiple): [formato del ejemplo]\n  - Evento final\n\n"
+                f"Estructura exacta:\n- Evento inicial\n- Escena 1\n  - Locación 1\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (open_question): [formato del ejemplo]\n  - Evento después de la interacción\n- Escena 2\n  - Locación 2\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (open_question): [formato del ejemplo]\n- Escena 3\n  - Locación 3\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (open_question): [formato del ejemplo]\n  - Evento final\n\n"
                 f"No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al pie de la letra.\n\n"
                 f"INFO DE LAS ESCENAS:\n{info_scenes}\n\nLOCACIONES EXISTENTES:\n{locations_list}\n\n{template_select}"
             )
@@ -969,6 +969,12 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
 
             updated_locations.append(updated_location)
 
+            # Validar que la clave 'personaje_principal' exista en updated_location
+            if 'personaje_principal' not in updated_location:
+                import logging
+                logging.error(f"Falta la clave 'personaje_principal' en updated_location: {updated_location}")
+                raise ValueError(f"Falta la clave 'personaje_principal' en updated_location: {updated_location}")
+
         # Actualizar la base de datos
         await db["game_provisional"].update_one(
             {"_id": ObjectId(id_game_provisional)},
@@ -1162,6 +1168,7 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str, 
             _user_id=user_id,
             _task_id="",
             _state_game_id=state_game["_id"],
+            _type_game="2d"
         )
 
         if location_db := await db['location'].find_one({"_id": location_created.inserted_id}):
@@ -1318,6 +1325,10 @@ async def create_game_by_provisional(id_game_provisional: str):
             locations_db.append(str(location_db.get("_id", None)))
 
             if i == 0:
+                if "personaje_principal" not in location:
+                    import logging
+                    logging.error(f"Falta la clave 'personaje_principal' en location: {location}")
+                    raise ValueError(f"Falta la clave 'personaje_principal' en location: {location}")
                 character_principal_db = await create_character_service(
                     character=SchemaCreateCharacter(
                         name=location["personaje_principal"]["nombre"],
@@ -1359,46 +1370,46 @@ async def create_game_by_provisional(id_game_provisional: str):
 
             characters_db.append(str(character_db.get("_id", None)))
 
-            # Crear configuración de la locación con posicionamiento de personajes
-            def generate_random_position():
-                """Genera una posición aleatoria en la cuadrícula de 60x60"""
-                return {
-                    "index": 0,  # Índice de la cuadrícula
-                    "X": random.randint(28, 35),
-                    "Y": random.randint(28, 35)
-                }
-
-            # Configuración de la locación con personajes posicionados
-            location_configuration = {
-                "characterScale": 1.6,
-                "GridX": 0,
-                "GridY": 0,
-                "GridPlaneSize": 0,  # Cuadrícula de 60x60
-                "Characters": [
-                    {
-                        "characterId": str(character_principal_db.get("_id")),
-                        **generate_random_position()
-                    },
-                    {
-                        "characterId": str(character_db.get("_id")),
-                        **generate_random_position()
-                    }
-                ],
-                "items": []  # Por ahora sin items, se pueden agregar después
-            }
-
-            location_state_db = await db["state_glic"].find_one(
-                {"element_id": str(location_db.get("_id")), "type_element": "location"}
-            )
-
-            location_state_db["data"]["configuration"] = location_configuration
-            await db["state_glic"].update_one(
-                {"_id": location_state_db["_id"]},
-                {"$set": {
-                    "data": location_state_db["data"],
-                    "updated_at": datetime.now(pytz.utc)
-                }}
-            )
+            # # Crear configuración de la locación con posicionamiento de personajes
+            # def generate_random_position():
+            #     """Genera una posición aleatoria en la cuadrícula de 60x60"""
+            #     return {
+            #         "index": 0,  # Índice de la cuadrícula
+            #         "X": random.randint(28, 35),
+            #         "Y": random.randint(28, 35)
+            #     }
+            #
+            # # Configuración de la locación con personajes posicionados
+            # location_configuration = {
+            #     "characterScale": 1.6,
+            #     "GridX": 0,
+            #     "GridY": 0,
+            #     "GridPlaneSize": 0,  # Cuadrícula de 60x60
+            #     "Characters": [
+            #         {
+            #             "characterId": str(character_principal_db.get("_id")),
+            #             **generate_random_position()
+            #         },
+            #         {
+            #             "characterId": str(character_db.get("_id")),
+            #             **generate_random_position()
+            #         }
+            #     ],
+            #     "items": []  # Por ahora sin items, se pueden agregar después
+            # }
+            #
+            # location_state_db = await db["state_glic"].find_one(
+            #     {"element_id": str(location_db.get("_id")), "type_element": "location"}
+            # )
+            #
+            # location_state_db["data"]["configuration"] = location_configuration
+            # await db["state_glic"].update_one(
+            #     {"_id": location_state_db["_id"]},
+            #     {"$set": {
+            #         "data": location_state_db["data"],
+            #         "updated_at": datetime.now(pytz.utc)
+            #     }}
+            # )
 
             event_current = game_provisional_db.get("events_generated", False)
 
@@ -1574,7 +1585,7 @@ async def generate_scene_interactions(id_game_provisional: str):
             {"_id": ObjectId(id_game_provisional)},
             {"$set": {
                 "locations": locations,
-                "updated_at": datetime.now(pytz.utc)
+                "updated_at": datetime.now(pytz.utc )
             }}
         )
 
@@ -1868,11 +1879,13 @@ GUIA DE INTERACCIÓN
   1: Hola, ¿listo para la pregunta?
   2: Sí, adelante.
   1: ¿Cuál es la capital de Francia?
-  Opciones de guia:
+  2: [Respuesta libre del jugador]
+  
+Opciones de guia (prompt_user_guideline) : 
     - París
     - Madrid
     - Berlín
-  Respuestas de las opciones
+Respuestas de las opciones (prompt_user_answer) : 
     - París: ¡Correcto! París es la capital de Francia.
     - Madrid: Incorrecto. Madrid es la capital de España.
     - Berlín: Incorrecto. Berlín es la capital de Alemania.
@@ -2053,26 +2066,9 @@ Ejemplo de interacción option_multiple:
 Principal: Mago
 Secundario: Aprendiz
 interacción:
-1: Hola, ¿listo para la pregunta?\n2: Sí, adelante.\n1: ¿Cuál es la capital de Francia?
-Opciones:
-  - París
-  - Madrid
-  - Berlín
-Respuestas:
-  - París: ¡Correcto! París es la capital de Francia.
-  - Madrid: Incorrecto. Madrid es la capital de España.
-  - Berlín: Incorrecto. Berlín es la capital de Alemania.
-
-REGLAS:
-- {instruccion_personajes}
-- El bloque de interacción debe iniciar con la palabra 'interacción:' y luego el diálogo entre los personajes.
-- Después del diálogo, debe venir la sección 'Opciones:' con una lista de opciones (una por línea, con guion y espacio).
-- Después de las opciones, debe venir la sección 'Respuestas:' con cada opción y su retroalimentación, en el formato: '- opción: retroalimentación'.
-- No incluyas ningún otro tipo de interacción ni formato JSON.
-- No incluyas el título en el script.
-- El output debe ser solo texto, siguiendo el formato del ejemplo al pie de la letra.
-{template_definition}
-"""
+1: Hola, ¿listo para la pregunta?\\n2: Sí, adelante.\\n1: ¿Cuál es la capital de Francia?\nOpciones:\n  - París\n  - Madrid\n  - Berlín\nRespuestas:\n  - París: ¡Correcto! París es la capital de Francia.\n  - Madrid: Incorrecto. Madrid es la capital de España.\n  - Berlín: Incorrecto. Berlín es la capital de Alemania.\n\n"
+                f"Estructura exacta:\n- Evento inicial\n- Escena 1\n  - Locación 1\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (open_question): [formato del ejemplo]\n  - Evento después de la interacción\n- Escena 2\n  - Locación 2\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (open_question): [formato del ejemplo]\n- Escena 3\n  - Locación 3\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (open_question): [formato del ejemplo]\n  - Evento final\n\n"
+                f"REGLAS:\n- {instruccion_personajes}\n- El bloque de interacción debe iniciar con la palabra 'interacción:' y luego el diálogo entre los personajes.\n- El escrito de la locacion debe referirse a la interacción que se va a dar en esa locación y simular el entonro de esta y debe ser difenrente visualemte a los eventos\n- Después del diálogo, debe venir la sección 'Opciones:' con una lista de opciones (una por línea, con guion y espacio).\n- Después de las opciones, debe venir la sección 'Respuestas:' con cada opción y su retroalimentación, en el formato: '- opción: retroalimentación'.\n- No incluyas ningún otro tipo de interacción ni formato JSON.\n- No incluyas el título en el script.\n- El output debe ser solo texto, siguiendo el formato del ejemplo al pie de la letra.\n{template_definition}"""
             },
             {
                 "role": "user",
@@ -2098,12 +2094,34 @@ REGLAS:
                 "content": f"""
 Crea un entrenamiento interactivo de aprendizaje en 3 escenas. Todas las interacciones deben ser de tipo 'two_way' (diálogo bidireccional entre personajes, sin opciones de respuesta). Cada escena debe tener dos personajes y una locación. El objetivo es explorar y reforzar el aprendizaje a través del diálogo.
 
+Ejemplo de locacion:
+Locación: Biblioteca antigua donde estan el profesor y el estudiante hablando sobre historia. esta entre pasilles llenos de libros y luz tenue.
 Ejemplo de interacción two_way:
 Principal: Profesor
 Secundario: Estudiante
 interacción:
 1: Hola, ¿cómo estás?\n2: Muy bien, gracias. ¿Y tú?\n1: También bien, ¿qué planes tienes hoy?\n2: Voy a estudiar un poco y luego salir a caminar.
 
+Estructura exacta:
+- Evento inicial
+- Escena 1
+  - Locación 1
+  - Personaje principal
+  - Personaje secundario
+  - Interacción (open_question): [formato del ejemplo]
+  - Evento después de la interacción
+- Escena 2
+  - Locación 2
+  - Personaje principal
+  - Personaje secundario
+  - Interacción (open_question): [formato del ejemplo]
+- Escena 3
+  - Locación 3
+  - Personaje principal
+  - Personaje secundario
+  - Interacción (open_question): [formato del ejemplo]
+  - Evento final
+  
 REGLAS:
 - {instruccion_personajes}
 - El bloque de interacción debe iniciar con la palabra 'interacción:' y luego el diálogo entre los personajes.
@@ -2145,11 +2163,13 @@ Ejemplo de interacción open_question:
   1: Hola, ¿listo para la pregunta?
   2: Sí, adelante.
   1: ¿Cuál es la capital de Francia?
-  Opciones de guia:
+  2: [Respuesta libre del jugador]
+  
+Opciones de guia (prompt_user_guideline) : 
     - París
     - Madrid
     - Berlín
-  Respuestas de las opciones
+Respuestas de las opciones (prompt_user_answer) : 
     - París: ¡Correcto! París es la capital de Francia.
     - Madrid: Incorrecto. Madrid es la capital de España.
     - Berlín: Incorrecto. Berlín es la capital de Alemania.

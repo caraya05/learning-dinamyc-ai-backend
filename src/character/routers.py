@@ -208,14 +208,14 @@ async def create_character(
             # Si no es JSON, los datos se procesan como form-data
             pass
 
-        print(f"Creating character with name: {name}, "
-              f"game_id: {game_id},"
-              f" location_id: {location_id}, "
-              f"state_game: {state_game}, prompt_user: {prompt_user},"
-              f" prompt_user_dialog: {prompt_user_dialog},"
-              f" conversation_type: {conversation_type}, "
-              f"options_dialog: {options_dialog},"
-              f" file: {file}")
+        # print(f"Creating character with name: {name}, "
+        #       f"game_id: {game_id},"
+        #       f" location_id: {location_id}, "
+        #       f"state_game: {state_game}, prompt_user: {prompt_user},"
+        #       f" prompt_user_dialog: {prompt_user_dialog},"
+        #       f" conversation_type: {conversation_type}, "
+        #       f"options_dialog: {options_dialog},"
+        #       f" file: {file}")
 
         if options_dialog:
             options_dialog = json.loads(options_dialog)
