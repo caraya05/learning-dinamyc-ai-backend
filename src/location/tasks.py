@@ -299,7 +299,6 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
         # --- NUEVA LÓGICA PARA 2D ---
         if _type_game == "2d":
-            time.sleep(1000)
             prompt_user = element_state_db['data'].get('prompt_user', '')
             imagen_loc = element_state_db['data'].get('image') or element_state_db['data'].get('image_reference')
             # Buscar personajes asociados a la localización (si aplica)
@@ -309,9 +308,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
             })
 
             personajes_info = []
-            count = 0
-            start_time = time.time()
-            async for personaje in personajes_cursor:
+            for personaje in personajes_cursor:
                 data = personaje.get('data', {})
                 nombre = data.get('name', 'Personaje')
                 prompt_personaje = data.get('prompt_user', '')
@@ -320,10 +317,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                     personajes_info.append(f"{nombre}: {prompt_personaje} (imagen: {imagen})")
                 else:
                     personajes_info.append(f"{nombre}: {prompt_personaje}")
-                count += 1
-                if count >= 2 or (time.time() - start_time) >= 20:
-                    break
-                await asyncio.sleep(0)  # Cede el control al event loop
+
             personajes_str = '\n'.join(personajes_info)
             # Construir el prompt base + situacional + imágenes
             prompt = (
@@ -572,7 +566,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
 
 async def async_generate_location_task(
-        _location_id: str, _user_id: str, _task_id: str, _state_game_id: str, _type_game: str = "2d"
+        _location_id: str, _user_id: str, _task_id: str, _state_game_id: str, _type_game: str = "2d", _generate_image: bool = True
 ):
     if _task_id and _task_id != "" and _task_id is not None:
         await update_task_service(_id=_task_id, _status="pending")
@@ -607,13 +601,14 @@ async def async_generate_location_task(
             )
         return "Error in identify location sound service."
 
-    response_image, message = await generate_location_image(_location_id, _user_id, _state_game_id,_type_game)
-    if not response_image:
-        if _task_id and _task_id != "" and _task_id is not None:
-            await update_task_service(
-                _id=_task_id, _status="failed", _message=message, _status_updated=1
-            )
-        return message
+    if _generate_image:
+        response_image, message = await generate_location_image(_location_id, _user_id, _state_game_id,_type_game)
+        if not response_image:
+            if _task_id and _task_id != "" and _task_id is not None:
+                await update_task_service(
+                    _id=_task_id, _status="failed", _message=message, _status_updated=1
+                )
+            return message
 
     response_environment = await generate_environment_location(
         _location_id, _user_id, _state_game_id

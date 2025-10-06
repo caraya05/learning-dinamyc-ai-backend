@@ -30,7 +30,7 @@ from game.narrative_templates import TemplateType
 from gpt_ai.utils import openai_generator
 from location.models import Location, LocationGLIC
 from location.schemas import SchemaCreateLocation
-from location.tasks import async_generate_location_task
+from location.tasks import async_generate_location_task, generate_location_image
 from event.tasks import async_generate_image_event
 from state_game.services import create_state_game, get_state_game_by_game_id, get_state_game_by_id
 from state_glic.services import create_state_glic
@@ -995,20 +995,6 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
                                    file: UploadFile | None = None):
     try:
 
-        print("Starting character creation service...", character)
-
-        if character.prompt_user:
-            response_moderation_prompt_user = await openai_generator.moderation_text(
-                text=character.prompt_user, user_id=user_id
-            )
-            if response_moderation_prompt_user:
-                return "Prompt user not allowed"
-        if character.prompt_user_dialog:
-            response_moderation_dialog = await openai_generator.moderation_text(
-                text=character.prompt_user_dialog, user_id=user_id
-            )
-            if response_moderation_dialog:
-                return "Prompt user dialog not allowed"
 
         character_db = Character(**character.dict())
         character_db.created_by = user_id
@@ -1100,13 +1086,6 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str, 
     Create a location.
     """
 
-    moderation_prompt_user = await openai_generator.moderation_text(
-        text=location.prompt_user,
-        user_id=user_id,
-    )
-    if moderation_prompt_user:
-        return "Prompt user not allowed"
-
     try:
         location_schema = Location(**location.dict())
         location_schema.created_by = user_id
@@ -1168,7 +1147,8 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str, 
             _user_id=user_id,
             _task_id="",
             _state_game_id=state_game["_id"],
-            _type_game="2d"
+            _type_game="2d",
+            _generate_image=False
         )
 
         if location_db := await db['location'].find_one({"_id": location_created.inserted_id}):
@@ -1369,6 +1349,13 @@ async def create_game_by_provisional(id_game_provisional: str):
             )
 
             characters_db.append(str(character_db.get("_id", None)))
+
+            await generate_location_image(
+                _location_id=str(location_db.get("_id")),
+                _user_id=str(game_provisional_db.get("created_by", "anonymous")),
+                _state_game_id=states_game_db[i],
+                _type_game="2d",
+            )
 
             # # Crear configuración de la locación con posicionamiento de personajes
             # def generate_random_position():
