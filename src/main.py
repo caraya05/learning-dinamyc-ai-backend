@@ -1,8 +1,10 @@
 import time
-import traceback
-
+import json
+from fastapi.responses import JSONResponse, Response, HTMLResponse
+from starlette.background import BackgroundTask
 from fastapi import FastAPI, HTTPException, status
 from fastapi import Request
+from fastapi.responses import JSONResponse
 
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocket
@@ -38,12 +40,18 @@ from config import settings
 from game.routers_protional import router as game_provisional_routers
 from game.routers_protional import router_ws as game_provisional_ws_routers
 from proxy import routers as proxy_routers
+from gpt_ai import routers as gpt_ai_routers
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_indexes()
     yield
+
+
+def custom_generate_unique_id(route):
+    method = next(iter(route.methods)).lower() if route.methods else "get"
+    return f"{route.name}_{method}_{route.path.replace('/', '_')}"
 
 
 app = FastAPI(
@@ -57,6 +65,7 @@ app = FastAPI(
         "syntaxHighlight": False,
     },
     lifespan=lifespan,
+    # generate_unique_id_function=custom_generate_unique_id,
 )
 
 origins = [
@@ -104,6 +113,7 @@ app.include_router(shortener_routers.router, prefix="/v1/api")
 app.include_router(voice_routers.router, prefix="/v1/api")
 app.include_router(user_ws_routers.router, prefix="")
 app.include_router(game_provisional_ws_routers, prefix="")
+app.include_router(gpt_ai_routers.router, prefix="/v1/api")
 
 app.include_router(task_routers.router, prefix="/v1/api")
 app.include_router(event_routers.router, prefix="/v1/api")
