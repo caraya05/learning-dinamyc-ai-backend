@@ -302,10 +302,10 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
             prompt_user = element_state_db['data'].get('prompt_user', '')
             imagen_loc = element_state_db['data'].get('image') or element_state_db['data'].get('image_reference')
             # Buscar personajes asociados a la localización (si aplica)
-            personajes_cursor = db["state_glic"].find({
-                'type_element': 'character',
-                'state': _state_game_id
-            })
+            personajes_cursor = await db["state_glic"].find({'type_element': 'character','state': _state_game_id}).to_list(None)
+
+            if not personajes_cursor:
+                personajes_cursor = []
 
             personajes_info = []
             for personaje in personajes_cursor:
@@ -352,12 +352,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                     "image_url": f"data:image/jpeg;base64,{image_base64}"
                 })
             # Adjuntar imágenes de personajes
-            personajes_cursor = db["state_glic"].find({
-                'data.location_id': _location_id,
-                'type_element': 'character',
-                'state': _state_game_id
-            })
-            async for personaje in personajes_cursor:
+            for personaje in personajes_cursor:
                 data = personaje.get('data', {})
                 imagen = data.get('image') or data.get('image_reference')
                 if imagen:
@@ -610,17 +605,17 @@ async def async_generate_location_task(
                 )
             return message
 
-    response_environment = await generate_environment_location(
-        _location_id, _user_id, _state_game_id
-    )
-    if not response_environment:
-        if _task_id and _task_id != "" and _task_id is not None:
-            await update_task_service(
-                _id=_task_id,
-                _status="failed",
-                _message="Error in generate environment location service.",
-            )
-        return "Error in generate environment location service."
+        response_environment = await generate_environment_location(
+            _location_id, _user_id, _state_game_id
+        )
+        if not response_environment:
+            if _task_id and _task_id != "" and _task_id is not None:
+                await update_task_service(
+                    _id=_task_id,
+                    _status="failed",
+                    _message="Error in generate environment location service.",
+                )
+            return "Error in generate environment location service."
 
     if _task_id and _task_id != "" and _task_id is not None:
         await update_task_service(

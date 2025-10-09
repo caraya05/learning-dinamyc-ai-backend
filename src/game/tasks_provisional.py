@@ -1686,8 +1686,7 @@ async def extract_events_for_scenes(id_game_provisional: str):
                 context = {
                     "current_scene": scene_interactions[scene_index - 1] if scene_index > 0 else None,
                     "next_scene": scene_interactions[scene_index] if scene_index < len(scene_interactions) else None,
-                    "previous_interaction": locations[scene_index - 1].get("interaccion",
-                                                                           {}) if scene_index > 0 and locations else None
+                    "previous_interaction": locations[scene_index - 1].get("interaccion", {}) if scene_index > 0 and locations and len(locations) > scene_index - 1 else None
                 }
 
             # Construir el prompt específico según el tipo de evento
@@ -1726,17 +1725,17 @@ async def extract_events_for_scenes(id_game_provisional: str):
                         "role": "system",
                         "content": f"""Eres un experto en crear eventos narrativos para juegos interactivos.
                         Estás creando un evento {event_type} que debe:
-                        
+
                         Para eventos iniciales:
                         - Introducir el contexto de la primera escena
                         - Preparar al jugador para la primera interacción
                         - Establecer el tono y la atmósfera del juego
-                        
+
                         Para eventos intermedios:
                         - Conectar la conclusión de la escena anterior con la siguiente
                         - Mantener la continuidad narrativa
                         - Reflejar el resultado de la interacción previa
-                        
+
                         Para eventos finales:
                         - Proporcionar un cierre satisfactorio
                         - Reflejar el resultado de la última interacción
@@ -1745,17 +1744,17 @@ async def extract_events_for_scenes(id_game_provisional: str):
                     {
                         "role": "user",
                         "content": f"""Crea un evento {event_type} para el juego, considerando el siguiente contexto:
-                        
+
                         {context_prompt}
-                        
+
                         Locaciones donde se desarrolla la acción:
                         {locations_info}
-                        
+
                         Genera:
                         - event_name: Un nombre atractivo y descriptivo para este evento {event_type} (máximo 60 caracteres)
                         - prompt_image: Un prompt detallado en español para generar una imagen que capture la esencia del momento {event_type} del juego (describe la escena, personajes)
                         - prompt_text: Un texto narrativo que establezca el contexto {event_type} del juego y enganche al jugador (30 palabras) sea corto y evocador.
-                        
+
                         El prompt de imagen debe ser específico y visual, mencionando detalles como el ambiente, la iluminación, los personajes presentes y el estilo artístico."""
                     }
                 ],
@@ -2115,6 +2114,8 @@ REGLAS:
 - No incluyas opciones ni respuestas, solo el diálogo.
 - No incluyas el título en el script.
 - El output debe ser solo texto, siguiendo el formato del ejemplo al pie de la letra.
+- Los eventos son breves y describen la transición entre escenas, deben visualmente diferenciarse de las locaciones.
+- Las locaciones deben ser descriptivas y ambientar la interacción que se va a dar en esa locación.
 {template_definition}
 """
             },

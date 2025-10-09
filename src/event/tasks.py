@@ -71,22 +71,12 @@ async def generate_image_event(
 
         characters_state_game = (
             await db["state_glic"]
-            .find({"data.game_id": game_id, "state": state_game})
+            .find({"data.game_id": game_id, "state": state_game, "type_element": "character"})
             .to_list(None)
         )
         if not characters_state_game:
             print("Error characters not found")
             return False, "Characters not found"
-
-        locations_state_game = (
-            await db["state_glic"]
-            .find({"data.game_id": game_id, "state": state_game})
-            .to_list(None)
-        )
-        if not locations_state_game:
-            print("Error locations not found")
-            return False, "Locations not found"
-
         # state_game_element = await db["state_glic"].find_one({"element_id": event_db["character_id"]})
         # if not state_game_element:
         #     print("Error state game element not found")
@@ -101,7 +91,6 @@ async def generate_image_event(
                  f"Game: {game_db['title']}\n"
                  f"Character Principal: {character_principal_state_game['data']['prompt_user']}\n"
                  f"Characters: {characters_state_game}\n"
-                 f"Locations: {locations_state_game}\n",
         )
 
         if validate_prompt:
@@ -130,7 +119,6 @@ async def generate_image_event(
                 # No fallar todo el proceso si falla el audio
                 pass
 
-        time.sleep(1000)
         # Construir info de personajes y adjuntar imágenes
         personajes_info = []
         personajes_images = []
