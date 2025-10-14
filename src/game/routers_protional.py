@@ -114,7 +114,7 @@ async def create_game(
                 "updated_at": datetime.now(pytz.utc),
                 "created_by": str(user["_id"]),
                 "updated_by": str(user["_id"]),
-                "state": "pending",
+                "state": "script_create",
                 "num_scenes": 0,
                 "scene_interactions": [],
                 "file": url_file,
@@ -146,7 +146,7 @@ async def create_game(
             "updated_at": game_provisional_db["updated_at"],
             "created_by": str(user["_id"]),
             "updated_by": str(user["_id"]),
-            "state": "pending",
+            "state": "script_create",
             "num_scenes": 0,
             "scene_interactions": [],
             "task_id": str(tasks.id),
@@ -292,9 +292,9 @@ async def update_game_provisional(
         )
 
     if not is_draft:
-        update_fields["state"] = "ready"
+        update_fields["state"] = "game_create"
         generate_scene_interactions_task.delay(id_game_provisional=id_game_provisional)
-        game_provisional_db["state"] = "ready"
+        game_provisional_db["state"] = "game_create"
 
     else:
         update_fields["state"] = "draft"
@@ -330,11 +330,12 @@ async def get_games_in_progress(request: Request, user: dict = Depends(auth), To
     now = datetime.now(pytz.utc)
     two_days_ago = now - timedelta(days=2)
     query = {
-        "state": {"$nin": ["draft", "creating_game", "error"]},
-        "game_id": {"$in": [None, "", False]},
+        "state": {"$in": ["script_create", "game_create"]},
         "created_by": str(user["_id"]),
         "created_at": {"$gte": two_days_ago}
     }
+
+    print(query)
     games_cursor = await db["game_provisional"].find(query).to_list(None)
     games = []
     for game in games_cursor:

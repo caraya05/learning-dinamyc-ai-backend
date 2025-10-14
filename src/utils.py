@@ -2,6 +2,7 @@ import traceback
 import uuid
 import jwt
 import requests
+import time
 
 from PIL import Image
 from io import BytesIO
@@ -18,10 +19,10 @@ from config import settings
 
 session = session.Session()
 
-
 from fastapi_mail import FastMail, MessageSchema, MessageType, ConnectionConfig
 from starlette.responses import JSONResponse
 from typing import List, Optional
+
 
 def generate_uuid():
     return str(uuid.uuid4())
@@ -282,6 +283,7 @@ def upload_file(file: UploadFile, name_bucket: str = 'qwestar'):
             detail="Error al subir el archivo."
         )
 
+
 conf = ConnectionConfig(
     MAIL_USERNAME="cm@qwestar.ai",
     MAIL_PASSWORD="jeuoplfvazuyfvwt",
@@ -296,9 +298,9 @@ conf = ConnectionConfig(
 
 
 async def send_email(
-    subject: str,
-    recipients: List[str],
-    body: str,
+        subject: str,
+        recipients: List[str],
+        body: str,
 ) -> JSONResponse:
     """
     Método reutilizable para enviar correos electrónicos.
@@ -329,3 +331,11 @@ async def send_email(
         return JSONResponse(status_code=200, content={"message": "email has been sent"})
     except Exception as e:
         return JSONResponse(status_code=500, content={"message": str(e)})
+
+
+def enviar_progreso(intervalo: int, total: int, delay_inicial: int = 0):
+    time.sleep(delay_inicial)
+    for progreso in range(1, total + 1):
+        mensaje = f"Progreso: {progreso}/{total}"
+        print(mensaje)  # Aquí puedes reemplazar por el envío real del mensaje
+        time.sleep(intervalo)

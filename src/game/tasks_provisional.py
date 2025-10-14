@@ -2,6 +2,7 @@ import json
 import random
 import string
 from io import BytesIO
+from time import sleep
 
 import requests
 import base64
@@ -38,6 +39,7 @@ from state_glic.services import create_state_glic
 from utils import upload_image
 
 from config import settings
+import asyncio
 
 # Configuración del sistema de logs
 # logging.basicConfig(
@@ -157,6 +159,31 @@ async def create_game_provisional(_id_game_provisional: str):
     """
     Create a provisional game entry in the database.
     """
+
+    # if settings.MODE_TEST:
+    #     print("init")
+    #     await update_game_provisional_status(_id_game_provisional, "script_create", 0,
+    #                                          "test mode active: skipping file download.")
+    #     await asyncio.sleep(100)
+    #     await update_game_provisional_status(_id_game_provisional, "script_create", 10,
+    #                                          "test mode active: skipping file download.")
+    #     await asyncio.sleep(100)
+    #     await update_game_provisional_status(_id_game_provisional, "script_create", 25,
+    #                                          "test mode active: skipping content generation.")
+    #     await asyncio.sleep(100)
+    #     await update_game_provisional_status(_id_game_provisional, "script_create", 50,
+    #                                          "test mode active: skipping image generation and upload.")
+    #     await asyncio.sleep(100)
+    #     await update_game_provisional_status(_id_game_provisional, "script_create", 80,
+    #                                          "test mode active: skipping image generation and upload.")
+    #     await asyncio.sleep(100)
+    #     await update_game_provisional_status(_id_game_provisional, "script_create", 90,
+    #                                          "test mode active: skipping saving data.")
+    #     await asyncio.sleep(100)
+    #     await update_game_provisional_status(_id_game_provisional, "script_create", 100,
+    #                                          "test mode active: game provisional created successfully.")
+    #     return "test mode active: game provisional created successfully"
+
     try:
         # Actualizar estado: Iniciando proceso
         await update_game_provisional_status(_id_game_provisional, "processing", 0,
@@ -283,42 +310,44 @@ No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al p
             # Usar una imagen por defecto en modo test
             url_image = "https://storage.googleapis.com/qwestar/voxel_.jpg"
         else:
-            # Actualizar estado: Generando imagen de portada
-            await update_game_provisional_status(_id_game_provisional, "generating_image", 60,
-                                                 "Generating cover image for the game.")
+            # # Actualizar estado: Generando imagen de portada
+            # await update_game_provisional_status(_id_game_provisional, "generating_image", 60,
+            #                                      "Generating cover image for the game.")
+            #
+            # # logger.info(f"Contenido generado correctamente. Título: '{source_game_response.title}'")
+            # # logger.debug(f"Longitud del guión generado: {len(source_game_response.script)} caracteres")
+            #
+            # # logger.info("Generando imagen de portada para el juego")
+            # image_game_provisional = await openai_generator.generate_image(
+            #     prompt=f"Genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego ."
+            #            f"basado en el  script: {source_game_response.script} "
+            #            f"que ejemplifique una escena del juego con un personaje principal que represente el estilo del juego, no debe tener texto o título.",
+            #     model="gpt-image-1",
+            #     size="1024x1536",
+            #     style=None
+            # )
+            #
+            # # Actualizar estado: Subiendo imagen
+            # await update_game_provisional_status(_id_game_provisional, "uploading_image", 80,
+            #                                      "Uploading generated cover image to storage.")
+            #
+            # # logger.debug("Imagen generada, decodificando base64")
+            # image_bytes = base64.b64decode(image_game_provisional)
+            #
+            # # logger.info("Subiendo imagen a almacenamiento")
+            # url_image = upload_image(
+            #     img_byte_arr=image_bytes,
+            #     file_name=f"game-provisional/{uuid4()}.jpg",
+            #     size=(512, 896)
+            # )
+            #
+            # if not url_image:
+            #     await update_game_provisional_status(_id_game_provisional, "error", 80,
+            #                                          "Failed to upload generated image to storage.")
+            #     # logger.error("Error al subir la imagen generada")
+            #     return "Failed to upload image"
 
-            # logger.info(f"Contenido generado correctamente. Título: '{source_game_response.title}'")
-            # logger.debug(f"Longitud del guión generado: {len(source_game_response.script)} caracteres")
-
-            # logger.info("Generando imagen de portada para el juego")
-            image_game_provisional = await openai_generator.generate_image(
-                prompt=f"Genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego ."
-                       f"basado en el  script: {source_game_response.script} "
-                       f"que ejemplifique una escena del juego con un personaje principal que represente el estilo del juego, no debe tener texto o título.",
-                model="gpt-image-1",
-                size="1024x1536",
-                style=None
-            )
-
-            # Actualizar estado: Subiendo imagen
-            await update_game_provisional_status(_id_game_provisional, "uploading_image", 80,
-                                                 "Uploading generated cover image to storage.")
-
-            # logger.debug("Imagen generada, decodificando base64")
-            image_bytes = base64.b64decode(image_game_provisional)
-
-            # logger.info("Subiendo imagen a almacenamiento")
-            url_image = upload_image(
-                img_byte_arr=image_bytes,
-                file_name=f"game-provisional/{uuid4()}.jpg",
-                size=(512, 896)
-            )
-
-            if not url_image:
-                await update_game_provisional_status(_id_game_provisional, "error", 80,
-                                                     "Failed to upload generated image to storage.")
-                # logger.error("Error al subir la imagen generada")
-                return "Failed to upload image"
+            await generate_scene_interactions(_id_game_provisional)
 
         # Actualizar estado: Guardando en base de datos
         await update_game_provisional_status(_id_game_provisional, "saving_data", 90,
@@ -515,6 +544,31 @@ async def async_generate_scene_interactions_task(id_game_provisional: str):
     Tarea asíncrona para generar las interacciones para cada escena del juego provisional.
     """
     # logger.info(f"Iniciando tarea asíncrona para generar interacciones de escenas para juego ID: {id_game_provisional}")
+    # if settings.MODE_TEST:
+    #     # logger.warning("Modo de prueba activo: omitiendo creación de juego provisional")
+    #     print("init")
+    #     await update_game_provisional_status(id_game_provisional, "game_create", 0,
+    #                                          "test mode active: skipping file download.")
+    #     await asyncio.sleep(100)
+    #     await update_game_provisional_status(id_game_provisional, "game_create", 10,
+    #                                          "test mode active: skipping file download.")
+    #     await asyncio.sleep(100)
+    #     await update_game_provisional_status(id_game_provisional, "game_create", 25,
+    #                                             "test mode active: skipping content generation.")
+    #     await asyncio.sleep(100)
+    #
+    #     await update_game_provisional_status(id_game_provisional, "game_create", 50,
+    #                                             "test mode active: skipping image generation and upload.")
+    #     await asyncio.sleep(100)
+    #     await update_game_provisional_status(id_game_provisional, "game_create", 80,
+    #                                             "test mode active: skipping image generation and upload.")
+    #     await asyncio.sleep(100)
+    #     await update_game_provisional_status(id_game_provisional, "game_create", 90,
+    #                                             "test mode active: skipping saving data.")
+    #     await asyncio.sleep(100)
+    #     await update_game_provisional_status(id_game_provisional, "game_create", 100,
+    #                                             "test mode active: game provisional created successfully.")
+    #     return "test mode active: game provisional created successfully"
     try:
         result = await generate_scene_interactions(id_game_provisional)
         # logger.info(f"Tarea de generación de interacciones completada para juego {id_game_provisional} con resultado: {result}")
@@ -2116,8 +2170,7 @@ REGLAS:
 - El output debe ser solo texto, siguiendo el formato del ejemplo al pie de la letra.
 - Los eventos son breves y describen la transición entre escenas, deben visualmente diferenciarse de las locaciones.
 - Las locaciones deben ser descriptivas y ambientar la interacción que se va a dar en esa locación.
-{template_definition}
-"""
+{template_definition}"""
             },
             {
                 "role": "user",
