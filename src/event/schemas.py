@@ -34,6 +34,7 @@ class SchemaCreateEvent(BaseModel):
     audio_mp3: Optional[str] = Field(None, example={"url": "audio_url", "duration": 10})
     game_id: str = Field(..., example="game_id")
     is_final: Optional[bool] = Field(default=False, example=False)
+    image: Optional[str] = Field(None, example="image_url")
 
 
 class SchemaCreateEventAdmin(BaseModel):

@@ -14,7 +14,6 @@ from fastapi.templating import Jinja2Templates
 from PIL import Image
 from io import BytesIO
 
-
 from config import settings
 
 from core.database import db
@@ -24,7 +23,7 @@ from auth.utils import auth_schema
 
 from configuration.services import get_configurations_service
 
-from game.services import get_game_service
+from game.services import GameService
 
 from utils import upload_image
 
@@ -37,14 +36,15 @@ templates = Jinja2Templates(directory="templates")
 
 @router.get("/{game_id}", status_code=200)
 async def share_game(
-    game_id: str,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_service=Depends(GameService)
 ):
     """
     This endpoint shares a game.
     """
-    game_db = await get_game_service(game_id)
+    game_db = await game_service.get_game_service(game_id)
     configuration_db = await get_configurations_service()
 
     if not game_db['summary'] or not game_db['category_id']:

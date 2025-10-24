@@ -17,7 +17,7 @@ from typing import Optional
 
 from game.schemas_admin import SchemaUpdateGame
 
-from game.services import get_game_v2_service
+from game.services import GameService
 from sound.services import get_sound_service
 
 from game.services_admin import get_games_service_admin, update_game_service_admin
@@ -110,6 +110,7 @@ async def get_pending_game(
     game_id: str,
     user_db: dict = Depends(auth_admin),
     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    game_service = Depends(GameService)
 ):
     try:
         game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
@@ -118,7 +119,7 @@ async def get_pending_game(
         game_db["_id"] = str(game_db["_id"])
         user_db = await db["user"].find_one({"_id": ObjectId(game_db["created_by"])})
         game_db["user"] = user_db["email"]
-        game_db["game"] = await get_game_v2_service(game_db["game_id"])
+        game_db["game"] = await game_service.get_game_v2_service(game_db["game_id"])
         # game_db["game"]["_id"] = str(game_db["game"]["_id"])
 
         # for location in game_db["game"]["locations"]:
@@ -137,9 +138,10 @@ async def publish_game(
     game_id: str,
     user_db: dict = Depends(auth_admin),
     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_service = Depends(GameService)
 ):
     published_game_db = await db["published_game"].find_one({"_id": ObjectId(game_id)})
-    if game_db := await get_game_v2_service(published_game_db["game_id"]):
+    if game_db := await game_service.get_game_v2_service(published_game_db["game_id"]):
         game_db["_id"] = str(game_db["_id"])
         published_game_db["game"] = game_db
         published_game_db["updated_at"] = datetime.utcnow()

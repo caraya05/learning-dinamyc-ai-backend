@@ -9,8 +9,7 @@ from typing import Optional
 
 from auth.auth import auth
 from auth.utils import auth_schema
-from game.services import get_locations_game_publish_service
-from game.services import get_location_game_publish_service
+from game.services import GameService
 
 from location.schemas import SchemaListLocation, SchemaDeactivateLocation
 from location.schemas import SchemaRetrieveLocation
@@ -37,10 +36,11 @@ router = APIRouter(prefix="/location", tags=["Location"])
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
 async def get_locations(
-    game_id: str = None,
-    publish: bool = False,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_id: str = None,
+        publish: bool = False,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_service=Depends(GameService)
 ):
     """
     This endpoint retrieves all locations.
@@ -49,7 +49,7 @@ async def get_locations(
     """
     if publish:
         try:
-            locations_db = await get_locations_game_publish_service(game_id=game_id)
+            locations_db = await game_service.get_locations_game_publish_service(game_id=game_id)
 
             for location in locations_db:
                 location["_id"] = f'{location["_id"]}_{game_id}'
@@ -82,10 +82,11 @@ async def get_locations(
 
 @router.get("/{location_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveLocation)
 async def get_location(
-    location_id: str,
-    publish: bool = False,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        location_id: str,
+        publish: bool = False,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_service=Depends(GameService)
 ):
     """
     This endpoint retrieves a location.
@@ -98,7 +99,7 @@ async def get_location(
         game_id = location_id.split("_")[-1]
         location_id = location_id.split("_")[0]
         try:
-            locations_db = await get_location_game_publish_service(
+            locations_db = await game_service.get_location_game_publish_service(
                 game_id=game_id, location_id=location_id
             )
             if locations_db.get("sound"):
@@ -130,10 +131,10 @@ async def get_location(
 
 @router.get("/me/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
 async def get_locations_all(
-    user_db: dict = Depends(auth),
-    page: int = 1,
-    count: int = 10,
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        user_db: dict = Depends(auth),
+        page: int = 1,
+        count: int = 10,
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint retrieves all locations.
@@ -161,14 +162,14 @@ async def get_locations_all(
 
 @router.post("/", status_code=status.HTTP_201_CREATED, response_model=SchemaRetrieveLocation)
 async def create_location(
-    request: Request,
-    title: Optional[str] = Form(None, example="Forest"),
-    prompt_user: Optional[str] = Form(None, example="A dark forest with tall trees"),
-    game_id: Optional[str] = Form(None, example="game_id"),
-    state_game: Optional[str] = Form(None, example="state_game"),
-    file: Optional[UploadFile] = File(None),
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        request: Request,
+        title: Optional[str] = Form(None, example="Forest"),
+        prompt_user: Optional[str] = Form(None, example="A dark forest with tall trees"),
+        game_id: Optional[str] = Form(None, example="game_id"),
+        state_game: Optional[str] = Form(None, example="state_game"),
+        file: Optional[UploadFile] = File(None),
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint creates a location.
@@ -215,10 +216,10 @@ async def create_location(
     "/{location_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveLocation
 )
 async def partial_update_location(
-    location_id: str,
-    schema: SchemaPartialUpdateLocation,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        location_id: str,
+        schema: SchemaPartialUpdateLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint partially updates a location.
@@ -274,10 +275,10 @@ async def partial_update_location(
 
 @router.post("/disable/{location_id}", status_code=status.HTTP_200_OK)
 async def disable_location(
-    location_id: str,
-    location: SchemaDeactivateLocation,
-    user_db: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        location_id: str,
+        location: SchemaDeactivateLocation,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
     This endpoint disables a location.

@@ -1,3 +1,4 @@
+import asyncio
 import time
 from io import BytesIO
 
@@ -19,6 +20,11 @@ from gpt_ai.utils import openai_generator
 from uuid import uuid4
 
 from voice.elevenlabs import generate_audio
+
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 
 class SchemaPromptImage(BaseModel):
@@ -107,12 +113,12 @@ async def generate_image_event(
                 )
 
                 if audio:
-                        # Actualizar el evento con la URL del audio
-                        await db["event"].update_one(
-                            {"_id": ObjectId(event_id)},
-                            {"$set": {"audio": audio.get("ogg"),
-                                      "audio_mp3": audio.get("mp3")}}
-                        )
+                    # Actualizar el evento con la URL del audio
+                    await db["event"].update_one(
+                        {"_id": ObjectId(event_id)},
+                        {"$set": {"audio": audio.get("ogg"),
+                                  "audio_mp3": audio.get("mp3")}}
+                    )
             except Exception as audio_error:
                 print(traceback.format_exc())
                 print(f"Error generating audio: {audio_error}")
@@ -162,7 +168,6 @@ async def generate_image_event(
                 print(f"Error adjuntando imagen de personaje: {imagen}", e)
                 continue
 
-
         response_prompt_image = await openai_generator.generate_gpt(
             content_prompt=content_prompt,
             model="gpt-4.1",
@@ -180,7 +185,6 @@ async def generate_image_event(
             file_name=f"event/{uuid4()}.jpg",
             size=(512, 896),
         )
-
 
         await db["event"].update_one(
             {"_id": ObjectId(event_id)}, {"$set": {"image": image_generated}}
@@ -226,3 +230,104 @@ async def async_generate_image_event(
             _id=_task_id, _status="completed", _message="Image event generated successfully"
         )
     return "Image event generated successfully"
+
+
+async def _generate_image_event(_user_id, _prompt_user_image, _id_event, _game_provisional, is_init=False):
+    try:
+        game_db = await db["game_provisional"].find_one({"_id": ObjectId(_game_provisional)})
+        characters = game_db.get("characters", [])
+
+        # Si is_init es True, esperar a que los dos primeros personajes tengan imagen
+        if is_init:
+            while True:
+                game_db = await db["game_provisional"].find_one({"_id": ObjectId(_game_provisional)})
+                events = game_db.get("events", [])
+                event = next((e for e in events if e.get("id") == _id_event), None)
+                if not event:
+                    await asyncio.sleep(1)
+                    continue
+
+                character_ids = event.get("id_characters", [])
+                characters = game_db.get("characters", [])
+                personajes_evento = [p for p in characters if p.get("id") in character_ids]
+
+                images_ready = all(personaje.get("image") for personaje in personajes_evento)
+                if images_ready:
+                    break
+                await asyncio.sleep(1)
+
+        personajes_info = []
+        personajes_images = []
+        for personaje in characters[:2]:
+            data = personaje.get('data', {})
+            nombre = data.get('name', 'Personaje')
+            prompt_personaje = data.get('visual_description', '')
+            imagen = personaje.get('image')
+            if imagen:
+                personajes_info.append(f"{nombre}: {prompt_personaje}")
+                personajes_images.append(imagen)
+            else:
+                personajes_info.append(f"{nombre}: {prompt_personaje}")
+        personajes_str = '\n'.join(personajes_info)
+
+        prompt_base = (
+            f"Genera una imagen de portada en estilo 3D medium poly  "
+            f"La imagen debe ser portrait y tener el contenido vertical. Sin texto. "
+            f"Usa la info de los personajes para crear la escena.\n"
+            f"Personajes en la escena (usa sus imágenes como referencia):\n{personajes_str}\n"
+            f"descripcion de la escena: {_prompt_user_image}"
+        )
+        content_prompt = [
+            {"role": "user", "content": [
+                {"type": "input_text", "text": prompt_base}
+            ]}
+        ]
+        for imagen in personajes_images:
+            try:
+                response = requests.get(imagen)
+                image_bytes = BytesIO(response.content)
+                image_base64 = base64.b64encode(image_bytes.getvalue()).decode('utf-8')
+                content_prompt[0]["content"].append({
+                    "type": "input_image",
+                    "image_url": f"data:image/jpeg;base64,{image_base64}"
+                })
+            except Exception as e:
+                print(f"Error adjuntando imagen de personaje: {imagen}", e)
+                continue
+
+        response_prompt_image = await openai_generator.generate_gpt(
+            content_prompt=content_prompt,
+            model="gpt-4.1",
+            type_generation="create_prompt_image",
+            tools=[{"type": "image_generation", "size": "1024x1536"}],
+            image=True,
+            user_id=_user_id,
+        )
+
+        if not response_prompt_image:
+            logger.error("La respuesta de la generación de imagen es None")
+            return "Error: No se pudo generar la imagen del evento"
+
+        image_bytes = base64.b64decode(response_prompt_image)
+        image_face = BytesIO(image_bytes)
+
+        image_generated = upload_image(
+            img_byte_arr=image_face,
+            file_name=f"event/{uuid4()}.jpg",
+            size=(512, 896),
+        )
+
+        events = game_db.get("events", [])
+        index_found = next((i for i, e in enumerate(events) if e.get("id") == _id_event), None)
+        if index_found is None:
+            return "Failure: Event not found in game provisional"
+
+        await db["game_provisional"].update_one(
+            {"_id": ObjectId(_game_provisional)},
+            {f"$set": {f"events.{index_found}.image": image_generated}}
+        )
+
+        return "Image event generated successfully"
+    except Exception as e:
+        logger.error(f"Error in get images event service: {traceback.format_exc()}")
+        return "Error in generate image event"

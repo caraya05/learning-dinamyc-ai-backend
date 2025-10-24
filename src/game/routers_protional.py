@@ -23,6 +23,8 @@ from core.database import db
 from fastapi.security import HTTPAuthorizationCredentials
 from auth.auth import auth
 from auth.utils import auth_schema
+from game.tasks_provisional_2 import create_game_structure, create_intermediate_events
+from task.services import create_task_service
 
 from utils import upload_file, send_email, upload_image
 
@@ -30,7 +32,8 @@ from slowapi.util import get_remote_address
 from slowapi import Limiter
 
 from celery.result import AsyncResult
-from celery_worker import create_game_provisional_task, generate_scene_interactions_task, celery
+from celery_worker import create_game_provisional_task, create_game_provisional_task_2, \
+    generate_scene_interactions_task, celery, continue_create_game_provisional_2
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -122,7 +125,8 @@ async def create_game(
                 "title": None,
                 "script": None,
                 "user_name": None,
-                "user_email": None
+                "user_email": None,
+                "level_process": 1,
             }
         )
 
@@ -136,7 +140,17 @@ async def create_game(
             {"_id": game_provisional_db.inserted_id}
         )
 
-        tasks = create_game_provisional_task.delay(str(game_provisional_db["_id"]))
+        # tasks = create_game_provisional_task.delay(str(game_provisional_db["_id"]))
+        tasks = create_game_provisional_task_2.delay(str(game_provisional_db["_id"]), str(user["_id"]))
+
+        task_db = await create_task_service(
+            _task_id=tasks.id,
+            _user_id=str(user["_id"]),
+            _task_data={},
+            _element_id=str(game_provisional_db["_id"]),
+            _element_type="game_provisional",
+            _process="game_provisional_creation",
+        )
 
         return {
             "_id": str(game_provisional_db["_id"]),
@@ -159,7 +173,8 @@ async def create_game(
             "progress": 0,
             "progress_text": "Game provisional created successfully, waiting for processing.",
             "game_id": None,
-            "category": None
+            "category": None,
+            "level_process": 1,
         }
     except Exception as e:
         print(traceback.format_exc())
@@ -199,6 +214,15 @@ async def get_game_provisional(
             detail="Game provisional not found",
         )
 
+    events_plus = create_intermediate_events(game_provisional_db.get("interactions", []))
+
+    # Normalizar y combinar events_plus y events; mover 'scene_start' al inicio si existe
+    combined_events = []
+    for e in game_provisional_db.get("events", []):
+        combined_events.append(e.dict() if hasattr(e, "dict") else e)
+    for e in events_plus:
+        combined_events.append(e.dict() if hasattr(e, "dict") else e)
+
     return {
         "_id": str(game_provisional_db["_id"]),
         "prompt_user": game_provisional_db["prompt_user"],
@@ -209,9 +233,18 @@ async def get_game_provisional(
         "image": game_provisional_db["image"],
         "title": game_provisional_db["title"],
         "script": game_provisional_db["script"],
+        "progress": game_provisional_db.get("progress", 0),
+        "progress_text": game_provisional_db.get("progress_text", ""),
+        "state": game_provisional_db["state"],
         "user_name": game_provisional_db.get("user_name"),
         "user_email": game_provisional_db.get("user_email"),
         "category": game_provisional_db.get("category"),
+        "characters": game_provisional_db.get("characters", []),
+        "locations": game_provisional_db.get("locations", []),
+        "events": combined_events,
+        "interactions": game_provisional_db.get("interactions", []),
+        "game_structure": create_game_structure(game_provisional_db.get("locations", []),game_provisional_db.get("events", []),game_provisional_db.get("interactions", []), game_provisional_db.get("characters", [])),
+        "level_process": game_provisional_db.get("level_process", 1),
     }
 
 
@@ -293,7 +326,7 @@ async def update_game_provisional(
 
     if not is_draft:
         update_fields["state"] = "game_create"
-        generate_scene_interactions_task.delay(id_game_provisional=id_game_provisional)
+        continue_create_game_provisional_2.delay(id_game_provisional=id_game_provisional, user_id=str(user["_id"]))
         game_provisional_db["state"] = "game_create"
 
     else:
@@ -302,6 +335,7 @@ async def update_game_provisional(
 
     update_fields["progress"] = 0
     update_fields["progress_text"] = "Game provisional is ready, waiting for processing."
+    update_fields["level_process"] = 2
 
     await db["game_provisional"].update_one(
         {"_id": ObjectId(id_game_provisional)},
@@ -317,13 +351,15 @@ async def update_game_provisional(
         "image": game_provisional_db["image"],
         "title": game_provisional_db["title"],
         "script": game_provisional_db["script"],
-        "state": game_provisional_db["state"]
+        "state": game_provisional_db["state"],
+        "level_process": game_provisional_db.get("level_process", 1),
     }
 
 
 @router.get("/in-progress/", status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute", error_message="Intentalo de nuevo más tarde")
-async def get_games_in_progress(request: Request, user: dict = Depends(auth), Token: HTTPAuthorizationCredentials = Depends(auth_schema)):
+async def get_games_in_progress(request: Request, user: dict = Depends(auth),
+                                Token: HTTPAuthorizationCredentials = Depends(auth_schema)):
     """
     Devuelve un listado de juegos provisionales en progreso (no draft, sin game_id, y no más de 2 días de antigüedad).
     """
@@ -334,8 +370,6 @@ async def get_games_in_progress(request: Request, user: dict = Depends(auth), To
         "created_by": str(user["_id"]),
         "created_at": {"$gte": two_days_ago}
     }
-
-    print(query)
     games_cursor = await db["game_provisional"].find(query).to_list(None)
     games = []
     for game in games_cursor:
@@ -374,7 +408,6 @@ async def websocket_game_provisional(websocket: WebSocket, game_id: str, token: 
 
         # Verificar autenticación si se proporciona token
         user = None
-
 
         game_provisional_db = await db["game_provisional"].find_one(
             {"_id": ObjectId(game_id)}
@@ -438,24 +471,13 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
         game_id: ID del juego provisional
     """
     try:
-        # Obtener la información más reciente del juego provisional
-        game_provisional_db = await db["game_provisional"].find_one(
-            {"_id": ObjectId(game_id)}
-        )
-
+        game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(game_id)})
         if not game_provisional_db:
-            await manager.send_personal_message(
-                {"status": "error", "message": "Juego no encontrado"},
-                websocket
-            )
+            await manager.send_personal_message({"status": "error", "message": "Juego no encontrado"}, websocket)
             return
 
-        # Buscar tareas relacionadas con este juego
-        tasks = await db["task"].find(
-            {"element_id": game_id, "element_type": "game_provisional"}
-        ).to_list(length=10)
+        tasks = await db["task"].find({"element_id": game_id, "element_type": "game_provisional"}).to_list(length=10)
 
-        # Información del juego con estado y progreso
         game_info = {
             "id": game_id,
             "title": game_provisional_db.get("title"),
@@ -467,19 +489,16 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
             "num_scenes": game_provisional_db.get("num_scenes", 0),
             "has_scene_interactions": bool(game_provisional_db.get("scene_interactions")),
             "has_locations": bool(game_provisional_db.get("locations")),
-            "created_at": game_provisional_db.get("created_at").isoformat() if game_provisional_db.get(
-                "created_at") else None,
-            "updated_at": game_provisional_db.get("updated_at").isoformat() if game_provisional_db.get(
-                "updated_at") else None,
+            "created_at": game_provisional_db.get("created_at").isoformat() if game_provisional_db.get("created_at") else None,
+            "updated_at": game_provisional_db.get("updated_at").isoformat() if game_provisional_db.get("updated_at") else None,
             "game_id": str(game_provisional_db.get("game_id")) if game_provisional_db.get("game_id") else None,
         }
 
-        # Estado de las tareas
         task_states = []
+        all_success = True
         for task_db in tasks:
             task_id = task_db.get("task_id")
             if task_id:
-                # Verificar el estado real de la tarea en Celery
                 task_celery = AsyncResult(task_id, app=celery)
                 task_info = {
                     "id": str(task_db["_id"]),
@@ -488,21 +507,39 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
                     "type": task_db.get("element_type_detail", "unknown"),
                     "created_at": task_db.get("created_at").isoformat() if task_db.get("created_at") else None,
                 }
-
-                # Si la tarea está completada o falló, incluir más detalles
                 if task_celery.state == "SUCCESS":
                     task_info["result"] = task_celery.result
                     task_info["completed"] = True
                 elif task_celery.state == "FAILURE":
                     task_info["error"] = str(task_celery.result)
                     task_info["completed"] = True
-
+                    all_success = False
+                else:
+                    task_info["completed"] = False
+                    all_success = False
                 task_states.append(task_info)
 
-        # Determinar el estado general basado en el estado del juego provisional
-        overall_status = game_provisional_db.get("state", "pending")
+        current_progress = game_provisional_db.get("progress", 0)
+        updated_to_100 = False
+        # Si el progreso es 70 y todas las tareas están en SUCCESS, actualizar a 100%
+        if current_progress == 70 and all_success and tasks:
+            progress_text = "Progreso actualizado a 100%"
+            entry = {
+                "timestamp": datetime.utcnow(),
+                "task": None,
+                "status": "progress_update",
+                "percent": 100,
+                "message": progress_text
+            }
+            await db["game_provisional"].update_one(
+                {"_id": ObjectId(game_id)},
+                {"$set": {"progress": 100, "progress_text": progress_text}, "$push": {"history": entry}}
+            )
+            game_info["progress"] = 100
+            game_info["progress_text"] = progress_text
+            updated_to_100 = True
 
-        # Mapear estados específicos para mejor comprensión del frontend
+        overall_status = game_provisional_db.get("state", "pending")
         status_mapping = {
             "pending": "pending",
             "ready": "ready",
@@ -515,10 +552,7 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
             "error": "error",
             "draft": "draft"
         }
-
         mapped_status = status_mapping.get(overall_status, overall_status)
-
-        # Enviar la actualización al cliente
         await manager.send_personal_message(
             {
                 "status": "update",
@@ -529,7 +563,6 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
             },
             websocket
         )
-
     except Exception as e:
         print(f"Error al enviar actualización de estado: {str(e)}")
         print(traceback.format_exc())

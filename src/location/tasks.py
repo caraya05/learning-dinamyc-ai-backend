@@ -225,7 +225,6 @@ async def generate_location_description(_location_id: str, _user_id: str, state_
 
 
 async def identify_location_sound(_location_id: str, _user_id: str, _state_game_id):
-    location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
     element_state_db = await db["state_glic"].find_one(
         {"element_id": _location_id, "state": _state_game_id}
     )
@@ -258,9 +257,6 @@ async def identify_location_sound(_location_id: str, _user_id: str, _state_game_
             type_generation="identify_sound_by_location",
             user_id=_user_id,
         )
-        # await db['location'].update_one(
-        #     {"_id": ObjectId(_location_id)}, {"$set": {"sound": response_sound.sound_id}}
-        # )
 
         element_state_db["data"]["sound"] = response_sound.sound_id
 
@@ -290,19 +286,22 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
         url_image = "https://storage.googleapis.com/qwestar/voxel_.jpg"
         element_state_db = await db["state_glic"].find_one({"element_id": _location_id, "state": _state_game_id})
         element_state_db["data"]["image"] = url_image
-        await db["state_glic"].update_one({"_id": element_state_db["_id"]}, {"$set": {"data": element_state_db["data"]}})
+        await db["state_glic"].update_one({"_id": element_state_db["_id"]},
+                                          {"$set": {"data": element_state_db["data"]}})
         return True, "Image set to static test image"
 
     try:
-        location_db = await db['location'].find_one({"_id": ObjectId(_location_id)})
         element_state_db = await db["state_glic"].find_one({"element_id": _location_id, "state": _state_game_id})
 
         # --- NUEVA LÓGICA PARA 2D ---
+        print("creating 2d location image")
         if _type_game == "2d":
+            print("generating 2d location image")
             prompt_user = element_state_db['data'].get('prompt_user', '')
             imagen_loc = element_state_db['data'].get('image') or element_state_db['data'].get('image_reference')
             # Buscar personajes asociados a la localización (si aplica)
-            personajes_cursor = await db["state_glic"].find({'type_element': 'character','state': _state_game_id}).to_list(None)
+            personajes_cursor = await db["state_glic"].find(
+                {'type_element': 'character', 'state': _state_game_id}).to_list(None)
 
             if not personajes_cursor:
                 personajes_cursor = []
@@ -321,13 +320,12 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
             personajes_str = '\n'.join(personajes_info)
             # Construir el prompt base + situacional + imágenes
             prompt = (
-                "Genera una imagen en resolución portrait (1024x1536) de estilo 3D low poly animado detallado y vista aérea isométrica aérea (tipo juego RPG sin GUI) "
+                "Genera una imagen de estilo 3D low poly animado detallado y vista aérea isométrica aérea (tipo juego RPG sin GUI) "
                 f"\nSituación: {prompt_user}\n"
                 f"\nPersonajes en la escena (usa sus imágenes como referencia):\n{personajes_str}\n"
                 f"\nImagen de la localización (usa como referencia): {imagen_loc if imagen_loc else 'Sin imagen'}\n"
                 f"\nInstrucciones adicionales:\n"
                 f"- La imagen debe tener una perspectiva isométrica aérea, como si se viera desde arriba en un juego RPG.\n"
-                f"- La imagen debe ser vertical (portrait) con una resolución de 1024x1536 píxeles.\n"
                 f"- La escena debe estar ambientada según la descripción proporcionada.\n"
                 f"- Si hay personajes, deben estar integrados en la escena de manera coherente.\n"
                 f"- Si hay una imagen de la localización, úsala como referencia para el estilo y los elementos del entorno.\n"
@@ -371,7 +369,9 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                 user_id=_user_id,
                 type_generation="location_image_2d",
                 image=True,
-                tools=[{"type": "image_generation"}]
+                tools=[{"type": "image_generation",
+                        "size": "1536x1024",
+                        "quality": "high"}]
             )
             image_data = base64.b64decode(image_location)
             image_face = BytesIO(image_data)
@@ -386,7 +386,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
             )
             return True, "Image generated successfully for 2D"
         # --- FIN LÓGICA 2D ---
-
+        print("generating 3d location image")
         url_image_voxel = "https://storage.googleapis.com/qwestar/voxel_.jpg"
 
         url_imagen_voxel_alejada = "https://storage.googleapis.com/qwestar/escenario-alejado.jpg"
@@ -441,7 +441,9 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                 user_id=_user_id,
                 type_generation="location_image_with_reference",
                 image=True,
-                tools=[{"type": "image_generation"}]
+                tools=[{"type": "image_generation",
+                        "size": "1536x1024",
+                        "quality": "high"}]
             )
 
             image_data = base64.b64decode(image_location)
@@ -515,7 +517,9 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                 user_id=_user_id,
                 type_generation="location_image_without_reference",
                 image=True,
-                tools=[{"type": "image_generation"}]
+                tools=[{"type": "image_generation",
+                        "size": "1536x1024",
+                        "quality": "high"}]
             )
 
             image_data = base64.b64decode(image_location)
@@ -561,8 +565,12 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
 
 
 async def async_generate_location_task(
-        _location_id: str, _user_id: str, _task_id: str, _state_game_id: str, _type_game: str = "2d", _generate_image: bool = True
+        _location_id: str,
+        _user_id: str,
+        _task_id: str,
+        _state_game_id: str,
 ):
+    _type_game: str = "2d"
     if _task_id and _task_id != "" and _task_id is not None:
         await update_task_service(_id=_task_id, _status="pending")
 
@@ -576,18 +584,6 @@ async def async_generate_location_task(
             )
         return f"Error can't find location with id {_location_id}"
 
-    response_description = await generate_location_description(
-        _location_id, _user_id, _state_game_id
-    )
-    if not response_description:
-        if _task_id and _task_id != "" and _task_id is not None:
-            await update_task_service(
-                _id=_task_id,
-                _status="failed",
-                _message="Error in generate location description service.",
-            )
-        return "Error in generate location description service."
-
     response_sound = await identify_location_sound(_location_id, _user_id, _state_game_id)
     if not response_sound:
         if _task_id and _task_id != "" and _task_id is not None:
@@ -596,26 +592,25 @@ async def async_generate_location_task(
             )
         return "Error in identify location sound service."
 
-    if _generate_image:
-        response_image, message = await generate_location_image(_location_id, _user_id, _state_game_id,_type_game)
-        if not response_image:
-            if _task_id and _task_id != "" and _task_id is not None:
-                await update_task_service(
-                    _id=_task_id, _status="failed", _message=message, _status_updated=1
-                )
-            return message
+    response_image, message = await generate_location_image(_location_id, _user_id, _state_game_id, _type_game)
+    if not response_image:
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id, _status="failed", _message=message, _status_updated=1
+            )
+        return message
 
-        response_environment = await generate_environment_location(
-            _location_id, _user_id, _state_game_id
-        )
-        if not response_environment:
-            if _task_id and _task_id != "" and _task_id is not None:
-                await update_task_service(
-                    _id=_task_id,
-                    _status="failed",
-                    _message="Error in generate environment location service.",
-                )
-            return "Error in generate environment location service."
+    response_environment = await generate_environment_location(
+        _location_id, _user_id, _state_game_id
+    )
+    if not response_environment:
+        if _task_id and _task_id != "" and _task_id is not None:
+            await update_task_service(
+                _id=_task_id,
+                _status="failed",
+                _message="Error in generate environment location service.",
+            )
+        return "Error in generate environment location service."
 
     if _task_id and _task_id != "" and _task_id is not None:
         await update_task_service(

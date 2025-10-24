@@ -41,6 +41,8 @@ from game.routers_protional import router as game_provisional_routers
 from game.routers_protional import router_ws as game_provisional_ws_routers
 from proxy import routers as proxy_routers
 from gpt_ai import routers as gpt_ai_routers
+from game.error_handlers import http_exception_handler, generic_exception_handler
+from model_test.routers import router as model_test_router
 
 
 @asynccontextmanager
@@ -68,6 +70,10 @@ app = FastAPI(
     # generate_unique_id_function=custom_generate_unique_id,
 )
 
+# Registro de manejadores de errores para el router de game
+# app.add_exception_handler(HTTPException, http_exception_handler)
+# app.add_exception_handler(Exception, generic_exception_handler)
+
 origins = [
     "*",
 ]
@@ -85,6 +91,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
+    print("middleware add_process_time_header")
     excluded_paths = ["/health", "/ws/echo"]  # Agrega aquí las rutas que deseas excluir
     if request.url.path in excluded_paths:
         return await call_next(request)
@@ -119,6 +126,7 @@ app.include_router(task_routers.router, prefix="/v1/api")
 app.include_router(event_routers.router, prefix="/v1/api")
 app.include_router(shortener_routers.routerAPP)
 app.include_router(proxy_routers.router, prefix="/v1/api")
+app.include_router(model_test_router)
 
 
 @app.get("/health", tags=["Health Check"])
@@ -162,6 +170,7 @@ admin.add_middleware(
 
 @admin.middleware("http")
 async def add_process_time_header(request: Request, call_next):
+    print("middleware admin add_process_time_header")
     start_time = time.time()
     response = await call_next(request)
     process_time = time.time() - start_time
@@ -197,21 +206,65 @@ app.state.limiter = limiter
 app.include_router(game_provisional_routers, prefix="/v1/api")
 
 
-# @app.middleware("http")
-# async def exclude_auth_for_specific_routes(request: Request, call_next):
-#     excluded_paths = ["/v1/api/game/community-games"]  # Rutas que no requieren autenticación
+# EXCLUDED_AUTH_PATHS = [
+#     "/health",
+#     "/ws/echo",
+#     "/v1/api/game/community-games",
+#     "/v1/api/docs",
+#     "/v1/api/redocs",
+#     "/v1/api/auth/token",
+#     "/v1/api/auth/token2",
+#     "/openapi/openapi.json",
+#     "/model-test"
+# ]
 #
-#     # Verificar si la ruta actual está en la lista de exclusión
-#     for route in excluded_paths:
-#         if request.url.path.startswith(route):
+#
+# @app.middleware("http")
+# async def auth_middleware(request: Request, call_next):
+#     # Excluye rutas públicas
+#     print("middleware auth_middleware")
+#     for path in EXCLUDED_AUTH_PATHS:
+#         if request.url.path.startswith(path):
 #             return await call_next(request)
 #
-#     # Si no está excluida, aplicar autenticación
-#     if not request.headers.get("Authorization"):
-#         raise HTTPException(
+#     auth_header = request.headers.get("Authorization")
+#     if not auth_header or not auth_header.startswith("Bearer "):
+#         return JSONResponse(
 #             status_code=status.HTTP_401_UNAUTHORIZED,
-#             detail="Invalid Authorization Header",
+#             content={"detail": "Invalid or missing Authorization header"},
 #             headers={"WWW-Authenticate": "Bearer"},
 #         )
+#     # Aquí podrías validar el token JWT si lo necesitas
+#     # Por ejemplo: decode_jwt(auth_header.split(" ")[1])
+#     return await call_next(request)
+
+# import time
 #
+#
+# RATE_LIMIT = 10  # solicitudes permitidas
+# WINDOW_SIZE = 60  # segundos
+# rate_limit_store = {}
+#
+# RATE_LIMIT_PATHS = [
+#     "/v1/api/auth/token",
+#     "/v1/api/game/generate",  # ejemplo, agrega aquí las rutas que quieras limitar
+# ]
+#
+#
+# @app.middleware("http")
+# async def manual_rate_limit_middleware(request: Request, call_next):
+#     # Solo aplica a ciertas rutas
+#     print("middleware manual_rate_limit_middleware")
+#     if any(request.url.path.startswith(path) for path in RATE_LIMIT_PATHS):
+#         ip = request.client.host
+#         now = time.time()
+#         window = int(now // WINDOW_SIZE)
+#         key = f"{ip}:{window}:{request.url.path}"
+#         count = rate_limit_store.get(key, 0)
+#         if count >= RATE_LIMIT:
+#             return JSONResponse(
+#                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+#                 content={"detail": "Rate limit exceeded. Try again later."}
+#             )
+#         rate_limit_store[key] = count + 1
 #     return await call_next(request)

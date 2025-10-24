@@ -72,7 +72,6 @@ class SchemaDataCharacter(BaseModel):
     description_shoulder_up: Optional[str] = Field(None, example="This is a character")
     is_active: bool = Field(default=True, example=True)
     prompt_user: str = Field(None, example="prompt_user")
-    # prompt_user_dialog: str = Field(None, example="prompt_user_dialog")
     body_type: Optional[str] = Field(None, example="body_type")
     genre: Optional[str] = Field(None, example=GenderCharacter.MAN)
     character_type: Optional[str] = Field(None, example="character_type")
@@ -80,7 +79,6 @@ class SchemaDataCharacter(BaseModel):
     image_reference: Optional[str] = Field(None, example="reference_image.jpg")
     locations_id: Optional[list] = Field(None, example="location_id")
     extra_data: Optional[dict] = Field(None, example="Extra data")
-    # conversation_type: str = Field(...)
     interaction: Optional[list[dict]] = Field([], example=[{"key": "value"}])
     type: Optional[str] = Field(None, example=TypeCharacter.NPC)
     characteristics: Optional[dict] = Field(None, example={"key": "value"})
@@ -92,12 +90,17 @@ class SchemaStateLocation(BaseModel):
     state: Optional[str] = Field(None, example="state")
     data: Optional[SchemaDataCharacter] = Field(None, example={})
 
+class ConversationsCharacter(BaseModel):
+    character_id: str = Field(..., example="character_id")
+    dialog: str = Field(..., example="dialog")
+    audio: str = Field(None, example="audio")
+
 
 class SchemaCreateCharacter(BaseModel):
     name: str = Field(..., max_length=100, example="Jhon Doe")
     prompt_user: str = Field(..., example="prompt_user")
     prompt_user_dialog: Optional[str] = Field(None, example="prompt_user_dialog")
-    conversation_type: str = Field(..., example="conversation_type")
+    conversation_type: Optional[str] = Field(None, example="conversation_type")
     options_dialog: Optional[SchemaOpenTalk | SchemaOpenAnswer | SchemaOptionMultiple] = Field(
         None, example={
             "prompt_user_question": None,
@@ -116,6 +119,10 @@ class SchemaCreateCharacter(BaseModel):
     location_id: Optional[str] = Field(None, example="location_id")
     state_game: Optional[str] = Field(None, example="state_game")
     image_reference: Optional[str] = Field(None, example="reference_image.jpg")
+    image: Optional[str] = Field(None, example="image.jpg")
+    gender: Optional[str] = Field(None, example=GenderCharacter.MAN)
+    voice_id: Optional[str] = Field(None, example="voice_id")
+    conversation: Optional[list[ConversationsCharacter]] = Field(None, example="conversation")
 
 
 class SchemaRetrieveCharacter(ResponseModel):
@@ -193,8 +200,8 @@ class CharacterLocationModel(BaseModel):
     location_id: str = Field(...)
     game_id: str = Field(...)
     characteristics: Dict[str, str] = Field(...)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(datetime.UTC))
     created_by: str = Field(...)
     updated_by: str = Field(...)
 

@@ -3,14 +3,17 @@ import os
 from celery import Celery
 from celery.signals import worker_ready, celeryd_after_setup, worker_init
 from celery.schedules import crontab
+from celery import shared_task
 from datetime import timedelta
 import redis
 
 from event.tasks import async_generate_image_event
 from location.tasks import async_generate_location_task, async_generate_image_location_task
-from character.tasks import async_generate_character_task, async_generate_image_character_task, async_update_character_task
+from character.tasks import async_generate_character_task, async_generate_image_character_task, \
+    async_update_character_task
 from game.tasks import async_identify_category_game_task, async_generate_image_cover_game_task
 from game.tasks_provisional import async_create_game_provisional_task, async_generate_scene_interactions_task
+from game.tasks_provisional_2 import async_create_game_provisional_task_2, async_continue_create_game_provisional_2
 from voice.elevenlabs import get_voices
 from voice.services import add_voice_service
 from voice.task import async_generate_voice_task
@@ -83,8 +86,10 @@ celery.conf.update(
 task_routes = {
     'generate_character_task': {'queue': 'character_queue'},
     'generate_location_task': {'queue': 'location_queue'},
-    'generate_image_*': {'queue': 'image_queue'},
-    'generate_voice_task': {'queue': 'voice_queue'},
+    'generate_image_character_shared_task': {'queue': 'image_character_queue'},
+    'generate_image_event_shared_task': {'queue': 'image_event_queue'},
+    'detection_voice_character_task': {'queue': 'voice_detection_queue'},
+    'generate_voice_character_task': {'queue': 'voice_queue'},
     'update_voice_list': {'queue': 'maintenance_queue'},  # Nueva cola para tareas de mantenimiento
     '*': {'queue': 'default'},
 }
@@ -164,7 +169,7 @@ def update_voice_list():
         return f"Error in voice update task: {str(e)}"
 
 
-# Desde aca va lo nuevo
+#TODO deprecated
 @celery.task(name="generate_character_task")
 def generate_character_task(
         _character_id: str,
@@ -188,10 +193,11 @@ def generate_character_task(
             _location_id=_location_id,
             _state_game_id=_state_game_id,
             _game_id=_game_id,
+
         )
     )
 
-
+#TODO deprecated
 @celery.task(name="update_character_task")
 def update_character_task(
         _character_id: str,
@@ -222,7 +228,7 @@ def update_character_task(
         )
     )
 
-
+#TODO deprecated
 @celery.task(name="generate_image_character_task")
 def generate_image_character_task(_character_id: str, _user_id: str, _task_id: str):
     try:
@@ -235,7 +241,7 @@ def generate_image_character_task(_character_id: str, _user_id: str, _task_id: s
         async_generate_image_character_task(_character_id, _user_id, _task_id)
     )
 
-
+#TODO deprecated
 @celery.task(name="generate_location_task")
 def generate_location_task(
         _location_id: str, _user_id: str, _task_id: str, _state_game_id: str = None
@@ -250,7 +256,7 @@ def generate_location_task(
         async_generate_location_task(_location_id, _user_id, _task_id, _state_game_id)
     )
 
-
+#TODO deprecated
 @celery.task(name="generate_image_location_task")
 def generate_image_location_task(_location_id: str, _user_id: str, _task_id: str):
     try:
@@ -265,7 +271,7 @@ def generate_image_location_task(_location_id: str, _user_id: str, _task_id: str
         )
     )
 
-
+#TODO deprecated
 @celery.task(name="identify_category_game_task")
 def identify_category_game_task(_game_id: str, _user_id: str, _task_id: str):
     try:
@@ -278,7 +284,7 @@ def identify_category_game_task(_game_id: str, _user_id: str, _task_id: str):
         async_identify_category_game_task(_game_id=_game_id, _user_id=_user_id, _task_id=_task_id)
     )
 
-
+#TODO deprecated
 @celery.task(name="generate_image_cover_game_task")
 def generate_image_cover_game_task(_game_id: str, _user_id: str, _task_id: str, _edit: bool = False):
     try:
@@ -292,7 +298,7 @@ def generate_image_cover_game_task(_game_id: str, _user_id: str, _task_id: str, 
     )
 
 
-
+#TODO deprecated
 @celery.task(name="generate_voice_character_task")
 def generate_voice_character_task(
         _game_id,
@@ -319,7 +325,7 @@ def generate_voice_character_task(
         )
     )
 
-
+#TODO deprecated
 @celery.task(name="generate_item_task")
 def generate_item_task(
         _item_id: str,
@@ -339,7 +345,7 @@ def generate_item_task(
         async_generate_item(_item_id, _user_id, _task_id, _location_id, _state_game_id, _game_id)
     )
 
-
+#TODO deprecated
 @celery.task(name="updated_item_task")
 def updated_item_task(
         _item_id: str,
@@ -368,7 +374,7 @@ def updated_item_task(
         )
     )
 
-
+#TODO deprecated
 @celery.task(name="generate_new_interaction_item_task")
 def generate_new_interaction_item_task(
         _task_id: str,
@@ -390,7 +396,7 @@ def generate_new_interaction_item_task(
         )
     )
 
-
+#TODO deprecated
 @celery.task(name="generate_image_event_task")
 def generate_image_event_task(
         game_id: str, event_id: str, state_game: str, user_id: str, prompt_user_image: str, task_id: str
@@ -412,7 +418,7 @@ def generate_image_event_task(
         )
     )
 
-
+#TODO deprecated
 @celery.task(name="create_game_provisional_task")
 def create_game_provisional_task(id_game_provisional: str):
     try:
@@ -424,7 +430,30 @@ def create_game_provisional_task(id_game_provisional: str):
         async_create_game_provisional_task(id_game_provisional)
     )
 
+@celery.task(name="create_game_provisional_task_2")
+def create_game_provisional_task_2(id_game_provisional: str, user_id: str):
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop.run_until_complete(
+        async_create_game_provisional_task_2(id_game_provisional, user_id)
+    )
 
+
+@celery.task(name="continue_create_game_provisional_2")
+def continue_create_game_provisional_2(id_game_provisional: str, user_id: str):
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    return loop.run_until_complete(
+        async_continue_create_game_provisional_2(id_game_provisional, user_id)
+    )
+
+#TODO deprecated
 @celery.task(name="generate_scene_interactions_task")
 def generate_scene_interactions_task(id_game_provisional: str):
     """

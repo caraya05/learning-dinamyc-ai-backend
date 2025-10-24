@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from datetime import timedelta
 
 import pytz
@@ -23,21 +23,8 @@ from game.schemas import SchemaChangeCharacter
 from game.schemas import SchemaUpdateGameV2
 from game.schemas import SchemaListGame
 
-from game.services import (
-    get_game_service,
-    get_game_by_code_access_service,
-    get_games_played_recent_service,
-    get_community_games_service,
-)
-from game.services import create_game_v2_service
-from game.services import change_character_principal_game_service
-from game.services import get_game_v2_service
-from game.services import update_game_v2_service
-from game.services import get_my_games_v2_service
-from game.services import get_games_service
-from game.services import delete_game_service
-from game.services import update_likes_game_service
-from game.services import clone_game_service
+
+from game.services import GameService
 
 from game.utils import number_players_have_played_game_util, last_date_played_game_util
 
@@ -48,8 +35,16 @@ from celery_worker import identify_category_game_task
 from task.services import create_task_service, update_task_service
 
 router = APIRouter(prefix="/game", tags=["Game"])
-
 router_community = APIRouter(prefix="/community", tags=["community"])
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+# INYECCIÓN DE DEPENDENCIAS EN TODOS LOS ENDPOINTS RELEVANTES
+def get_game_service():
+    return GameService()
 
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
@@ -57,30 +52,21 @@ async def get_games(
         user: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
         page: int = 1,
-        count: int = 10,
-):
+        game_service: GameService = Depends(get_game_service)
+) -> SchemaListGame:
     """
-    This endpoint retrieves all games.
-
-    It returns a list of games.
+    Endpoint para obtener lista de juegos.
     """
-
     try:
-        games_db, count_pages = await get_games_service(skip=page, limit=count)
-
+        games_db, count = await game_service.get_games_service(skip=page, limit=10, user_id=user.get("_id"))
         for game in games_db:
             game["_id"] = str(game["_id"])
-            game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
-
-        return SchemaListGame(
-            results=games_db, count=len(games_db), page=page, total_pages=count_pages // count + 1
-        )
-
+        return SchemaListGame(results=games_db, count=count)
     except Exception as e:
-        print(f"Error getting games: {str(e)}")
+        logger.error(f"Error get games: {str(e)}", exc_info=True)
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Games not found",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error get games",
         )
 
 
@@ -89,6 +75,7 @@ async def delete_game(
         game_id: str,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: GameService = Depends(get_game_service)
 ):
     """
     This endpoint deletes a game.
@@ -108,7 +95,7 @@ async def delete_game(
     """
 
     try:
-        await delete_game_service(game_id)
+        await service.delete_game_service(game_id)
 
         return {"message": "Game successfully deleted"}
 
@@ -125,6 +112,7 @@ async def like_game(
         game_id: str,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: GameService = Depends(get_game_service)
 ):
     """
     This endpoint likes a game.
@@ -133,7 +121,7 @@ async def like_game(
     """
 
     try:
-        return await update_likes_game_service(game_id, str(user_db.get("_id")))
+        return await service.update_likes_game_service(game_id, str(user_db.get("_id")))
 
     except Exception as e:
         print(f"Error liking game: {str(e)}")
@@ -148,6 +136,7 @@ async def play_game(
         game_id: str,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: GameService = Depends(get_game_service)
 ):
     """
     This endpoint plays a game.
@@ -160,7 +149,7 @@ async def play_game(
             {
                 'game_id': game_id,
                 'user_id': str(user_db.get("_id")),
-                'created_at': datetime.utcnow(),
+                'created_at': datetime.now(timezone.utc),
             }
         )
         return {'detail': 'Game played'}
@@ -176,6 +165,7 @@ async def play_game(
 async def create_game(
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: GameService = Depends(get_game_service)
 ):
     """
     This endpoint creates a new game.
@@ -205,8 +195,7 @@ async def create_game(
         )
 
     try:
-
-        game_db = await create_game_v2_service(user_id=str(user_db.get("_id")))
+        game_db = await service.create_game_v2_service(user_id=str(user_db.get("_id")))
 
         return game_db
 
@@ -470,6 +459,7 @@ async def change_character(
         data: SchemaChangeCharacter,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_service: GameService = Depends(get_game_service)
 ):
     """
     This endpoint changes the character of a game.
@@ -478,7 +468,7 @@ async def change_character(
     """
 
     try:
-        if game_db := await change_character_principal_game_service(
+        if game_db := await game_service.change_character_principal_game_service(
                 data.game_id, data.character_id, str(user_db.get("_id"))
         ):
             return "Character changed"
@@ -496,6 +486,7 @@ async def get_game(
         game_id: str,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: GameService = Depends(get_game_service)
 ):
     """
     This endpoint retrieves a game.
@@ -516,7 +507,7 @@ async def get_game(
     """
 
     try:
-        game_db = await get_game_service(game_id)
+        game_db = await service.get_game(game_id)
         game_pending = await db['published_game'].find_one({'game_id': game_id})
         if game_pending:
             game_db["status"] = game_pending["status"]
@@ -542,6 +533,7 @@ async def get_game(
         access_code: str,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_service: GameService = Depends(get_game_service)
 ):
     """
     This endpoint retrieves a game.
@@ -562,7 +554,7 @@ async def get_game(
     """
 
     try:
-        game_db = await get_game_by_code_access_service(access_code)
+        game_db = await game_service.get_game_by_code_access_service(access_code)
         game_pending = await db['published_game'].find_one({'game_id': str(game_db["_id"])})
         if game_pending:
             game_db["status"] = game_pending["status"]
@@ -587,6 +579,7 @@ async def update_game(
         data: SchemaUpdateGameV2,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: GameService = Depends(get_game_service)
 ):
     """
     This endpoint updates a game.
@@ -607,7 +600,7 @@ async def update_game(
     """
 
     try:
-        game_db = await update_game_v2_service(game_id, data, str(user_db.get("_id")))
+        game_db = await service.update_game_v2_service(game_id, data, str(user_db.get("_id")))
         return game_db
 
     except Exception as e:
@@ -626,6 +619,7 @@ async def my_games(
         count: int = 10,
         most_played: bool = False,
         recent: bool = False,
+        game_service: GameService = Depends(get_game_service)
 ):
     """
     This endpoint retrieves all games created by the user.
@@ -634,7 +628,7 @@ async def my_games(
     """
 
     try:
-        games_db, count_pages = await get_my_games_v2_service(
+        games_db, count_pages = await game_service.get_my_games_v2_service(
             skip=page, limit=count, user_id=str(user.get("_id"))
         )
 
@@ -654,7 +648,7 @@ async def my_games(
             games_db = sorted(games_db, key=lambda x: x["plays"], reverse=True)
 
         if recent:
-            games_db = await get_games_played_recent_service(user_id=str(user.get("_id")))
+            games_db = await game_service.get_games_played_recent_service(user_id=str(user.get("_id")))
             for game in games_db:
                 game["_id"] = str(game["_id"])
                 game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
@@ -725,6 +719,7 @@ async def clone_game(
         game_id: str,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_service: GameService = Depends(get_game_service)
 ):
     """
     Este endpoint clona un juego completo con todos sus elementos asociados.
@@ -758,7 +753,7 @@ async def clone_game(
             )
 
         # Llamar al servicio de clonación
-        cloned_game = await clone_game_service(game_id, str(user_db.get("_id")))
+        cloned_game = await game_service.clone_game_service(game_id, str(user_db.get("_id")))
 
         # Convertir ObjectId a string para la respuesta
         cloned_game["_id"] = str(cloned_game["_id"])
@@ -780,7 +775,8 @@ async def clone_game(
 async def get_community_games(
         request: Request,
         page: int = 1,
-        count: int = 10
+        count: int = 10,
+        game_service: GameService = Depends(get_game_service),
 ):
     """
     This endpoint retrieves community games that are published and have specific categories.
@@ -800,7 +796,7 @@ async def get_community_games(
     """
     try:
         # Use the new community games service that filters by categories
-        games_db, count_pages = await get_community_games_service(
+        games_db, count_pages = await game_service.get_community_games_service(
             skip=page,
             limit=count
         )

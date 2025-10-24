@@ -22,6 +22,11 @@ from voice.utils import get_variants_service
 
 from io import BytesIO
 
+import logging
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+
 
 class SchemaVoiceIdentification(BaseModel):
     age: str = Field(..., description="Age of the voice according to the description")
@@ -36,7 +41,7 @@ async def generate_voice_character(
         location_id: str,
         state_game: str,
         type_conversation: str,
-        prompt_user_dialog: str,
+        prompt_user_dialog: str = None,
         options_dialog: dict = None,
 ):
     try:
@@ -164,6 +169,9 @@ async def generate_voice_character(
                     _location_id=location_id,
                     _state_game_id=state_game,
                 )
+
+        print(character_state_db)
+
         if (
                 type_conversation != "none"
                 and type_conversation != "option_multiple"
@@ -205,7 +213,8 @@ async def generate_voice_character(
                                     "audio_mp3"
                                 ] = audio.get("mp3")
                             except Exception as e:
-                                print(f"Error in generate voice service: {str(e)}")
+                                print(traceback.format_exc())
+                                print(f"Error in generate voice service 1: {str(e)}")
                                 pass
 
                 await db["state_glic"].update_one(
@@ -443,7 +452,7 @@ async def generate_voice_character(
         return True
     except Exception as e:
         print(traceback.format_exc())
-        print(f"Error in generate voice service: {str(e)}")
+        print(f"Error in generate voice service 2: {str(e)}")
         return False
 
 
@@ -967,55 +976,46 @@ async def generate_conversation_character(
     )
     try:
 
-        response = await openai_generator.generate_gpt(
-            content_prompt=[
-                {
-                    "role": "system",
-                    "content": f" You are a character dialogue extractor, according to a text where there is a conversation between two characters as follows. "
-                               + "1. hello. how are you?"
-                               + "2. hello, well how are you?"
-                               + "where 1 is the main character and 2 is the other character, transform it to a"
-                                 "replace 1 with the id of the main character and 2 with the id of the other character, "
-                                 " conversation according to the json schema and the data provided by the user, and "
-                                 f"correct the spelling of the dialogue text in the {language_detection} language.",
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"Main character id: {str(character_principal_db['_id'])}",
-                        },
-                        {
-                            "type": "text",
-                            "text": f"Other character id: {str(character_other_db['_id'])}",
-                        },
-                        {
-                            "type": "text",
-                            "text": f"Conversation of the character: {element_state_db['data']['prompt_user_dialog']}",
-                        },
-                    ],
-                },
-            ],
-            model="gpt-4o-mini-2024-07-18",
-            max_tokens=4096,
-            response_format=SchemaCharacterConversations,
-            user_id=_user_id,
-            type_generation="create_conversation_character",
-        )
-        conversation_ = [
-            {"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None, "audio_mp3": None, }
-            for dialog in response.conversation
-        ]
-
-        # await db["character"].update_one(
-        #     {"_id": ObjectId(str(_character_db["_id"]))},
-        #     {
-        #         "$set": {
-        #             "conversation": conversation_,
-        #         }
-        #     },
+        # response = await openai_generator.generate_gpt(
+        #     content_prompt=[
+        #         {
+        #             "role": "system",
+        #             "content": f" You are a character dialogue extractor, according to a text where there is a conversation between two characters as follows. "
+        #                        + "1. hello. how are you?"
+        #                        + "2. hello, well how are you?"
+        #                        + "where 1 is the main character and 2 is the other character, transform it to a"
+        #                          "replace 1 with the id of the main character and 2 with the id of the other character, "
+        #                          " conversation according to the json schema and the data provided by the user, and "
+        #                          f"correct the spelling of the dialogue text in the {language_detection} language.",
+        #         },
+        #         {
+        #             "role": "user",
+        #             "content": [
+        #                 {
+        #                     "type": "text",
+        #                     "text": f"Main character id: {str(character_principal_db['_id'])}",
+        #                 },
+        #                 {
+        #                     "type": "text",
+        #                     "text": f"Other character id: {str(character_other_db['_id'])}",
+        #                 },
+        #                 {
+        #                     "type": "text",
+        #                     "text": f"Conversation of the character: {element_state_db['data']['prompt_user_dialog']}",
+        #                 },
+        #             ],
+        #         },
+        #     ],
+        #     model="gpt-4o-mini-2024-07-18",
+        #     max_tokens=4096,
+        #     response_format=SchemaCharacterConversations,
+        #     user_id=_user_id,
+        #     type_generation="create_conversation_character",
         # )
+        # conversation_ = [
+        #     {"id_character": dialog.id_character, "dialog": dialog.dialog, "audio": None, "audio_mp3": None, }
+        #     for dialog in response.conversation
+        # ]
 
         interaction_exists = False
 
@@ -1027,7 +1027,7 @@ async def generate_conversation_character(
                     interaction["location_id"] == _location_id
                     and interaction["state_game"] == _state_game_id
             ):
-                interaction["conversation"] = conversation_
+                interaction["conversation"] = element_state_db["data"]["conversation"]
                 interaction["prompt_user_dialog"] = element_state_db["data"]["prompt_user_dialog"]
                 interaction["type_conversation"] = "two_way"
                 interaction_exists = True
@@ -1040,11 +1040,11 @@ async def generate_conversation_character(
                     "state_game": _state_game_id,
                     "type_conversation": "two_way",
                     "prompt_user_dialog": element_state_db["data"]["prompt_user_dialog"],
-                    "conversation": conversation_,
+                    "conversation": element_state_db["data"]["conversation"],
                 }
             )
 
-        element_state_db["data"]["conversation"] = conversation_
+        element_state_db["data"]["conversation"] = element_state_db["data"]["conversation"]
 
         await db["state_glic"].update_one(
             {"_id": element_state_db["_id"]},
@@ -1815,11 +1815,13 @@ async def async_generate_character_task(
         _state_game_id,
         _game_id,
         _type_game="2d",
+        _is_image=False,
 ):
     if _task_id and _task_id != "" and _task_id is not None:
         await update_task_service(_id=_task_id, _status="pending")
 
     character_db = await db["character"].find_one({"_id": ObjectId(_character_id)})
+
     if not character_db:
         if _task_id and _task_id != "" and _task_id is not None:
             await update_task_service(
@@ -1849,19 +1851,19 @@ async def async_generate_character_task(
                     _id=_task_id, _status="failed", _message="Error in generate character body type"
                 )
             return "Error in generate character body type"
-
-    response_image, message = await generate_image_character_face(
-        _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
-    )
-    if not response_image:
-        if _task_id and _task_id != "" and _task_id is not None:
-            await update_task_service(
-                _id=_task_id,
-                _status="failed",
-                _message=message,
-                _status_updated=1,
-            )
-        return message
+    if _is_image:
+        response_image, message = await generate_image_character_face(
+            _character_id=_character_id, _user_id=_user_id, _state_game_id=_state_game_id
+        )
+        if not response_image:
+            if _task_id and _task_id != "" and _task_id is not None:
+                await update_task_service(
+                    _id=_task_id,
+                    _status="failed",
+                    _message=message,
+                    _status_updated=1,
+                )
+            return message
 
     element_state_db = await db["state_glic"].find_one(
         {"element_id": _character_id, "state": _state_game_id}
@@ -1879,23 +1881,23 @@ async def async_generate_character_task(
                 )
             return "Error in generate character personalization"
 
-    voice_generated = await generate_voice_character(
-        game_id=_game_id,
-        character_id=_character_id,
-        user_id=_user_id,
-        state_game=_state_game_id,
-        location_id=_location_id,
-        type_conversation=element_state_db["data"]["conversation_type"],
-        prompt_user_dialog=element_state_db["data"]["prompt_user_dialog"],
-        options_dialog=element_state_db["data"]["options_dialog"],
-    )
-
-    if not voice_generated:
-        if _task_id and _task_id != "" and _task_id is not None:
-            await update_task_service(
-                _id=_task_id, _status="failed", _message="Error voice not generated"
-            )
-        return "Error voice not generated"
+    # voice_generated = await generate_voice_character(
+    #     game_id=_game_id,
+    #     character_id=_character_id,
+    #     user_id=_user_id,
+    #     state_game=_state_game_id,
+    #     location_id=_location_id,
+    #     type_conversation=element_state_db["data"]["conversation_type"],
+    #     prompt_user_dialog=element_state_db["data"]["prompt_user_dialog"],
+    #     options_dialog=element_state_db["data"]["options_dialog"],
+    # )
+    #
+    # if not voice_generated:
+    #     if _task_id and _task_id != "" and _task_id is not None:
+    #         await update_task_service(
+    #             _id=_task_id, _status="failed", _message="Error voice not generated"
+    #         )
+    #     return "Error voice not generated"
 
     if _task_id and _task_id != "" and _task_id is not None:
         await update_task_service(
@@ -2034,3 +2036,113 @@ async def async_generate_image_character_task(_character_id, _user_id, _task_id)
         _id=_task_id, _status="completed", _message="Character image generate successfully"
     )
     return "Character image generate successfully"
+
+
+async def _generate_image_character(_user_id,
+                                    _prompt_user,
+                                    _gender,
+                                    _id_character,
+                                    _game_provisional):
+    try:
+        image_face = await openai_generator.generate_image(
+            prompt=f"Genera una imagen en vista frontal cuadrada de 1024x1024 de un personaje,"
+                   f" ({_gender}) en estilo 3D low poly, de la cintura para "
+                   f"arriba mirando al frente con los brazos hacia abajo, con fondo de color solido que contraste."
+                   f"genero: {_prompt_user}, "
+                   f" Utilizando la imagen de referencia.",
+            size="1024x1024",
+            user_id=_user_id,
+            model="gpt-image-1",
+            style=None,
+            type_generation="character_face",
+            background="transparent"
+        )
+
+        image_bytes = base64.b64decode(image_face)
+        image_generated = upload_image(
+            img_byte_arr=image_bytes,
+            file_name=f"characters/{uuid4()}.png",
+            size=(512, 512),
+        )
+
+        game_db = await db["game_provisional"].find_one({"_id": ObjectId(_game_provisional)})
+        if not game_db:
+            return "Error game provisional not found"
+
+        characters = game_db.get("characters", [])
+        index_found = next((i for i, c in enumerate(characters) if c.get("id") == _id_character), None)
+        if index_found is None:
+            return "Error character not found in game provisional"
+
+        # Actualiza la llave image usando el índice
+        await db["game_provisional"].update_one(
+            {"_id": ObjectId(_game_provisional)},
+            {f"$set": {f"characters.{index_found}.image": image_generated}}
+        )
+
+        return "Image generated and saved successfully"
+    except Exception as e:
+        logger.error(f"Error in get images character service: {str(e)}")
+        return f"Error in get images character service: {str(e)}"
+
+
+async def get_voice_for_character(_prompt_user, _gender, _id_character, _game_provisional, _user_id):
+    try:
+        variants_voices = await get_variants_service()
+        response_generated = await openai_generator.generate_gpt(
+            content_prompt=[
+                {
+                    "role": "system",
+                    "content": "Utilizando la siguiente descripción, identificar la voz que mejor se ajuste a la descripción. "
+                               f"Respondiendo con la edad y género de la voz,",
+                },
+                {
+                    "role": "assistant",
+                    "content": f"Variantes de voces a identificar: {variants_voices}",
+                },
+                {
+                    "role": "user",
+                    "content": f"Descripción del personaje: {_prompt_user}"
+                               f"Genero del personaje: {_gender}",
+                },
+            ],
+            response_format=SchemaVoiceIdentification,
+            type_generation="Voice Identification",
+            max_tokens=2000,
+            model="gpt-4o-mini",
+            user_id=_user_id,
+        )
+
+        voice_by_gender = await db["voice"].find({"gender": response_generated.genre}).to_list(None)
+        voice_by_age = [voice for voice in voice_by_gender if voice["age"] == response_generated.age]
+        voice_by_accent = [voice for voice in voice_by_age if voice["accent"] == "North American"]
+
+        if voice_by_accent:
+            voice = voice_by_accent[0]
+        elif voice_by_age:
+            voice = voice_by_age[0]
+        else:
+            voice_by_gender_accent = [voice for voice in voice_by_gender if voice["accent"] == "North American"]
+            if voice_by_gender_accent:
+                voice = voice_by_gender_accent[0]
+            elif voice_by_gender:
+                voice = voice_by_gender[0]
+            else:
+                voice = await db["voice"].find_one()
+        game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(_game_provisional)})
+        if not game_provisional_db:
+            return "Error game provisional not found"
+        characters = game_provisional_db.get("characters", [])
+        index_found = next((i for i, c in enumerate(characters) if c.get
+        ("id") == _id_character), None)
+        if index_found is None:
+            return "Error character not found in game provisional"
+        # Actualiza la llave voice usando el índice
+        await db["game_provisional"].update_one(
+            {"_id": ObjectId(_game_provisional)},
+            {f"$set": {f"characters.{index_found}.voice_id": voice["voice_id"]}}
+        )
+        return "Voice assigned to character successfully"
+    except Exception as e:
+        logger.error(f"Error in get voice for character service: {str(e)}")
+        return f"Error in get voice for character service: {str(e)}"

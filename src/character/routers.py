@@ -42,8 +42,7 @@ from character.services import add_or_edit_character_location
 from character.services import get_all_character_service
 from character.services import update_character_service
 
-from game.services import get_character_game_publish_service
-from game.services import get_location_game_publish_service
+from game.services import GameService
 
 router = APIRouter(prefix='/characters', tags=['Characters'])
 
@@ -54,6 +53,7 @@ async def get_character(
         publish: bool = False,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_service = Depends(GameService)
 ):
     if publish:
         try:
@@ -66,7 +66,7 @@ async def get_character(
                 detail="Character not found",
             )
         try:
-            character_db = await get_character_game_publish_service(
+            character_db = await game_service.get_character_game_publish_service(
                 character_id=character_id, game_id=game_id
             )
 
@@ -97,12 +97,13 @@ async def get_characters(
         publish: bool = False,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_service = Depends(GameService)
 ):
     if publish:
         try:
             game_id = location_id.split("_")[-1]
             location_id = location_id.split("_")[0]
-            locations_db = await get_location_game_publish_service(
+            locations_db = await game_service.get_location_game_publish_service(
                 game_id=game_id, location_id=location_id
             )
             return SchemaListCharacter(

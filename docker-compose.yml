@@ -85,6 +85,98 @@ services:
       retries: 5
       start_period: 60s
 
+  celery_worker_image:
+    container_name: celery_worker_image
+    image: us-east4-docker.pkg.dev/qwestar-ai/back-qwestar-ai/backend-dev:latest
+    command: >
+      sh -c "
+      cd /code &&
+      celery -A celery_worker worker
+      --loglevel=info
+      --concurrency=4
+      --max-tasks-per-child=1000
+      --queues=image_queue
+      --prefetch-multiplier=1
+      --pool=prefork
+      --hostname=worker_image@%h
+      --events
+      "
+    volumes:
+      - celery-data:/data
+    working_dir: /code
+    env_file:
+      - .env
+    environment:
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      C_FORCE_ROOT: "true"
+      PYTHONPATH: /code
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "cd /code && celery -A celery_worker inspect ping -d 'worker_image@%h' --broker='redis://:${REDIS_PASSWORD}@redis:6379/0'"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+
+  celery_worker_voice:
+    container_name: celery_worker_voice
+    image: us-east4-docker.pkg.dev/qwestar-ai/back-qwestar-ai/backend-dev:latest
+    command: >
+      sh -c "
+      cd /code &&
+      celery -A celery_worker worker
+      --loglevel=info
+      --concurrency=2
+      --max-tasks-per-child=1000
+      --queues=voice_queue
+      --prefetch-multiplier=1
+      --pool=prefork
+      --hostname=worker_voice@%h
+      --events
+      "
+    volumes:
+      - celery-data:/data
+    working_dir: /code
+    env_file:
+      - .env
+    environment:
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      C_FORCE_ROOT: "true"
+      PYTHONPATH: /code
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 512M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "cd /code && celery -A celery_worker inspect ping -d 'worker_voice@%h' --broker='redis://:${REDIS_PASSWORD}@redis:6379/0'"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+
   flower:
     container_name: flower
     image: us-east4-docker.pkg.dev/qwestar-ai/back-qwestar-ai/backend-dev:latest

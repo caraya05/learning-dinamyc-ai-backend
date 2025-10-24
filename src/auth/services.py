@@ -55,18 +55,19 @@ async def generate_token(user_id: PyObjectId, password_ts: float) -> dict:
     access = {
         "user_id": str(user_id),
         "password_ts": password_ts,
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRES_IN),
+        "exp": (datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRES_IN)).timestamp(),
         "type": TokenType.ACCESS.value,
     }
     refresh = access.copy()
     refresh.update(
         {
-            "exp": datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRES_IN),
+            "exp": (datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRES_IN)).timestamp(),
             "type": TokenType.REFRESH.value,
         }
     )
     access_token = jwt.encode(access, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
     refresh_token = jwt.encode(refresh, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    print(access_token, refresh_token)
     return {
         "access": access_token,
         "refresh": refresh_token,
@@ -76,7 +77,7 @@ async def generate_token(user_id: PyObjectId, password_ts: float) -> dict:
 
 async def decode_token(token: str) -> dict | None:
     try:
-        return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=settings.JWT_ALGORITHM)
+        return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
     except (JWTError, ExpiredSignatureError, JWTClaimsError):
         return None
 

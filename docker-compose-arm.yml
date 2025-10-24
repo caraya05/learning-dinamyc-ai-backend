@@ -32,7 +32,7 @@ services:
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: [ "CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping" ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -45,19 +45,23 @@ services:
       context: .
       dockerfile: .docker/DockerfileCelery
     command: >
+      sh -c "
+      cd /code &&
       celery -A celery_worker.celery worker
       --loglevel=info
-      --concurrency=2
+      --concurrency=4
       --max-tasks-per-child=1000
       --queues=character_queue,location_queue,image_queue,voice_queue,default
       --prefetch-multiplier=1
-      --pool=solo
+      --pool=prefork
       --hostname=worker@%h
       --events
+      "
     volumes:
-      - ./src/:/code
       - celery-data:/data
+      - ./src/:/code
       - /etc/localtime:/etc/localtime:ro
+    working_dir: /code
     env_file:
       - .env
     environment:
@@ -79,7 +83,7 @@ services:
           memory: 256M
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "sleep 5 && /usr/local/bin/celery-healthcheck.sh"]
+      test: ["CMD-SHELL", "cd /code && celery -A celery_worker.celery inspect ping -d 'worker@%h' --broker='redis://:${REDIS_PASSWORD}@redisARM:6379/0'"]
       interval: 30s
       timeout: 20s
       retries: 5
@@ -121,11 +125,311 @@ services:
       - app-network
     restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5555/"]
+      test: [ "CMD", "curl", "-f", "http://localhost:5555/" ]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  celery_image_character_worker:
+    container_name: celery_image_character_workerARM
+    build:
+      context: .
+      dockerfile: .docker/DockerfileCelery
+    command: >
+      sh -c "
+      cd /code &&
+      celery -A celery_worker.celery worker
+      --loglevel=info
+      --concurrency=4
+      --max-tasks-per-child=1000
+      --queues=image_character_queue
+      --prefetch-multiplier=1
+      --pool=prefork
+      --hostname=image_character_worker@%h
+      --events
+      "
+    volumes:
+      - celery-data:/data
+      - ./src/:/code
+      - /etc/localtime:/etc/localtime:ro
+    working_dir: /code
+    env_file:
+      - .env
+    environment:
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      C_FORCE_ROOT: "true"
+      PYTHONPATH: /code
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "cd /code && celery -A celery_worker.celery inspect ping -d 'image_character_worker@%h' --broker='redis://:${REDIS_PASSWORD}@redisARM:6379/0'"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+
+  celery_image_event_worker:
+    container_name: celery_image_event_workerARM
+    build:
+      context: .
+      dockerfile: .docker/DockerfileCelery
+    command: >
+      sh -c "
+      cd /code &&
+      celery -A celery_worker.celery worker
+      --loglevel=info
+      --concurrency=4
+      --max-tasks-per-child=1000
+      --queues=image_event_queue
+      --prefetch-multiplier=1
+      --pool=prefork
+      --hostname=image_event_worker@%h
+      --events
+      "
+    volumes:
+      - celery-data:/data
+      - ./src/:/code
+      - /etc/localtime:/etc/localtime:ro
+    working_dir: /code
+    env_file:
+      - .env
+    environment:
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      C_FORCE_ROOT: "true"
+      PYTHONPATH: /code
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "cd /code && celery -A celery_worker.celery inspect ping -d 'image_event_worker@%h' --broker='redis://:${REDIS_PASSWORD}@redisARM:6379/0'"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+
+  celery_worker_location:
+    container_name: celery_worker_locationARM
+    build:
+      context: .
+      dockerfile: .docker/DockerfileCelery
+    command: >
+      sh -c "
+      cd /code &&
+      celery -A celery_worker.celery worker
+      --loglevel=info
+      --concurrency=4
+      --max-tasks-per-child=1000
+      --queues=location_queue
+      --prefetch-multiplier=1
+      --pool=prefork
+      --hostname=location_worker@%h
+      --events
+      "
+    volumes:
+      - celery-data:/data
+      - ./src/:/code
+      - /etc/localtime:/etc/localtime:ro
+    working_dir: /code
+    env_file:
+      - .env
+    environment:
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      C_FORCE_ROOT: "true"
+      PYTHONPATH: /code
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "cd /code && celery -A celery_worker.celery inspect ping -d 'location_worker@%h' --broker='redis://:${REDIS_PASSWORD}@redisARM:6379/0'"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+
+  celery_worker_character:
+    container_name: celery_worker_characterARM
+    build:
+      context: .
+      dockerfile: .docker/DockerfileCelery
+    command: >
+      sh -c "
+      cd /code &&
+      celery -A celery_worker.celery worker
+      --loglevel=info
+      --concurrency=4
+      --max-tasks-per-child=1000
+      --queues=character_queue
+      --prefetch-multiplier=1
+      --pool=prefork
+      --hostname=character_worker@%h
+      --events
+      "
+    volumes:
+      - celery-data:/data
+      - ./src/:/code
+      - /etc/localtime:/etc/localtime:ro
+    working_dir: /code
+    env_file:
+      - .env
+    environment:
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      C_FORCE_ROOT: "true"
+      PYTHONPATH: /code
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "cd /code && celery -A celery_worker.celery inspect ping -d 'character_worker@%h' --broker='redis://:${REDIS_PASSWORD}@redisARM:6379/0'"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+
+  celery_worker_voice:
+    container_name: celery_worker_voiceARM
+    build:
+      context: .
+      dockerfile: .docker/DockerfileCelery
+    command: >
+      sh -c "
+      cd /code &&
+      celery -A celery_worker.celery worker
+      --loglevel=info
+      --concurrency=2
+      --max-tasks-per-child=1000
+      --queues=voice_queue
+      --prefetch-multiplier=1
+      --pool=prefork
+      --hostname=worker_voice@%h
+      --events
+      "
+    volumes:
+      - celery-data:/data
+      - ./src/:/code
+      - /etc/localtime:/etc/localtime:ro
+    working_dir: /code
+    env_file:
+      - .env
+    environment:
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      C_FORCE_ROOT: "true"
+      PYTHONPATH: /code
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "cd /code && celery -A celery_worker.celery inspect ping -d 'worker_voice@%h' --broker='redis://:${REDIS_PASSWORD}@redisARM:6379/0'"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
+
+  celery_worker_voice_detection:
+    container_name: celery_worker_voice_detectionARM
+    build:
+      context: .
+      dockerfile: .docker/DockerfileCelery
+    command: >
+      sh -c "
+      cd /code &&
+      celery -A celery_worker.celery worker
+      --loglevel=info
+      --concurrency=4
+      --max-tasks-per-child=1000
+      --queues=voice_detection_queue
+      --prefetch-multiplier=1
+      --pool=prefork
+      --hostname=voice_detection_worker@%h
+      --events
+      "
+    volumes:
+      - celery-data:/data
+      - ./src/:/code
+      - /etc/localtime:/etc/localtime:ro
+    working_dir: /code
+    env_file:
+      - .env
+    environment:
+      CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redisARM:6379/0"
+      C_FORCE_ROOT: "true"
+      PYTHONPATH: /code
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - app-network
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 256M
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "cd /code && celery -A celery_worker.celery inspect ping -d 'voice_detection_worker@%h' --broker='redis://:${REDIS_PASSWORD}@redisARM:6379/0'"]
+      interval: 30s
+      timeout: 20s
+      retries: 5
+      start_period: 60s
 
 networks:
   app-network:

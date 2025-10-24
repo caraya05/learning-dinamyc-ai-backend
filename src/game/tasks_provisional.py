@@ -2,8 +2,10 @@ import json
 import random
 import string
 from io import BytesIO
-from time import sleep
 
+from task.services import create_task_service, update_task_service
+from tasks_shared import generate_character_task, generate_image_event_task, generate_location_task, \
+    generate_voice_character_task
 import requests
 import base64
 from datetime import datetime
@@ -20,8 +22,7 @@ from pydantic import BaseModel
 from pydantic import Field
 
 from character.models import CharacterGLIC, Character
-from character.schemas import SchemaCreateCharacter
-from character.tasks import async_generate_character_task
+from character.schemas import SchemaCreateCharacter, ConversationsCharacter
 from core.database import db
 from event.models import Event
 from event.schemas import SchemaCreateEvent
@@ -31,10 +32,9 @@ from game.narrative_templates import TemplateType
 from gpt_ai.utils import openai_generator
 from location.models import Location, LocationGLIC
 from location.schemas import SchemaCreateLocation
-from location.tasks import async_generate_location_task, generate_location_image
-from event.tasks import async_generate_image_event
+from location.tasks import  generate_location_image
 from state_game.services import create_state_game, get_state_game_by_game_id, get_state_game_by_id
-from state_glic.services import create_state_glic
+from state_glic.services import create_state_glic, get_list_state_glic_by_element_id
 
 from utils import upload_image
 
@@ -121,15 +121,17 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
 
 
 async def update_game_provisional_status(id_game_provisional: str, status: str, progress: int = None,
-                                         progress_text: str = None):
+                                         progress_text: str = None, task: str = None):
     """
-    Actualiza el estado del juego provisional.
+    Actualiza el estado del juego provisional y registra el historial.
 
     Args:
         id_game_provisional: ID del juego provisional
         status: Estado actual del proceso
         progress: Progreso en porcentaje (opcional)
         progress_text: Texto descriptivo del progreso actual (opcional)
+        task: Nombre de la tarea (opcional)
+        message: Mensaje descriptivo (opcional)
     """
     update_data = {
         "state": status,
@@ -145,6 +147,19 @@ async def update_game_provisional_status(id_game_provisional: str, status: str, 
     await db["game_provisional"].update_one(
         {"_id": ObjectId(id_game_provisional)},
         {"$set": update_data}
+    )
+
+    # Registrar historial de estado
+    entry = {
+        "timestamp": datetime.utcnow(),
+        "task": task or status,
+        "status": status,
+        "percent": progress,
+        "message": progress_text
+    }
+    await db["game_provisional"].update_one(
+        {"_id": ObjectId(id_game_provisional)},
+        {"$push": {"history": entry}}
     )
 
 
@@ -310,44 +325,42 @@ No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al p
             # Usar una imagen por defecto en modo test
             url_image = "https://storage.googleapis.com/qwestar/voxel_.jpg"
         else:
-            # # Actualizar estado: Generando imagen de portada
-            # await update_game_provisional_status(_id_game_provisional, "generating_image", 60,
-            #                                      "Generating cover image for the game.")
-            #
-            # # logger.info(f"Contenido generado correctamente. Título: '{source_game_response.title}'")
-            # # logger.debug(f"Longitud del guión generado: {len(source_game_response.script)} caracteres")
-            #
-            # # logger.info("Generando imagen de portada para el juego")
-            # image_game_provisional = await openai_generator.generate_image(
-            #     prompt=f"Genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego ."
-            #            f"basado en el  script: {source_game_response.script} "
-            #            f"que ejemplifique una escena del juego con un personaje principal que represente el estilo del juego, no debe tener texto o título.",
-            #     model="gpt-image-1",
-            #     size="1024x1536",
-            #     style=None
-            # )
-            #
-            # # Actualizar estado: Subiendo imagen
-            # await update_game_provisional_status(_id_game_provisional, "uploading_image", 80,
-            #                                      "Uploading generated cover image to storage.")
-            #
-            # # logger.debug("Imagen generada, decodificando base64")
-            # image_bytes = base64.b64decode(image_game_provisional)
-            #
-            # # logger.info("Subiendo imagen a almacenamiento")
-            # url_image = upload_image(
-            #     img_byte_arr=image_bytes,
-            #     file_name=f"game-provisional/{uuid4()}.jpg",
-            #     size=(512, 896)
-            # )
-            #
-            # if not url_image:
-            #     await update_game_provisional_status(_id_game_provisional, "error", 80,
-            #                                          "Failed to upload generated image to storage.")
-            #     # logger.error("Error al subir la imagen generada")
-            #     return "Failed to upload image"
+            # Actualizar estado: Generando imagen de portada
+            await update_game_provisional_status(_id_game_provisional, "generating_image", 60,
+                                                 "Generating cover image for the game.")
 
-            await generate_scene_interactions(_id_game_provisional)
+            # logger.info(f"Contenido generado correctamente. Título: '{source_game_response.title}'")
+            # logger.debug(f"Longitud del guión generado: {len(source_game_response.script)} caracteres")
+
+            # logger.info("Generando imagen de portada para el juego")
+            image_game_provisional = await openai_generator.generate_image(
+                prompt=f"Genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego ."
+                       f"basado en el  script: {source_game_response.script} "
+                       f"que ejemplifique una escena del juego con un personaje principal que represente el estilo del juego, no debe tener texto o título.",
+                model="gpt-image-1",
+                size="1024x1536",
+                style=None
+            )
+
+            # Actualizar estado: Subiendo imagen
+            await update_game_provisional_status(_id_game_provisional, "uploading_image", 80,
+                                                 "Uploading generated cover image to storage.")
+
+            # logger.debug("Imagen generada, decodificando base64")
+            image_bytes = base64.b64decode(image_game_provisional)
+
+            # logger.info("Subiendo imagen a almacenamiento")
+            url_image = upload_image(
+                img_byte_arr=image_bytes,
+                file_name=f"game-provisional/{uuid4()}.jpg",
+                size=(512, 896)
+            )
+
+            if not url_image:
+                await update_game_provisional_status(_id_game_provisional, "error", 80,
+                                                     "Failed to upload generated image to storage.")
+                # logger.error("Error al subir la imagen generada")
+                return "Failed to upload image"
 
         # Actualizar estado: Guardando en base de datos
         await update_game_provisional_status(_id_game_provisional, "saving_data", 90,
@@ -662,7 +675,7 @@ async def extract_locations_from_scenes(id_game_provisional: str):
         prompt = (
             "Analiza todas las escenas del siguiente guion y extrae la información de las locaciones en el siguiente formato para cada locación encontrada:\n"
             "- titulo: nombre de la locación\n"
-            "- prompt_user: descripción de la situación que ocurre en la locación. El resultado debe ser una descripción situacional similar al ejemplo dado, mencionando personajes, qué hacen y su ubicación, pero generada dinámicamente según la escena.\n"   
+            "- prompt_user: descripción de la situación que ocurre en la locación. El resultado debe ser una descripción situacional similar al ejemplo dado, mencionando personajes, qué hacen y su ubicación, pero generada dinámicamente según la escena.\n"
             "- escena: escena inicial donde aparece\n"
             "- escenas_donde_se_repite: todas las escenas donde se repite\n"
             "Devuelve una lista de objetos JSON, uno por cada locación.\n"
@@ -1049,7 +1062,6 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
                                    file: UploadFile | None = None):
     try:
 
-
         character_db = Character(**character.dict())
         character_db.created_by = user_id
         character_db.updated_by = user_id
@@ -1104,7 +1116,7 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
                 data=character_db_state.dict(),
             )
 
-        task_celery = await async_generate_character_task(
+        task_celery =  generate_character_task.delay(
             _character_id=str(character_created.inserted_id),
             _user_id=user_id,
             _task_id="",
@@ -1196,13 +1208,11 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str, 
                 data=location_db_state.dict(),
             )
 
-        task_celery = await async_generate_location_task(
+        task_celery = generate_location_task.delay(
             _location_id=str(location_created.inserted_id),
             _user_id=user_id,
             _task_id="",
-            _state_game_id=state_game["_id"],
-            _type_game="2d",
-            _generate_image=False
+            _state_game_id=state_game["_id"]
         )
 
         if location_db := await db['location'].find_one({"_id": location_created.inserted_id}):
@@ -1247,7 +1257,7 @@ async def create_event_service(event: SchemaCreateEvent, user_id: str):
         location_state_game_init=event.location_state_game_init,
         location_state_game_end=event.location_state_game_end,
         text_image=event.prompt_user_text,
-        image=None,
+        image=event.image,
         game_id=event.game_id,
         created_by=user_id,
         updated_by=user_id,
@@ -1258,8 +1268,8 @@ async def create_event_service(event: SchemaCreateEvent, user_id: str):
 
     event_created = await db["event"].insert_one(event_schema.dict())
 
-    if event.prompt_user_image:
-        task_celery = await async_generate_image_event(
+    if event.prompt_user_image and not event.image:
+        task_celery = generate_image_event_task.delay(
             _game_id=event.game_id,
             _event_id=str(event_created.inserted_id),
             _state_game=event.state_game_init,
@@ -1480,24 +1490,25 @@ async def create_game_by_provisional(id_game_provisional: str):
                     character_id = characters_db[i]
 
                 # Crear el evento usando la función existente create_event_service
-                event_data = SchemaCreateEvent(
-                    name=event_current.get("event_name", f"Event for {location['titulo']}"),
-                    prompt_user_image=event_current.get("prompt_image", "A detailed image of the scene"),
-                    prompt_user_text=event_current.get("prompt_text", "Description of the event"),
-                    character_id=character_id,
-                    type_conversation=location["interaccion"]["tipo"],
-                    option_number=location.get("options_dialogo", {}).get("index_opcion_correcta", 0),
-                    state_game_init=state_game_init,
-                    state_game_end=state_game_final,
-                    location_state_game_init=location_stata_game_init,
-                    location_state_game_end=location_state_game_end,
-                    game_id=str(game_db.get("_id")),
-                    is_final=False
-                )
 
                 # Crear el evento usando el servicio existente
                 created_event = await create_event_service(
-                    event=event_data,
+                    event=SchemaCreateEvent(
+                        name=event_current.get("event_name", f"Event for {location['titulo']}"),
+                        prompt_user_image=event_current.get("prompt_image", "A detailed image of the scene"),
+                        prompt_user_text=event_current.get("prompt_text", "Description of the event"),
+                        character_id=character_id,
+                        type_conversation=location["interaccion"]["tipo"],
+                        option_number=location.get("options_dialogo", {}).get("index_opcion_correcta", 0),
+                        state_game_init=state_game_init,
+                        state_game_end=state_game_final,
+                        location_state_game_init=location_stata_game_init,
+                        location_state_game_end=location_state_game_end,
+                        game_id=str(game_db.get("_id")),
+                        is_final=False,
+                        audio_mp3=None,
+                        audio=None
+                    ),
                     user_id=game_provisional_db.get("created_by", "anonymous")
                 )
 
@@ -1552,6 +1563,81 @@ async def create_game_by_provisional(id_game_provisional: str):
     except Exception as e:
         print(traceback.format_exc())
         return f"Failed to create game from provisional: {str(e)}"
+
+
+async def new_interaction_character_service(
+        location_id: str,
+        game_id: str,
+        character_id: str,
+        conversation_type: str,
+        conversation: list[ConversationsCharacter],
+        user_id: str,
+        options_dialog: dict = None,
+        state_game: str = None,
+):
+    print(f"new interaction character service called state_game: {state_game}, character_id: {character_id}")
+    character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
+    if not character_db:
+        raise Exception("error character not found")
+
+    if not state_game:
+        state_game = await get_state_game_by_game_id(game_id)
+    else:
+        state_game = await get_state_game_by_id(state_game)
+
+    print(f"character_db: {character_id}, state_game: {state_game['_id']}")
+
+    stage_element_db = await db["state_glic"].find_one({"element_id": character_id, "state": state_game["_id"]})
+    if not stage_element_db:
+        raise Exception("error state glic not found for character")
+    if options_dialog:
+        options_dialog = options_dialog.dict()
+
+    stage_element_db['data']['conversation_type'] = conversation_type
+    stage_element_db['data']['conversation'] = conversation
+    stage_element_db['data']['options_dialog'] = options_dialog
+
+    await db["state_glic"].update_one(
+        {"_id": stage_element_db["_id"]},
+        {"$set": {"data": stage_element_db["data"]}}
+    )
+
+    try:
+        task_db = await create_task_service(
+            _task_id="",
+            _user_id=user_id,
+            _task_data={},
+            _element_id=str(character_db["_id"]),
+            _element_type="character",
+            _process="new_interaction_character",
+        )
+
+        task_celery = generate_voice_character_task.delay(
+            _task_id=str(task_db['_id']),
+            _game_id=game_id,
+            _character_id=character_id,
+            _location_id=location_id,
+            _user_id=user_id,
+            _state_game_id=state_game['_id']
+        )
+        await update_task_service(
+            _id=str(task_db["_id"]),
+            _task_id=task_celery.id,
+        )
+
+        character_db["tasks_request"].append(str(task_db["_id"]))
+        await db["character"].update_one(
+            {"_id": character_db["_id"]},
+            {"$set": {"tasks_request": character_db["tasks_request"]}},
+        )
+
+        character_db["task_id"] = str(task_db["_id"])
+        character_db["state_game"] = await get_list_state_glic_by_element_id(character_id)
+        return character_db
+    except Exception as e:
+        print(traceback.format_exc())
+        print(f"Error in new interaction character service: {str(e)}")
+        raise "error creating task for new interaction character"
 
 
 async def generate_scene_interactions(id_game_provisional: str):
@@ -1626,7 +1712,7 @@ async def generate_scene_interactions(id_game_provisional: str):
             {"_id": ObjectId(id_game_provisional)},
             {"$set": {
                 "locations": locations,
-                "updated_at": datetime.now(pytz.utc )
+                "updated_at": datetime.now(pytz.utc)
             }}
         )
 
@@ -1740,7 +1826,9 @@ async def extract_events_for_scenes(id_game_provisional: str):
                 context = {
                     "current_scene": scene_interactions[scene_index - 1] if scene_index > 0 else None,
                     "next_scene": scene_interactions[scene_index] if scene_index < len(scene_interactions) else None,
-                    "previous_interaction": locations[scene_index - 1].get("interaccion", {}) if scene_index > 0 and locations and len(locations) > scene_index - 1 else None
+                    "previous_interaction": locations[scene_index - 1].get("interaccion",
+                                                                           {}) if scene_index > 0 and locations and len(
+                        locations) > scene_index - 1 else None
                 }
 
             # Construir el prompt específico según el tipo de evento
@@ -1875,11 +1963,8 @@ Un recorrido narrativo enfocado en aprender un concepto en 3 escenas. Cada escen
 ESTRUCTURA REQUERIDA:
 - Evento Intro: ✅ 
 - Escena 1: Personajes con interacción "two_way", dos personajes y una locación.
-- Evento 1 → 2: ✅ 
 - Escena 2: Personajes con interacción "two_way", dos personajes y una locación.
-- Evento 2 → 3: ✅ 
 - Escena 3: Personajes con interacción "two_way", dos personajes y una locación.
-- Evento Final: ✅ 
 
 GUIA DE INTERACCIÓN
 - two_way: Diálogo bidireccional donde ambos personajes intercambian líneas de diálogo.
@@ -2148,19 +2233,17 @@ Estructura exacta:
   - Locación 1
   - Personaje principal
   - Personaje secundario
-  - Interacción (open_question): [formato del ejemplo]
-  - Evento después de la interacción
+  - Interacción (two_way): [formato del ejemplo]
 - Escena 2
   - Locación 2
   - Personaje principal
   - Personaje secundario
-  - Interacción (open_question): [formato del ejemplo]
+  - Interacción (two_way): [formato del ejemplo]
 - Escena 3
   - Locación 3
   - Personaje principal
   - Personaje secundario
-  - Interacción (open_question): [formato del ejemplo]
-  - Evento final
+  - Interacción (two_way): [formato del ejemplo]
   
 REGLAS:
 - {instruccion_personajes}
@@ -2168,7 +2251,7 @@ REGLAS:
 - No incluyas opciones ni respuestas, solo el diálogo.
 - No incluyas el título en el script.
 - El output debe ser solo texto, siguiendo el formato del ejemplo al pie de la letra.
-- Los eventos son breves y describen la transición entre escenas, deben visualmente diferenciarse de las locaciones.
+- Los eventos son breves descripciones del entorno y la situación antes y después de las interacciones.
 - Las locaciones deben ser descriptivas y ambientar la interacción que se va a dar en esa locación.
 {template_definition}"""
             },
@@ -2221,7 +2304,7 @@ Respuestas de las opciones (prompt_user_answer) :
   - prompt_user_answer: la retroalimentación que se da si la respuesta del usuario coincide (o es similar) con el guideline.
 
 La lógica debe ser: si la respuesta del usuario es similar a alguno de los prompt_user_guideline, se responde con el prompt_user_answer correspondiente. Si no hay coincidencia, se puede dar la retroalimentación genérica o la del guideline más cercano.
-
+    
 Estructura exacta:
 - Evento inicial
 - Escena 1

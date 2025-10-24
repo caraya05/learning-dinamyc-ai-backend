@@ -207,3 +207,4 @@ async def update_event_service(event_id: str, event: SchemaUpdateEvent, user_id:
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Event not updated",
         )
+

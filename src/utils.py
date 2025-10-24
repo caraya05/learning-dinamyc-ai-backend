@@ -236,12 +236,30 @@ def delete_image(file_name: str, name_bucket: str = 'backend'):
 
 
 def update_nested_dict(target, source):
+    """
+    Actualiza un diccionario anidado con los valores de otro diccionario.
+
+    Este método combina dos diccionarios, `target` y `source`, de forma recursiva.
+    Si una clave en `source` contiene un diccionario o una lista, se actualiza
+    o combina con el valor correspondiente en `target`. Para otros tipos de valores,
+    el valor en `source` sobrescribe el valor en `target`.
+
+    Args:
+        target (dict): El diccionario que será actualizado.
+        source (dict): El diccionario que contiene los valores para actualizar.
+
+    Returns:
+        dict: El diccionario `target` actualizado con los valores de `source`.
+    """
     for key, value in source.items():
         if isinstance(value, dict):
+            # Si el valor es un diccionario, se actualiza recursivamente
             target[key] = update_nested_dict(target.get(key, {}), value)
         elif isinstance(value, list):
+            # Si el valor es una lista, se asegura que la clave exista en `target`
             if key not in target:
                 target[key] = []
+            # Combina las listas, actualizando recursivamente los elementos que son diccionarios
             target[key] = [
                 (
                     update_nested_dict(target[key][i] if i < len(target[key]) else {}, item)
@@ -251,9 +269,29 @@ def update_nested_dict(target, source):
                 for i, item in enumerate(value)
             ]
         else:
+            # Para otros tipos de valores, sobrescribe el valor en `target`
             target[key] = value
     return target
 
+def replace_value(data, value_to_find, new_value):
+    """
+    Busca y reemplaza recursivamente todos los valores iguales a value_to_find
+    por new_value en un dict o list anidados.
+
+    Args:
+        data (dict | list): Estructura de datos a procesar.
+        value_to_find: Valor a buscar.
+        new_value: Valor con el que se reemplazará.
+
+    Returns:
+        dict | list: Estructura con los valores reemplazados.
+    """
+    if isinstance(data, dict):
+        return {k: replace_value(v, value_to_find, new_value) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [replace_value(item, value_to_find, new_value) for item in data]
+    else:
+        return new_value if data == value_to_find else data
 
 def upload_file(file: UploadFile, name_bucket: str = 'qwestar'):
     try:

@@ -136,9 +136,17 @@ class OpenAIGenerator:
             quality: str = "high",
             user_id: str = None,
             type_generation: str = None,
-            style: str | None = "vivid",  # Assuming style is optional and can be NotGiven
+            style: str | None = "vivid",
+            background: str | None = None,
     ):
         try:
+            # Ajustar size y quality a los valores permitidos por la API
+            allowed_sizes = ["auto", "1024x1024", "1536x1024", "1024x1536", "256x256", "512x512", "1792x1024", "1024x1792"]
+            allowed_qualities = ["low", "medium", "high"]
+            if size not in allowed_sizes:
+                size = "1024x1792"
+            if quality not in allowed_qualities:
+                quality = "high"
             response = await self.client.images.generate(
                 model=model,
                 prompt=prompt,
@@ -146,8 +154,8 @@ class OpenAIGenerator:
                 quality=quality,
                 n=count,
                 style=style if style is not None else NOT_GIVEN,
+                background=background if background is not None else NOT_GIVEN,
             )
-
             await store_response(
                 response=response,
                 prompt=prompt,
@@ -155,13 +163,16 @@ class OpenAIGenerator:
                 type_generation=type_generation,
                 user_id=user_id,
             )
-
-            return response.data[0].url if response.data[0].url else response.data[0].b64_json
-
+            # Retornar url o base64
+            if hasattr(response.data[0], "url") and response.data[0].url:
+                return response.data[0].url
+            elif hasattr(response.data[0], "b64_json"):
+                return response.data[0].b64_json
+            else:
+                return None
         except Exception as e:
             print(traceback.format_exc())
             print(f"Error in generate_image: {str(e)}")
-
             return await handle_exception(e, prompt, model, user_id)
 
     async def generate_gpt(
@@ -169,13 +180,13 @@ class OpenAIGenerator:
             content_prompt: list[dict],
             response_format: BaseModel = None,
             type_generation: str = "",
-            max_tokens: int = 4096,
+            max_tokens: int | None = None,
+            max_completion_tokens: int | None = None,
             model: str = "gpt-4o",
             user_id: str = None,
             vision: bool = False,
             image: bool = False,
             tools: list[str] | None = None,
-
     ):
         try:
             if vision:
@@ -191,13 +202,17 @@ class OpenAIGenerator:
                     tools=[{"type": "image_generation"}],
                 )
             else:
-                response = await self.client.beta.chat.completions.parse(
-                    model=model,
-                    response_format=response_format,
-                    messages=content_prompt,
-                    max_tokens=max_tokens,
-                )
-
+                kwargs = {
+                    "model": model,
+                    "response_format": response_format,
+                    "messages": content_prompt,
+                }
+                # Solo pasar max_tokens, no max_completion_tokens
+                if max_tokens is not None:
+                    kwargs["max_tokens"] = 2048
+                if max_completion_tokens is not None:
+                    kwargs["max_completion_tokens"] = 2048
+                response = await self.client.beta.chat.completions.parse(**kwargs)
             await store_response(
                 response=response,
                 prompt=content_prompt,
@@ -207,23 +222,33 @@ class OpenAIGenerator:
             )
 
             if vision:
-                return response.choices[0].message.content
+                if hasattr(response, "choices") and response.choices:
+                    return response.choices[0].message.content
+                print("[ERROR] vision response no tiene 'choices'")
+                return None
 
             if image:
                 image_generation_calls = [
                     output
-                    for output in response.output
-                    if output.type == "image_generation_call"
+                    for output in getattr(response, "output", [])
+                    if getattr(output, "type", None) == "image_generation_call"
                 ]
+                image_data = [getattr(output, "result", None) for output in image_generation_calls]
+                if image_data and image_data[0]:
+                    return image_data[0]
+                print("[ERROR] image response no tiene datos válidos")
+                return None
 
-                image_data = [output.result for output in image_generation_calls]
-
-                if image_data:
-                    image_base64 = image_data[0]
-                    return image_base64
-
-            return response.choices[0].message.parsed
-
+            if hasattr(response, "choices") and response.choices:
+                if hasattr(response.choices[0].message, "parsed"):
+                    return response.choices[0].message.parsed
+                elif hasattr(response.choices[0].message, "content"):
+                    return response.choices[0].message.content
+                else:
+                    print("[ERROR] choices[0].message no tiene 'parsed' ni 'content'")
+                    return None
+            print("[ERROR] response no tiene 'choices'")
+            return None
         except Exception as e:
             print(f"Error in generate_gpt: {str(e)}")
             print(traceback.format_exc())
@@ -232,27 +257,23 @@ class OpenAIGenerator:
                 prompt=content_prompt,
                 model=model,
                 type_generation=type_generation,
-                user_id=None,
+                user_id=user_id,
             )
 
     async def moderation_text(self, text: str, user_id: str = None):
         try:
             content_prompt = [
-                {
-                    "role": "system",
-                    "content": "En este prompt se infringe gravemente los derechos de autor de algún personaje? o se está pidiendo generar contenido sexual explícito?",
-                },
+                {"role": "system", "content": "En este prompt se infringe gravemente los derechos de autor de algún personaje? o se está pidiendo generar contenido sexual explícito?"},
                 {"role": "user", "content": text},
             ]
-
-            response = await self.generate_gpt(
-                content_prompt=content_prompt,
-                response_format=SchemaResponseModerator,
-                type_generation="moderation_text",
-                max_tokens=4000,
-                user_id=user_id,
-            )
-
+            kwargs = {
+                "content_prompt": content_prompt,
+                "response_format": SchemaResponseModerator,
+                "type_generation": "moderation_text",
+                "user_id": user_id,
+                "max_tokens": 4000,
+            }
+            response = await self.generate_gpt(**kwargs)
             await store_response(
                 response=response,
                 prompt=text,
@@ -260,9 +281,7 @@ class OpenAIGenerator:
                 type_generation="moderation_text",
                 user_id=user_id,
             )
-
-            return response.response.lower() in ["sí", "si", "yes"]
-
+            return hasattr(response, "response") and response.response.lower() in ["sí", "si", "yes"]
         except Exception as e:
             print(f"Error in moderation_text: {str(e)}")
             await handle_exception(
@@ -272,7 +291,6 @@ class OpenAIGenerator:
                 type_generation="moderation_text",
                 user_id=user_id,
             )
-
             return None
 
     async def create_file(
@@ -282,25 +300,19 @@ class OpenAIGenerator:
             user_id: str = None,
     ):
         try:
-            # Asegúrate de que el archivo tenga un nombre con una extensión válida
-            if not hasattr(file_array, 'name') or not file_array.name:
-                file_array.name = "image.png"  # Usa una extensión soportada como .png
-
+            # No modificar file_array.name directamente
             response = await self.client.files.create(
                 file=file_array,
-                purpose=purpose,
+                purpose="fine-tune",
             )
-
             await store_response(
                 response=response,
-                prompt=file_array.name,
+                prompt=getattr(file_array, "name", "image.png"),
                 model="file_upload",
                 type_generation="file_upload",
                 user_id=user_id,
             )
-
             return response
-
         except Exception as e:
             print(f"Error in create_file: {str(e)}")
             return await handle_exception(
