@@ -49,6 +49,7 @@ class SchemaCreateLocation(BaseModel):
 
     title: Optional[str]
     prompt_user: Optional[str]
+    prompt_user_description: Optional[str] = Field(None, example="This is a prompt user")
     game_id: Optional[str]
     state_game: Optional[str]
 

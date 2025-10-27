@@ -61,7 +61,7 @@ async def get_games(
         games_db, count = await game_service.get_games_service(skip=page, limit=10, user_id=user.get("_id"))
         for game in games_db:
             game["_id"] = str(game["_id"])
-        return SchemaListGame(results=games_db, count=count)
+        return SchemaListGame(results=games_db, count=count, page=page, total_pages=count // 10 + 1)
     except Exception as e:
         logger.error(f"Error get games: {str(e)}", exc_info=True)
         raise HTTPException(
@@ -397,6 +397,7 @@ async def unpublish_game(
         game_id: str,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_service=Depends(GameService)
 ):
     """
     This endpoint unpublishes a game.
@@ -405,7 +406,7 @@ async def unpublish_game(
     """
 
     try:
-        if game_db := get_game_service(game_id):
+        if game_db := game_service.get_game_service(game_id):
             await db['game'].update_one(
                 {'_id': ObjectId(game_id), 'published': {'$exists': True}},
                 {
@@ -433,6 +434,7 @@ async def version_published_game(
         game_id: str,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        game_service = Depends(GameService)
 ):
     """
     This endpoint retrieves the version of a published game.
@@ -441,7 +443,7 @@ async def version_published_game(
     """
 
     try:
-        if game_db := get_game_service(game_id):
+        if game_db := game_service.get_game_service(game_id):
             published_game = await db['published_game'].find_one({'game_id': game_id})
 
             return published_game
@@ -820,6 +822,7 @@ async def get_community_games(
 @router_community.get("/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
 async def get_game(
         game_id: str,
+        game_service = Depends(GameService)
 ):
     """
     This endpoint retrieves a game.
@@ -840,7 +843,7 @@ async def get_game(
     """
 
     try:
-        game_db = await get_game_service(game_id)
+        game_db = await game_service.get_game_service(game_id)
         game_pending = await db['published_game'].find_one({'game_id': game_id})
         user = await db['user'].find_one({'_id': ObjectId(game_db["created_by"])})
         game_db["created_by"] = user.get("username", "Unknown User")

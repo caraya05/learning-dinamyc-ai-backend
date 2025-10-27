@@ -1208,11 +1208,31 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str, 
                 data=location_db_state.dict(),
             )
 
+        # Obtener el provisional_id del game
+        game_data = await db['game'].find_one({'_id': ObjectId(location.game_id)})
+        provisional_id = game_data.get('provisional_id', '') if game_data else ''
+
+        # Crear la tarea
+        task_db = await create_task_service(
+            _task_id="",
+            _user_id=user_id,
+            _task_data={},
+            _element_id=provisional_id,
+            _element_type="game_provisional",
+            _process="create_location",
+        )
+
         task_celery = generate_location_task.delay(
             _location_id=str(location_created.inserted_id),
             _user_id=user_id,
-            _task_id="",
+            _task_id=str(task_db['_id']),
             _state_game_id=state_game["_id"]
+        )
+
+        # Actualizar la tarea con el ID de celery
+        await update_task_service(
+            _id=str(task_db["_id"]),
+            _task_id=task_celery.id,
         )
 
         if location_db := await db['location'].find_one({"_id": location_created.inserted_id}):
@@ -1603,12 +1623,16 @@ async def new_interaction_character_service(
     )
 
     try:
+        # Obtener el provisional_id del game
+        game_data = await db['game'].find_one({'_id': ObjectId(game_id)})
+        provisional_id = game_data.get('provisional_id', '') if game_data else ''
+
         task_db = await create_task_service(
             _task_id="",
             _user_id=user_id,
             _task_data={},
-            _element_id=str(character_db["_id"]),
-            _element_type="character",
+            _element_id=provisional_id,
+            _element_type="game_provisional",
             _process="new_interaction_character",
         )
 

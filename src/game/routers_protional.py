@@ -245,6 +245,7 @@ async def get_game_provisional(
         "interactions": game_provisional_db.get("interactions", []),
         "game_structure": create_game_structure(game_provisional_db.get("locations", []),game_provisional_db.get("events", []),game_provisional_db.get("interactions", []), game_provisional_db.get("characters", [])),
         "level_process": game_provisional_db.get("level_process", 1),
+        "game_id": str(game_provisional_db["game_id"]) if game_provisional_db.get("game_id") else None,
     }
 
 

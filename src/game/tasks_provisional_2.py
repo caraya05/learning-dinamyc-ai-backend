@@ -286,9 +286,15 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
             )
 
             # Guardar la lista ya serializada en la base de datos
-            await db["game_provisional"].update_one({"_id": ObjectId(_id_game_provisional)},
-                                                    {"$set": {"events": events}}
-                                                    )
+            events_serialized = [
+                event.dict() if hasattr(event, "dict") else event
+                for event in events
+            ]
+
+            await db["game_provisional"].update_one(
+                {"_id": ObjectId(_id_game_provisional)},
+                {"$set": {"events": events_serialized}}
+            )
 
             await update_game_provisional_status(_id_game_provisional, "extract_interaction", 70,
                                                  "Extracts interactions from script")
@@ -436,6 +442,8 @@ class LocationsProvisional(BaseModel):
     name: str = Field(..., example="Enchanted Forest", description="Name of the location")
     visual_description: str = Field(..., example="A mystical forest with glowing plants...",
                                     description="Visual description of the location")
+    description_situacional: str = Field(..., example="The forest is filled with magical creatures...",
+                                         description="Situational description of the location")
     id_characters: list[str] = Field(..., example=["character_1"],
                                      description="List of character IDs present in this location")
     order: int = Field(..., example=1, description="Order of the location in the sequence of locations")
@@ -454,8 +462,12 @@ async def extract_locations_from_script(script: str, characters) -> list[Locatio
     """
     try:
         prompt = f"""
-        Extract the main locations from the following game script. Provide a list of locations with their names, 
-        visual descriptions, and characters present in each location.
+        Extract the main locations from the following game script. Provide a list of locations with their names,
+        visual descriptions, descriptions situacional and characters present in each location.
+
+        IMPORTANT: In the visual description of each location, include descriptions of adjacent or nearby places to create
+        a sense of depth and make the spaces appear distant from each other.
+
         Script:
         {script}
         Characters available (with their IDs):
@@ -623,6 +635,8 @@ def build_game_structure(locations, events, interactions, characters):
     return estructura
 
 
+import asyncio
+
 async def async_continue_create_game_provisional_2(_id_game_provisional: str, _user_id: str = None) -> str:
     """
     Continue creating a provisional game entry in the database.
@@ -658,9 +672,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
         id_map_locations = {}
         id_map_states = {}
 
-        # Crear juego y estado inicial
         game_db = await create_game_service(user_id=str(game_provisional_db.get("created_by", "anonymous")))
-        print("Created game _id:", _extract_id(game_db))
 
         event_start = game_provisional_db.get("events", [])[0] if game_provisional_db.get("events", []) else None
 
@@ -676,14 +688,16 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
             "is_active": True
         }})
 
-        # estado inicial (order 1)
+        await db["game_provisional"].update_one(
+            {"_id": ObjectId(_id_game_provisional)},
+            {"$set": {"game_id": str(game_db.get("_id"))}}
+        )
+
         state_game_db = await db["state_game"].find_one({"game_id": str(game_db.get("_id")), "order": 1})
         id_map_states[1] = str(state_game_db.get("_id"))
-        print("Initial state_game _id (order 1):", id_map_states[1])
 
         total_blocks = len(game_structure)
 
-        # Fase 0: crear todos los states (order 2..n) para poder usarlos al crear personajes/interacciones
         for i in range(1, total_blocks):
             order = i + 1
             state_game_new = await create_state_game(
@@ -692,17 +706,19 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                 created_by=str(game_provisional_db.get("created_by", "anonymous"))
             )
             id_map_states[order] = str(state_game_new.get("_id"))
-            print(f"Created state_game _id (order {order}):", id_map_states[order])
 
-        # Fase 1: crear todos los personajes (por bloque) y mapear ids
+        total_characters = sum(len(block["characters"]) for block in game_structure)
+        current_character_index = 0
+        last_task_character_id = None
+
         for index, block in enumerate(game_structure):
             state_for_chars = id_map_states.get(index + 1)
             for char in block["characters"]:
+                current_character_index += 1
+                progress = 40 + int((current_character_index / total_characters) * 10) if total_characters > 0 else 40
+
                 if char["id"] in id_map_characters:
-                    # si ya existe mapeo, desactivar para el nuevo state
                     await deactivate_character_service(id_map_characters[char["id"]], state_for_chars, True)
-                    print("Deactivated existing character mapping _id:", id_map_characters[char["id"]], "for state",
-                          state_for_chars)
                 else:
                     character_db = await create_character_service(
                         character=SchemaCreateCharacter(
@@ -724,17 +740,33 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     )
                     created_char_id = _extract_id(character_db)
                     id_map_characters[char["id"]] = created_char_id
-                    print("Created character original id:", char["id"], "-> created _id:", created_char_id)
+                    last_task_character_id = created_char_id
 
-        # Fase 2: crear todas las locaciones y mapear ids
+                    await update_game_provisional_status(
+                        _id_game_provisional,
+                        "create_image_character",
+                        progress,
+                        f"Creating image generation for character '{char['name']}'",
+                        task=last_task_character_id
+                    )
+                    await asyncio.sleep(10)
+
+        total_locations = len(
+            [loc for block in game_structure for loc in [block["location"]] if loc["id"] not in id_map_locations])
+        current_location_index = 0
+
         for index, block in enumerate(game_structure):
             loc = block["location"]
             if loc["id"] in id_map_locations:
                 continue
+            current_location_index += 1
+            progress = 50 + int((current_location_index / total_locations) * 10) if total_locations > 0 else 50
+
             location_db = await create_location_service(
                 location=SchemaCreateLocation(
                     title=loc["name"],
                     prompt_user=loc["visual_description"],
+                    prompt_user_description=loc["description_situacional"],
                     game_id=str(game_db.get("_id")),
                     state_game=id_map_states[index + 1]
                 ),
@@ -743,11 +775,19 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
             )
             created_loc_id = _extract_id(location_db)
             id_map_locations[loc["id"]] = created_loc_id
-            print("Created location original id:", loc["id"], "-> created _id:", created_loc_id)
 
-        # fase 2.5: actualizar personaje principal en el juego
+            await update_game_provisional_status(
+                _id_game_provisional,
+                "create_location",
+                progress,
+                f"Creating location '{loc['name']}'",
+                task=created_loc_id
+            )
+            await asyncio.sleep(10)
+
         principal_char = next(
-            (char for char in game_provisional_db.get("characters", []) if str(char.get("role")).lower() == "principal"),
+            (char for char in game_provisional_db.get("characters", []) if
+             str(char.get("role")).lower() == "principal"),
             None
         )
 
@@ -756,33 +796,37 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                 {"_id": ObjectId(str(game_db.get("_id")))},
                 {"$set": {"character_principal": id_map_characters[principal_char["id"]]}}
             )
-            print("Updated main character for game _id:", str(game_db.get("_id")), "-> character _id:",
-                  id_map_characters[principal_char["id"]])
 
-        # Fase 3: actualizar la locación de cada personaje según cada bloque
         for index, block in enumerate(game_structure):
             created_loc_id = id_map_locations.get(block["location"]["id"])
             for char in block["characters"]:
-                await db["state_glic"].update_one(
-                    {"element_id": id_map_characters[char["id"]],"state": id_map_states[index + 1]},
-                    {"$set": {"data.locations_id": [str(created_loc_id)]}}
+                state_glic_db = await db["state_glic"].find_one(
+                    {"element_id": id_map_characters[char["id"]], "state": id_map_states[index + 1]}
                 )
-                print("Updated character location for created _id:", id_map_characters[char["id"]], "-> location _id:",
-                      created_loc_id)
+                if state_glic_db:
+                    await db["state_glic"].update_one(
+                        {"_id": state_glic_db["_id"]},
+                        {"$set": {"data.locations_id": [str(created_loc_id)]}}
+                    )
 
-        # Fase 4: crear todas las interacciones
         principal_orig_id = principal_char.get("id") if principal_char else None
+
+        total_interactions = sum(len(block["interaction"]) for block in game_structure)
+        current_interaction_index = 0
 
         for index, block in enumerate(game_structure):
             for inter in block["interaction"]:
-                # mapear location y characters
+                current_interaction_index += 1
+                progress = 60 + int(
+                    (current_interaction_index / total_interactions) * 10) if total_interactions > 0 else 60
+
                 inter_location_mapped = id_map_locations.get(inter["id_location"], inter["id_location"])
                 inter_characters_mapped = [
                     id_map_characters[cid]
                     for cid in inter.get("id_characters", [])
                     if cid in id_map_characters and cid != principal_orig_id
                 ]
-                # mapear conversaciones
+
                 for conv in inter["conversations"]:
                     if conv.get("id_character") in id_map_characters:
                         conv["id_character"] = id_map_characters[conv["id_character"]]
@@ -797,20 +841,22 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     options_dialog=None,
                     state_game=id_map_states[index + 1]
                 )
-                print(
-                    "Created interaction for location _id:", inter_location_mapped,
-                    "-> interaction result:", _extract_id(inter_db),
-                    "state_game _id:", id_map_states.get(index + 1),
-                    "character_id:", inter_characters_mapped[0] if inter_characters_mapped else None
+
+                await update_game_provisional_status(
+                    _id_game_provisional,
+                    "create_interaction",
+                    progress,
+                    "Creating interaction at location",
+                    task=_extract_id(inter_db) if inter_db else None
                 )
-        # Fase 5: crear eventos (init / middle / end) usando los mapeos
+                await asyncio.sleep(10)
+
         for index, block in enumerate(game_structure):
-            # event_start y event_end
             for event_type in ["event_start", "event_end"]:
                 event = block.get(event_type)
                 if not event:
                     continue
-                # convertir si es Pydantic
+
                 if hasattr(event, "dict"):
                     try:
                         event = event.dict()
@@ -821,14 +867,22 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                 loc_start = id_map_locations.get(event.get("id_location_start") or event.get("id_location"),
                                                  event.get("id_location_start"))
                 loc_end = id_map_locations.get(event.get("id_location_end") or event.get("id_location"), loc_start)
-                chars_mapped = [id_map_characters.get(cid, cid) for cid in (event.get("id_characters") or [])]
+
+                principal_char = next(
+                    (char for char in game_provisional_db.get("characters", []) if
+                     str(char.get("role")).lower() == "principal"),
+                    None
+                )
+
+                chars_mapped = [id_map_characters[cid] for cid in id_map_characters.keys()
+                                if cid != principal_char["id"]][0:1] if principal_char else []
 
                 created_event = await create_event_service(
                     event=SchemaCreateEvent(
                         name="event start" if event_type == "event_start" else "event end",
                         prompt_user_image=event.get("visual_description", "") if event_type == "event_start" else None,
                         prompt_user_text=event.get("description", "") if event_type == "event_start" else None,
-                        character_id=chars_mapped[-1] if chars_mapped else None,
+                        character_id=chars_mapped[0] if chars_mapped and event_type != "event_start" else None,
                         type_conversation=event.get("interaction_type"),
                         option_number=0,
                         state_game_init=id_map_states[index + 1],
@@ -843,8 +897,6 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     ),
                     user_id=game_provisional_db.get("created_by", "anonymous")
                 )
-                created_event_id = _extract_id(created_event)
-                print(f"Created event ({event_type}) _id:", created_event_id)
 
                 event_field = "event_end" if event_type == "event_end" else "event_init"
                 await db["game"].update_one(
@@ -852,7 +904,6 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     {"$set": {event_field: str(created_event.get("_id"))}}
                 )
 
-            # eventos intermedios (events_middle)
             if block.get("events_middle", None):
                 for event in block.get("events_middle", []):
                     if hasattr(event, "dict"):
@@ -861,16 +912,24 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                         except Exception:
                             event = {k: getattr(event, k, None) for k in
                                      ("id_location_start", "id_location_end", "id_characters", "interaction_type")}
+
                     loc_start = id_map_locations.get(event.get("id_location_start"), event.get("id_location_start"))
                     loc_end = id_map_locations.get(event.get("id_location_end"), event.get("id_location_end"))
-                    chars_mapped = [id_map_characters.get(cid, cid) for cid in (event.get("id_characters") or [])]
+                    principal_char = next(
+                        (char for char in game_provisional_db.get("characters", []) if
+                         str(char.get("role")).lower() == "principal"),
+                        None
+                    )
 
-                    created_middle = await create_event_service(
+                    chars_mapped = [id_map_characters[cid] for cid in id_map_characters.keys()
+                                    if cid != principal_char["id"]][0:1] if principal_char else []
+
+                    await create_event_service(
                         event=SchemaCreateEvent(
                             name="event middle",
                             prompt_user_image=None,
                             prompt_user_text=None,
-                            character_id=chars_mapped[-1] if chars_mapped else None,
+                            character_id=chars_mapped[0] if chars_mapped else None,
                             type_conversation=event.get("interaction_type"),
                             option_number=0,
                             state_game_init=id_map_states[index + 1],
@@ -885,12 +944,19 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                         ),
                         user_id=game_provisional_db.get("created_by", "anonymous")
                     )
-                    print("Created middle event _id:", _extract_id(created_middle))
+
+        await update_game_provisional_status(
+            _id_game_provisional,
+            "complete_provisional_game",
+            70,
+            "Game structure creation completed",
+            task=str(game_db.get("_id"))
+        )
+        await asyncio.sleep(10)
 
         return "Game created successfully from provisional data"
 
     except Exception as e:
-        print(traceback.format_exc())
         return f"Failed to create game from provisional: {str(e)}"
 
 

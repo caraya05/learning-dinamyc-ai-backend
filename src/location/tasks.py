@@ -298,6 +298,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
         if _type_game == "2d":
             print("generating 2d location image")
             prompt_user = element_state_db['data'].get('prompt_user', '')
+            prompt_user_description = element_state_db['data'].get('prompt_user_description', '')
             imagen_loc = element_state_db['data'].get('image') or element_state_db['data'].get('image_reference')
             # Buscar personajes asociados a la localización (si aplica)
             personajes_cursor = await db["state_glic"].find(
@@ -321,7 +322,8 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
             # Construir el prompt base + situacional + imágenes
             prompt = (
                 "Genera una imagen de estilo 3D low poly animado detallado y vista aérea isométrica aérea (tipo juego RPG sin GUI) "
-                f"\nSituación: {prompt_user}\n"
+                f"\nVisual: {prompt_user}\n"
+                f"\nSituación: {prompt_user_description}\n"
                 f"\nPersonajes en la escena (usa sus imágenes como referencia):\n{personajes_str}\n"
                 f"\nImagen de la localización (usa como referencia): {imagen_loc if imagen_loc else 'Sin imagen'}\n"
                 f"\nInstrucciones adicionales:\n"
@@ -370,7 +372,7 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                 type_generation="location_image_2d",
                 image=True,
                 tools=[{"type": "image_generation",
-                        "size": "1536x1024",
+                        "size": "1024x1024",
                         "quality": "high"}]
             )
             image_data = base64.b64decode(image_location)

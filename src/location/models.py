@@ -21,6 +21,7 @@ class LocationGLIC(BaseModel):
     title: str = Field(None, example="Location Title")
     description: Optional[str] = Field(None, example="This is a location description")
     prompt_user: str = Field(None, example="This is a prompt user")
+    prompt_user_description: Optional[str] = Field(None, example="This is a prompt user description")
     image: Optional[str] = Field(None, example="image.jpg")
     configuration: Optional[dict] = Field(None, example="")
     connections: Optional[dict] = Field(None, example="")
