@@ -2,6 +2,7 @@ import base64
 import traceback
 import json
 import requests
+import asyncio
 
 from bson import ObjectId
 from pydantic import BaseModel, Field
@@ -635,7 +636,25 @@ def build_game_structure(locations, events, interactions, characters):
     return estructura
 
 
-import asyncio
+def _validate_and_get_character(chars_mapped, block_characters, principal_id):
+    """
+    Valida que el personaje esté en la locación actual.
+    Si no está, elige un personaje secundario de esa locación.
+    """
+    block_char_ids = {char["id"] for char in block_characters}
+
+    # Si el personaje mapeado está en la locación, usarlo
+    if chars_mapped and chars_mapped[0] in block_char_ids:
+        return chars_mapped[0]
+
+    # Si no, buscar un personaje secundario que no sea principal
+    for char in block_characters:
+        if char["id"] != principal_id:
+            return char.get("id")
+
+    # Si no hay personajes secundarios, devolver None
+    return None
+
 
 async def async_continue_create_game_provisional_2(_id_game_provisional: str, _user_id: str = None) -> str:
     """
@@ -670,7 +689,13 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
 
         id_map_characters = {}
         id_map_locations = {}
+        id_map_events = {}
         id_map_states = {}
+
+        # Diccionarios con información del estado de juego
+        id_map_characters_detailed = {}  # {provisional_id: {db_id, state_game_id}}
+        id_map_locations_detailed = {}  # {provisional_id: {db_id, state_game_id}}
+        id_map_events_detailed = {}  # {provisional_id: {db_id, state_game_id}}
 
         game_db = await create_game_service(user_id=str(game_provisional_db.get("created_by", "anonymous")))
 
@@ -694,7 +719,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
         )
 
         state_game_db = await db["state_game"].find_one({"game_id": str(game_db.get("_id")), "order": 1})
-        id_map_states[1] = str(state_game_db.get("_id"))
+        id_map_states[str(1)] = str(state_game_db.get("_id"))
 
         total_blocks = len(game_structure)
 
@@ -705,14 +730,14 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                 order=order,
                 created_by=str(game_provisional_db.get("created_by", "anonymous"))
             )
-            id_map_states[order] = str(state_game_new.get("_id"))
+            id_map_states[str(order)] = str(state_game_new.get("_id"))
 
         total_characters = sum(len(block["characters"]) for block in game_structure)
         current_character_index = 0
         last_task_character_id = None
 
         for index, block in enumerate(game_structure):
-            state_for_chars = id_map_states.get(index + 1)
+            state_for_chars = id_map_states.get(str(index + 1))
             for char in block["characters"]:
                 current_character_index += 1
                 progress = 40 + int((current_character_index / total_characters) * 10) if total_characters > 0 else 40
@@ -740,6 +765,12 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     )
                     created_char_id = _extract_id(character_db)
                     id_map_characters[char["id"]] = created_char_id
+                    # Guardar mapeo detallado con estado de juego
+                    id_map_characters_detailed[char["id"]] = {
+                        "db_id": created_char_id,
+                        "state_game_id": state_for_chars,
+                        "state_game_order": index + 1
+                    }
                     last_task_character_id = created_char_id
 
                     await update_game_provisional_status(
@@ -768,13 +799,19 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     prompt_user=loc["visual_description"],
                     prompt_user_description=loc["description_situacional"],
                     game_id=str(game_db.get("_id")),
-                    state_game=id_map_states[index + 1]
+                    state_game=id_map_states[str(index + 1)]
                 ),
                 user_id=str(game_provisional_db.get("created_by", "anonymous")),
                 file=None
             )
             created_loc_id = _extract_id(location_db)
             id_map_locations[loc["id"]] = created_loc_id
+            # Guardar mapeo detallado con estado de juego
+            id_map_locations_detailed[loc["id"]] = {
+                "db_id": created_loc_id,
+                "state_game_id": id_map_states[str(index + 1)],
+                "state_game_order": index + 1
+            }
 
             await update_game_provisional_status(
                 _id_game_provisional,
@@ -801,7 +838,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
             created_loc_id = id_map_locations.get(block["location"]["id"])
             for char in block["characters"]:
                 state_glic_db = await db["state_glic"].find_one(
-                    {"element_id": id_map_characters[char["id"]], "state": id_map_states[index + 1]}
+                    {"element_id": id_map_characters[char["id"]], "state": id_map_states[str(index + 1)]}
                 )
                 if state_glic_db:
                     await db["state_glic"].update_one(
@@ -839,7 +876,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     conversation=inter["conversations"],
                     user_id=game_provisional_db.get("created_by", "anonymous"),
                     options_dialog=None,
-                    state_game=id_map_states[index + 1]
+                    state_game=id_map_states[str(index + 1)]
                 )
 
                 await update_game_provisional_status(
@@ -885,8 +922,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                         character_id=chars_mapped[0] if chars_mapped and event_type != "event_start" else None,
                         type_conversation=event.get("interaction_type"),
                         option_number=0,
-                        state_game_init=id_map_states[index + 1],
-                        state_game_end=id_map_states[index + 1],
+                        state_game_init=id_map_states[str(index + 1)],
+                        state_game_end=id_map_states[str(index + 1)],
                         location_state_game_init=loc_start,
                         location_state_game_end=loc_start,
                         game_id=str(game_db.get("_id")),
@@ -897,6 +934,18 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     ),
                     user_id=game_provisional_db.get("created_by", "anonymous")
                 )
+
+                # Guardar mapeo de evento
+                event_provisional_id = event.get("id")
+                if event_provisional_id:
+                    id_map_events[event_provisional_id] = str(created_event.get("_id"))
+                    # Guardar mapeo detallado con estado de juego
+                    id_map_events_detailed[event_provisional_id] = {
+                        "db_id": str(created_event.get("_id")),
+                        "state_game_id": id_map_states[index + 1],
+                        "state_game_order": index + 1,
+                        "event_type": event_type
+                    }
 
                 event_field = "event_end" if event_type == "event_end" else "event_init"
                 await db["game"].update_one(
@@ -924,16 +973,20 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     chars_mapped = [id_map_characters[cid] for cid in id_map_characters.keys()
                                     if cid != principal_char["id"]][0:1] if principal_char else []
 
-                    await create_event_service(
+                    created_middle_event = await create_event_service(
                         event=SchemaCreateEvent(
                             name="event middle",
                             prompt_user_image=None,
                             prompt_user_text=None,
-                            character_id=chars_mapped[0] if chars_mapped else None,
+                            character_id=_validate_and_get_character(
+                                chars_mapped,
+                                block["characters"],
+                                principal_orig_id
+                            ),
                             type_conversation=event.get("interaction_type"),
                             option_number=0,
-                            state_game_init=id_map_states[index + 1],
-                            state_game_end=id_map_states[index + 2] if (index + 2) in id_map_states else "",
+                            state_game_init=id_map_states[str(index + 1)],
+                            state_game_end=id_map_states[str(index + 2)] if str(index + 2) in id_map_states else "",
                             location_state_game_init=loc_start,
                             location_state_game_end=loc_end,
                             game_id=str(game_db.get("_id")),
@@ -944,6 +997,18 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                         ),
                         user_id=game_provisional_db.get("created_by", "anonymous")
                     )
+
+                    # Guardar mapeo de evento middle
+                    event_provisional_id = event.get("id")
+                    if event_provisional_id:
+                        id_map_events[event_provisional_id] = str(created_middle_event.get("_id"))
+                        # Guardar mapeo detallado con estado de juego
+                        id_map_events_detailed[event_provisional_id] = {
+                            "db_id": str(created_middle_event.get("_id")),
+                            "state_game_id": id_map_states[index + 1],
+                            "state_game_order": index + 1,
+                            "event_type": "event_inter"
+                        }
 
         await update_game_provisional_status(
             _id_game_provisional,
