@@ -35,6 +35,14 @@ class SchemaRetrieveGame(ResponseModel):
     description: Optional[str] = Field(None, example="description")
     event_init: Optional[str] = Field(None, example="event_init")
     event_end: Optional[str] = Field(None, example="event_end")
+    provisional_id: Optional[str] = Field(None, example="provisional_id")
+    locations: Optional[list[dict]] = Field(None, example=["location1", "location2"])
+    locations_states: Optional[list[dict]] = Field(None, example=["location_state1", "location_state2"])
+    characters: Optional[list[dict]] = Field(None, example=["character1", "character2"])
+    characters_states: Optional[list[dict]] = Field(None, example=["character_state1", "character_state2"])
+    events: Optional[list[dict]] = Field(None, example=["event1", "event2"])
+    state_games: Optional[list[dict]] = Field(None, example=["state_game1", "state_game2"])
+    game_provisional: Optional[dict] = Field(None, example={"provisional_field": "value"})
 
 
 class ResponseModelStr(BaseModel):
@@ -67,6 +75,7 @@ class SchemaRetrieveGameStr(ResponseModelStr):
     is_active: Optional[bool] = Field(False, example=True)
     event_init: Optional[str] = Field(None, example="event_init")
     event_end: Optional[str] = Field(None, example="event_end")
+    provisional_id: Optional[str] = Field(None, example="provisional_id")
 
 
 class SchemaListGame(BaseModel):

@@ -3,7 +3,7 @@ services:
     container_name: fastapi
     image: us-east4-docker.pkg.dev/qwestar-ai/back-qwestar-ai/backend-dev:latest
     command: >
-      /bin/sh -c "echo 'Qwestar AI Backend' && sleep 1 && uvicorn main:app --reload --host 0.0.0.0 --port 9000 --forwarded-allow-ips='*' --proxy-headers"
+      /bin/sh -c "echo 'Qwestar AI Backend' && sleep 1 && uvicorn main:app --reload --host 0.0.0.0 --port 9000 --forwarded-allow-ips='*' --proxy-headers --workers 2"
     env_file:
       - .env
     environment:
@@ -19,15 +19,17 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          cpus: '1'
+          memory: 768M
         reservations:
-          memory: 256M
+          cpus: '0.5'
+          memory: 512M
     restart: unless-stopped
 
   redis:
     container_name: redis
     image: redis:6.2-alpine
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --protected-mode no --maxmemory 512mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --protected-mode no --maxmemory 512mb --maxmemory-policy allkeys-lru --tcp-backlog 256 --timeout 300 --tcp-keepalive 300
     volumes:
       - redis-data:/data
     ports:
@@ -44,8 +46,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          cpus: '0.5'
+          memory: 384M
         reservations:
+          cpus: '0.25'
           memory: 256M
     restart: unless-stopped
 
@@ -57,15 +61,18 @@ services:
       cd /code &&
       celery -A celery_worker worker
       --loglevel=warning
-      --concurrency=2
-      --max-tasks-per-child=500
+      --concurrency=1
+      --max-tasks-per-child=100
       --queues=character_queue,location_queue,image_queue,voice_queue,default
-      --prefetch-multiplier=1
+      --prefetch-multiplier=2
       --pool=prefork
       --hostname=worker@%h
       --events
       --time-limit=3600
       --soft-time-limit=3300
+      --without-gossip
+      --without-mingle
+      --without-heartbeat
       "
     volumes:
       - celery-data:/data
@@ -86,9 +93,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          cpus: '0.75'
+          memory: 768M
         reservations:
-          memory: 256M
+          cpus: '0.5'
+          memory: 512M
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "cd /code && celery -A celery_worker inspect ping -d 'worker@%h' --broker='redis://:${REDIS_PASSWORD}@redis:6379/0'"]
@@ -105,15 +114,18 @@ services:
       cd /code &&
       celery -A celery_worker worker
       --loglevel=warning
-      --concurrency=2
-      --max-tasks-per-child=500
+      --concurrency=1
+      --max-tasks-per-child=100
       --queues=voice_queue
-      --prefetch-multiplier=1
+      --prefetch-multiplier=2
       --pool=prefork
       --hostname=worker_voice@%h
       --events
       --time-limit=3600
       --soft-time-limit=3300
+      --without-gossip
+      --without-mingle
+      --without-heartbeat
       "
     volumes:
       - celery-data:/data
@@ -134,9 +146,11 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          cpus: '0.75'
+          memory: 768M
         reservations:
-          memory: 256M
+          cpus: '0.5'
+          memory: 512M
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "cd /code && celery -A celery_worker inspect ping -d 'worker_voice@%h' --broker='redis://:${REDIS_PASSWORD}@redis:6379/0'"]
@@ -161,9 +175,9 @@ services:
       --basic_auth=${FLOWER_USER}:${FLOWER_PASSWORD}
       --persistent=True
       --db=/data/flower.db
-      --state_save_interval=10000
+      --state_save_interval=30000
       --broker_api=redis://:${REDIS_PASSWORD}@redis:6379/0
-      --max_tasks=10000
+      --max_tasks=5000
       "
     volumes:
       - flower-data:/data
@@ -176,9 +190,9 @@ services:
       PYTHONPATH: /code
       CELERY_BROKER_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
       CELERY_RESULT_BACKEND: "redis://:${REDIS_PASSWORD}@redis:6379/0"
-      FLOWER_UNAUTHENTICATED_API: "true"
+      FLOWER_UNAUTHENTICATED_API: "false"
       FLOWER_PERSISTENT: "true"
-      FLOWER_STATE_SAVE_INTERVAL: "10000"
+      FLOWER_STATE_SAVE_INTERVAL: "30000"
       FLOWER_PORT: "5555"
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     depends_on:
@@ -189,8 +203,10 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          cpus: '0.25'
+          memory: 192M
         reservations:
+          cpus: '0.1'
           memory: 128M
     restart: always
     healthcheck:
@@ -208,15 +224,18 @@ services:
       cd /code &&
       celery -A celery_worker worker
       --loglevel=warning
-      --concurrency=2
-      --max-tasks-per-child=500
+      --concurrency=1
+      --max-tasks-per-child=50
       --queues=image_character_queue
-      --prefetch-multiplier=1
+      --prefetch-multiplier=2
       --pool=prefork
       --hostname=image_character_worker@%h
       --events
       --time-limit=3600
       --soft-time-limit=3300
+      --without-gossip
+      --without-mingle
+      --without-heartbeat
       "
     volumes:
       - celery-data:/data
@@ -237,8 +256,10 @@ services:
     deploy:
       resources:
         limits:
+          cpus: '0.5'
           memory: 512M
         reservations:
+          cpus: '0.25'
           memory: 256M
     restart: unless-stopped
     healthcheck:
@@ -256,15 +277,18 @@ services:
       cd /code &&
       celery -A celery_worker worker
       --loglevel=warning
-      --concurrency=2
-      --max-tasks-per-child=500
+      --concurrency=1
+      --max-tasks-per-child=50
       --queues=image_event_queue
-      --prefetch-multiplier=1
+      --prefetch-multiplier=2
       --pool=prefork
       --hostname=image_event_worker@%h
       --events
       --time-limit=3600
       --soft-time-limit=3300
+      --without-gossip
+      --without-mingle
+      --without-heartbeat
       "
     volumes:
       - celery-data:/data
@@ -285,8 +309,10 @@ services:
     deploy:
       resources:
         limits:
+          cpus: '0.5'
           memory: 512M
         reservations:
+          cpus: '0.25'
           memory: 256M
     restart: unless-stopped
     healthcheck:
@@ -304,15 +330,18 @@ services:
       cd /code &&
       celery -A celery_worker worker
       --loglevel=warning
-      --concurrency=2
-      --max-tasks-per-child=500
+      --concurrency=1
+      --max-tasks-per-child=50
       --queues=location_queue
-      --prefetch-multiplier=1
+      --prefetch-multiplier=2
       --pool=prefork
       --hostname=location_worker@%h
       --events
       --time-limit=3600
       --soft-time-limit=3300
+      --without-gossip
+      --without-mingle
+      --without-heartbeat
       "
     volumes:
       - celery-data:/data
@@ -333,8 +362,10 @@ services:
     deploy:
       resources:
         limits:
+          cpus: '0.5'
           memory: 512M
         reservations:
+          cpus: '0.25'
           memory: 256M
     restart: unless-stopped
     healthcheck:
@@ -352,15 +383,18 @@ services:
       cd /code &&
       celery -A celery_worker worker
       --loglevel=warning
-      --concurrency=2
-      --max-tasks-per-child=500
+      --concurrency=1
+      --max-tasks-per-child=50
       --queues=character_queue
-      --prefetch-multiplier=1
+      --prefetch-multiplier=2
       --pool=prefork
       --hostname=character_worker@%h
       --events
       --time-limit=3600
       --soft-time-limit=3300
+      --without-gossip
+      --without-mingle
+      --without-heartbeat
       "
     volumes:
       - celery-data:/data
@@ -381,8 +415,10 @@ services:
     deploy:
       resources:
         limits:
+          cpus: '0.5'
           memory: 512M
         reservations:
+          cpus: '0.25'
           memory: 256M
     restart: unless-stopped
     healthcheck:
@@ -400,15 +436,18 @@ services:
       cd /code &&
       celery -A celery_worker worker
       --loglevel=warning
-      --concurrency=2
-      --max-tasks-per-child=500
+      --concurrency=1
+      --max-tasks-per-child=50
       --queues=voice_detection_queue
-      --prefetch-multiplier=1
+      --prefetch-multiplier=2
       --pool=prefork
       --hostname=voice_detection_worker@%h
       --events
       --time-limit=3600
       --soft-time-limit=3300
+      --without-gossip
+      --without-mingle
+      --without-heartbeat
       "
     volumes:
       - celery-data:/data
@@ -429,8 +468,10 @@ services:
     deploy:
       resources:
         limits:
+          cpus: '0.5'
           memory: 512M
         reservations:
+          cpus: '0.25'
           memory: 256M
     restart: unless-stopped
     healthcheck:

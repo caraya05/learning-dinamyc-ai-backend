@@ -223,6 +223,52 @@ async def get_game_provisional(
     for e in events_plus:
         combined_events.append(e.dict() if hasattr(e, "dict") else e)
 
+    # Recuperar imágenes de locaciones usando el mapeo de IDs
+    locations_with_images = []
+    id_map_locations_detailed = game_provisional_db.get("id_map_locations_detailed", {})
+
+    for loc in game_provisional_db.get("locations", []):
+        location_data = loc.dict() if hasattr(loc, "dict") else loc
+        loc_provisional_id = location_data.get("id")
+
+        if loc_provisional_id and loc_provisional_id in id_map_locations_detailed:
+            loc_db_id = id_map_locations_detailed[loc_provisional_id].get("db_id")
+            if loc_db_id:
+                # Recuperar locación de la base de datos para obtener su imagen
+                location_db = await db["location_glic"].find_one({"_id": ObjectId(loc_db_id)})
+                if location_db:
+                    location_data["image_url"] = location_db.get("image")
+                    location_data["sound"] = location_db.get("sound")
+                    location_data["sound_mp3"] = location_db.get("sound_mp3")
+
+        locations_with_images.append(location_data)
+
+    # Recuperar audios de conversaciones usando el mapeo de personajes
+    interactions_with_audio = []
+    id_map_characters_detailed = game_provisional_db.get("id_map_characters_detailed", {})
+
+    for interaction in game_provisional_db.get("interactions", []):
+        interaction_data = interaction.dict() if hasattr(interaction, "dict") else interaction
+        id_characters = interaction_data.get("id_characters", [])
+
+        # Enriquecer cada conversación con información de audio del personaje
+        if "conversations" in interaction_data:
+            for conversation in interaction_data["conversations"]:
+                char_provisional_id = conversation.get("id_character")
+
+                if char_provisional_id and char_provisional_id in id_map_characters_detailed:
+                    char_db_id = id_map_characters_detailed[char_provisional_id].get("db_id")
+                    if char_db_id:
+                        # Recuperar personaje para obtener su voice_id
+                        character_db = await db["character_glic"].find_one({"_id": ObjectId(char_db_id)})
+                        if character_db:
+                            conversation["voice_id"] = character_db.get("voice_id")
+                            # Recuperar conversaciones asociadas si existen
+                            if character_db.get("conversation"):
+                                conversation["audio_data"] = character_db.get("conversation")
+
+        interactions_with_audio.append(interaction_data)
+
     return {
         "_id": str(game_provisional_db["_id"]),
         "prompt_user": game_provisional_db["prompt_user"],
@@ -240,12 +286,21 @@ async def get_game_provisional(
         "user_email": game_provisional_db.get("user_email"),
         "category": game_provisional_db.get("category"),
         "characters": game_provisional_db.get("characters", []),
-        "locations": game_provisional_db.get("locations", []),
+        "locations": locations_with_images,
         "events": combined_events,
-        "interactions": game_provisional_db.get("interactions", []),
+        "interactions": interactions_with_audio,
         "game_structure": create_game_structure(game_provisional_db.get("locations", []),game_provisional_db.get("events", []),game_provisional_db.get("interactions", []), game_provisional_db.get("characters", [])),
         "level_process": game_provisional_db.get("level_process", 1),
         "game_id": str(game_provisional_db["game_id"]) if game_provisional_db.get("game_id") else None,
+        # Diccionarios de mapeo
+        "id_map_characters": game_provisional_db.get("id_map_characters", {}),
+        "id_map_locations": game_provisional_db.get("id_map_locations", {}),
+        "id_map_events": game_provisional_db.get("id_map_events", {}),
+        "id_map_states": game_provisional_db.get("id_map_states", {}),
+        # Diccionarios detallados con información de state_game
+        "id_map_characters_detailed": game_provisional_db.get("id_map_characters_detailed", {}),
+        "id_map_locations_detailed": game_provisional_db.get("id_map_locations_detailed", {}),
+        "id_map_events_detailed": game_provisional_db.get("id_map_events_detailed", {}),
     }
 
 

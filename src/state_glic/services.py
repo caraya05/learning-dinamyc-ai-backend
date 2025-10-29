@@ -61,11 +61,8 @@ async def get_list_state_glic_by_element_id(element_id: str) -> list:
             if state_glic[j]["type_element"] in ["character", "location", "item"]:
                 if state_glic[j]["data"].get("interaction", None):
                     for i in range(len(state_glic[j]["data"]["interaction"])):
-                        print(state_glic[j]["data"]["interaction"][i])
                         if state_glic[j]["data"]["interaction"][i].get("type_conversation", None):
                             if state_glic[j]["data"]["interaction"][i]["type_conversation"] in ["one_way", "two_way"]:
-
-                                print("llego aca", state_glic[j]["data"]["interaction"][i],)
                                 event_db = await db["event"].find_one(
                                     {
                                         "game_id": state_glic[j]["data"]["game_id"],
@@ -77,9 +74,6 @@ async def get_list_state_glic_by_element_id(element_id: str) -> list:
                                             "type_conversation"],
                                     }
                                 )
-
-                                print("evquent db", event_db)
-
                                 if event_db and event_db["type_conversation"] in ["one_way", "two_way"]:
                                     state_glic[j]["data"]["interaction"][i]["event_id"] = str(event_db["_id"])
                             if (state_glic[j]["data"]["interaction"][i]["type_conversation"] in ["open_question",
@@ -116,6 +110,5 @@ async def get_list_state_glic_by_element_id(element_id: str) -> list:
                                             event_db["option_number"]]["event_id"] = str(event_db["_id"])
         return state_glic
     except Exception as e:
-        print(f"Error: {str(e)}")
-        traceback.print_exc()
-        pass
+        self.logger.debug(f"Error retrieving state_glic for element {element_id}: {e}")
+        return []

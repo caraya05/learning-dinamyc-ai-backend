@@ -1,6 +1,9 @@
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 from starlette import status
+import asyncio
+import time
+import logging
 
 from game_progress.models import GameProgress
 
@@ -8,6 +11,8 @@ from game_progress.schemas import SchemaCreateGameProgress
 from game_progress.schemas import SchemaRetrieveGameProgress
 from game_progress.schemas import SchemaListGameProgress
 from game_progress.schemas import SchemaPartialUpdateGameProgress
+
+logger = logging.getLogger(__name__)
 
 
 def get_game_progress_by_field(db: Session, field: str, value: str):
@@ -60,7 +65,7 @@ def create_game_progress_service(db: Session, schema: SchemaCreateGameProgress, 
         db.refresh(game_progress)
         return game_progress
     except Exception as e:
-        print(e)
+        logger.error(f"Error creating game progress: {e}")
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Error creating game progress"
@@ -71,7 +76,7 @@ def partial_update_game_progress_service(
     db: Session, game_progress_id: str, schema: SchemaPartialUpdateGameProgress
 ):
     """
-    Partially update a game_progress.
+    Partially update a game_progress with 10-second delay.
     """
 
     game_progress = get_game_progress_by_field(db, "id", game_progress_id)
@@ -81,9 +86,11 @@ def partial_update_game_progress_service(
                 setattr(game_progress, field, value)
         db.commit()
         db.refresh(game_progress)
+        # Delay de 10 segundos después del update
+        time.sleep(10)
         return game_progress
     except Exception as e:
-        print(e)
+        logger.error(f"Error updating game_progress {game_progress_id}: {e}")
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

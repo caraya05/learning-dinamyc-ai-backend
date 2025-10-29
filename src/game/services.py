@@ -31,6 +31,7 @@ from celery_worker import generate_image_cover_game_task
 # from celery_worker import generate_context_new_character_task
 
 from state_game.services import create_state_game
+from state_glic.services import get_list_state_glic_by_element_id
 
 from utils import upload_image
 
@@ -46,51 +47,77 @@ class GameService:
         try:
             if game_db := await self.db['game'].find_one({'_id': ObjectId(game_id)}):
 
-                # Sanitización básica de datos
-                game_db = {k: v for k, v in game_db.items() if v is not None}
-                if game_db.get('locations_id'):
-                    game_db['locations'] = (
-                        await self.db['location']
-                        .find(
-                            {
-                                '_id': {
-                                    '$in': [
-                                        ObjectId(location_id) for location_id in game_db['locations_id']
-                                    ]
-                                }
-                            }
-                        )
-                        .to_list(None)
-                    )
-                else:
+                try:
+                    game_db['locations'] = await self.db['location'].find({'game_id': game_id}).to_list(None)
+                    if game_db['locations']:
+                        for location in game_db['locations']:
+                            location['_id'] = str(location['_id'])
+                except Exception as e:
+                    self.logger.debug(f"No locations found: {e}")
                     game_db['locations'] = []
 
-                if game_db.get('characters_id'):
-                    game_db['characters'] = (
-                        await self.db['character']
-                        .find(
-                            {
-                                '_id': {
-                                    '$in': [
-                                        ObjectId(character_id)
-                                        for character_id in game_db['characters_id']
-                                    ]
-                                }
-                            }
-                        )
-                        .to_list(None)
-                    )
-                else:
+                try:
+                    game_db['locations_states'] = await self.db['state_glic'].find(
+                        {'data.game_id': game_id, 'type_element': 'location'}
+                    ).to_list(None)
+                    if game_db['locations_states']:
+                        for state in game_db['locations_states']:
+                            state['_id'] = str(state['_id'])
+                except Exception as e:
+                    self.logger.debug(f"No location states found: {e}")
+                    game_db['locations_states'] = []
+
+                try:
+                    game_db['characters'] = await self.db['character'].find(
+                        {'game_id': game_id}
+                    ).to_list(None)
+                    if game_db['characters']:
+                        for character in game_db['characters']:
+                            character['_id'] = str(character['_id'])
+                except Exception as e:
+                    self.logger.debug(f"No characters found: {e}")
                     game_db['characters'] = []
 
-                if game_db.get('items_id'):
-                    game_db['items'] = (
-                        await self.db['item']
-                        .find({'_id': {'$in': [ObjectId(item_id) for item_id in game_db['items_id']]}})
-                        .to_list(None)
-                    )
-                else:
-                    game_db['items'] = []
+                try:
+                    game_db['characters_states'] = await self.db['state_glic'].find(
+                        {'data.game_id': game_id, 'type_element': 'character'}
+                    ).to_list(None)
+                    if game_db['characters_states']:
+                        for state in game_db['characters_states']:
+                            state['_id'] = str(state['_id'])
+                except Exception as e:
+                    self.logger.debug(f"No character states found: {e}")
+                    game_db['characters_states'] = []
+
+                try:
+                    game_db['events'] = await self.db['event'].find({'game_id': game_id}).to_list(None)
+                    if game_db['events']:
+                        for event in game_db['events']:
+                            event['_id'] = str(event['_id'])
+                except Exception as e:
+                    self.logger.debug(f"No events found: {e}")
+                    game_db['events'] = []
+
+                # Traer estados de juego generales (state_game)
+                try:
+                    game_db['state_games'] = await self.db['state_game'].find(
+                        {'game_id': game_id}
+                    ).to_list(None)
+                    for state in game_db['state_games']:
+                        state['_id'] = str(state['_id'])
+                except Exception as e:
+                    self.logger.debug(f"No game states found: {e}")
+                    game_db['state_games'] = []
+
+                try:
+                    game_db["game_provisional"] = await self.db["game_provisional"].find_one({
+                        "_id": ObjectId(game_db.get("provisional_id"))
+                    })
+                    if game_db["game_provisional"]:
+                        game_db["game_provisional"]["_id"] = str(game_db["game_provisional"]["_id"])
+                except Exception as e:
+                    self.logger.debug(f"No provisional game found: {e}")
+                    game_db['game_provisional'] = None
 
                 del game_db['locations_id']
                 del game_db['characters_id']
