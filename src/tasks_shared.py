@@ -2,7 +2,7 @@ from celery import shared_task
 import asyncio
 from character.tasks import _generate_image_character, get_voice_for_character
 from character.tasks import async_generate_character_task
-from event.tasks import _generate_image_event, async_generate_image_event
+from event.tasks import _generate_image_event, async_generate_image_event, async_generate_event_audio
 from location.tasks import async_generate_location_task
 from voice.task import async_generate_voice_task
 
@@ -154,4 +154,18 @@ def generate_voice_character_task(
             _state_game_id,
             _location_id,
         )
+    )
+
+
+@shared_task(name="generate_event_audio_shared_task")
+def generate_event_audio_shared_task(event_id: str, user_id: str, text: str = None):
+    """Tarea compartida para generar audio de eventos"""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    return loop.run_until_complete(
+        async_generate_event_audio(event_id=event_id, user_id=user_id, text=text)
     )

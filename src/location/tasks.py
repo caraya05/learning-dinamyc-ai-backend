@@ -5,6 +5,8 @@ import base64
 import os
 import time
 import asyncio
+
+from PIL import Image
 from bson import ObjectId
 import requests
 
@@ -321,20 +323,29 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
             personajes_str = '\n'.join(personajes_info)
             # Construir el prompt base + situacional + imágenes
             prompt = (
-                "Genera una imagen de estilo 3D low poly animado detallado y vista aérea isométrica aérea (tipo juego RPG sin GUI) "
-                f"\nVisual: {prompt_user}\n"
-                f"\nSituación: {prompt_user_description}\n"
-                f"\nPersonajes en la escena (usa sus imágenes como referencia):\n{personajes_str}\n"
-                f"\nImagen de la localización (usa como referencia): {imagen_loc if imagen_loc else 'Sin imagen'}\n"
-                f"\nInstrucciones adicionales:\n"
-                f"- La imagen debe tener una perspectiva isométrica aérea, como si se viera desde arriba en un juego RPG.\n"
-                f"- La escena debe estar ambientada según la descripción proporcionada.\n"
-                f"- Si hay personajes, deben estar integrados en la escena de manera coherente.\n"
-                f"- Si hay una imagen de la localización, úsala como referencia para el estilo y los elementos del entorno.\n"
-                f"- No incluyas texto, logos, marcas de agua, ni interfaces de usuario en la imagen.\n"
-                f"- La iluminación debe ser coherente con la escena y resaltar los elementos clave.\n"
-                f"- Usa una paleta de colores vibrante y atractiva, adecuada para un juego de fantasía.\n"
-                f"- Usa las imagenes de cara de los personajes para poder colocarlos en la escena de manera coherente.\n"
+                "Crea una escena isométrica en plano general con estas características específicas:\n"
+                f"\nELEMENTOS BASE:"
+                f"\n- Contenido visual de la locacion: {prompt_user}"
+                f"\n- Contexto Situacional de la locacion: {prompt_user_description}"
+                f"\n- Personajes Presentes: {personajes_str}"
+                f"\n- Referencia Visual: {imagen_loc if imagen_loc else 'Sin imagen'}"
+                f"\nESPECIFICACIONES TÉCNICAS:"
+                f"- Plano: Gran Plano General (GPG) para capturar tanto los personajes como el entorno"
+                f"- Escala: Los personajes se muestran a menor escala (entre el 5 % y el 10 % de la altura total del lienzo)."
+                f"- Proporción: Formato cuadrado (1:1)"
+                f"\nDIRECTRICES DE COMPOSICIÓN:"
+                f"- Estilo: 3D low poly animado con acabado detallado"
+                f"- Ambiente: Expandido para mostrar el contexto completo de la localización"
+                f"- Personajes: Mantener vestuario, poses y orientación consistentes con sus referencias si la hay"
+                f"- Iluminación: Dirección consistente y coherente con la atmósfera de la escena"
+                f"- Paleta: Colores vibrantes pero armoniosos, apropiados para fantasía"
+                f"\nRESTRICCIONES:"
+                f"- Sin GUI, textos, logos o marcas de agua"
+                f"- Sin elementos que rompan la inmersión cinematográfica"
+                f"\nOBJETIVO FINAL:"
+                f"- Crear un plano de establecimiento cinematográfico que presente tanto los personajes como el entorno en contexto"
+                f"- La escena debe transmitir la escala y atmósfera del mundo del juego"
+                f"- Enfatizar la relación entre los personajes y su entorno"
             )
             # Adjuntar imágenes como archivos en el prompt (solo si existen)
             content_prompt = [
@@ -377,11 +388,13 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
             )
             image_data = base64.b64decode(image_location)
             image_face = BytesIO(image_data)
+
+            image_face_square = make_image_square_centered(image_face)
+
             image_generated = upload_image(
-                img_byte_arr=image_face,
+                img_byte_arr=image_face_square,
                 file_name=f"locations/{uuid4()}.jpg",
-                size=(2436, 1372),
-            )
+                size=(1024, 1024))
             element_state_db["data"]["image"] = image_generated
             await db["state_glic"].update_one(
                 {"_id": element_state_db["_id"]}, {"$set": {"data": element_state_db["data"]}}
@@ -658,3 +671,40 @@ async def async_generate_image_location_task(_location_id: str, _user_id: str, _
             _id=_task_id, _status="completed", _message="Location image generate successfully"
         )
     return "Location image generate successfully"
+
+
+def make_image_square_centered(image_bytes):
+    """
+    Convierte una imagen a formato cuadrado centrado
+    """
+    try:
+        # Abrir la imagen desde bytes
+        image = Image.open(image_bytes)
+
+        # Obtener dimensiones actuales
+        width, height = image.size
+
+        # Determinar el tamaño del cuadrado (el menor de width/height)
+        square_size = min(width, height)
+
+        # Calcular las coordenadas para centrar el recorte
+        left = (width - square_size) // 2
+        top = (height - square_size) // 2
+        right = left + square_size
+        bottom = top + square_size
+
+        # Recortar la imagen al centro
+        cropped_image = image.crop((left, top, right, bottom))
+
+        # Convertir de vuelta a BytesIO
+        output_buffer = BytesIO()
+        cropped_image.save(output_buffer, format='JPEG', quality=95)
+        output_buffer.seek(0)
+
+        return output_buffer
+
+    except Exception as e:
+        print(f"Error making image square: {e}")
+        # Si hay error, devolver la imagen original
+        image_bytes.seek(0)
+        return image_bytes

@@ -103,28 +103,6 @@ async def generate_image_event(
             print("Error validate prompt")
             return False, "Prompt no allowed"
 
-        # Generar audio del texto del evento
-        if event_db.get("prompt_user_text"):
-            try:
-                audio = await generate_audio(
-                    text=event_db["prompt_user_text"],
-                    user_id=user_id,
-                    voice_id="alFofuDn3cOwyoz1i44T"
-                )
-
-                if audio:
-                    # Actualizar el evento con la URL del audio
-                    await db["event"].update_one(
-                        {"_id": ObjectId(event_id)},
-                        {"$set": {"audio": audio.get("ogg"),
-                                  "audio_mp3": audio.get("mp3")}}
-                    )
-            except Exception as audio_error:
-                print(traceback.format_exc())
-                print(f"Error generating audio: {audio_error}")
-                # No fallar todo el proceso si falla el audio
-                pass
-
         # Construir info de personajes y adjuntar imágenes
         personajes_info = []
         personajes_images = []
@@ -331,3 +309,52 @@ async def _generate_image_event(_user_id, _prompt_user_image, _id_event, _game_p
     except Exception as e:
         logger.error(f"Error in get images event service: {traceback.format_exc()}")
         return "Error in generate image event"
+
+async def async_generate_event_audio(event_id: str, user_id: str, text: str = None):
+    """
+    Genera audio para un evento específico
+    """
+    try:
+        event_db = await db["event"].find_one({"_id": ObjectId(event_id)})
+        if not event_db:
+            print(f"Event not found: {event_id}")
+            return "Event not found"
+
+        # Usar el texto proporcionado o el texto del evento
+        audio_text = text or event_db.get("prompt_user_text")
+
+        if not audio_text:
+            print(f"No text available for audio generation for event: {event_id}")
+            return "No text available for audio generation"
+
+        try:
+            audio = await generate_audio(
+                text=audio_text,
+                user_id=user_id,
+                voice_id="alFofuDn3cOwyoz1i44T"
+            )
+
+            if audio:
+                # Actualizar el evento con la URL del audio
+                await db["event"].update_one(
+                    {"_id": ObjectId(event_id)},
+                    {"$set": {"audio": audio.get("ogg"),
+                              "audio_mp3": audio.get("mp3")}}
+                )
+                print(f"Audio generated successfully for event: {event_id}")
+                return "Audio generated successfully"
+            else:
+                print(f"Failed to generate audio for event: {event_id}")
+                return "Failed to generate audio"
+
+        except Exception as audio_error:
+            print(f"Error generating audio for event {event_id}: {audio_error}")
+            print(traceback.format_exc())
+            return f"Error generating audio: {str(audio_error)}"
+
+    except Exception as e:
+        print(f"Error in async_generate_event_audio: {e}")
+        print(traceback.format_exc())
+        return f"Error in audio generation: {str(e)}"
+
+

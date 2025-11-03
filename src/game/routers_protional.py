@@ -214,7 +214,7 @@ async def get_game_provisional(
             detail="Game provisional not found",
         )
 
-    events_plus = create_intermediate_events(game_provisional_db.get("interactions", []))
+    events_plus = create_intermediate_events(game_provisional_db.get("interactions"), game_provisional_db.get("characters"))
 
     # Normalizar y combinar events_plus y events; mover 'scene_start' al inicio si existe
     combined_events = []
@@ -222,6 +222,45 @@ async def get_game_provisional(
         combined_events.append(e.dict() if hasattr(e, "dict") else e)
     for e in events_plus:
         combined_events.append(e.dict() if hasattr(e, "dict") else e)
+
+    has_scene_end = any(event.get("type") == "scene_end" for event in combined_events)
+
+    # Crear evento scene_end en la última locación si no existe
+    if not has_scene_end and game_provisional_db.get("locations"):
+        last_location = game_provisional_db.get("locations")[-1]
+        if hasattr(last_location, "dict"):
+            last_location = last_location.dict()
+        last_loc_id = last_location.get("id") if isinstance(last_location, dict) else last_location["id"]
+
+        characters_in_last_loc = []
+        for character in game_provisional_db.get("characters", []):
+            char_data = character.dict() if hasattr(character, "dict") else character
+            if char_data.get("id_location") == last_loc_id:
+                characters_in_last_loc.append(char_data.get("id"))
+
+        characters = game_provisional_db.get("characters", [])
+        principal_char_id = None
+        if characters:
+            for char in characters:
+                char_dict = char.dict() if hasattr(char, "dict") else char
+                if str(char_dict.get("role", "")).lower() == "principal":
+                    principal_char_id = char_dict.get("id")
+
+
+        character_event = principal_char_id if principal_char_id else (characters_in_last_loc[0] if characters_in_last_loc else None)
+
+
+        scene_end_event = {
+            "id": "event_end",
+            "description": "Evento final del juego",
+            "visual_description": "Final de la aventura",
+            "type": "scene_end",
+            "id_characters": character_event,
+            "order": 4,
+            "id_location_start": last_loc_id,
+            "id_location_end": last_loc_id,
+        }
+        combined_events.append(scene_end_event)
 
     # Recuperar imágenes de locaciones usando el mapeo de IDs
     locations_with_images = []

@@ -88,6 +88,7 @@ task_routes = {
     'generate_location_task': {'queue': 'location_queue'},
     'generate_image_character_shared_task': {'queue': 'image_character_queue'},
     'generate_image_event_shared_task': {'queue': 'image_event_queue'},
+    'generate_event_audio_shared_task': {'queue': 'default'},
     'detection_voice_character_task': {'queue': 'voice_detection_queue'},
     'generate_voice_character_task': {'queue': 'voice_queue'},
     'update_voice_list': {'queue': 'maintenance_queue'},  # Nueva cola para tareas de mantenimiento

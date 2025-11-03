@@ -19,7 +19,7 @@ from location.schemas import SchemaCreateLocation
 from state_game.services import create_state_game
 from task.services import create_task_service
 from tasks_shared import generate_image_character_shared_task, detection_voice_character_task
-from tasks_shared import generate_image_event_shared_task
+from tasks_shared import generate_image_event_shared_task, generate_event_audio_shared_task
 
 
 class TaskCreateGameProvisional(BaseModel):
@@ -35,6 +35,23 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
     """
 
     try:
+
+        user_db = await db["user"].find_one({"_id": ObjectId(_user_id)}) if _user_id else None
+        if not user_db:
+            await update_game_provisional_status(_id_game_provisional, "error", 0,
+                                                 "User not found in database.")
+            return "User not found"
+
+        if user_db.get("stars", 0) < 10:
+            await update_game_provisional_status(_id_game_provisional, "error", 0,
+                                                 "Insufficient stars to create a provisional game.")
+            return "Insufficient stars"
+
+        await db["user"].update_one(
+            {"_id": ObjectId(_user_id)},
+            {"$inc": {"stars": -10}}
+        )
+
         # Actualizar estado: Iniciando proceso
         await update_game_provisional_status(_id_game_provisional, "processing", 0,
                                              "Game provisional creation started, initializing process.")
@@ -372,7 +389,7 @@ async def extract_characters_from_script(script: str) -> list[CharactersProvisio
 
 
 class EventsProvisional(BaseModel):
-    id: str = Field(..., example="event_1", description="Unique identifier for the event")
+    id: str = Field(..., example="event_start", description="Unique identifier for the event equal type")
     description: str = Field(..., example="The hero arrives at the village...", description="Description of the event")
     visual_description: str = Field(..., example="A bustling medieval village...",
                                     description="Visual description of the event")
@@ -441,10 +458,10 @@ async def extract_events_from_script(script: str, characters, locations) -> list
 class LocationsProvisional(BaseModel):
     id: str = Field(..., example="location_1", description="Unique identifier for the location")
     name: str = Field(..., example="Enchanted Forest", description="Name of the location")
-    visual_description: str = Field(..., example="A mystical forest with glowing plants...",
-                                    description="Visual description of the location")
-    description_situacional: str = Field(..., example="The forest is filled with magical creatures...",
-                                         description="Situational description of the location")
+    visual_description: str = Field(..., example="A mystical forest with tall ancient trees, a crystal-clear lake, and glowing mushrooms scattered throughout the area...",
+                                    description="Visual description of the location: describe the physical environment, landscape, objects, and visual elements present in the place")
+    description_situacional: str = Field(..., example="The characters are talking by the river shore, with scared expressions on their faces. One character is surprised with hands on their head while another is pointing at something in the water...",
+                                         description="Situational description: describe what the characters are doing in this location, their actions, expressions, body language, and how they are interacting with the environment")
     id_characters: list[str] = Field(..., example=["character_1"],
                                      description="List of character IDs present in this location")
     order: int = Field(..., example=1, description="Order of the location in the sequence of locations")
@@ -656,6 +673,523 @@ def _validate_and_get_character(chars_mapped, block_characters, principal_id):
     return None
 
 
+def validate_provisional_game_structure(game_structure: list, game_provisional_db: dict) -> dict:
+    """
+    Valida que la estructura provisional del juego tenga los eventos correctos:
+    - 4 eventos en total
+    - 1 evento inicial (solo locación 1)
+    - 2 eventos intermedios (entre locaciones 1-2 y 2-3)
+    - 1 evento final (solo locación 3)
+    - Los character_id deben estar en la locación pero no ser el principal
+
+    Returns:
+        dict: {"valid": bool, "error": str, "corrections_made": list}
+    """
+    corrections_made = []
+
+    try:
+        # Validar que game_provisional_db no sea None
+        if not game_provisional_db:
+            return {
+                "valid": False,
+                "error": "Los datos provisionales del juego son None o están vacíos",
+                "corrections_made": corrections_made
+            }
+
+        # Validar que game_structure no sea None o vacío
+        if not game_structure:
+            return {
+                "valid": False,
+                "error": "La estructura del juego está vacía o es None",
+                "corrections_made": corrections_made
+            }
+
+        # Verificar que tengamos exactamente 3 locaciones
+        if len(game_structure) != 3:
+            return {
+                "valid": False,
+                "error": f"Se esperaban 3 locaciones, se encontraron {len(game_structure)}",
+                "corrections_made": corrections_made
+            }
+
+        # Encontrar el personaje principal
+        characters_list = game_provisional_db.get("characters") or []
+
+        principal_char = None
+        try:
+            for char in characters_list:
+                if char and str(char.get("role", "")).lower() == "principal":
+                    principal_char = char
+                    break
+        except Exception as e:
+            return {
+                "valid": False,
+                "error": f"Error al iterar personajes: {str(e)}",
+                "corrections_made": corrections_made
+            }
+
+        principal_char_id = principal_char.get("id") if principal_char else None
+
+        # Contar eventos y validar estructura
+        eventos_iniciales = 0
+        eventos_finales = 0
+        eventos_intermedios = 0
+
+        # Validar locación 1 (debe tener evento inicial)
+        if len(game_structure) < 1 or game_structure[0] is None:
+            return {
+                "valid": False,
+                "error": "La locación 1 no existe o es None",
+                "corrections_made": corrections_made
+            }
+
+        loc_1 = game_structure[0]
+        if loc_1.get("event_start"):
+            eventos_iniciales += 1
+        else:
+            return {
+                "valid": False,
+                "error": "La locación 1 debe tener un evento inicial (event_start)",
+                "corrections_made": corrections_made
+            }
+
+        # Validar locación 3 (debe tener evento final)
+        if len(game_structure) < 3 or game_structure[2] is None:
+            return {
+                "valid": False,
+                "error": "La locación 3 no existe o es None",
+                "corrections_made": corrections_made
+            }
+
+        loc_3 = game_structure[2]
+        if loc_3.get("event_end"):
+            eventos_finales += 1
+        else:
+            return {
+                "valid": False,
+                "error": "La locación 3 debe tener un evento final (event_end)",
+                "corrections_made": corrections_made
+            }
+
+        # Contar eventos intermedios en toda la estructura
+        try:
+            for i, block in enumerate(game_structure):
+                if block is None:
+                    continue
+
+                events_middle_raw = block.get("events_middle")
+                if events_middle_raw is None:
+                    events_middle = []
+                elif isinstance(events_middle_raw, list):
+                    events_middle = events_middle_raw
+                else:
+                    try:
+                        events_middle = list(events_middle_raw) if events_middle_raw else []
+                    except:
+                        events_middle = []
+
+                if events_middle:
+                    # Solo contar eventos intermedios que realmente sean transiciones
+                    for j, event in enumerate(events_middle):
+                        if event is None:
+                            continue
+                        if hasattr(event, "dict"):
+                            event = event.dict()
+
+                        # Verificar que sea una transición real entre locaciones
+                        loc_start = event.get("id_location_start")
+                        loc_end = event.get("id_location_end")
+
+                        if loc_start != loc_end:
+                            eventos_intermedios += 1
+        except Exception as e:
+            return {
+                "valid": False,
+                "error": f"Error al contar eventos intermedios: {str(e)}",
+                "corrections_made": corrections_made
+            }
+
+        # Validar conteo total
+        total_eventos = eventos_iniciales + eventos_finales + eventos_intermedios
+        if total_eventos != 4:
+            return {
+                "valid": False,
+                "error": f"Se esperaban 4 eventos en total, se encontraron {total_eventos} (iniciales: {eventos_iniciales}, finales: {eventos_finales}, intermedios: {eventos_intermedios})",
+                "corrections_made": corrections_made
+            }
+
+        if eventos_intermedios != 2:
+            return {
+                "valid": False,
+                "error": f"Se esperaban 2 eventos intermedios, se encontraron {eventos_intermedios}",
+                "corrections_made": corrections_made
+            }
+
+        # Validar que eventos intermedios sean transiciones correctas
+        transiciones_encontradas = []
+        try:
+            for i, block in enumerate(game_structure):
+                if block is None:
+                    continue
+
+                events_middle_raw = block.get("events_middle")
+                if events_middle_raw is None:
+                    events_middle = []
+                elif isinstance(events_middle_raw, list):
+                    events_middle = events_middle_raw
+                else:
+                    try:
+                        events_middle = list(events_middle_raw) if events_middle_raw else []
+                    except:
+                        events_middle = []
+
+                for j, event in enumerate(events_middle):
+                    if event is None:
+                        continue
+                    if hasattr(event, "dict"):
+                        event = event.dict()
+
+                    # Buscar locaciones de inicio y fin
+                    loc_start_id = event.get("id_location_start")
+                    loc_end_id = event.get("id_location_end")
+
+                    # Mapear IDs a órdenes de locación
+                    start_order = None
+                    end_order = None
+
+                    for k, structure_block in enumerate(game_structure):
+                        if structure_block is None:
+                            continue
+                        loc = structure_block.get("location")
+                        if loc is None:
+                            continue
+                        if hasattr(loc, "dict"):
+                            loc = loc.dict()
+
+                        loc_id = loc.get("id")
+                        if loc_id == loc_start_id:
+                            start_order = k + 1
+                        if loc_id == loc_end_id:
+                            end_order = k + 1
+
+                    if start_order and end_order:
+                        transition = (start_order, end_order)
+                        transiciones_encontradas.append(transition)
+        except Exception as e:
+            return {
+                "valid": False,
+                "error": f"Error al validar transiciones: {str(e)}",
+                "corrections_made": corrections_made
+            }
+
+        # Verificar transiciones esperadas (1→2 y 2→3)
+        transiciones_esperadas = [(1, 2), (2, 3)]
+        transiciones_encontradas.sort()
+
+        if transiciones_encontradas != transiciones_esperadas:
+            return {
+                "valid": False,
+                "error": f"Transiciones incorrectas. Encontradas: {transiciones_encontradas}, esperadas: {transiciones_esperadas}",
+                "corrections_made": corrections_made
+            }
+
+        # Validar personajes en eventos
+        for i, block in enumerate(game_structure):
+            location_order = i + 1
+
+            # Validar evento inicial en locación 1
+            if location_order == 1 and block.get("event_start"):
+                event = block["event_start"]
+                if hasattr(event, "dict"):
+                    event = event.dict()
+
+                event_chars = event.get("id_characters", [])
+                if principal_char_id and principal_char_id in event_chars:
+                    return {
+                        "valid": False,
+                        "error": f"El evento inicial no debe incluir al personaje principal (ID: {principal_char_id})",
+                        "corrections_made": corrections_made
+                    }
+
+            # Validar evento final en locación 3
+            if location_order == 3 and block.get("event_end"):
+                event = block["event_end"]
+                if hasattr(event, "dict"):
+                    event = event.dict()
+
+                event_chars = event.get("id_characters", [])
+                if principal_char_id and principal_char_id in event_chars:
+                    return {
+                        "valid": False,
+                        "error": f"El evento final no debe incluir al personaje principal (ID: {principal_char_id})",
+                        "corrections_made": corrections_made
+                    }
+
+            # Validar eventos intermedios
+            events_middle_raw = block.get("events_middle")
+            if events_middle_raw is None:
+                events_middle = []
+            elif isinstance(events_middle_raw, list):
+                events_middle = events_middle_raw
+            else:
+                try:
+                    events_middle = list(events_middle_raw) if events_middle_raw else []
+                except:
+                    events_middle = []
+
+            for event in events_middle:
+                if hasattr(event, "dict"):
+                    event = event.dict()
+
+                event_chars = event.get("id_characters", [])
+                if principal_char_id and principal_char_id in event_chars:
+                    return {
+                        "valid": False,
+                        "error": f"Los eventos intermedios no deben incluir al personaje principal (ID: {principal_char_id})",
+                        "corrections_made": corrections_made
+                    }
+
+                # Verificar que los personajes estén en las locaciones correctas
+                block_char_ids = {char["id"] if hasattr(char, "dict") else char.get("id")
+                                for char in block["characters"]}
+
+                for char_id in event_chars:
+                    if char_id and char_id != principal_char_id and char_id not in block_char_ids:
+                        return {
+                            "valid": False,
+                            "error": f"El personaje {char_id} del evento no está en la locación {location_order}",
+                            "corrections_made": corrections_made
+                        }
+
+        return {
+            "valid": True,
+            "error": None,
+            "corrections_made": corrections_made
+        }
+
+    except Exception as e:
+        return {
+            "valid": False,
+            "error": f"Error en validación: {str(e)}",
+            "corrections_made": corrections_made
+        }
+
+
+async def validate_game_events_structure(game_provisional_id: str, game_id: str,
+                                       id_map_events_detailed: dict,
+                                       id_map_locations_detailed: dict,
+                                       id_map_characters_detailed: dict,
+                                       principal_char_id: str) -> dict:
+    """
+    Valida que la estructura de eventos del juego sea correcta:
+    - 4 eventos en total
+    - 1 evento inicial (solo locación 1)
+    - 2 eventos intermedios (entre locaciones 1-2 y 2-3)
+    - 1 evento final (solo locación 3)
+    - Los character_id deben estar en la locación correspondiente pero no ser el principal
+
+    Returns:
+        dict: {"valid": bool, "error": str, "corrections_made": list}
+    """
+    corrections_made = []
+
+    try:
+
+        # Obtener todos los eventos creados desde la base de datos
+        events_db = await db["event"].find({"game_id": game_id}).to_list(None)
+
+        if len(events_db) != 4:
+            # Intentar corregir: buscar eventos faltantes o eliminar exceso
+            if len(events_db) < 4:
+                return {
+                    "valid": False,
+                    "error": f"Se encontraron {len(events_db)} eventos, se esperaban 4. Faltan eventos.",
+                    "corrections_made": corrections_made
+                }
+            elif len(events_db) > 4:
+                # Eliminar eventos extras (mantener los primeros 4)
+                events_to_delete = events_db[4:]
+                for event in events_to_delete:
+                    await db["event"].delete_one({"_id": event["_id"]})
+                events_db = events_db[:4]
+                corrections_made.append(f"Eliminados {len(events_to_delete)} eventos extra")
+
+        # Agrupar eventos por state_game_order para validar ubicación
+        location_orders = {loc_id: details["state_game_order"]
+                          for loc_id, details in id_map_locations_detailed.items()}
+
+        # Clasificar eventos según su ubicación
+        event_inicial = None
+        eventos_intermedios = []
+        evento_final = None
+
+        for event in events_db:
+            # Determinar en qué locación está el evento
+            loc_init_id = event.get("location_state_game_init")
+            loc_end_id = event.get("location_state_game_end")
+
+            # Buscar el order de la locación
+            event_location_order = None
+            for loc_id, details in id_map_locations_detailed.items():
+                if details["db_id"] == loc_init_id:
+                    event_location_order = details["state_game_order"]
+                    break
+
+            if event_location_order is None:
+                return {
+                    "valid": False,
+                    "error": f"No se pudo determinar la locación del evento {event['_id']}",
+                    "corrections_made": corrections_made
+                }
+
+            # Clasificar evento según su locación y si es de transición
+            if event_location_order == 1 and loc_init_id == loc_end_id:
+                if event_inicial is None:
+                    event_inicial = event
+                else:
+                    # Ya existe evento inicial, este es duplicado
+                    await db["event"].delete_one({"_id": event["_id"]})
+                    corrections_made.append(f"Eliminado evento inicial duplicado: {event['_id']}")
+
+            elif event_location_order == 3 and loc_init_id == loc_end_id:
+                if evento_final is None:
+                    evento_final = event
+                else:
+                    # Ya existe evento final, este es duplicado
+                    await db["event"].delete_one({"_id": event["_id"]})
+                    corrections_made.append(f"Eliminado evento final duplicado: {event['_id']}")
+
+            elif loc_init_id != loc_end_id:  # Evento de transición
+                eventos_intermedios.append(event)
+
+        # Validar que tengamos todos los eventos necesarios
+        if event_inicial is None:
+            return {
+                "valid": False,
+                "error": "No se encontró evento inicial en la locación 1",
+                "corrections_made": corrections_made
+            }
+
+        if evento_final is None:
+            return {
+                "valid": False,
+                "error": "No se encontró evento final en la locación 3",
+                "corrections_made": corrections_made
+            }
+
+        if len(eventos_intermedios) != 2:
+            return {
+                "valid": False,
+                "error": f"Se encontraron {len(eventos_intermedios)} eventos intermedios, se esperaban 2",
+                "corrections_made": corrections_made
+            }
+
+        # Validar eventos intermedios (deben ser entre locaciones 1-2 y 2-3)
+        intermediate_transitions = []
+        for event in eventos_intermedios:
+            loc_init_id = event.get("location_state_game_init")
+            loc_end_id = event.get("location_state_game_end")
+
+            # Encontrar los orders de las locaciones
+            init_order = None
+            end_order = None
+
+            for loc_id, details in id_map_locations_detailed.items():
+                if details["db_id"] == loc_init_id:
+                    init_order = details["state_game_order"]
+                if details["db_id"] == loc_end_id:
+                    end_order = details["state_game_order"]
+
+            if init_order and end_order:
+                intermediate_transitions.append((init_order, end_order))
+
+        # Verificar que las transiciones sean correctas (1->2 y 2->3)
+        expected_transitions = [(1, 2), (2, 3)]
+        intermediate_transitions.sort()
+
+        if intermediate_transitions != expected_transitions:
+            return {
+                "valid": False,
+                "error": f"Transiciones incorrectas. Encontradas: {intermediate_transitions}, esperadas: {expected_transitions}",
+                "corrections_made": corrections_made
+            }
+
+        # Validar que los character_id estén en las locaciones correctas y no sean principales
+        events_to_validate = [event_inicial, evento_final] + eventos_intermedios
+
+        for event in events_to_validate:
+            character_id = event.get("character_id")
+            if character_id and character_id != principal_char_id:
+                # Validar que el personaje esté en la locación del evento
+                loc_id = event.get("location_state_game_init")
+
+                # Buscar si el personaje está en esa locación
+                character_in_location = False
+                for char_id, char_details in id_map_characters_detailed.items():
+                    if char_details["db_id"] == character_id:
+                        # Verificar si el personaje está en el mismo state_game que la locación
+                        for loc_prov_id, loc_details in id_map_locations_detailed.items():
+                            if (loc_details["db_id"] == loc_id and
+                                loc_details["state_game_order"] == char_details["state_game_order"]):
+                                character_in_location = True
+                                break
+                        break
+
+                if not character_in_location:
+                    # Corregir: asignar un personaje válido de esa locación
+                    valid_character = None
+                    event_location_order = None
+
+                    # Encontrar el order de la locación del evento
+                    for loc_id_prov, loc_details in id_map_locations_detailed.items():
+                        if loc_details["db_id"] == loc_id:
+                            event_location_order = loc_details["state_game_order"]
+                            break
+
+                    if event_location_order:
+                        # Buscar un personaje en esa locación que no sea principal
+                        for char_id_prov, char_details in id_map_characters_detailed.items():
+                            if (char_details["state_game_order"] == event_location_order and
+                                char_id_prov != principal_char_id):
+                                valid_character = char_details["db_id"]
+                                break
+
+                    if valid_character:
+                        await db["event"].update_one(
+                            {"_id": event["_id"]},
+                            {"$set": {"character_id": valid_character}}
+                        )
+                        corrections_made.append(f"Corregido character_id en evento {event['_id']}: {character_id} -> {valid_character}")
+                    else:
+                        # No hay personajes válidos, eliminar character_id
+                        await db["event"].update_one(
+                            {"_id": event["_id"]},
+                            {"$unset": {"character_id": ""}}
+                        )
+                        corrections_made.append(f"Eliminado character_id inválido del evento {event['_id']}")
+
+            elif character_id == principal_char_id:
+                # El personaje es principal, no debería estar asignado
+                await db["event"].update_one(
+                    {"_id": event["_id"]},
+                    {"$unset": {"character_id": ""}}
+                )
+                corrections_made.append(f"Eliminado character_id principal del evento {event['_id']}")
+
+        return {
+            "valid": True,
+            "error": None,
+            "corrections_made": corrections_made
+        }
+
+    except Exception as e:
+        return {
+            "valid": False,
+            "error": f"Error en validación: {str(e)}",
+            "corrections_made": corrections_made
+        }
+
+
 async def async_continue_create_game_provisional_2(_id_game_provisional: str, _user_id: str = None) -> str:
     """
     Continue creating a provisional game entry in the database.
@@ -686,6 +1220,47 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
             interactions=game_provisional_db.get("interactions", []),
             characters=game_provisional_db.get("characters", [])
         )
+
+        print(game_structure)
+
+        # Validar estructura de eventos antes de proceder
+        if game_structure is None:
+            await update_game_provisional_status(
+                _id_game_provisional,
+                "error",
+                15,
+                "Game structure creation failed: structure is None",
+                task=None
+            )
+            return "Game structure creation failed: structure is None"
+
+        validation_result = validate_provisional_game_structure(game_structure, game_provisional_db or {})
+
+        # Log de debug para diagnóstico
+        if not validation_result["valid"]:
+            print(f"DEBUG: Validation failed: {validation_result['error']}")
+        if validation_result.get("corrections_made"):
+            print(f"DEBUG: Corrections made: {validation_result['corrections_made']}")
+
+        if not validation_result["valid"]:
+            await update_game_provisional_status(
+                _id_game_provisional,
+                "error",
+                15,
+                f"Game structure validation failed: {validation_result['error']}",
+                task=None
+            )
+            return f"Game structure validation failed: {validation_result['error']}"
+
+        # Si hay correcciones reportarlas
+        if validation_result["corrections_made"]:
+            await update_game_provisional_status(
+                _id_game_provisional,
+                "processing",
+                18,
+                f"Structure validated with corrections: {', '.join(validation_result['corrections_made'])}",
+                task=None
+            )
 
         id_map_characters = {}
         id_map_locations = {}
@@ -889,6 +1464,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                 await asyncio.sleep(10)
 
         for index, block in enumerate(game_structure):
+
             for event_type in ["event_start", "event_end"]:
                 event = block.get(event_type)
                 if not event:
@@ -897,33 +1473,48 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                 if hasattr(event, "dict"):
                     try:
                         event = event.dict()
-                    except Exception:
+                    except Exception as e:
                         event = {k: getattr(event, k, None) for k in
                                  ("id_location_start", "id_location_end", "id_characters", "interaction_type")}
 
-                loc_start = id_map_locations.get(event.get("id_location_start") or event.get("id_location"),
-                                                 event.get("id_location_start"))
-                loc_end = id_map_locations.get(event.get("id_location_end") or event.get("id_location"), loc_start)
+                # Log de mapeo de locaciones
+                original_loc_start = event.get("id_location_start") or event.get("id_location")
+                original_loc_end = event.get("id_location_end") or event.get("id_location")
+                loc_start = id_map_locations.get(original_loc_start, original_loc_start)
+                loc_end = id_map_locations.get(original_loc_end, loc_start)
 
-                principal_char = next(
-                    (char for char in game_provisional_db.get("characters", []) if
-                     str(char.get("role")).lower() == "principal"),
-                    None
-                )
+                # Log de personajes
+                event_characters = event.get("id_characters", [])
 
-                chars_mapped = [id_map_characters[cid] for cid in id_map_characters.keys()
-                                if cid != principal_char["id"]][0:1] if principal_char else []
+                if not event_characters:
+                    # Buscar un personaje de la locación actual
+                    block_characters = block.get("characters", [])
+                    if block_characters:
+                        fallback_char = block_characters[0]
+                        fallback_char_id = fallback_char.get("id") if isinstance(fallback_char, dict) else getattr(fallback_char, "id", None)
+                        event_characters = [fallback_char_id] if fallback_char_id else []
+                    else:
+                        continue
+
+                character_id_mapped = id_map_characters.get(event_characters[0]) if event_characters else None
+
+                if not character_id_mapped:
+                    continue
+
+                # Log de estados de juego
+                state_init = id_map_states["3"] if event_type == "event_end" else id_map_states[str(index + 1)]
+                state_end = id_map_states["3"] if event_type == "event_end" else id_map_states[str(index + 1)]
 
                 created_event = await create_event_service(
                     event=SchemaCreateEvent(
                         name="event start" if event_type == "event_start" else "event end",
                         prompt_user_image=event.get("visual_description", "") if event_type == "event_start" else None,
                         prompt_user_text=event.get("description", "") if event_type == "event_start" else None,
-                        character_id=chars_mapped[0] if chars_mapped and event_type != "event_start" else None,
+                        character_id=None if event_type == "event_start" else character_id_mapped,
                         type_conversation=event.get("interaction_type"),
                         option_number=0,
-                        state_game_init=id_map_states[str(index + 1)],
-                        state_game_end=id_map_states[str(index + 1)],
+                        state_game_init=state_init,
+                        state_game_end=state_end,
                         location_state_game_init=loc_start,
                         location_state_game_end=loc_start,
                         game_id=str(game_db.get("_id")),
@@ -935,14 +1526,50 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     user_id=game_provisional_db.get("created_by", "anonymous")
                 )
 
+                # Generar audio para eventos de tipo start
+                if event_type == "event_start":
+                    event_text = event.get("description", "")
+                    if event_text:
+                        try:
+                            print(f"DEBUG: Starting audio generation for event {created_event.get('_id')} with text: {event_text[:100]}...")
+
+                            # Ejecutar tarea de audio en background
+                            audio_task = generate_event_audio_shared_task.delay(
+                                event_id=str(created_event.get("_id")),
+                                user_id=game_provisional_db.get("created_by", "anonymous"),
+                                text=event_text
+                            )
+
+                            print(f"DEBUG: Audio task created with ID: {audio_task.id}")
+
+                            # Crear registro de tarea si es necesario
+                            task_db = await create_task_service(
+                                _task_id=audio_task.id,
+                                _user_id=game_provisional_db.get("created_by", "anonymous"),
+                                _task_data={},
+                                _element_id=str(created_event.get("_id")),
+                                _element_type="event",
+                                _process="create_audio_event",
+                            )
+
+                            print(f"DEBUG: Audio task registered in database")
+
+                        except Exception as audio_error:
+                            print(f"ERROR: Failed to start audio generation task for event {created_event.get('_id')}: {audio_error}")
+                            print(traceback.format_exc())
+                            # No fallar el proceso completo si falla la tarea de audio
+                    else:
+                        print(f"DEBUG: No text available for audio generation in event {created_event.get('_id')}")
+
                 # Guardar mapeo de evento
                 event_provisional_id = event.get("id")
+
                 if event_provisional_id:
                     id_map_events[event_provisional_id] = str(created_event.get("_id"))
                     # Guardar mapeo detallado con estado de juego
                     id_map_events_detailed[event_provisional_id] = {
                         "db_id": str(created_event.get("_id")),
-                        "state_game_id": id_map_states[index + 1],
+                        "state_game_id": state_init,
                         "state_game_order": index + 1,
                         "event_type": event_type
                     }
@@ -953,40 +1580,59 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     {"$set": {event_field: str(created_event.get("_id"))}}
                 )
 
-            if block.get("events_middle", None):
-                for event in block.get("events_middle", []):
+            # Procesar eventos intermedios
+            events_middle = block.get("events_middle", [])
+
+            if events_middle:
+                for middle_index, event in enumerate(events_middle):
+
+
                     if hasattr(event, "dict"):
                         try:
                             event = event.dict()
-                        except Exception:
+                        except Exception as e:
                             event = {k: getattr(event, k, None) for k in
                                      ("id_location_start", "id_location_end", "id_characters", "interaction_type")}
 
-                    loc_start = id_map_locations.get(event.get("id_location_start"), event.get("id_location_start"))
-                    loc_end = id_map_locations.get(event.get("id_location_end"), event.get("id_location_end"))
-                    principal_char = next(
-                        (char for char in game_provisional_db.get("characters", []) if
-                         str(char.get("role")).lower() == "principal"),
-                        None
-                    )
+                    # Log de mapeo de locaciones para eventos intermedios
+                    original_loc_start = event.get("id_location_start")
+                    original_loc_end = event.get("id_location_end")
 
-                    chars_mapped = [id_map_characters[cid] for cid in id_map_characters.keys()
-                                    if cid != principal_char["id"]][0:1] if principal_char else []
+                    loc_start = id_map_locations.get(original_loc_start, original_loc_start)
+                    loc_end = id_map_locations.get(original_loc_end, original_loc_end)
+
+                    # Log de personajes para eventos intermedios
+                    event_characters = event.get("id_characters", [])
+
+                    if not event_characters:
+                        # Buscar un personaje de la locación actual
+                        block_characters = block.get("characters", [])
+                        if block_characters:
+                            fallback_char = block_characters[0]
+                            fallback_char_id = fallback_char.get("id") if isinstance(fallback_char, dict) else getattr(fallback_char, "id", None)
+                            event_characters = [fallback_char_id] if fallback_char_id else []
+                        else:
+                            continue
+
+                    character_id_mapped = id_map_characters.get(event_characters[0]) if event_characters else None
+
+                    if not character_id_mapped:
+                        continue
+
+                    # Log de estados de juego para eventos intermedios
+                    state_init = id_map_states[str(index + 1)]
+                    state_end = id_map_states[str(index + 2)] if str(index + 2) in id_map_states else ""
 
                     created_middle_event = await create_event_service(
                         event=SchemaCreateEvent(
                             name="event middle",
                             prompt_user_image=None,
                             prompt_user_text=None,
-                            character_id=_validate_and_get_character(
-                                chars_mapped,
-                                block["characters"],
-                                principal_orig_id
-                            ),
+                            character_id=character_id_mapped,
                             type_conversation=event.get("interaction_type"),
                             option_number=0,
-                            state_game_init=id_map_states[str(index + 1)],
-                            state_game_end=id_map_states[str(index + 2)] if str(index + 2) in id_map_states else "",
+                            state_game_init=state_init,
+                            state_game_end=state_end,
                             location_state_game_init=loc_start,
                             location_state_game_end=loc_end,
                             game_id=str(game_db.get("_id")),
@@ -1000,12 +1646,13 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
 
                     # Guardar mapeo de evento middle
                     event_provisional_id = event.get("id")
+
                     if event_provisional_id:
                         id_map_events[event_provisional_id] = str(created_middle_event.get("_id"))
                         # Guardar mapeo detallado con estado de juego
                         id_map_events_detailed[event_provisional_id] = {
                             "db_id": str(created_middle_event.get("_id")),
-                            "state_game_id": id_map_states[index + 1],
+                            "state_game_id": state_init,
                             "state_game_order": index + 1,
                             "event_type": "event_inter"
                         }
@@ -1043,26 +1690,123 @@ def create_game_structure(locations, events, interactions, characters):
     """
     Construye la estructura del juego agrupando por locación, eventos, interacciones y personajes.
     Incluye el tipo de interacción en cada evento si existe.
+    Crea automáticamente eventos scene_start y scene_end si no existen.
     """
     estructura = []
-    personajes_por_locacion = {
-        loc["id"]: [c for c in characters if c["id"] in loc.get("id_characters", [])]
-        for loc in locations
-    }
+    personajes_por_locacion = {}
+    for loc in locations:
+        if hasattr(loc, "dict"):
+            loc_dict = loc.dict()
+        else:
+            loc_dict = loc
+        loc_id = loc_dict.get("id")
+
+        # Manejo robusto de personajes
+        chars_for_location = []
+        for c in characters:
+            if hasattr(c, "dict"):
+                c_dict = c.dict()
+            else:
+                c_dict = c
+
+            if c_dict.get("id") in loc_dict.get("id_characters", []):
+                chars_for_location.append(c)
+
+        personajes_por_locacion[loc_id] = chars_for_location
     interacciones_por_locacion = {}
     for inter in interactions:
         loc_id = inter.get('id_location', None)
         if loc_id:
             interacciones_por_locacion.setdefault(loc_id, []).append(inter)
 
-    events_plus = create_intermediate_events(interactions)
+    events_plus = create_intermediate_events(interactions, characters)
 
-    # Normalizar y combinar events_plus y events; mover 'scene_start' al inicio si existe
+    # Normalizar y combinar events_plus y events
     combined_events = []
     for e in events:
         combined_events.append(e.dict() if hasattr(e, "dict") else e)
     for e in events_plus:
         combined_events.append(e.dict() if hasattr(e, "dict") else e)
+
+    # Verificar si existen eventos scene_start y scene_end, crear si no existen
+    has_scene_start = any(event.get("type") == "scene_start" for event in combined_events)
+    has_scene_end = any(event.get("type") == "scene_end" for event in combined_events)
+
+    # Crear evento scene_start en la primera locación si no existe
+    if not has_scene_start and locations:
+        first_location = locations[0]
+        if hasattr(first_location, "dict"):
+            first_location = first_location.dict()
+        first_loc_id = first_location.get("id") if isinstance(first_location, dict) else first_location["id"]
+        scene_start_event = {
+            "id": "event_start",
+            "description": "Evento inicial del juego",
+            "visual_description": "Inicio de la aventura",
+            "type": "scene_start",
+            "id_characters": [],
+            "order": 0,
+            "id_location_start": first_loc_id,
+            "id_location_end": first_loc_id,
+        }
+        combined_events.append(scene_start_event)
+
+    # Crear evento scene_end en la última locación si no existe
+    if not has_scene_end and locations:
+        last_location = locations[-1]
+        if hasattr(last_location, "dict"):
+            last_location = last_location.dict()
+        last_loc_id = last_location.get("id") if isinstance(last_location, dict) else last_location["id"]
+
+        characters_in_last_loc = last_location.get("id_characters", [])
+
+        principal_char_id = None
+        if characters:
+            for char in characters:
+                char_dict = char.dict() if hasattr(char, "dict") else char
+                if str(char_dict.get("role", "")).lower() == "principal":
+                    principal_char_id = char_dict.get("id")
+
+        # Buscar un personaje secundario en la última locación
+        character_event = None
+        for char_id in characters_in_last_loc:
+            if char_id != principal_char_id:
+                character_event = char_id
+                break
+
+        # Si no hay personajes secundarios, usar lista vacía
+        character_event = [character_event] if character_event else []
+
+        scene_end_event = {
+            "id": "event_end",
+            "description": "Evento final del juego",
+            "visual_description": "Final de la aventura",
+            "type": "scene_end",
+            "id_characters": character_event,
+            "order": 4,
+            "id_location_start": last_loc_id,
+            "id_location_end": last_loc_id,
+        }
+        combined_events.append(scene_end_event)
+
+    # Encontrar y limpiar personaje principal de eventos de inicio y final
+    principal_char = None
+    for char in characters:
+        char_dict = char.dict() if hasattr(char, "dict") else char
+        if str(char_dict.get("role", "")).lower() == "principal":
+            principal_char = char_dict
+            break
+
+    principal_char_id = principal_char.get("id") if principal_char else None
+
+    # Limpiar eventos para remover personaje principal de eventos de inicio y final
+    for event in combined_events:
+        event_type = event.get("type")
+        if event_type in ["scene_start", "scene_end"]:
+            # Remover personaje principal de la lista de personajes del evento
+            event_chars = event.get("id_characters", [])
+            if principal_char_id and principal_char_id in event_chars:
+                event_chars = [char_id for char_id in event_chars if char_id != principal_char_id]
+                event["id_characters"] = event_chars
 
     eventos_por_locacion = {}
     for event in combined_events:
@@ -1073,7 +1817,10 @@ def create_game_structure(locations, events, interactions, characters):
     for idx, loc in enumerate(locations):
         is_last_loc = (idx == len(locations) - 1)
         location_data = loc.dict() if hasattr(loc, 'dict') else loc
-        eventos = eventos_por_locacion.get(loc["id"], [])
+
+        # Acceso robusto al ID de la locación
+        loc_id = location_data.get("id") if isinstance(location_data, dict) else location_data["id"]
+        eventos = eventos_por_locacion.get(loc_id, [])
         eventos_inicio = []
         eventos_final = []
         eventos_intermedios = []
@@ -1087,33 +1834,38 @@ def create_game_structure(locations, events, interactions, characters):
             event_with_interaction = dict(event)
             event_with_interaction["interaction_type"] = interaction_type
 
-            # Evento de inicio: tipo scene_start y locaciones iguales
-            if tipo == "scene_start" and event.get("id_location_start") == event.get("id_location_end"):
+            # Evento de inicio: tipo scene_start y en la primera locación
+            if tipo == "scene_start" and idx == 0:
                 eventos_inicio.append(event_with_interaction)
-            # Evento de final: tipo scene_end y locaciones iguales
-            elif tipo == "scene_end" and event.get("id_location_start") == event.get("id_location_end"):
+            # Evento de final: tipo scene_end y en la última locación
+            elif tipo == "scene_end" and is_last_loc:
                 eventos_final.append(event_with_interaction)
-            # Evento intermedio: locaciones diferentes
-            elif event.get("id_location_start") != event.get("id_location_end"):
-                if is_last_loc:
-                    # Si es la última locación, no permitir evento intermedio: tratar como final
-                    event_with_interaction["type"] = "scene_end"
-                    eventos_final.append(event_with_interaction)
-                else:
+            # Evento intermedio: tipo event_inter y locaciones diferentes
+            elif tipo == "event_inter" and event.get("id_location_start") != event.get("id_location_end"):
+                # Solo agregar eventos intermedios en locaciones de transición (no en la última)
+                if not is_last_loc:
                     eventos_intermedios.append(event_with_interaction)
+
+        # Para eventos intermedios, filtrar solo los que empiecen en esta locación
+        eventos_intermedios_filtrados = []
+        for event in eventos_intermedios:
+            # Solo incluir eventos intermedios que empiecen en esta locación
+            event_start_loc_id = event.get("id_location_start")
+            if event_start_loc_id == loc_id:
+                eventos_intermedios_filtrados.append(event)
 
         item = {
             "location": location_data,
             "event_start": eventos_inicio[0] if eventos_inicio else None,
             "event_end": eventos_final[0] if eventos_final else None,
-            "events_middle": eventos_intermedios if eventos_intermedios else None,
+            "events_middle": eventos_intermedios_filtrados if eventos_intermedios_filtrados else None,
             "interaction": [
                 inter.dict() if hasattr(inter, 'dict') else inter
                 for inter in interacciones
             ],
             "characters": [
                 c.dict() if hasattr(c, 'dict') else c
-                for c in personajes_por_locacion.get(loc["id"], [])
+                for c in personajes_por_locacion.get(loc_id, [])
             ]
         }
         estructura.append(item)
@@ -1121,7 +1873,7 @@ def create_game_structure(locations, events, interactions, characters):
 
 
 # Evento intermedio entre locaciones, sin imagen
-def create_intermediate_events(interactions):
+def create_intermediate_events(interactions, characters=None):
     events = []
 
     def _get_field(obj, field, default=None):
@@ -1147,14 +1899,27 @@ def create_intermediate_events(interactions):
     if n == 0:
         return events
 
-    for i in range(n):
+    # Encontrar personaje principal para excluirlo
+    principal_char_id = None
+    if characters:
+        for char in characters:
+            char_dict = char.dict() if hasattr(char, "dict") else char
+            if str(char_dict.get("role", "")).lower() == "principal":
+                principal_char_id = char_dict.get("id")
+                break
+
+    # Crear exactamente 2 eventos intermedios para las transiciones 1→2 y 2→3
+    # Solo procesamos las primeras 2 interacciones para crear los eventos intermedios
+    max_events = min(2, n)
+
+    for i in range(max_events):
         inter_start = interactions[i]
         inter_end = interactions[i + 1] if (i + 1) < n else None
 
         loc_start_id = _get_field(inter_start, "id_location", None)
         loc_end_id = _get_field(inter_end, "id_location", None) if inter_end else loc_start_id
 
-        # Usar solo los characters de la interacción actual (inter_start)
+        # Usar solo los characters de la interacción actual (inter_start), excluyendo al principal
         start_chars = _get_field(inter_start, "id_characters", []) or []
 
         # Normalizar a lista y deduplicar manteniendo orden
@@ -1167,27 +1932,25 @@ def create_intermediate_events(interactions):
         seen = set()
         chars_in_event = []
         for c in start_chars:
-            if c not in seen:
+            if c not in seen and c != principal_char_id:  # Excluir personaje principal
                 seen.add(c)
                 chars_in_event.append(c)
 
-        # Determinar tipo de evento
-
-        if loc_start_id is not None and loc_start_id == loc_end_id:
-            ev_type = "scene_end"
-        else:
+        # Para los eventos intermedios, siempre son tipo "event_inter"
+        # Solo crear evento intermedio si hay transición entre locaciones diferentes
+        if loc_start_id is not None and loc_end_id is not None and loc_start_id != loc_end_id:
             ev_type = "event_inter"
 
-        event = {
-            "id": f"event_{i + 2}",
-            "description": "",
-            "visual_description": "",
-            "type": ev_type,
-            "id_characters": chars_in_event,
-            "order": i + 1,
-            "id_location_start": loc_start_id,
-            "id_location_end": loc_end_id,
-        }
-        events.append(event)
+            event = {
+                "id": f"event_inter",
+                "description": "",
+                "visual_description": "",
+                "type": ev_type,
+                "id_characters": chars_in_event,
+                "order": i + 1,
+                "id_location_start": loc_start_id,
+                "id_location_end": loc_end_id,
+            }
+            events.append(event)
 
     return events
