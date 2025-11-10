@@ -107,7 +107,10 @@ async def create_game(
 
     try:
 
-        url_file = upload_file(file=file)
+        if file:
+            url_file = upload_file(file=file)
+        else:
+            url_file = None
 
         game_provisional_db = await db["game_provisional"].insert_one(
             {

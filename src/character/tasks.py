@@ -46,11 +46,10 @@ async def generate_voice_character(
 ):
     try:
         voice = {}
-        character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
         character_state_db = await db["state_glic"].find_one(
             {"element_id": character_id, "state": state_game}
         )
-        if not character_db.get("voice_id") or not character_state_db["data"].get("voice_id"):
+        if not character_state_db["data"].get("voice_id"):
             variants_voices = await get_variants_service()
             response_generated = await openai_generator.generate_gpt(
                 content_prompt=[
@@ -101,7 +100,7 @@ async def generate_voice_character(
                 {"_id": ObjectId(character_id)}, {"$set": {"voice_id": str(voice["voice_id"])}}
             )
         else:
-            voice["voice_id"] = character_db["voice_id"]
+            voice["voice_id"] = character_state_db["data"].get("voice_id")
         character_state_db["data"]["voice_id"] = str(voice["voice_id"])
         character_state_db["data"]["prompt_user_dialog"] = prompt_user_dialog
         character_state_db["data"]["conversation_type"] = type_conversation
@@ -2045,10 +2044,10 @@ async def _generate_image_character(_user_id,
                                     _game_provisional):
     try:
         image_face = await openai_generator.generate_image(
-            prompt=f"Genera una imagen en vista frontal cuadrada de 1024x1024 de un personaje,"
-                   f" ({_gender}) en estilo 3D low poly, de la cintura para "
+            prompt=f"Genera una imagen en vista frontal cuadrada de 1024x1024 de un personaje de fondo transparente,"
+                   f" ({_prompt_user}) en estilo 3D low poly, de la cintura para "
                    f"arriba mirando al frente con los brazos hacia abajo, con fondo de color solido que contraste."
-                   f"genero: {_prompt_user}, "
+                   f"genero: {_gender},"
                    f" Utilizando la imagen de referencia.",
             size="1024x1024",
             user_id=_user_id,

@@ -134,98 +134,165 @@ async def send_verification_code(request: VerificationRequest, background_tasks:
     # Generar y enviar el código
     code = await generate_verification_code(request.email)
     html = f"""
-    <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xmlns="http://www.w3.org/1999/xhtml"
-      style="color-scheme: light; supported-color-schemes: light ;">
-<head>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <meta name="x-apple-disable-message-reformatting"/>
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
-    <meta name="color-scheme" content="light dark"/>
-    <meta name="supported-color-schemes" content="light dark"/>
-    <title></title>
-
-    <style>
-        body {{
-            background-color: #f3f4f6;
-            color: #1f2937;
-            font-family: Arial, sans-serif;
-        }}
-
-        .container {{
-            max-width: 640px;
-            margin: 0 auto;
-            padding: 24px;
-            background-color: #ffffff;
-        }}
-
-        .header {{
-            text-align: center;
-            padding: 24px 0;
-        }}
-
-        .header h1 {{
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #ffffff;
-            background-color: #ec4899;
-            padding: 8px;
-            display: inline-block;
-        }}
-
-        .title {{
-            font-size: 1.125rem;
-            font-weight: 600;
-            color: #4b5563;
-        }}
-
-        .text {{
-            margin-top: 16px;
-            font-size: 0.875rem;
-            color: #374151;
-        }}
-
-        .text span {{
-            font-family: monospace;
-            color: #6b7280;
-        }}
-    </style>
-
-</head>
-<body>
-  
-<div class="container">
-    <div class="header"
-         style="position:relative; text-align:center; padding:12px 0; background-color:#ec4899; border-radius:4px;">
+        <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+        "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+    <html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <meta name="x-apple-disable-message-reformatting"/>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+        <meta name="color-scheme" content="light dark"/>
+        <title>Verification Code</title>
+        <style>
+            body {{
+                background-color: #f3f4f6;
+                color: #1f2937;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                margin: 0;
+                padding: 0;
+                font-size: 14px;
+                line-height: 1.5;
+            }}
     
-        <h1 style="position:relative; z-index:1; font-size:1.5rem; font-weight:700; color:#ffffff; margin:0; padding:8px;">
-            Qwestar
-         </h1>
-    </div>
-    <h2 class="title">Verification Code</h2>
-    <p class="text">
-        Please use the following verification code to proceed:
-    </p>
-   <div style="padding:24px; margin:24px auto; box-shadow:0 2px 8px #0001;">
-     <div style="text-align:center; font-size:1.5rem; font-weight:700; color:#293c72;">
-       {code}
-     </div>
-   </div>
-   <p>If you have any questions, feel free to contact us.</p>
-<p style="margin-top: 30px;">
-     Best regards,<br>
-    <strong>The Qwestar Team</strong>
-</p>
-<div style="background-color: #343a40; color: white; text-align: center; padding: 15px;">
-    <p style="margin: 0; font-size: 12px;">© 2025 Qwestar. All rights reserved.</p>
-</div>
-</div>
-
-
-</body>
-</html>
-    """
+            .container {{
+                max-width: 640px;
+                margin: 0 auto;
+                padding: 24px;
+                background-color: #ffffff;
+            }}
+    
+            .header {{
+                text-align: center;
+                padding: 24px 0;
+                background-color: #ec4899;
+                border-radius: 8px;
+                margin-bottom: 32px;
+            }}
+    
+            .header h1 {{
+                font-size: 28px;
+                font-weight: 700;
+                color: #ffffff;
+                margin: 0;
+            }}
+    
+            .title {{
+                font-size: 20px;
+                font-weight: 600;
+                color: #1f2937;
+                margin: 24px 0 16px 0;
+            }}
+    
+            .text {{
+                font-size: 14px;
+                color: #374151;
+                margin: 16px 0;
+            }}
+    
+            .code-wrapper {{
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 24px;
+                margin: 24px 0;
+                background-color: #f9fafb;
+                border: 2px solid #e5e7eb;
+                border-radius: 8px;
+            }}
+    
+            .code {{
+                font-size: 32px;
+                font-weight: 700;
+                color: #293c72;
+                letter-spacing: 4px;
+                margin: 0;
+                font-family: 'Courier New', monospace;
+                flex: 1;
+            }}
+    
+            .copy-button {{
+                background: none;
+                border: none;
+                cursor: pointer;
+                font-size: 24px;
+                padding: 8px;
+                margin-left: 16px;
+                transition: transform 0.2s;
+            }}
+    
+            .copy-button:hover {{
+                transform: scale(1.1);
+            }}
+    
+            .footer-text {{
+                font-size: 14px;
+                color: #374151;
+                margin: 24px 0;
+            }}
+    
+            .signature {{
+                font-size: 14px;
+                color: #374151;
+                margin: 30px 0 0 0;
+            }}
+    
+            .footer {{
+                background-color: #343a40;
+                color: #ffffff;
+                text-align: center;
+                padding: 16px;
+                border-radius: 0 0 8px 8px;
+                font-size: 14px;
+                margin: 32px -24px -24px -24px;
+            }}
+    
+            .footer p {{
+                margin: 0;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>Qwestar</h1>
+            </div>
+            
+            <h2 class="title">Verification Code</h2>
+            
+            <p class="text">
+                Please use the following verification code to continue:
+            </p>
+            
+            <div class="code-wrapper">
+                <p class="code" id="verification-code">{code}</p>
+                <button class="copy-button" onclick="copyToClipboard()" title="Copy code">
+                    📋
+                </button>
+            </div>
+            
+            <p class="footer-text">
+                If you have any questions, feel free to contact us.
+            </p>
+            
+            <p class="signature">
+                Best regards,<br>
+                <strong>Qwestar Team</strong>
+            </p>
+            
+            <div class="footer">
+                <p>© 2025 Qwestar. All rights reserved.</p>
+            </div>
+        </div>
+    
+        <script>
+            function copyToClipboard() {{
+                const code = document.getElementById('verification-code').textContent;
+                navigator.clipboard.writeText(code);
+            }}
+        </script>
+    </body>
+    </html>
+        """
     await send_email(
         "Tu código de verificación para Qwestar",
         [str(request.email)],

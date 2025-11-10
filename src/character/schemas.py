@@ -91,9 +91,13 @@ class SchemaStateLocation(BaseModel):
     data: Optional[SchemaDataCharacter] = Field(None, example={})
 
 class ConversationsCharacter(BaseModel):
-    character_id: str = Field(..., example="character_id")
+    id_character: str = Field(..., example="character_id")
     dialog: str = Field(..., example="dialog")
     audio: str = Field(None, example="audio")
+
+class ConversationsOptionsCharacter(BaseModel):
+    question: ConversationsCharacter = Field(..., example="question")
+    answer: ConversationsCharacter = Field(..., example="answer")
 
 
 class SchemaCreateCharacter(BaseModel):
@@ -188,7 +192,7 @@ class SchemaNewInteraction(BaseModel):
     location_id: str = Field(..., example="location_id")
     game_id: str = Field(..., example="game_id")
     conversation_type: str = Field(..., example="conversation_type")
-    prompt_user_dialog: str = Field(..., example="prompt_user_dialog")
+    conversation: list[ConversationsCharacter] = Field(..., example="conversation")
     options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple | SchemaOpenTalk] = Field(
         None, example={"key": "value"}
     )

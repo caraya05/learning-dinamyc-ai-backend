@@ -68,22 +68,24 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
         await update_game_provisional_status(_id_game_provisional, "downloading_file", 10,
                                              "Downloading source file for processing.")
 
-        # logger.debug(f"Juego provisional encontrado: {game_provisional_db.get('_id')}")
-        file_url = game_provisional_db["file"]
-        # logger.info(f"Descargando archivo desde URL: {file_url}")
-        response = requests.get(file_url)
+        if game_provisional_db["file"]:
+            file_url = game_provisional_db["file"]
+            # logger.info(f"Descargando archivo desde URL: {file_url}")
+            response = requests.get(file_url)
 
-        if response.status_code == 200:
-            # logger.debug("Archivo descargado correctamente")
-            data = response.content  # Contenido binario del archivo
-            # Codificar el archivo en base64
-            base64_string = base64.b64encode(data).decode("utf-8")
-            # logger.debug(f"Archivo codificado en base64 (primeros 100 caracteres): {base64_string[:100]}...")
+            if response.status_code == 200:
+                # logger.debug("Archivo descargado correctamente")
+                data = response.content  # Contenido binario del archivo
+                # Codificar el archivo en base64
+                base64_string = base64.b64encode(data).decode("utf-8")
+                # logger.debug(f"Archivo codificado en base64 (primeros 100 caracteres): {base64_string[:100]}...")
+            else:
+                await update_game_provisional_status(_id_game_provisional, "error", 10,
+                                                     f"Failed to download file. HTTP status: {response.status_code}")
+                # logger.error(f"Error al descargar archivo. Código de estado: {response.status_code}")
+                return "Error generating file"
         else:
-            await update_game_provisional_status(_id_game_provisional, "error", 10,
-                                                 f"Failed to download file. HTTP status: {response.status_code}")
-            # logger.error(f"Error al descargar archivo. Código de estado: {response.status_code}")
-            return "Error generating file"
+            base64_string = None
 
         # Actualizar estado: Generando contenido del juego
         await update_game_provisional_status(_id_game_provisional, "generating_content", 25,
@@ -96,6 +98,8 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
         if type_template and str(type_template).lower() == "trivia":
             trivia_warning = """
                 IMPORTANTE: El template es TRIVIA. TODAS las escenas deben tener interacción de tipo 'option_multiple', siguiendo exactamente el formato del ejemplo. No incluyas interacciones de tipo 'two_way' ni 'one_way'. Si no sigues el formato, el resultado será rechazado.
+                
+                El personaje principal es el que responde las preguntas, y el personaje secundario es el que las formula.
                 
                 Ejemplo de interacción option_multiple:
                 1: ¿Cuál es la capital de Francia?
@@ -129,6 +133,7 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
                   - Evento final
                 
                 No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al pie de la letra.
+                
                 """
         else:
             trivia_warning = ""
@@ -458,9 +463,11 @@ async def extract_events_from_script(script: str, characters, locations) -> list
 class LocationsProvisional(BaseModel):
     id: str = Field(..., example="location_1", description="Unique identifier for the location")
     name: str = Field(..., example="Enchanted Forest", description="Name of the location")
-    visual_description: str = Field(..., example="A mystical forest with tall ancient trees, a crystal-clear lake, and glowing mushrooms scattered throughout the area...",
+    visual_description: str = Field(...,
+                                    example="A mystical forest with tall ancient trees, a crystal-clear lake, and glowing mushrooms scattered throughout the area...",
                                     description="Visual description of the location: describe the physical environment, landscape, objects, and visual elements present in the place")
-    description_situacional: str = Field(..., example="The characters are talking by the river shore, with scared expressions on their faces. One character is surprised with hands on their head while another is pointing at something in the water...",
+    description_situacional: str = Field(...,
+                                         example="The characters are talking by the river shore, with scared expressions on their faces. One character is surprised with hands on their head while another is pointing at something in the water...",
                                          description="Situational description: describe what the characters are doing in this location, their actions, expressions, body language, and how they are interacting with the environment")
     id_characters: list[str] = Field(..., example=["character_1"],
                                      description="List of character IDs present in this location")
@@ -482,10 +489,18 @@ async def extract_locations_from_script(script: str, characters) -> list[Locatio
         prompt = f"""
         Extract the main locations from the following game script. Provide a list of locations with their names,
         visual descriptions, descriptions situacional and characters present in each location.
-
+        
         IMPORTANT: In the visual description of each location, include descriptions of adjacent or nearby places to create
         a sense of depth and make the spaces appear distant from each other.
-
+        
+        CRITICAL FOR description_situacional:
+        - Focus EXCLUSIVELY on what the characters are doing and their actions in the location
+        - Describe their body language, gestures, emotions, and interactions with each other
+        - Describe the environment from a FAR DISTANT VIEW - as if you're watching from a distance
+        - Include the characters' positions, movements, and spatial relationships
+        - Do NOT describe the location details - only the characters' activities and appearance from afar
+        - Example: "Two figures stand by the river shore. One is pointing at something in the water while the other covers their face with both hands in shock. They appear small against the vast landscape."
+        
         Script:
         {script}
         Characters available (with their IDs):
@@ -532,12 +547,21 @@ class ConversationProvisional(BaseModel):
     audio: str | None = Field(None, example=None, description="ever is None")
 
 
+class ConversationOptionProvisional(BaseModel):
+    option : ConversationProvisional = Field(..., description="Question asked by the character")
+    answer: ConversationProvisional = Field(..., description="Answer given by the player")
+
+
+
+
 class InteractionProvisional(BaseModel):
     id: str = Field(..., example="interaction_1", description="Unique identifier for the interaction")
     type: str = Field(..., example="two_way",
                       description="Type of interaction, e.g., two_way, one_way, option_multiple, open_question, open_talk")
     conversations: list[ConversationProvisional] = Field(..., example=[],
                                                          description="List of conversations involved in this interaction")
+    options: list[ConversationOptionProvisional] = Field(..., example=[],)
+
     id_location: str = Field(..., example="location_1",
                              description="ID of the location where this interaction takes place")
     id_characters: list[str] = Field(..., example=["character_1"],
@@ -951,7 +975,7 @@ def validate_provisional_game_structure(game_structure: list, game_provisional_d
 
                 # Verificar que los personajes estén en las locaciones correctas
                 block_char_ids = {char["id"] if hasattr(char, "dict") else char.get("id")
-                                for char in block["characters"]}
+                                  for char in block["characters"]}
 
                 for char_id in event_chars:
                     if char_id and char_id != principal_char_id and char_id not in block_char_ids:
@@ -976,10 +1000,10 @@ def validate_provisional_game_structure(game_structure: list, game_provisional_d
 
 
 async def validate_game_events_structure(game_provisional_id: str, game_id: str,
-                                       id_map_events_detailed: dict,
-                                       id_map_locations_detailed: dict,
-                                       id_map_characters_detailed: dict,
-                                       principal_char_id: str) -> dict:
+                                         id_map_events_detailed: dict,
+                                         id_map_locations_detailed: dict,
+                                         id_map_characters_detailed: dict,
+                                         principal_char_id: str) -> dict:
     """
     Valida que la estructura de eventos del juego sea correcta:
     - 4 eventos en total
@@ -1016,7 +1040,7 @@ async def validate_game_events_structure(game_provisional_id: str, game_id: str,
 
         # Agrupar eventos por state_game_order para validar ubicación
         location_orders = {loc_id: details["state_game_order"]
-                          for loc_id, details in id_map_locations_detailed.items()}
+                           for loc_id, details in id_map_locations_detailed.items()}
 
         # Clasificar eventos según su ubicación
         event_inicial = None
@@ -1130,7 +1154,7 @@ async def validate_game_events_structure(game_provisional_id: str, game_id: str,
                         # Verificar si el personaje está en el mismo state_game que la locación
                         for loc_prov_id, loc_details in id_map_locations_detailed.items():
                             if (loc_details["db_id"] == loc_id and
-                                loc_details["state_game_order"] == char_details["state_game_order"]):
+                                    loc_details["state_game_order"] == char_details["state_game_order"]):
                                 character_in_location = True
                                 break
                         break
@@ -1150,7 +1174,7 @@ async def validate_game_events_structure(game_provisional_id: str, game_id: str,
                         # Buscar un personaje en esa locación que no sea principal
                         for char_id_prov, char_details in id_map_characters_detailed.items():
                             if (char_details["state_game_order"] == event_location_order and
-                                char_id_prov != principal_char_id):
+                                    char_id_prov != principal_char_id):
                                 valid_character = char_details["db_id"]
                                 break
 
@@ -1159,7 +1183,8 @@ async def validate_game_events_structure(game_provisional_id: str, game_id: str,
                             {"_id": event["_id"]},
                             {"$set": {"character_id": valid_character}}
                         )
-                        corrections_made.append(f"Corregido character_id en evento {event['_id']}: {character_id} -> {valid_character}")
+                        corrections_made.append(
+                            f"Corregido character_id en evento {event['_id']}: {character_id} -> {valid_character}")
                     else:
                         # No hay personajes válidos, eliminar character_id
                         await db["event"].update_one(
@@ -1443,12 +1468,44 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     if conv.get("id_character") in id_map_characters:
                         conv["id_character"] = id_map_characters[conv["id_character"]]
 
+                if inter.get("options"):
+                    for option_item in inter["options"]:
+                        # procesar y renombrar ambas partes
+                        for old_key, new_key in (("option", "prompt_user_option"), ("answer", "prompt_user_answer")):
+                            # obtener la parte (dict u objeto)
+                            if isinstance(option_item, dict):
+                                part = option_item.get(old_key)
+                            else:
+                                part = getattr(option_item, old_key, None)
+
+                            # remapear id_character si está en el mapa
+                            char_id = _get_id_character(part)
+                            if char_id and char_id in id_map_characters:
+                                _set_id_character(part, id_map_characters[char_id])
+
+                            # renombrar la clave en dict u objeto
+                            if isinstance(option_item, dict):
+                                if old_key in option_item:
+                                    option_item[new_key] = option_item.pop(old_key)
+                            else:
+                                try:
+                                    val = getattr(option_item, old_key, None)
+                                    setattr(option_item, new_key, val)
+                                    try:
+                                        delattr(option_item, old_key)
+                                    except Exception:
+                                        # algunos objetos no permiten delattr; ignorar
+                                        pass
+                                except Exception:
+                                    pass
+
                 inter_db = await new_interaction_character_service(
                     location_id=inter_location_mapped,
                     game_id=str(game_db.get("_id")),
                     character_id=inter_characters_mapped[0] if inter_characters_mapped else None,
                     conversation_type=inter["type"],
                     conversation=inter["conversations"],
+                    option=inter.get("options", []),
                     user_id=game_provisional_db.get("created_by", "anonymous"),
                     options_dialog=None,
                     state_game=id_map_states[str(index + 1)]
@@ -1491,7 +1548,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     block_characters = block.get("characters", [])
                     if block_characters:
                         fallback_char = block_characters[0]
-                        fallback_char_id = fallback_char.get("id") if isinstance(fallback_char, dict) else getattr(fallback_char, "id", None)
+                        fallback_char_id = fallback_char.get("id") if isinstance(fallback_char, dict) else getattr(
+                            fallback_char, "id", None)
                         event_characters = [fallback_char_id] if fallback_char_id else []
                     else:
                         continue
@@ -1531,7 +1589,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     event_text = event.get("description", "")
                     if event_text:
                         try:
-                            print(f"DEBUG: Starting audio generation for event {created_event.get('_id')} with text: {event_text[:100]}...")
+                            print(
+                                f"DEBUG: Starting audio generation for event {created_event.get('_id')} with text: {event_text[:100]}...")
 
                             # Ejecutar tarea de audio en background
                             audio_task = generate_event_audio_shared_task.delay(
@@ -1555,7 +1614,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                             print(f"DEBUG: Audio task registered in database")
 
                         except Exception as audio_error:
-                            print(f"ERROR: Failed to start audio generation task for event {created_event.get('_id')}: {audio_error}")
+                            print(
+                                f"ERROR: Failed to start audio generation task for event {created_event.get('_id')}: {audio_error}")
                             print(traceback.format_exc())
                             # No fallar el proceso completo si falla la tarea de audio
                     else:
@@ -1586,7 +1646,6 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
             if events_middle:
                 for middle_index, event in enumerate(events_middle):
 
-
                     if hasattr(event, "dict"):
                         try:
                             event = event.dict()
@@ -1609,7 +1668,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                         block_characters = block.get("characters", [])
                         if block_characters:
                             fallback_char = block_characters[0]
-                            fallback_char_id = fallback_char.get("id") if isinstance(fallback_char, dict) else getattr(fallback_char, "id", None)
+                            fallback_char_id = fallback_char.get("id") if isinstance(fallback_char, dict) else getattr(
+                                fallback_char, "id", None)
                             event_characters = [fallback_char_id] if fallback_char_id else []
                         else:
                             continue
@@ -1954,3 +2014,43 @@ def create_intermediate_events(interactions, characters=None):
             events.append(event)
 
     return events
+
+
+def _get_id_character(obj):
+    if obj is None:
+        return None
+    if isinstance(obj, dict):
+        return obj.get("id_character")
+    # atributo directo más común
+    if hasattr(obj, "id_character"):
+        try:
+            return getattr(obj, "id_character")
+        except Exception:
+            return None
+    # fallback para objetos dict-like
+    if hasattr(obj, "get"):
+        try:
+            return obj.get("id_character")
+        except Exception:
+            return None
+    return None
+
+def _set_id_character(obj, value):
+    if obj is None:
+        return
+    if isinstance(obj, dict):
+        obj["id_character"] = value
+        return
+    # intentar setear como atributo
+    try:
+        setattr(obj, "id_character", value)
+        return
+    except Exception:
+        pass
+    # intentar en __dict__ si existe
+    if hasattr(obj, "__dict__"):
+        try:
+            obj.__dict__["id_character"] = value
+            return
+        except Exception:
+            pass

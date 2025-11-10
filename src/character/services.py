@@ -17,7 +17,7 @@ from celery_worker import generate_image_character_task
 
 from character.models import Character
 from character.models import CharacterGLIC
-from character.schemas import SchemaCreateCharacter
+from character.schemas import SchemaCreateCharacter, ConversationsCharacter
 from character.schemas import CharacterLocationModel
 
 from core.database import db
@@ -577,35 +577,34 @@ async def new_interaction_character_service(
         game_id: str,
         character_id: str,
         conversation_type: str,
-        prompt_user_dialog: str,
+        conversation: list[ConversationsCharacter],
         user_id: str,
         options_dialog: dict = None,
         state_game: str = None,
 ):
+    print(f"new interaction character service called state_game: {state_game}, character_id: {character_id}")
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
     if not character_db:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Character not found",
-        )
+        raise Exception("error character not found")
 
     if not state_game:
         state_game = await get_state_game_by_game_id(game_id)
     else:
         state_game = await get_state_game_by_id(state_game)
 
+    print(f"character_db: {character_id}, state_game: {state_game['_id']}")
+
     stage_element_db = await db["state_glic"].find_one({"element_id": character_id, "state": state_game["_id"]})
     if not stage_element_db:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="State element not found",
-        )
-
+        raise Exception("error state glic not found for character")
     if options_dialog:
         options_dialog = options_dialog.dict()
 
+    if conversation:
+        conversation = [conv.dict() for conv in conversation]
+
     stage_element_db['data']['conversation_type'] = conversation_type
-    stage_element_db['data']['prompt_user_dialog'] = prompt_user_dialog
+    stage_element_db['data']['conversation'] = conversation
     stage_element_db['data']['options_dialog'] = options_dialog
 
     await db["state_glic"].update_one(
@@ -614,12 +613,16 @@ async def new_interaction_character_service(
     )
 
     try:
+        # Obtener el provisional_id del game
+        game_data = await db['game'].find_one({'_id': ObjectId(game_id)})
+        provisional_id = game_data.get('provisional_id', '') if game_data else ''
+
         task_db = await create_task_service(
             _task_id="",
             _user_id=user_id,
             _task_data={},
-            _element_id=str(character_db["_id"]),
-            _element_type="character",
+            _element_id=provisional_id,
+            _element_type="game_provisional",
             _process="new_interaction_character",
         )
 
@@ -648,10 +651,7 @@ async def new_interaction_character_service(
     except Exception as e:
         print(traceback.format_exc())
         print(f"Error in new interaction character service: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Interaction not created",
-        )
+        raise "error creating task for new interaction character"
 
 
 class SchemaResponseOpenAnswer(BaseModel):

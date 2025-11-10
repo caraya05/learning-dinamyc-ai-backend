@@ -22,7 +22,7 @@ from pydantic import BaseModel
 from pydantic import Field
 
 from character.models import CharacterGLIC, Character
-from character.schemas import SchemaCreateCharacter, ConversationsCharacter
+from character.schemas import SchemaCreateCharacter, ConversationsCharacter, ConversationsOptionsCharacter
 from core.database import db
 from event.models import Event
 from event.schemas import SchemaCreateEvent
@@ -1591,6 +1591,7 @@ async def new_interaction_character_service(
         character_id: str,
         conversation_type: str,
         conversation: list[ConversationsCharacter],
+        option: list[ConversationsOptionsCharacter],
         user_id: str,
         options_dialog: dict = None,
         state_game: str = None,
@@ -1611,7 +1612,10 @@ async def new_interaction_character_service(
     if not stage_element_db:
         raise Exception("error state glic not found for character")
     if options_dialog:
-        options_dialog = options_dialog.dict()
+        options_dialog = {
+            "prompt_user_question": conversation,
+            "options": option,
+        }
 
     stage_element_db['data']['conversation_type'] = conversation_type
     stage_element_db['data']['conversation'] = conversation
@@ -2203,8 +2207,13 @@ async def validate_interaction_type(template_type: str, interaction_type: str) -
 def get_template_prompt(template_type, template_definition, prompt_user, base64_string):
     tipo = str(template_type).lower() if template_type else ""
     instruccion_personajes = "Antes de cada bloque de interacción, indica explícitamente el nombre del personaje principal y el secundario, usando el formato:\nPrincipal: [nombre]\nSecundario: [nombre]"
+
+    # Crear el contenido base del usuario
+    user_content = f"Quiero un juego usando el template {tipo.upper()}. Prompt del usuario: {prompt_user}"
+
+    # Crear la estructura base del prompt
     if tipo == "trivia":
-        return [
+        messages = [
             {
                 "role": "system",
                 "content": f"""
@@ -2221,23 +2230,11 @@ interacción:
             },
             {
                 "role": "user",
-                "content": f"Quiero un juego usando el template TRIVIA. Prompt del usuario: {prompt_user}"
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "file",
-                        "file": {
-                            "filename": "archivo.pdf",
-                            "file_data": f"data:application/pdf;base64,{base64_string}",
-                        }
-                    }
-                ]
+                "content": user_content
             }
         ]
     elif tipo == "learn":
-        return [
+        messages = [
             {
                 "role": "system",
                 "content": f"""
@@ -2281,28 +2278,15 @@ REGLAS:
             },
             {
                 "role": "user",
-                "content": f"Quiero un juego usando el template LEARN. Prompt del usuario: {prompt_user}"
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "file",
-                        "file": {
-                            "filename": "archivo.pdf",
-                            "file_data": f"data:application/pdf;base64,{base64_string}",
-                        }
-                    }
-                ]
+                "content": user_content
             }
         ]
     elif tipo == "evaluation":
-        return [
+        messages = [
             {
                 "role": "system",
                 "content": f"""
 IMPORTANTE: El template es EVALUATION. (diálogo bidireccional entre personajes, con pregunta y respuesta para evaluar conocimiento). Las tres escenas debe ser de tipo 'open_question' (el jugador responde libremente a una pregunta del personaje). No incluyas interacciones de tipo 'option_multiple' ni 'one_way'. Si no sigues el formato, el resultado será rechazado.
-
 
 Ejemplo de interacción open_question:
 - open_question: Diálogo donde el jugador puede responder libremente a una pregunta o comentario del personaje.
@@ -2350,28 +2334,15 @@ Estructura exacta:
   - Evento final
 
 No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al pie de la letra.
-
 """
             },
             {
                 "role": "user",
-                "content": f"Quiero un juego usando el template EVALUATION. Prompt del usuario: {prompt_user}"
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "file",
-                        "file": {
-                            "filename": "archivo.pdf",
-                            "file_data": f"data:application/pdf;base64,{base64_string}",
-                        }
-                    }
-                ]
+                "content": user_content
             }
         ]
     elif tipo == "solve":
-        return [
+        messages = [
             {
                 "role": "system",
                 "content": f"""
@@ -2410,28 +2381,15 @@ Estructura exacta:
   - Evento final
 
 No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al pie de la letra.
-
 """
             },
             {
                 "role": "user",
-                "content": f"Quiero un juego usando el template SOLVE. Prompt del usuario: {prompt_user}"
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "file",
-                        "file": {
-                            "filename": "archivo.pdf",
-                            "file_data": f"data:application/pdf;base64,{base64_string}",
-                        }
-                    }
-                ]
+                "content": user_content
             }
         ]
     elif tipo == "storytelling":
-        return [
+        messages = [
             {
                 "role": "system",
                 "content": f"""
@@ -2456,23 +2414,11 @@ REGLAS ESPECÍFICAS:
             },
             {
                 "role": "user",
-                "content": f"Quiero un juego usando el template STORYTELLING. Prompt del usuario: {prompt_user}"
-            },
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "file",
-                        "file": {
-                            "filename": "archivo.pdf",
-                            "file_data": f"data:application/pdf;base64,{base64_string}",
-                        }
-                    }
-                ]
+                "content": user_content
             }
         ]
     else:
-        return [
+        messages = [
             {
                 "role": "system",
                 "content": f"Crea un juego narrativo en 3 escenas. {instruccion_personajes}\n{template_definition}"
@@ -2482,3 +2428,20 @@ REGLAS ESPECÍFICAS:
                 "content": f"Prompt del usuario: {prompt_user}"
             }
         ]
+
+    # Agregar el archivo solo si base64_string no es None y no está vacío
+    if base64_string and base64_string.strip():
+        messages.append({
+            "role": "user",
+            "content": [
+                {
+                    "type": "file",
+                    "file": {
+                        "filename": "archivo.pdf",
+                        "file_data": f"data:application/pdf;base64,{base64_string}",
+                    }
+                }
+            ]
+        })
+
+    return messages
