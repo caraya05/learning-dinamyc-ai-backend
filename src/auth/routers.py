@@ -4,13 +4,17 @@ from auth.services import authenticate_by_game_code
 from fastapi import APIRouter
 from fastapi import HTTPException
 from fastapi import status
+from fastapi import Request
 from auth.schemas import Credentials
 from auth.schemas import GameCode
 from auth.schemas import Refresh
 from auth.schemas import Token
+from auth.schemas import GameAuthRequest
+from auth.schemas import GameToken
 from auth.services import auth_refresh
 from auth.services import authenticate_user
 from auth.services import generate_token
+from auth.services import generate_game_token
 from core import db
 from core.schemas import ExceptionModel
 from auth.services import generate_verification_code, validate_verification_code
@@ -117,6 +121,52 @@ async def authenticate_with_game_code(game_code: GameCode):
         detail="Invalid or expired game code",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+
+@router.post("/game-token/", response_model=GameToken, responses={401: {"model": ExceptionModel}})
+async def authenticate_by_game_id(request: Request, game_auth: GameAuthRequest):
+    """
+    Autentica un usuario mediante el ID del juego e IP del cliente.
+    Genera un token de corta duración que solo funciona para ese juego.
+
+    Args:
+        request: Objeto Request para obtener la IP del cliente
+        game_auth: Datos con el game_id
+
+    Returns:
+        Token de acceso de corta duración para el juego
+
+    Raises:
+        HTTPException: Si el game_id es inválido
+    """
+    # Obtener la IP del cliente
+    client_ip = request.client.host if request.client else "unknown"
+
+    # Validar que el juego existe
+    from bson import ObjectId
+    try:
+        game_id_obj = ObjectId(game_auth.game_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid game_id format",
+        )
+
+    game = await db["game"].find_one({"_id": game_id_obj})
+    if not game:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Game not found",
+        )
+
+    # Generar el token de juego
+    token_data = await generate_game_token(
+        game_id=game_auth.game_id,
+        client_ip=client_ip,
+        expires_in_minutes=15  # Token válido por 15 minutos
+    )
+
+    return token_data
 
 
 @router.post("/send-code", status_code=status.HTTP_200_OK)

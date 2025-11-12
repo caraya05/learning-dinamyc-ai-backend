@@ -188,3 +188,91 @@ async def validate_verification_code(email: str, code: str) -> bool:
         return False
 
     return True
+
+
+async def generate_game_token(game_id: str, client_ip: str, expires_in_minutes: int = 15) -> dict:
+    """
+    Genera un token JWT para acceso a rutas específicas de un juego.
+
+    Args:
+        game_id: ID del juego
+        client_ip: IP del cliente que hace la petición
+        expires_in_minutes: Tiempo de expiración en minutos (default: 15)
+
+    Returns:
+        Dict con el token y metadatos
+    """
+    payload = {
+        "game_id": game_id,
+        "client_ip": client_ip,
+        "exp": (datetime.now(timezone.utc) + timedelta(minutes=expires_in_minutes)).timestamp(),
+        "type": TokenType.GAME.value,
+    }
+
+    token = jwt.encode(payload, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+    return {
+        "token": token,
+        "token_type": "bearer",
+        "expires_in": expires_in_minutes * 60,  # en segundos
+    }
+
+
+async def decode_game_token(token: str) -> dict | None:
+    """
+    Decodifica y valida un token de game_id.
+
+    Args:
+        token: Token JWT a validar
+
+    Returns:
+        Dict con payload si es válido, None si no
+    """
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        if payload.get("type") == TokenType.GAME.value:
+            return payload
+    except (JWTError, ExpiredSignatureError, JWTClaimsError):
+        pass
+    return None
+
+
+async def validate_game_token(token: str, game_id: str, client_ip: str) -> bool:
+    """
+    Valida que un token sea válido para un juego específico y desde la IP correcta.
+
+    Args:
+        token: Token JWT a validar
+        game_id: ID del juego esperado
+        client_ip: IP del cliente actual
+
+    Returns:
+        True si el token es válido para este juego e IP, False en caso contrario
+    """
+    if payload := await decode_game_token(token):
+        # Validar que el game_id coincida
+        if payload.get("game_id") != game_id:
+            return False
+
+        # Validar que la IP coincida
+        if payload.get("client_ip") != client_ip:
+            return False
+
+        return True
+
+    return False
+
+
+async def get_token_type(token: str) -> str | None:
+    """
+    Extrae el tipo de token del JWT.
+
+    Args:
+        token: Token JWT a decodificar
+
+    Returns:
+        El tipo de token (access, refresh, game) o None si es inválido
+    """
+    if payload := await decode_token(token):
+        return payload.get("type")
+    return None

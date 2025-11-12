@@ -1,0 +1,54 @@
+### Variables
+@baseUrl = http://localhost:8000/v1/api
+@gameId = 507f1f77bcf86cd799439011
+@token =
+
+### 1. Obtener token de game
+POST {{baseUrl}}/auth/game-token
+Content-Type: application/json
+
+{
+  "game_id": "{{gameId}}"
+}
+
+> {%
+  client.global.set("token", response.body.token);
+  console.log("Token obtenido: " + response.body.token.substring(0, 20) + "...");
+  console.log("Expira en: " + response.body.expires_in + " segundos");
+%}
+
+###
+
+### 2. Acceder a ruta protegida (state-game) con token válido
+GET {{baseUrl}}/state-game/get?game_id={{gameId}}
+Authorization: Bearer {{token}}
+
+###
+
+### 3. Acceder a ruta protegida (event) con token válido
+GET {{baseUrl}}/event?game_id={{gameId}}
+Authorization: Bearer {{token}}
+
+###
+
+### 4. Intentar acceso sin token (debe fallar con 401)
+GET {{baseUrl}}/state-game/get?game_id={{gameId}}
+
+###
+
+### 5. Intentar acceso con token inválido (debe fallar con 401)
+GET {{baseUrl}}/state-game/get?game_id={{gameId}}
+Authorization: Bearer invalid.token.here
+
+###
+
+### 6. Intentar acceso sin game_id (debe fallar con 400)
+GET {{baseUrl}}/state-game/get
+Authorization: Bearer {{token}}
+
+###
+
+### 7. Intentar acceso con game_id incorrecto (debe fallar con 401)
+GET {{baseUrl}}/state-game/get?game_id=507f1f77bcf86cd799439012
+Authorization: Bearer {{token}}
+

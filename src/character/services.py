@@ -582,7 +582,6 @@ async def new_interaction_character_service(
         options_dialog: dict = None,
         state_game: str = None,
 ):
-    print(f"new interaction character service called state_game: {state_game}, character_id: {character_id}")
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
     if not character_db:
         raise Exception("error character not found")
@@ -591,8 +590,6 @@ async def new_interaction_character_service(
         state_game = await get_state_game_by_game_id(game_id)
     else:
         state_game = await get_state_game_by_id(state_game)
-
-    print(f"character_db: {character_id}, state_game: {state_game['_id']}")
 
     stage_element_db = await db["state_glic"].find_one({"element_id": character_id, "state": state_game["_id"]})
     if not stage_element_db:

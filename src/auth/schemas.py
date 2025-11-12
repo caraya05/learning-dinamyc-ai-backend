@@ -34,3 +34,14 @@ class VerificationCodeDB(BaseModel):
     email: EmailStr
     code: str
     created_at: datetime
+
+
+class GameAuthRequest(BaseModel):
+    game_id: str
+
+
+class GameToken(BaseModel):
+    token: str
+    token_type: str
+    expires_in: int
+

@@ -978,11 +978,6 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
         else:
             return "No characters data found in response"
 
-        # Validar tipos de interacción para cada locación
-
-        print("tipo template", template_type, "interacciones",
-              [loc.interaccion.tipo for loc in locations_with_chars if hasattr(loc, 'interaccion')])
-
         if not template_type:
             template_type = "learn"  # O el valor por defecto que corresponda
 
@@ -1596,7 +1591,6 @@ async def new_interaction_character_service(
         options_dialog: dict = None,
         state_game: str = None,
 ):
-    print(f"new interaction character service called state_game: {state_game}, character_id: {character_id}")
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
     if not character_db:
         raise Exception("error character not found")
@@ -1606,12 +1600,10 @@ async def new_interaction_character_service(
     else:
         state_game = await get_state_game_by_id(state_game)
 
-    print(f"character_db: {character_id}, state_game: {state_game['_id']}")
-
     stage_element_db = await db["state_glic"].find_one({"element_id": character_id, "state": state_game["_id"]})
     if not stage_element_db:
         raise Exception("error state glic not found for character")
-    if options_dialog:
+    if option:
         options_dialog = {
             "prompt_user_question": conversation,
             "options": option,
@@ -2217,16 +2209,65 @@ def get_template_prompt(template_type, template_definition, prompt_user, base64_
             {
                 "role": "system",
                 "content": f"""
-Crea un entrenamiento interactivo en formato de historia narrativa, en 3 escenas.
-IMPORTANTE: El template es TRIVIA. TODAS las escenas deben tener interacción de tipo 'option_multiple', siguiendo exactamente el formato del ejemplo. No incluyas interacciones de tipo 'two_way' ni 'one_way'. Si no sigues el formato, el resultado será rechazado.
-
-Ejemplo de interacción option_multiple:
-Principal: Mago
-Secundario: Aprendiz
-interacción:
-1: Hola, ¿listo para la pregunta?\\n2: Sí, adelante.\\n1: ¿Cuál es la capital de Francia?\nOpciones:\n  - París\n  - Madrid\n  - Berlín\nRespuestas:\n  - París: ¡Correcto! París es la capital de Francia.\n  - Madrid: Incorrecto. Madrid es la capital de España.\n  - Berlín: Incorrecto. Berlín es la capital de Alemania.\n\n"
-                f"Estructura exacta:\n- Evento inicial\n- Escena 1\n  - Locación 1\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (open_question): [formato del ejemplo]\n  - Evento después de la interacción\n- Escena 2\n  - Locación 2\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (open_question): [formato del ejemplo]\n- Escena 3\n  - Locación 3\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (open_question): [formato del ejemplo]\n  - Evento final\n\n"
-                f"REGLAS:\n- {instruccion_personajes}\n- El bloque de interacción debe iniciar con la palabra 'interacción:' y luego el diálogo entre los personajes.\n- El escrito de la locacion debe referirse a la interacción que se va a dar en esa locación y simular el entonro de esta y debe ser difenrente visualemte a los eventos\n- Después del diálogo, debe venir la sección 'Opciones:' con una lista de opciones (una por línea, con guion y espacio).\n- Después de las opciones, debe venir la sección 'Respuestas:' con cada opción y su retroalimentación, en el formato: '- opción: retroalimentación'.\n- No incluyas ningún otro tipo de interacción ni formato JSON.\n- No incluyas el título en el script.\n- El output debe ser solo texto, siguiendo el formato del ejemplo al pie de la letra.\n{template_definition}"""
+                Crea un entrenamiento interactivo en formato de historia narrativa, en 3 escenas.
+                IMPORTANTE: El template es TRIVIA. TODAS las escenas deben tener interacción de tipo 'option_multiple', 
+                siguiendo exactamente el formato del ejemplo. No incluyas interacciones de tipo 'two_way' ni 'one_way'. 
+                Si no sigues el formato, el resultado será rechazado.
+                
+                Ejemplo de interacción: option_multiple
+                
+                Principal: Aprendiz (1)
+                Secundario: Mago Experto (2)
+                
+                interacción:
+                2: Hola, ¿listo para la pregunta?
+                1: Sí, adelante.
+                2: ¿Estudiaste mucho para ser un buen mago?
+                1: Sí, he leído todos los libros de magia.
+                2: Bien. Ahora la pregunta:
+                2: ¿Cuál es la capital de Francia?
+                
+                Opciones:
+                - 1: París
+                - 1: Madrid
+                - 1: Berlín
+                
+                Respuestas:
+                - 2: París: ¡Correcto! París es la capital de Francia.
+                - 2: Madrid: Incorrecto. Madrid es la capital de España.
+                - 2: Berlín: Incorrecto. Berlín es la capital de Alemania.
+                
+                Estructura exacta:
+                - Evento inicial
+                - Escena 1
+                - Locación 1
+                - Personaje principal
+                - Personaje secundario
+                - Interacción (open_question): [formato del ejemplo]
+                - Evento después de la interacción
+                - Escena 2
+                - Locación 2
+                - Personaje principal
+                - Personaje secundario
+                - Interacción (open_question): [formato del ejemplo]
+                - Escena 3
+                - Locación 3
+                - Personaje principal
+                - Personaje secundario
+                - Interacción (open_question): [formato del ejemplo]
+                - Evento final
+                f"REGLAS:
+                - {instruccion_personajes}
+                - El juego debe tener la dinamica que el principal es el usuario entonces es el que debe aprender del secundario.
+                - El bloque de interacción debe iniciar con la palabra 'interacción:' y luego el diálogo entre los personajes.
+                - El escrito de la locacion debe referirse a la interacción que se va a dar en esa locación y simular el entorno de esta y debe ser diferente visualmente a los eventos
+                - Después del diálogo, debe venir la sección 'Opciones:' con una lista de opciones (una por línea, con guion y espacio).
+                - Después de las opciones, debe venir la sección 'Respuestas:' con cada opción y su retroalimentación, en el formato: '- opción: retroalimentación'.
+                - No incluyas ningún otro tipo de interacción ni formato JSON.
+                - No incluyas el título en el script.
+                - El output debe ser solo texto, siguiendo el formato del ejemplo al pie de la letra.
+                {template_definition}
+"""
             },
             {
                 "role": "user",

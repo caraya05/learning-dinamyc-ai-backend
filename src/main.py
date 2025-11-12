@@ -1,14 +1,12 @@
 import time
-import json
-from fastapi.responses import JSONResponse, Response, HTMLResponse
-from starlette.background import BackgroundTask
+from fastapi.responses import JSONResponse
 from fastapi import FastAPI, HTTPException, status
 from fastapi import Request
-from fastapi.responses import JSONResponse
 
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocket
-
+# Verificar tipo de token
+from auth.services import validate_game_token, get_token_type
 from core.database import create_indexes
 from user import routers as user_routers
 from user import router_admin as user_admin_routers
@@ -40,9 +38,7 @@ from config import settings
 from game.routers_protional import router as game_provisional_routers
 from game.routers_protional import router_ws as game_provisional_ws_routers
 from proxy import routers as proxy_routers
-from gpt_ai import routers as gpt_ai_routers
-from game.error_handlers import http_exception_handler, generic_exception_handler
-from model_test.routers import router as model_test_router
+from analytics import routers as analytics_routers
 
 
 @asynccontextmanager
@@ -91,7 +87,6 @@ app.add_middleware(
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
-    print("middleware add_process_time_header")
     excluded_paths = ["/health", "/ws/echo"]  # Agrega aquí las rutas que deseas excluir
     if request.url.path in excluded_paths:
         return await call_next(request)
@@ -103,12 +98,76 @@ async def add_process_time_header(request: Request, call_next):
     return response
 
 
+
+# @app.middleware("http")
+# async def game_token_validation_middleware(request: Request, call_next):
+#     """
+#     Middleware para validar tokens de game_id en rutas específicas.
+#     Solo aplica a rutas que requieren autenticación por game_id.
+#     """
+#
+#     protected_paths = [
+#         "/v1/api/state-game/",
+#         "/v1/api/category/",
+#     ]
+#
+#     # Verificar si la ruta requiere autenticación por game_id
+#     is_protected = any(request.url.path.startswith(path) for path in protected_paths)
+#
+#     if is_protected:
+#         try:
+#             authorization = request.headers.get("Authorization")
+#             # Validar el token de game_id
+#             if not authorization or not authorization.startswith("Bearer "):
+#                 return JSONResponse(
+#                     status_code=status.HTTP_401_UNAUTHORIZED,
+#                     content={"detail": "Missing or invalid Authorization header"},
+#                     headers={"WWW-Authenticate": "Bearer"},
+#                 )
+#
+#             token = authorization.split(" ")[1]
+#
+#             token_type = await get_token_type(token)
+#
+#             if token_type != "game":
+#                 return await call_next(request)
+#
+#
+#             game_id = request.query_params.get("game_id") or request.path_params.get("game_id")
+#
+#             if not game_id:
+#                 return JSONResponse(
+#                     status_code=status.HTTP_400_BAD_REQUEST,
+#                     content={"detail": "game_id is required"},
+#                 )
+#
+#             client_ip = request.client.host if request.client else "unknown"
+#
+#             # Validar el token
+#             is_valid = await validate_game_token(token, game_id, client_ip)
+#             if not is_valid:
+#                 return JSONResponse(
+#                     status_code=status.HTTP_401_UNAUTHORIZED,
+#                     content={"detail": "Invalid or expired token for this game"},
+#                     headers={"WWW-Authenticate": "Bearer"},
+#                 )
+#         except Exception as e:
+#             return JSONResponse(
+#                 status_code=status.HTTP_401_UNAUTHORIZED,
+#                 content={"detail": f"Token validation error: {str(e)}"},
+#                 headers={"WWW-Authenticate": "Bearer"},
+#             )
+#
+#     return await call_next(request)
+
+app.include_router(analytics_routers.router, prefix="/v1/api")
+
 app.include_router(token_routers.router, prefix="/v1/api")
 app.include_router(category_routers.router, prefix="/v1/api")
 app.include_router(character_routers.router, prefix="/v1/api")
 app.include_router(configuration_routers.router, prefix="/v1/api")
-app.include_router(game_routers.router, prefix="/v1/api")
 app.include_router(game_routers.router_community, prefix="/v1/api")
+app.include_router(game_routers.router, prefix="/v1/api")
 app.include_router(location_routers.router, prefix="/v1/api")
 app.include_router(object_routers.router, prefix="/v1/api")
 # app.include_router(place_routers.router, prefix="/v1/api")
@@ -120,13 +179,13 @@ app.include_router(shortener_routers.router, prefix="/v1/api")
 app.include_router(voice_routers.router, prefix="/v1/api")
 app.include_router(user_ws_routers.router, prefix="")
 app.include_router(game_provisional_ws_routers, prefix="")
-app.include_router(gpt_ai_routers.router, prefix="/v1/api")
+# app.include_router(gpt_ai_routers.router, prefix="/v1/api")
 
 app.include_router(task_routers.router, prefix="/v1/api")
 app.include_router(event_routers.router, prefix="/v1/api")
 app.include_router(shortener_routers.routerAPP)
 app.include_router(proxy_routers.router, prefix="/v1/api")
-app.include_router(model_test_router)
+# app.include_router(model_test_router)
 
 
 @app.get("/health", tags=["Health Check"])

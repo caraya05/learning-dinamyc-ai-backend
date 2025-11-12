@@ -93,64 +93,7 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
 
         type_template = game_provisional_db.get("type_template", None)
         template_definition = get_template_definition(type_template)
-        # logger.info("Generando contenido del juego con GPT-4.1")
-        # Refuerzo para template TRIVIA
-        if type_template and str(type_template).lower() == "trivia":
-            trivia_warning = """
-                IMPORTANTE: El template es TRIVIA. TODAS las escenas deben tener interacción de tipo 'option_multiple', siguiendo exactamente el formato del ejemplo. No incluyas interacciones de tipo 'two_way' ni 'one_way'. Si no sigues el formato, el resultado será rechazado.
-                
-                El personaje principal es el que responde las preguntas, y el personaje secundario es el que las formula.
-                
-                Ejemplo de interacción option_multiple:
-                1: ¿Cuál es la capital de Francia?
-                Opciones:
-                - París
-                - Madrid
-                - Berlín
-                Respuestas:
-                - París: ¡Correcto! París es la capital de Francia.
-                - Madrid: Incorrecto. Madrid es la capital de España.
-                - Berlín: Incorrecto. Berlín es la capital de Alemania.
-                
-                Estructura exacta:
-                - Evento inicial
-                - Escena 1
-                  - Locación 1
-                  - Personaje principal
-                  - Personaje secundario
-                  - Interacción (option_multiple): [formato del ejemplo]
-                  - Evento después de la interacción
-                - Escena 2
-                  - Locación 2
-                  - Personaje principal
-                  - Personaje secundario
-                  - Interacción (option_multiple): [formato del ejemplo]
-                - Escena 3
-                  - Locación 3
-                  - Personaje principal
-                  - Personaje secundario
-                  - Interacción (option_multiple): [formato del ejemplo]
-                  - Evento final
-                
-                No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al pie de la letra.
-                
-                """
-        else:
-            trivia_warning = ""
-        template_interaction_instruction = ""
-        if type_template:
-            tipo = str(type_template).lower()
-            if tipo == "trivia":
-                template_interaction_instruction = "IMPORTANTE: Todas las interacciones deben ser de tipo 'option_multiple' (trivia). Cada escena debe tener una pregunta, opciones y retroalimentación, siguiendo el ejemplo proporcionado."
-            elif tipo == "learn":
-                template_interaction_instruction = "IMPORTANTE: Todas las interacciones deben ser de tipo 'two_way' (diálogo bidireccional entre personajes, sin opciones de respuesta)."
-            elif tipo == "evaluation":
-                template_interaction_instruction = "IMPORTANTE: Todas las interacciones deben ser de tipo 'open_question' (el jugador responde libremente a una pregunta del personaje)."
-            elif tipo == "solve":
-                template_interaction_instruction = "IMPORTANTE: Las primeras dos escenas deben ser 'two_way' y la última 'open_question'."
-            elif tipo == "expert":
-                template_interaction_instruction = "IMPORTANTE: Todas las interacciones deben ser de tipo 'open_talk' (conversación abierta con el experto)."
-        # Generación de contenido (sin reintentos)
+
         content_prompt = get_template_prompt(type_template, template_definition,
                                              game_provisional_db.get('prompt_user', 'No prompt provided'),
                                              base64_string)
@@ -548,8 +491,8 @@ class ConversationProvisional(BaseModel):
 
 
 class ConversationOptionProvisional(BaseModel):
-    option : ConversationProvisional = Field(..., description="Question asked by the character")
-    answer: ConversationProvisional = Field(..., description="Answer given by the player")
+    option : ConversationProvisional = Field(..., description="response options presented to the main character")
+    answer: ConversationProvisional = Field(..., description="response to each option spoken by the secondary character")
 
 
 
@@ -560,7 +503,7 @@ class InteractionProvisional(BaseModel):
                       description="Type of interaction, e.g., two_way, one_way, option_multiple, open_question, open_talk")
     conversations: list[ConversationProvisional] = Field(..., example=[],
                                                          description="List of conversations involved in this interaction")
-    options: list[ConversationOptionProvisional] = Field(..., example=[],)
+    options: list[ConversationOptionProvisional] = Field(..., example=[], description="Options presented to the interaction")
 
     id_location: str = Field(..., example="location_1",
                              description="ID of the location where this interaction takes place")
@@ -1246,8 +1189,6 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
             characters=game_provisional_db.get("characters", [])
         )
 
-        print(game_structure)
-
         # Validar estructura de eventos antes de proceder
         if game_structure is None:
             await update_game_provisional_status(
@@ -1579,7 +1520,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                         is_final=False if event_type == "event_start" else True,
                         audio_mp3=None,
                         audio=None,
-                        image=event.get("image", None) if event_type == "event_start" else None
+                        image=event.get("image", None) if event_type == "event_start" else None,
+                        is_equal_option_number=False
                     ),
                     user_id=game_provisional_db.get("created_by", "anonymous")
                 )
@@ -1589,17 +1531,12 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     event_text = event.get("description", "")
                     if event_text:
                         try:
-                            print(
-                                f"DEBUG: Starting audio generation for event {created_event.get('_id')} with text: {event_text[:100]}...")
-
                             # Ejecutar tarea de audio en background
                             audio_task = generate_event_audio_shared_task.delay(
                                 event_id=str(created_event.get("_id")),
                                 user_id=game_provisional_db.get("created_by", "anonymous"),
                                 text=event_text
                             )
-
-                            print(f"DEBUG: Audio task created with ID: {audio_task.id}")
 
                             # Crear registro de tarea si es necesario
                             task_db = await create_task_service(
@@ -1610,8 +1547,6 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                                 _element_type="event",
                                 _process="create_audio_event",
                             )
-
-                            print(f"DEBUG: Audio task registered in database")
 
                         except Exception as audio_error:
                             print(
@@ -1699,7 +1634,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                             is_final=False,
                             audio_mp3=None,
                             audio=None,
-                            image=None
+                            image=None,
+                            is_equal_option_number=True if event.get("interaction_type") == "option_multiple" else False
                         ),
                         user_id=game_provisional_db.get("created_by", "anonymous")
                     )

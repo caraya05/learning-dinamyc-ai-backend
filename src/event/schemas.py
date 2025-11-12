@@ -35,6 +35,7 @@ class SchemaCreateEvent(BaseModel):
     game_id: str = Field(..., example="game_id")
     is_final: Optional[bool] = Field(default=False, example=False)
     image: Optional[str] = Field(None, example="image_url")
+    is_equal_option_number: Optional[bool] = Field(default=False, example=False)
 
 
 class SchemaCreateEventAdmin(BaseModel):
