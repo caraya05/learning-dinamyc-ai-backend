@@ -8,9 +8,7 @@ class TemplateType(str, Enum):
     LEARN = "learn"
     EVALUATION = " "
     TRIVIA = "trivia"
-    SOLVE = "solve"
-    EXPERT = "expert"
-    STORYTELLING = "storytelling"
+    SURVEY = "survey"
 
 
 class InteractionType(str, Enum):

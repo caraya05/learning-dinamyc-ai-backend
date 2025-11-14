@@ -98,6 +98,7 @@ class ConversationsCharacter(BaseModel):
 class ConversationsOptionsCharacter(BaseModel):
     question: ConversationsCharacter = Field(..., example="question")
     answer: ConversationsCharacter = Field(..., example="answer")
+    guideline: Optional[str] = Field(None, example="guideline")
 
 
 class SchemaCreateCharacter(BaseModel):

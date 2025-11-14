@@ -76,6 +76,7 @@ class SchemaRetrieveGameStr(ResponseModelStr):
     event_init: Optional[str] = Field(None, example="event_init")
     event_end: Optional[str] = Field(None, example="event_end")
     provisional_id: Optional[str] = Field(None, example="provisional_id")
+    game_provisional: Optional[dict] = Field(None, example={"provisional_field": "value"})
 
 
 class SchemaListGame(BaseModel):

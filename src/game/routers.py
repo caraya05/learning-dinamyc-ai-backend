@@ -634,18 +634,6 @@ async def my_games(
             skip=page, limit=count, user_id=str(user.get("_id"))
         )
 
-        for game in games_db:
-            game["_id"] = str(game["_id"])
-            game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
-            # game["last_date_played"] = await last_date_played_game_util(str(game["_id"]))
-            game_published = await db['published_game'].find_one({'game_id': str(game["_id"])})
-            if not game_published:
-                game["status"] = 0
-                game["reject_note"] = None
-            else:
-                game["status"] = game_published["status"]
-                game["reject_note"] = game_published["return_note"]
-
         if most_played:
             games_db = sorted(games_db, key=lambda x: x["plays"], reverse=True)
 
@@ -802,10 +790,6 @@ async def get_community_games(
             skip=page,
             limit=count
         )
-
-        for game in games_db:
-            game["_id"] = str(game["_id"])
-            game["plays"] = await number_players_have_played_game_util(str(game["_id"]))
 
         return SchemaListGame(
             results=games_db, count=len(games_db), page=page, total_pages=count_pages // count + 1

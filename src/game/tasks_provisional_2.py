@@ -278,15 +278,13 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
 class CharactersProvisional(BaseModel):
     id: str = Field(..., example="character_1", description="Unique identifier for the character")
     name: str = Field(..., example="Character Name", description="Name of the character")
-    role: str = Field(..., example="principal",
-                      description="Role of the character in the game, if principal or secondary, just one principal")
+    role: str = Field(..., example="principal", description="Role of the character in the game, if principal or secondary, just one principal")
     visual_description: str = Field(..., example="A brave hero...", description="Description of the character")
     gender: str = Field(..., example="male", description="Gender of the character, e.g., male, female, animal, other")
 
 
 class TasksCreateCharactersProvisional(BaseModel):
-    characters: list[CharactersProvisional] = Field(..., example=[],
-                                                    description="List of characters for the game provisional")
+    characters: list[CharactersProvisional] = Field(..., example=[], description="List of characters for the game provisional")
 
 
 async def extract_characters_from_script(script: str) -> list[CharactersProvisional]:
@@ -493,6 +491,7 @@ class ConversationProvisional(BaseModel):
 class ConversationOptionProvisional(BaseModel):
     option : ConversationProvisional = Field(..., description="response options presented to the main character")
     answer: ConversationProvisional = Field(..., description="response to each option spoken by the secondary character")
+    guideline: str = Field(..., example="Be polite and welcoming.", description="Guideline for the answer to the option")
 
 
 
@@ -1410,9 +1409,10 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                         conv["id_character"] = id_map_characters[conv["id_character"]]
 
                 if inter.get("options"):
+                    print(f"DEBUG: Processing options for interaction at location {inter_location_mapped}")
                     for option_item in inter["options"]:
                         # procesar y renombrar ambas partes
-                        for old_key, new_key in (("option", "prompt_user_option"), ("answer", "prompt_user_answer")):
+                        for old_key, new_key in (("option", "prompt_user_option"), ("answer", "prompt_user_answer"), ("guideline","prompt_user_guideline")):
                             # obtener la parte (dict u objeto)
                             if isinstance(option_item, dict):
                                 part = option_item.get(old_key)
@@ -1521,7 +1521,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                         audio_mp3=None,
                         audio=None,
                         image=event.get("image", None) if event_type == "event_start" else None,
-                        is_equal_option_number=False
+                        is_equal_option_number=True if event.get("interaction_type") in ["option_multiple", "open_question"] else False
                     ),
                     user_id=game_provisional_db.get("created_by", "anonymous")
                 )
@@ -1635,7 +1635,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                             audio_mp3=None,
                             audio=None,
                             image=None,
-                            is_equal_option_number=True if event.get("interaction_type") == "option_multiple" else False
+                            is_equal_option_number=True if event.get("interaction_type") in ["option_multiple","open_question"] else False
                         ),
                         user_id=game_provisional_db.get("created_by", "anonymous")
                     )

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import traceback
 from datetime import datetime
@@ -732,79 +733,230 @@ class GameService:
 
     async def get_my_games_v2_service(self, user_id: str, skip: int = 0, limit: int = 100):
         try:
-            # print(f"Getting my games v2 service", user_id)
-            # start_date = datetime(2024, 7, 23).replace(hour=0, minute=0, second=0, microsecond=0)
-            games_query = {'created_by': user_id, 'version': 2}
-            games_db = await (
-                db['game']
-                .find(games_query)
-                .sort('created_at', -1)
-                .skip((skip - 1) * limit)
-                .limit(limit)
-                .to_list(None)
+            # Obtener games_to_review una sola vez
+            games_to_review = await self.get_games_of_reviewer(user_id)
+
+            # Construir query combinada
+            if games_to_review:
+                match_query = {
+                    'version': 2,
+                    '$or': [
+                        {'created_by': user_id},
+                        {'_id': {'$in': games_to_review}}
+                    ]
+                }
+            else:
+                match_query = {'created_by': user_id, 'version': 2}
+
+            # Pipeline de agregación
+            pipeline = [
+                {'$match': match_query},
+                {'$sort': {'created_at': -1}},
+                {'$skip': (skip - 1) * limit},
+                {'$limit': limit},
+                # Lookup para contar jugadores únicos
+                {
+                    '$lookup': {
+                        'from': 'record_game',
+                        'let': {'game_id': {'$toString': '$_id'}},
+                        'pipeline': [
+                            {'$match': {'$expr': {'$eq': ['$game_id', '$$game_id']}}},
+                            {'$group': {'_id': '$user_id'}},
+                            {'$count': 'count'}
+                        ],
+                        'as': 'player_stats'
+                    }
+                },
+                # Lookup para obtener estado de publicación
+                {
+                    '$lookup': {
+                        'from': 'published_game',
+                        'let': {'game_id': {'$toString': '$_id'}},
+                        'pipeline': [
+                            {'$match': {'$expr': {'$eq': ['$game_id', '$$game_id']}}},
+                            {'$project': {'status': 1, 'return_note': 1}}
+                        ],
+                        'as': 'published_info'
+                    }
+                },
+                # Lookup para obtener game_provisional
+                {
+                    '$lookup': {
+                        'from': 'game_provisional',
+                        'let': {'provisional_id': '$provisional_id'},
+                        'pipeline': [
+                            {
+                                '$match': {
+                                    '$expr': {
+                                        '$eq': ['$_id', {'$toObjectId': '$$provisional_id'}]
+                                    }
+                                }
+                            }
+                        ],
+                        'as': 'game_provisional_data'
+                    }
+                },
+                # Agregar campos calculados
+                {
+                    '$addFields': {
+                        'plays': {
+                            '$ifNull': [
+                                {'$arrayElemAt': ['$player_stats.count', 0]},
+                                0
+                            ]
+                        },
+                        'status': {
+                            '$ifNull': [
+                                {'$arrayElemAt': ['$published_info.status', 0]},
+                                0
+                            ]
+                        },
+                        'reject_note': {
+                            '$arrayElemAt': ['$published_info.return_note', 0]
+                        },
+                        'game_provisional': {
+                            '$arrayElemAt': ['$game_provisional_data', 0]
+                        }
+                    }
+                },
+                # Limpiar campos temporales
+                {'$project': {'player_stats': 0, 'published_info': 0, 'game_provisional_data': 0}}
+            ]
+
+            # Ejecutar agregación y conteo en paralelo
+            games_db, count_result = await asyncio.gather(
+                db['game'].aggregate(pipeline).to_list(None),
+                db['game'].count_documents(match_query)
             )
 
-            count_games = await db['game'].count_documents(games_query)
+            # Convertir _id a string para cada juego
+            for game in games_db:
+                game['_id'] = str(game['_id'])
+                # Convertir _id de game_provisional si existe
+                if game.get('game_provisional') and game['game_provisional'].get('_id'):
+                    game['game_provisional']['_id'] = str(game['game_provisional']['_id'])
 
-            games_to_review = await self.get_games_of_reviewer(user_id)
+            # Marcar juegos para revisar con timestamp actual
             if games_to_review:
-                games_db_2 = await db['game'].find({'_id': {'$in': games_to_review}}).to_list(None)
-                for game in games_db_2:
-                    game['created_at'] = datetime.utcnow()
-                games_db.extend(games_db_2)
-                games_db = sorted(games_db, key=lambda x: x['created_at'], reverse=True)
-                count_games += len(games_to_review)
+                games_to_review_set = set(str(gid) for gid in games_to_review)
+                current_time = datetime.utcnow()
 
-            return games_db, count_games
+                for game in games_db:
+                    if game['_id'] in games_to_review_set:
+                        game['created_at'] = current_time
+
+                # Reordenar
+                games_db.sort(key=lambda x: x['created_at'], reverse=True)
+
+            return games_db, count_result
+
         except Exception as e:
-            print(f"Error getting my games service: {str(e)}")
+            self.logger.error(f"Error getting my games service: {str(e)}", exc_info=True)
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Games not found",
             )
 
     async def get_community_games_service(self, skip: int = 1, limit: int = 100):
-        """
-        Obtiene juegos comunitarios que están publicados y tienen categorías específicas.
+            """
+            Obtiene juegos comunitarios que están publicados con datos enriquecidos.
+            Optimizado con agregación MongoDB para una sola consulta.
+            """
+            community_categories = [
+                "Marketing",
+                "Talent Development",
+                "Compliance",
+                "Recruiting",
+                "Events",
+                "Fan Engagement",
+                "Health & Wellness",
+                "Data Collection",
+                "Storytelling",
+                "Social Impact",
+                "Learning"
+            ]
 
-        Returns:
-            tuple: (games_list, total_count)
-        """
-        # Categorías permitidas para juegos comunitarios
-        community_categories = [
-            "Marketing",
-            "Talent Development",
-            "Compliance",
-            "Recruiting",
-            "Events",
-            "Fan Engagement",
-            "Health & Wellness",
-            "Data Collection",
-            "Storytelling",
-            "Social Impact",
-            "Learning"
-        ]
+            match_query = {
+                'version': 2,
+                'is_published': True,
+                'is_active': True,
+                'category_id': {'$in': community_categories}
+            }
 
-        # Query para buscar juegos publicados con las categorías especificadas
-        games_query = {
-            'version': 2,
-            'published': {'$exists': True},  # Solo juegos publicados
-            'is_published': True,
-            'is_active': True,
-            'category_id': {'$in': community_categories},  # Que tengan alguna de las categorías
-        }
+            pipeline = [
+                {'$match': match_query},
+                {'$sort': {'created_at': -1}},
+                {'$skip': (skip - 1) * limit},
+                {'$limit': limit},
+                # Contar jugadores únicos que jugaron el juego
+                {
+                    '$lookup': {
+                        'from': 'record_game',
+                        'let': {'game_id': {'$toString': '$_id'}},
+                        'pipeline': [
+                            {'$match': {'$expr': {'$eq': ['$game_id', '$$game_id']}}},
+                            {'$group': {'_id': '$user_id'}},
+                            {'$count': 'count'}
+                        ],
+                        'as': 'player_stats'
+                    }
+                },
+                # Obtener datos del creator
+                {
+                    '$lookup': {
+                        'from': 'user',
+                        'localField': 'created_by',
+                        'foreignField': '_id',
+                        'as': 'creator'
+                    }
+                },
+                # Agregar campos calculados
+                {
+                    '$addFields': {
+                        'plays': {
+                            '$ifNull': [
+                                {'$arrayElemAt': ['$player_stats.count', 0]},
+                                0
+                            ]
+                        },
+                        'creator_info': {
+                            '$arrayElemAt': [
+                                {
+                                    '$map': {
+                                        'input': '$creator',
+                                        'as': 'c',
+                                        'in': {
+                                            'name': '$$c.name',
+                                            'avatar': '$$c.avatar'
+                                        }
+                                    }
+                                },
+                                0
+                            ]
+                        }
+                    }
+                },
+                # Limpiar campos temporales
+                {'$project': {
+                    'player_stats': 0,
+                    'creator': 0,
+                    'locations_id': 0,
+                    'characters_id': 0,
+                    'items_id': 0
+                }}
+            ]
 
-        games_db = (
-            await db['game']
-            .find(games_query)
-            .sort("created_at", -1)
-            .skip((skip - 1) * limit)
-            .limit(limit)
-            .to_list(None)
-        )
+            # Ejecutar agregación y conteo en paralelo
+            games_db, count_result = await asyncio.gather(
+                db['game'].aggregate(pipeline).to_list(None),
+                db['game'].count_documents(match_query)
+            )
 
-        count_games = await db['game'].count_documents(games_query)
-        return games_db, count_games
+            # Convertir _id a string
+            for game in games_db:
+                game['_id'] = str(game['_id'])
+
+            return games_db, count_result
 
     async def get_games_played_recent_service(self, user_id: str):
         try:
