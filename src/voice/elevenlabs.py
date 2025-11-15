@@ -54,7 +54,6 @@ async def generate_audio(
             },
         }
 
-        print("data to elevenlabs:", data)
         response = requests.post(tts_url, headers=headers, json=data, stream=True)
 
         utc_now = datetime.now(pytz.utc)
@@ -73,8 +72,6 @@ async def generate_audio(
                 "created_at": colombia_now,
             }
         )
-
-        print(response)
 
         if response.ok:
             # Guardamos el MP3 original en memoria
@@ -109,7 +106,6 @@ async def generate_audio(
                 file_name=f"voice/{audio_id}.mp3", audio_byte_arr=mp3_audio_in_memory
             )
 
-            print(url_audio_ogg, url_audio_mp3)
 
             # Devolvemos ambas URLs en un diccionario
             return {

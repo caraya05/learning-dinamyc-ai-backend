@@ -2,6 +2,7 @@ import json
 import traceback
 from datetime import datetime
 import pytz
+from pathlib import Path
 
 from typing import IO
 from fastapi import HTTPException
@@ -18,6 +19,19 @@ from config import settings
 from core.database import db
 
 NOT_GIVEN = NotGiven()
+
+# Precios de modelos OpenAI (por 1K tokens)
+MODEL_PRICING = {
+    "gpt-4-turbo": {"input": 0.01, "output": 0.03},
+    "gpt-4": {"input": 0.03, "output": 0.06},
+    "gpt-3.5-turbo": {"input": 0.0005, "output": 0.0015},
+    "gpt-4o": {"input": 0.005, "output": 0.015},
+    "gpt-4o-mini": {"input": 0.00015, "output": 0.0006},
+    "text-embedding-3-small": {"input": 0.02, "output": 0},
+    "text-embedding-3-large": {"input": 0.13, "output": 0},
+    "dall-e-3": {"input": 20.0, "output": 0},  # Por imagen
+    "dall-e-2": {"input": 10.0, "output": 0},  # Por imagen
+}
 
 
 class SchemaResponseModerator(PydanticBaseModel):
@@ -91,10 +105,91 @@ async def handle_exception(e, prompt, model, type_generation: str, user_id=None)
     return HTTPException(status_code=status_code, detail=error_message)
 
 
+def calculate_ai_cost(model: str, input_tokens: int, output_tokens: int) -> dict:
+    """
+    Calcula el costo de una llamada a IA basado en tokens consumidos.
+
+    Args:
+        model (str): Nombre del modelo usado
+        input_tokens (int): Número de tokens de entrada
+        output_tokens (int): Número de tokens de salida
+
+    Returns:
+        dict: Información del costo desglosado
+    """
+    if model not in MODEL_PRICING:
+        return {"error": f"Modelo '{model}' no soportado"}
+
+    pricing = MODEL_PRICING[model]
+    input_cost = (input_tokens / 1000) * pricing["input"]
+    output_cost = (output_tokens / 1000) * pricing["output"]
+    total_cost = input_cost + output_cost
+
+    return {
+        "model": model,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+        "input_cost_usd": round(input_cost, 6),
+        "output_cost_usd": round(output_cost, 6),
+        "total_cost_usd": round(total_cost, 6),
+        "timestamp": datetime.now(pytz.timezone("America/Bogota")).isoformat()
+    }
+
+
+async def save_ai_cost_to_file(cost_info: dict, user_id: str = None, file_path: str = "logs/ai_usage_costs.txt"):
+    """
+    Guarda el costo de una llamada a IA en un archivo txt.
+
+    Args:
+        cost_info (dict): Información del costo calculado
+        user_id (str): ID del usuario que hizo la llamada
+        file_path (str): Ruta del archivo de salida
+    """
+    try:
+        # Crear directorio si no existe
+        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
+
+        # Crear entrada de costo
+        entry = f"""
+{'─'*80}
+Timestamp: {cost_info.get('timestamp', 'N/A')}
+Modelo: {cost_info.get('model', 'N/A')}
+Usuario ID: {user_id or 'No especificado'}
+Tokens Entrada: {cost_info.get('input_tokens', 0):,}
+Tokens Salida: {cost_info.get('output_tokens', 0):,}
+Tokens Totales: {cost_info.get('total_tokens', 0):,}
+Costo Entrada: ${cost_info.get('input_cost_usd', 0):.6f}
+Costo Salida: ${cost_info.get('output_cost_usd', 0):.6f}
+Costo Total: ${cost_info.get('total_cost_usd', 0):.6f} USD
+"""
+
+        # Agregar al archivo
+        with open(file_path, 'a', encoding='utf-8') as f:
+            f.write(entry)
+
+        print(f"[IA COST] Modelo: {cost_info.get('model')}, Costo: ${cost_info.get('total_cost_usd'):.6f} USD")
+
+    except Exception as e:
+        print(f"[ERROR] No se pudo guardar el costo: {str(e)}")
+
+
 from dataclasses import asdict
 
 
-async def store_response(response, prompt, model, type_generation: str, user_id=None):
+async def store_response(response, prompt, model, type_generation: str, user_id=None, input_tokens: int = 0, output_tokens: int = 0):
+    """
+    Almacena la respuesta y calcula el costo de la llamada a IA.
+
+    Args:
+        response: Respuesta de la API
+        prompt: Prompt enviado
+        model: Modelo utilizado
+        type_generation: Tipo de generación
+        user_id: ID del usuario
+        input_tokens: Tokens de entrada
+        output_tokens: Tokens de salida
+    """
     # Convert response to dictionary
     if hasattr(response, 'dict'):
         response_dict = response.dict()
@@ -106,6 +201,16 @@ async def store_response(response, prompt, model, type_generation: str, user_id=
     utc_now = datetime.now(pytz.utc)
     colombia_now = utc_now.astimezone(pytz.timezone("America/Bogota"))
 
+    # Calcular costo si se proporcionan tokens
+    cost_info = None
+    if input_tokens > 0 or output_tokens > 0:
+        cost_info = calculate_ai_cost(model, input_tokens, output_tokens)
+        if "error" not in cost_info:
+            # Guardar en archivo txt
+            await save_ai_cost_to_file(cost_info, user_id=user_id)
+            # Agregar costo a la respuesta almacenada
+            response_dict['cost_info'] = cost_info
+
     await db["logs"].insert_one(
         {
             "status": 200,
@@ -116,6 +221,9 @@ async def store_response(response, prompt, model, type_generation: str, user_id=
             "model": model,
             "type_generation": type_generation,
             "user_id": user_id,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "cost_info": cost_info,
             "created_at": colombia_now,
         }
     )
@@ -156,12 +264,20 @@ class OpenAIGenerator:
                 style=style if style is not None else NOT_GIVEN,
                 background=background if background is not None else NOT_GIVEN,
             )
+            # Calcular tokens aproximados para imágenes (por imagen generada)
+            # DALL-E 3: ~100 tokens de entrada + ~1600 tokens por imagen (basado en size)
+            image_tokens = 1600 if size in ["1792x1024", "1024x1792"] else 1024 if size == "1024x1024" else 512
+            input_tokens = 100
+            output_tokens = image_tokens * count
+
             await store_response(
                 response=response,
                 prompt=prompt,
                 model=model,
                 type_generation=type_generation,
                 user_id=user_id,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens
             )
             # Retornar url o base64
             if hasattr(response.data[0], "url") and response.data[0].url:
@@ -274,12 +390,22 @@ class OpenAIGenerator:
                 "max_tokens": 4000,
             }
             response = await self.generate_gpt(**kwargs)
+
+            # Extraer información de tokens si está disponible
+            input_tokens = 0
+            output_tokens = 0
+            if hasattr(response, "usage"):
+                input_tokens = getattr(response.usage, "prompt_tokens", 0)
+                output_tokens = getattr(response.usage, "completion_tokens", 0)
+
             await store_response(
                 response=response,
                 prompt=text,
                 model="gpt-4o",
                 type_generation="moderation_text",
                 user_id=user_id,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens
             )
             return hasattr(response, "response") and response.response.lower() in ["sí", "si", "yes"]
         except Exception as e:
@@ -311,6 +437,8 @@ class OpenAIGenerator:
                 model="file_upload",
                 type_generation="file_upload",
                 user_id=user_id,
+                input_tokens=0,
+                output_tokens=0
             )
             return response
         except Exception as e:
@@ -318,6 +446,7 @@ class OpenAIGenerator:
             return await handle_exception(
                 e=e, prompt="", model="file_upload", type_generation="file_upload", user_id=user_id
             )
+
     async def delete_file(
             self,
             file_id: str,
@@ -332,6 +461,8 @@ class OpenAIGenerator:
                 model="file_delete",
                 type_generation="file_delete",
                 user_id=user_id,
+                input_tokens=0,
+                output_tokens=0
             )
 
             return response

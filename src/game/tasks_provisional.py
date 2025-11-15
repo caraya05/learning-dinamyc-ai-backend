@@ -2480,4 +2480,14 @@ REGLAS:
         ]
     })
 
+    messages.append({
+        "role": "user",
+        "content": [
+            {
+                "type": "text",
+                "text": "ESTRUCTURA OBLIGATORIA:\n- Total de escenas: Exactamente 3 escenas\n- Total de locaciones: Exactamente 3 locaciones (una por escena)\n- Personajes por locación: Exactamente 2 personajes\n  * 1 personaje principal (puede ser el mismo en todas las escenas)\n  * 1 personaje secundario (puede variar por escena)\n- No incluyas más de 2 personajes por locación bajo ninguna circunstancia"
+            }
+        ]
+    })
+
     return messages

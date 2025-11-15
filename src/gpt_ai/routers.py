@@ -7,3 +7,4 @@ router = APIRouter(prefix="/gpt_ai", tags=["gpt_ai"])
 def billing():
     """Devuelve el gasto y crédito restante de la cuenta de OpenAI."""
     return get_openai_billing()
+
