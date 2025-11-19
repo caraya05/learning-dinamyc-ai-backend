@@ -1967,8 +1967,8 @@ async def _generate_image_character(_user_id,
     try:
         image_face = await openai_generator.generate_image(
             prompt=f"Genera una imagen en vista frontal cuadrada de 1024x1024 de un personaje de fondo transparente,"
-                   f" ({_prompt_user}) en estilo 3D low poly, de la cintura para "
-                   f"arriba mirando al frente con los brazos hacia abajo, con fondo de color solido que contraste."
+                   f" ({_prompt_user}) en estilo 3D low poly, de la cintura para arriba, sin objetos adicionales, "
+                   f"mirando al frente con los brazos hacia abajo."
                    f"genero: {_gender},"
                    f" Utilizando la imagen de referencia.",
             size="1024x1024",

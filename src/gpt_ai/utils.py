@@ -366,6 +366,9 @@ class OpenAIGenerator:
             print("[ERROR] response no tiene 'choices'")
             return None
         except Exception as e:
+            print(f"content_prompt: {content_prompt}")
+            print(f"model: {model}")
+            print(f"type_generation: {type_generation}")
             print(f"Error in generate_gpt: {str(e)}")
             print(traceback.format_exc())
             return await handle_exception(

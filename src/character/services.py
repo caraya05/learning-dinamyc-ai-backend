@@ -595,7 +595,7 @@ async def new_interaction_character_service(
     if not stage_element_db:
         raise Exception("error state glic not found for character")
     if options_dialog:
-        options_dialog = options_dialog.dict()
+        options_dialog = options_dialog
 
     if conversation:
         conversation = [conv.dict() for conv in conversation]
@@ -688,6 +688,57 @@ async def answer_open_question_service(
 
     try:
         criteria = {}
+        # for location in state_element_db['data']['interaction']:
+        #     if location["location_id"] == location_id:
+        #         all_dialogs = []
+        #         for question in location["options_dialog"]["prompt_user_question"]:
+        #             all_dialogs.append(question["dialog"])
+        #
+        #         criteria["question"] = [question["dialog"] for question in
+        #                                 location["options_dialog"]["prompt_user_question"]]
+        #         options_answer = []
+        #         for criteria_db in location["options_dialog"]["options"]:
+        #             if criteria_db["prompt_user_guideline"] and criteria_db["prompt_user_answer"]:
+        #                 options_answer.append(
+        #                     {
+        #                         "criteria_evaluated": criteria_db["prompt_user_guideline"],
+        #                         "response_criteria": criteria_db["prompt_user_answer"]["dialog"],
+        #                         "audio": criteria_db["prompt_user_answer"]["audio"],
+        #                     }
+        #                 )
+        #
+        #         criteria["options_answer"] = options_answer
+        # response = await openai_generator.generate_gpt(
+        #     content_prompt=[
+        #         {
+        #             "role": "system",
+        #             "content": f"Eres un evaluador de respuestas de preguntas abiertas, "
+        #                        f"por favor evalúa la respuesta que da el usuario, respecto a un pregunta teniendo encuenta"
+        #                        f" la un criteria a evaluar y dando la respuesta de las opciones que tienes en criterios y respuestas,"
+        #                        f"no te puedes salir de las opciones que tienes en criterios y respuestas",
+        #         },
+        #         {
+        #             "role": "system",
+        #             "content": f"pregunta: {criteria['question']}"
+        #                        f"criterios a evaluar y respuestas: {criteria['options_answer']}",
+        #         },
+        #         {
+        #             "role": "user",
+        #             "content": [
+        #                 {
+        #                     "type": "text",
+        #                     "text": f"respuesta del usuario: {prompt_user_answer}",
+        #                 },
+        #             ],
+        #         },
+        #     ],
+        #     model="gpt-4o-mini-2024-07-18",
+        #     max_tokens=4096,
+        #     response_format=SchemaResponseOpenAnswer,
+        #     user_id=user_id,
+        #     type_generation="validate_open_answer",
+        # )
+
         for location in state_element_db['data']['interaction']:
             if location["location_id"] == location_id:
                 all_dialogs = []
@@ -708,43 +759,16 @@ async def answer_open_question_service(
                         )
 
                 criteria["options_answer"] = options_answer
-        response = await openai_generator.generate_gpt(
-            content_prompt=[
-                {
-                    "role": "system",
-                    "content": f"Eres un evaluador de respuestas de preguntas abiertas, "
-                               f"por favor evalúa la respuesta que da el usuario, respecto a un pregunta teniendo encuenta"
-                               f" la un criteria a evaluar y dando la respuesta de las opciones que tienes en criterios y respuestas,"
-                               f"no te puedes salir de las opciones que tienes en criterios y respuestas",
-                },
-                {
-                    "role": "system",
-                    "content": f"pregunta: {criteria['question']}"
-                               f"criterios a evaluar y respuestas: {criteria['options_answer']}",
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"respuesta del usuario: {prompt_user_answer}",
-                        },
-                    ],
-                },
-            ],
-            model="gpt-4o-mini-2024-07-18",
-            max_tokens=4096,
-            response_format=SchemaResponseOpenAnswer,
-            user_id=user_id,
-            type_generation="validate_open_answer",
-        )
 
-        return {
-            "detail": {
-                "response_answer": response.response_criteria,
-                "audio": response.audio,
-            }
-        }
+                # Obtener el primer elemento del array
+                first_answer = options_answer[0] if options_answer else None
+
+                return {
+                    "detail": {
+                        "response_answer": first_answer["response_criteria"] if first_answer else None,
+                        "audio": first_answer["audio"] if first_answer else None,
+                    }
+                }
     except Exception as e:
         print(f"Error in answer open question service: {str(e)}")
         raise HTTPException(

@@ -29,7 +29,7 @@ def generate_character_task(
         _game_id: str,
         _location_id: str = None,
         _state_game_id: str = None,
-        _is_image: bool = True,
+        _is_image: bool = False,
 ):
     try:
         loop = asyncio.get_event_loop()

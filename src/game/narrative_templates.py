@@ -5,8 +5,8 @@ from datetime import datetime
 
 
 class TemplateType(str, Enum):
-    LEARN = "learn"
-    EVALUATION = " "
+    STORY = "story"
+    FORM = "form"
     TRIVIA = "trivia"
     SURVEY = "survey"
 

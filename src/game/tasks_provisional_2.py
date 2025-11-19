@@ -532,7 +532,12 @@ async def extract_interactions_from_script(script: str, locations, characters) -
         """
         response = await openai_generator.generate_gpt(
             content_prompt=[
-                {"role": "system", "content": "You are an expert game designer assistant."},
+                {"role": "system", "content": "You are an expert game designer assistant,"
+                                              "Please provide the result in both English and Spanish. Each version "
+                                              "must be well written, with correct grammar, spelling and diacritics "
+                                              "(accent marks) in Spanish, and correct grammar and spelling in English."
+                                              " Label each language clearly. Use natural, idiomatic phrasing and keep "
+                                              "both versions consistent in meaning."},
                 {"role": "user", "content": prompt}
             ],
             model="gpt-4.1",
@@ -1297,7 +1302,9 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                             image=char.get("image", None),
                             gender=char.get("gender", None),
                             voice_id=char.get("voice_id", None),
-                            conversation=None
+                            conversation=None,
+                            prompt_user_dialog=None,
+                            image_reference=None
                         ),
                         user_id=game_provisional_db.get("created_by", "anonymous"),
                         game_id=str(game_db.get("_id")),
@@ -1479,7 +1486,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                 original_loc_start = event.get("id_location_start") or event.get("id_location")
                 original_loc_end = event.get("id_location_end") or event.get("id_location")
                 loc_start = id_map_locations.get(original_loc_start, original_loc_start)
-                loc_end = id_map_locations.get(original_loc_end, loc_start)
+                loc_end = id_map_locations.get(original_loc_end, original_loc_end)
 
                 # Log de personajes
                 event_characters = event.get("id_characters", [])
@@ -1514,8 +1521,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                         option_number=0,
                         state_game_init=state_init,
                         state_game_end=state_end,
-                        location_state_game_init=loc_start,
-                        location_state_game_end=loc_start,
+                        location_state_game_init=loc_start if loc_start else loc_end,
+                        location_state_game_end=loc_start if loc_start else loc_end,
                         game_id=str(game_db.get("_id")),
                         is_final=False if event_type == "event_start" else True,
                         audio_mp3=None,

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Dict
+from typing import Optional, Dict, Any
 
 from bson import ObjectId
 from pydantic import BaseModel
@@ -193,8 +193,8 @@ class SchemaNewInteraction(BaseModel):
     location_id: str = Field(..., example="location_id")
     game_id: str = Field(..., example="game_id")
     conversation_type: str = Field(..., example="conversation_type")
-    conversation: list[ConversationsCharacter] = Field(..., example="conversation")
-    options_dialog: Optional[SchemaOpenAnswer | SchemaOptionMultiple | SchemaOpenTalk] = Field(
+    conversation: list[ConversationsCharacter] = Field(None, example="conversation")
+    options_dialog: dict = Field(
         None, example={"key": "value"}
     )
     state_game: Optional[str] = Field(None, example="state_game")
