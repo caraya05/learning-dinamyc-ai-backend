@@ -755,6 +755,7 @@ async def answer_open_question_service(
                                 "criteria_evaluated": criteria_db["prompt_user_guideline"],
                                 "response_criteria": criteria_db["prompt_user_answer"]["dialog"],
                                 "audio": criteria_db["prompt_user_answer"]["audio"],
+                                "audio_mp3": criteria_db["prompt_user_answer"]["audio_mp3"],
                             }
                         )
 
@@ -766,7 +767,7 @@ async def answer_open_question_service(
                 return {
                     "detail": {
                         "response_answer": first_answer["response_criteria"] if first_answer else None,
-                        "audio": first_answer["audio"] if first_answer else None,
+                        "audio": first_answer["audio_mp3"] if first_answer else None,
                     }
                 }
     except Exception as e:

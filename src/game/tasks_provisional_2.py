@@ -23,10 +23,10 @@ from tasks_shared import generate_image_event_shared_task, generate_event_audio_
 
 
 class TaskCreateGameProvisional(BaseModel):
-    script: str = Field(..., example="script", description="Script extens for the game  in text format")
-    title: str = Field(..., example="title", description="Title for the game provisional")
+    script: str = Field(..., example="script", description="Script extens for the game  in text format, in the requested language")
+    title: str = Field(..., example="title", description="Title for the game provisional, in the requested language")
     num_scenes: int = Field(..., example=1, description="Number of scenes in the game provisional")
-    category: str = Field(..., example="Learning", description="Category of the game based on its content and purpose")
+    category: str = Field(..., example="Learning", description="Category of the game based on its content and purpose, always in english")
 
 
 async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = None) -> str:
@@ -96,7 +96,7 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
 
         content_prompt = get_template_prompt(type_template, template_definition,
                                              game_provisional_db.get('prompt_user', 'No prompt provided'),
-                                             base64_string)
+                                             base64_string, game_provisional_db.get('language', 'es'))
         source_game_response = await openai_generator.generate_gpt(
             content_prompt=content_prompt,
             model="gpt-4.1",
@@ -145,13 +145,16 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
             }
         })
 
+        # Obtener el language del game_provisional
+        game_language = game_provisional_db.get("language", "es")
+
         # Verificar si estamos en modo test para omitir generación de imágenes
         if settings.MODE_TEST:
             await update_game_provisional_status(_id_game_provisional, "skipping_image_test", 80,
                                                  "Test mode active: skipping image generation and upload.")
             url_image = "https://storage.googleapis.com/qwestar/voxel_.jpg"
         else:
-            characters = await extract_characters_from_script(script)
+            characters = await extract_characters_from_script(script, game_language)
             await db["game_provisional"].update_one(
                 {"_id": ObjectId(_id_game_provisional)},
                 {"$set": {"characters": [character.dict() for character in characters]}}
@@ -207,7 +210,7 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
                                                      f"Creating image generation for character '{character_name}'",
                                                      task=last_task_character_id)
 
-            locations = await extract_locations_from_script(script, characters)
+            locations = await extract_locations_from_script(script, characters, game_language)
             await db["game_provisional"].update_one(
                 {"_id": ObjectId(_id_game_provisional)},
                 {"$set": {"locations": [location.dict() for location in locations]}}
@@ -216,7 +219,7 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
             await update_game_provisional_status(_id_game_provisional, "extract_locations", 50,
                                                  "Extracts locations from script")
 
-            events = await extract_events_from_script(script, characters, locations)
+            events = await extract_events_from_script(script, characters, locations, game_language)
             await db["game_provisional"].update_one(
                 {"_id": ObjectId(_id_game_provisional)},
                 {"$set": {"events": [event.dict() for event in events]}}
@@ -245,7 +248,7 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
                                                      "Creating image generation for intro event",
                                                      task=str(task_event.id))
 
-            interactions = await extract_interactions_from_script(script, locations, characters)
+            interactions = await extract_interactions_from_script(script, locations, characters, game_language)
             await db["game_provisional"].update_one(
                 {"_id": ObjectId(_id_game_provisional)},
                 {"$set": {"interactions": [interaction.dict() for interaction in interactions]}}
@@ -276,25 +279,41 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
 
 
 class CharactersProvisional(BaseModel):
-    id: str = Field(..., example="character_1", description="Unique identifier for the character")
-    name: str = Field(..., example="Character Name", description="Name of the character")
-    role: str = Field(..., example="principal", description="Role of the character in the game, if principal or secondary, just one principal")
-    visual_description: str = Field(..., example="A brave hero...", description="Description of the character")
-    gender: str = Field(..., example="male", description="Gender of the character, e.g., male, female, animal, other")
+    id: str = Field(..., example="character_1", description="Unique identifier for the character. always in english")
+    name: str = Field(..., example="Character Name", description="Name of the character. in the requested language")
+    role: str = Field(..., example="principal", description="Role of the character in the game, if principal or secondary, just one principal, always in english")
+    visual_description: str = Field(..., example="A brave hero...", description="Description of the character. in the requested language")
+    gender: str = Field(..., example="male", description="Gender of the character, e.g., male, female, animal, other. always in english")
 
 
 class TasksCreateCharactersProvisional(BaseModel):
     characters: list[CharactersProvisional] = Field(..., example=[], description="List of characters for the game provisional")
 
 
-async def extract_characters_from_script(script: str) -> list[CharactersProvisional]:
+async def extract_characters_from_script(script: str, language: str = "es") -> list[CharactersProvisional]:
     """
     Extract characters from the provided script using OpenAI's GPT model.
+    Language parameter: 'es' for Spanish, 'en' for English, 'fr' for French, 'it' for Italian, 'de' for German, or bilingual
     """
     try:
+        lang_instruction = ""
+        if language.lower() == "es":
+            lang_instruction = "Proporciona los resultados en español."
+        elif language.lower() == "en":
+            lang_instruction = "Provide the results in English."
+        elif language.lower() == "fr":
+            lang_instruction = "Fournissez les résultats en français."
+        elif language.lower() == "it":
+            lang_instruction = "Fornisci i risultati in italiano."
+        elif language.lower() == "de":
+            lang_instruction = "Geben Sie die Ergebnisse auf Deutsch an."
+        elif language.lower() == "bilingual":
+            lang_instruction = "Provide the results in both Spanish and English, clearly labeled for each language."
+
         prompt = f"""
         Extract the main characters from the following game script. Provide a list of characters with their names, 
         roles (principal or secondary), and visual descriptions. Ensure there is only one principal character.
+        {lang_instruction}
         Script:
         {script}
         """
@@ -335,30 +354,46 @@ async def extract_characters_from_script(script: str) -> list[CharactersProvisio
 
 
 class EventsProvisional(BaseModel):
-    id: str = Field(..., example="event_start", description="Unique identifier for the event equal type")
-    description: str = Field(..., example="The hero arrives at the village...", description="Description of the event")
+    id: str = Field(..., example="event_start", description="Unique identifier for the event equal type. always in english")
+    description: str = Field(..., example="The hero arrives at the village...", description="Description of the event. in the requested language")
     visual_description: str = Field(..., example="A bustling medieval village...",
-                                    description="Visual description of the event")
-    type: str = Field(..., example="event", description="Type of the event, e.g., event_inter, scene_start, scene_end")
+                                    description="Visual description of the event. in the requested language")
+    type: str = Field(..., example="event", description="Type of the event, e.g., event_inter, scene_start, scene_end. always in english")
     id_characters: list[str] = Field(..., example=["character_1"],
-                                     description="List of character IDs involved in this event")
+                                     description="List of character IDs involved in this event. always in english")
     order: int = Field(..., example=1, description="Order of the event in the sequence of events")
-    id_location_start: str = Field(..., example="location_1", description="ID of the starting location for this event")
-    id_location_end: str = Field(..., example="location_2", description="ID of the ending location for this event")
+    id_location_start: str = Field(..., example="location_1", description="ID of the starting location for this event. always in english")
+    id_location_end: str = Field(..., example="location_2", description="ID of the ending location for this event. always in english")
 
 
 class TasksCreateEventsProvisional(BaseModel):
     events: list[EventsProvisional] = Field(..., example=[], description="List of events for the game provisional")
 
 
-async def extract_events_from_script(script: str, characters, locations) -> list[EventsProvisional]:
+async def extract_events_from_script(script: str, characters, locations, language: str = "es") -> list[EventsProvisional]:
     """
     Extract events from the provided script using OpenAI's GPT model.
+    Language parameter: 'es' for Spanish, 'en' for English, 'fr' for French, 'it' for Italian, 'de' for German, or bilingual
     """
     try:
+        lang_instruction = ""
+        if language.lower() == "es":
+            lang_instruction = "Proporciona los resultados en español."
+        elif language.lower() == "en":
+            lang_instruction = "Provide the results in English."
+        elif language.lower() == "fr":
+            lang_instruction = "Fournissez les résultats en français."
+        elif language.lower() == "it":
+            lang_instruction = "Fornisci i risultati in italiano."
+        elif language.lower() == "de":
+            lang_instruction = "Geben Sie die Ergebnisse auf Deutsch an."
+        elif language.lower() == "bilingual":
+            lang_instruction = "Provide the results in both Spanish and English, clearly labeled for each language."
+
         prompt = f"""
         Extract only the first event of type 'scene_start' (the intro event) from the following game script. 
         Provide its description, visual description, and type. Do not extract any other events.
+        {lang_instruction}
         Script:
         {script}
         Characters available (with their IDs):
@@ -402,19 +437,19 @@ async def extract_events_from_script(script: str, characters, locations) -> list
 
 
 class LocationsProvisional(BaseModel):
-    id: str = Field(..., example="location_1", description="Unique identifier for the location")
-    name: str = Field(..., example="Enchanted Forest", description="Name of the location")
+    id: str = Field(..., example="location_1", description="Unique identifier for the location, always in english")
+    name: str = Field(..., example="Enchanted Forest", description="Name of the location. in the requested language")
     visual_description: str = Field(...,
-                                    example="A mystical forest with tall ancient trees, a crystal-clear lake, and glowing mushrooms scattered throughout the area...",
-                                    description="Visual description of the location: describe the physical environment, landscape, objects, and visual elements present in the place")
+                                    example="A mystical forest with tall ancient trees, a crystal-clear lake, and glowing mushrooms scattered throughout the area. in the requested language",
+                                    description="Visual description of the location: describe the physical environment, landscape, objects, and visual elements present in the place. in the requested language")
     description_situacional: str = Field(...,
                                          example="The characters are talking by the river shore, with scared expressions on their faces. One character is surprised with hands on their head while another is pointing at something in the water...",
-                                         description="Situational description: describe what the characters are doing in this location, their actions, expressions, body language, and how they are interacting with the environment")
+                                         description="Situational description: describe what the characters are doing in this location, their actions, expressions, body language, and how they are interacting with the environment. in the requested language")
     id_characters: list[str] = Field(..., example=["character_1"],
-                                     description="List of character IDs present in this location")
+                                     description="List of character IDs present in this location, always in english")
     order: int = Field(..., example=1, description="Order of the location in the sequence of locations")
     id_characters_reused: list[str] = Field(..., example=["character_2"],
-                                            description="List of character IDs reused from previous locations")
+                                            description="List of character IDs reused from previous locations, always in english")
 
 
 class TasksCreateLocationsProvisional(BaseModel):
@@ -422,14 +457,30 @@ class TasksCreateLocationsProvisional(BaseModel):
                                                   description="List of locations for the game provisional")
 
 
-async def extract_locations_from_script(script: str, characters) -> list[LocationsProvisional]:
+async def extract_locations_from_script(script: str, characters, language: str = "es") -> list[LocationsProvisional]:
     """
     Extract locations from the provided script using OpenAI's GPT model.
+    Language parameter: 'es' for Spanish, 'en' for English, 'fr' for French, 'it' for Italian, 'de' for German, or bilingual
     """
     try:
+        lang_instruction = ""
+        if language.lower() == "es":
+            lang_instruction = "Proporciona los resultados en español."
+        elif language.lower() == "en":
+            lang_instruction = "Provide the results in English."
+        elif language.lower() == "fr":
+            lang_instruction = "Fournissez les résultats en français."
+        elif language.lower() == "it":
+            lang_instruction = "Fornisci i risultati in italiano."
+        elif language.lower() == "de":
+            lang_instruction = "Geben Sie die Ergebnisse auf Deutsch an."
+        elif language.lower() == "bilingual":
+            lang_instruction = "Provide the results in both Spanish and English, clearly labeled for each language."
+
         prompt = f"""
         Extract the main locations from the following game script. Provide a list of locations with their names,
         visual descriptions, descriptions situacional and characters present in each location.
+        {lang_instruction}
         
         IMPORTANT: In the visual description of each location, include descriptions of adjacent or nearby places to create
         a sense of depth and make the spaces appear distant from each other.
@@ -497,17 +548,17 @@ class ConversationOptionProvisional(BaseModel):
 
 
 class InteractionProvisional(BaseModel):
-    id: str = Field(..., example="interaction_1", description="Unique identifier for the interaction")
+    id: str = Field(..., example="interaction_1", description="Unique identifier for the interaction, always in english")
     type: str = Field(..., example="two_way",
-                      description="Type of interaction, e.g., two_way, one_way, option_multiple, open_question, open_talk")
+                      description="Type of interaction, e.g., two_way, one_way, option_multiple, open_question, open_talk. always in english")
     conversations: list[ConversationProvisional] = Field(..., example=[],
-                                                         description="List of conversations involved in this interaction")
+                                                         description="List of conversations involved in this interaction. in the requested language")
     options: list[ConversationOptionProvisional] = Field(..., example=[], description="Options presented to the interaction")
 
     id_location: str = Field(..., example="location_1",
-                             description="ID of the location where this interaction takes place")
+                             description="ID of the location where this interaction takes place, always in english")
     id_characters: list[str] = Field(..., example=["character_1"],
-                                     description="List of character IDs involved in this interaction")
+                                     description="List of character IDs involved in this interaction, always in english")
 
 
 class TasksCreateInteractionsProvisional(BaseModel):
@@ -515,14 +566,30 @@ class TasksCreateInteractionsProvisional(BaseModel):
                                                        description="List of interactions for the game provisional")
 
 
-async def extract_interactions_from_script(script: str, locations, characters) -> list[InteractionProvisional]:
+async def extract_interactions_from_script(script: str, locations, characters, language: str = "es") -> list[InteractionProvisional]:
     """
     Extract interactions from the provided script using OpenAI's GPT model.
+    Language parameter: 'es' for Spanish, 'en' for English, 'fr' for French, 'it' for Italian, 'de' for German, or bilingual
     """
     try:
+        lang_instruction = ""
+        if language.lower() == "es":
+            lang_instruction = "Proporciona los resultados en español."
+        elif language.lower() == "en":
+            lang_instruction = "Provide the results in English."
+        elif language.lower() == "fr":
+            lang_instruction = "Fournissez les résultats en français."
+        elif language.lower() == "it":
+            lang_instruction = "Fornisci i risultati in italiano."
+        elif language.lower() == "de":
+            lang_instruction = "Geben Sie die Ergebnisse auf Deutsch an."
+        elif language.lower() == "bilingual":
+            lang_instruction = "Provide the results in both Spanish and English, clearly labeled for each language."
+
         prompt = f"""
         Extract the main interactions from the following game script. Provide a list of interactions with their types 
         (two_way, one_way, option_multiple, open_question, open_talk), conversations, locations, and characters involved.
+        {lang_instruction}
         Script:
         {script}
         Locations available (with their IDs):
@@ -532,12 +599,11 @@ async def extract_interactions_from_script(script: str, locations, characters) -
         """
         response = await openai_generator.generate_gpt(
             content_prompt=[
-                {"role": "system", "content": "You are an expert game designer assistant,"
-                                              "Please provide the result in both English and Spanish. Each version "
-                                              "must be well written, with correct grammar, spelling and diacritics "
+                {"role": "system", "content": "You are an expert game designer assistant, "
+                                              "Please provide the result respecting the language instructions provided. "
+                                              "Each version must be well written, with correct grammar, spelling and diacritics "
                                               "(accent marks) in Spanish, and correct grammar and spelling in English."
-                                              " Label each language clearly. Use natural, idiomatic phrasing and keep "
-                                              "both versions consistent in meaning."},
+                                              " Use natural, idiomatic phrasing."},
                 {"role": "user", "content": prompt}
             ],
             model="gpt-4.1",

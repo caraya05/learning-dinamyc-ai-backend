@@ -858,105 +858,127 @@ class GameService:
             )
 
     async def get_community_games_service(self, skip: int = 1, limit: int = 100):
-            """
-            Obtiene juegos comunitarios que están publicados con datos enriquecidos.
-            Optimizado con agregación MongoDB para una sola consulta.
-            """
-            community_categories = [
-                "Marketing",
-                "Talent Development",
-                "Compliance",
-                "Recruiting",
-                "Events",
-                "Fan Engagement",
-                "Health & Wellness",
-                "Data Collection",
-                "Storytelling",
-                "Social Impact",
-                "Learning"
-            ]
+        """
+        Obtiene juegos comunitarios que están publicados con datos enriquecidos.
+        Optimizado con agregación MongoDB para una sola consulta.
+        """
+        community_categories = [
+            "Marketing",
+            "Talent Development",
+            "Compliance",
+            "Recruiting",
+            "Events",
+            "Fan Engagement",
+            "Health & Wellness",
+            "Data Collection",
+            "Storytelling",
+            "Social Impact",
+            "Learning"
+        ]
 
-            match_query = {
-                'version': 2,
-                'is_published': True,
-                'is_active': True,
-                'category_id': {'$in': community_categories}
-            }
+        match_query = {
+            'version': 2,
+            'is_published': True,
+            'is_active': True,
+            'category_id': {'$in': community_categories}
+        }
 
-            pipeline = [
-                {'$match': match_query},
-                {'$sort': {'created_at': -1}},
-                {'$skip': (skip - 1) * limit},
-                {'$limit': limit},
-                # Contar jugadores únicos que jugaron el juego
-                {
-                    '$lookup': {
-                        'from': 'record_game',
-                        'let': {'game_id': {'$toString': '$_id'}},
-                        'pipeline': [
-                            {'$match': {'$expr': {'$eq': ['$game_id', '$$game_id']}}},
-                            {'$group': {'_id': '$user_id'}},
-                            {'$count': 'count'}
-                        ],
-                        'as': 'player_stats'
-                    }
-                },
-                # Obtener datos del creator
-                {
-                    '$lookup': {
-                        'from': 'user',
-                        'localField': 'created_by',
-                        'foreignField': '_id',
-                        'as': 'creator'
-                    }
-                },
-                # Agregar campos calculados
-                {
-                    '$addFields': {
-                        'plays': {
-                            '$ifNull': [
-                                {'$arrayElemAt': ['$player_stats.count', 0]},
-                                0
-                            ]
-                        },
-                        'creator_info': {
-                            '$arrayElemAt': [
-                                {
-                                    '$map': {
-                                        'input': '$creator',
-                                        'as': 'c',
-                                        'in': {
-                                            'name': '$$c.name',
-                                            'avatar': '$$c.avatar'
-                                        }
-                                    }
-                                },
-                                0
-                            ]
+        pipeline = [
+            {'$match': match_query},
+            {'$sort': {'created_at': -1}},
+            {'$skip': (skip - 1) * limit},
+            {'$limit': limit},
+            # Contar jugadores únicos que jugaron el juego
+            {
+                '$lookup': {
+                    'from': 'record_game',
+                    'let': {'game_id': {'$toString': '$_id'}},
+                    'pipeline': [
+                        {'$match': {'$expr': {'$eq': ['$game_id', '$$game_id']}}},
+                        {'$group': {'_id': '$user_id'}},
+                        {'$count': 'count'}
+                    ],
+                    'as': 'player_stats'
+                }
+            },
+            # Obtener datos del creator
+            {
+                '$lookup': {
+                    'from': 'user',
+                    'localField': 'created_by',
+                    'foreignField': '_id',
+                    'as': 'creator'
+                }
+            },
+            {
+                '$lookup': {
+                    'from': 'game_provisional',
+                    'let': {'provisional_id': '$provisional_id'},
+                    'pipeline': [
+                        {
+                            '$match': {
+                                '$expr': {
+                                    '$eq': ['$_id', {'$toObjectId': '$$provisional_id'}]
+                                }
+                            }
                         }
-                    }
-                },
-                # Limpiar campos temporales
-                {'$project': {
-                    'player_stats': 0,
-                    'creator': 0,
-                    'locations_id': 0,
-                    'characters_id': 0,
-                    'items_id': 0
-                }}
-            ]
+                    ],
+                    'as': 'game_provisional_data'
+                }
+            },
+            # Agregar campos calculados
+            {
+                '$addFields': {
+                    'game_provisional': {
+                        '$arrayElemAt': ['$game_provisional_data', 0]
+                    },
+                    'plays': {
+                        '$ifNull': [
+                            {'$arrayElemAt': ['$player_stats.count', 0]},
+                            0
+                        ]
+                    },
+                    'creator_info': {
+                        '$arrayElemAt': [
+                            {
+                                '$map': {
+                                    'input': '$creator',
+                                    'as': 'c',
+                                    'in': {
+                                        'name': '$$c.name',
+                                        'avatar': '$$c.avatar'
+                                    }}}, 0]
+                    },
+                }
+            },
+            # Limpiar campos temporales
+            {'$project': {
+                'player_stats': 0,
+                'creator': 0,
+                'locations_id': 0,
+                'characters_id': 0,
+                'items_id': 0,
+            }}
+        ]
 
-            # Ejecutar agregación y conteo en paralelo
-            games_db, count_result = await asyncio.gather(
-                db['game'].aggregate(pipeline).to_list(None),
-                db['game'].count_documents(match_query)
-            )
+        # Ejecutar agregación y conteo en paralelo
+        games_db, count_result = await asyncio.gather(
+            db['game'].aggregate(pipeline).to_list(None),
+            db['game'].count_documents(match_query)
+        )
 
-            # Convertir _id a string
-            for game in games_db:
-                game['_id'] = str(game['_id'])
+        # Convertir _id a string para cada juego
+        for game in games_db:
+            game['_id'] = str(game['_id'])
+            # Convertir _id de game_provisional si existe
+            if game.get('game_provisional') and game['game_provisional'].get('_id'):
+                game['game_provisional']['_id'] = str(game['game_provisional']['_id'])
 
-            return games_db, count_result
+        # Convertir _id a string
+        for game in games_db:
+            game['_id'] = str(game['_id'])
+
+        return games_db, count_result
 
     async def get_games_played_recent_service(self, user_id: str):
         try:

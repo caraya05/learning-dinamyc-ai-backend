@@ -2069,7 +2069,7 @@ async def validate_interaction_type(template_type: str, interaction_type: str) -
     return is_valid, ", ".join(expected_types)
 
 
-def get_template_prompt(template_type, template_definition, prompt_user, base64_string):
+def get_template_prompt(template_type, template_definition, prompt_user, base64_string, language):
     tipo = str(template_type).lower() if template_type else ""
     instruccion_personajes = "Antes de cada bloque de interacción, indica explícitamente el nombre del personaje principal y el secundario, usando el formato:\nPrincipal: [nombre]\nSecundario: [nombre]"
 
@@ -2386,6 +2386,22 @@ REGLAS:
                 "type": "text",
                 "text": "ESTRUCTURA OBLIGATORIA:\n- Total de escenas: Exactamente 3 escenas\n- Total de locaciones: Exactamente 3 locaciones (una por escena)\n- Personajes por locación: Exactamente 2 personajes\n  * 1 personaje principal (puede ser el mismo en todas las escenas)\n  * 1 personaje secundario (puede variar por escena)\n- No incluyas más de 2 personajes por locación bajo ninguna circunstancia"
             }
+        ]
+    })
+
+    messages.append({
+        "role": "user",
+        "content": [
+            {
+                "type": "text",
+"text": "RECUERDA: \n - el idioma del juego es " + (
+                    "español" if language == "es" else
+                    "inglés" if language == "en" else
+                    "francés" if language == "fr" else
+                    "italiano" if language == "it" else
+                    "alemán" if language == "de" else
+                    "español e inglés"
+                ) + ".\n - Debes seguir las reglas y estructura del template seleccionado al pie de la letra.\n - Si no sigues las reglas, el resultado será rechazado."            }
         ]
     })
 

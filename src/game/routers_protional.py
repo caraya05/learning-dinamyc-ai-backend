@@ -95,6 +95,7 @@ async def create_game(
         file: UploadFile = File(None),
         prompt_user: str = Form(...),
         template_type: str = Form(...),
+        language: str = Form("es", description="Language code for the game")
 ):
     """
     This endpoint creates a new game.
@@ -130,6 +131,7 @@ async def create_game(
                 "user_name": None,
                 "user_email": None,
                 "level_process": 1,
+                "language": language,
             }
         )
 
@@ -163,6 +165,7 @@ async def create_game(
             "updated_at": game_provisional_db["updated_at"],
             "created_by": str(user["_id"]),
             "updated_by": str(user["_id"]),
+            "language": language,
             "state": "script_create",
             "num_scenes": 0,
             "scene_interactions": [],
