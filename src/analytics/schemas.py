@@ -3,13 +3,25 @@ from pydantic import BaseModel, Field
 from typing import Optional, List
 
 
+class UserResponse(BaseModel):
+    """Modelo para una respuesta del usuario a una pregunta."""
+    questionId: Optional[str] = None
+    question: str
+    answer: str
+    timestamp: Optional[datetime] = None
+    isCorrect: Optional[bool] = None
+
+
 class AnalyticBase(BaseModel):
     gameId: str
+    sessionId: str
     startTime: datetime
     endTime: datetime
     progress: int = Field(..., ge=1, le=3)
     completed: bool
     duration: int
+    responses: Optional[List[UserResponse]] = []
+    score: Optional[int] = Field(default=0, ge=0)
 
 
 class AnalyticCreate(AnalyticBase):
