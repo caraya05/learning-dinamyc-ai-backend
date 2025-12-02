@@ -2356,17 +2356,23 @@ REGLAS:
         })
 
     GAME_CATEGORIES = {
-        "Marketing": "Promotional campaigns and brand awareness initiatives designed to engage audiences and drive consumer interest.",
-        "Talent Development": "Programs focused on employee skill enhancement, training, and professional growth within organizations.",
-        "Compliance": "Educational content ensuring adherence to regulations, policies, and legal requirements in various industries.",
-        "Recruiting": "Interactive experiences designed to attract, evaluate, and engage potential candidates during the hiring process.",
-        "Events": "Gamified experiences created for conferences, trade shows, and live events to enhance attendee engagement.",
-        "Fan Engagement": "Interactive content designed to deepen connections with fan communities and increase brand loyalty.",
-        "Health & Wellness": "Educational and motivational content promoting physical health, mental wellness, and lifestyle improvements.",
-        "Data Collection": "Survey and feedback mechanisms designed to gather user preferences, opinions, and behavioral insights.",
-        "Storytelling": "Narrative-driven experiences that entertain and captivate audiences through immersive interactive stories.",
-        "Social Impact": "Educational content addressing social causes, environmental awareness, and community development initiatives.",
-        "Learning": "Educational games designed to teach concepts, skills, and knowledge across various subjects and disciplines."
+        # Educational Categories
+        "Reading": "Historias inmersivas que desarrollan comprensión lectora, vocabulario y habilidades de lectura a través de narrativas cautivadoras.",
+        "Maths": "Historias donde los personajes resuelven acertijos matemáticos y exploran conceptos numéricos de forma natural en la narrativa.",
+        "Languages": "Historias multilingües que permiten aprender vocabulario, gramática y pronunciación a través de diálogos y eventos naturales.",
+        "Science & Nature": "Historias de exploración donde los personajes descubren fenómenos científicos y aprenden sobre la naturaleza.",
+
+        # Life Skills & Values
+        "Social Skills": "Historias sobre interacciones humanas donde los personajes desarrollan empatía, comunicación y habilidades de colaboración.",
+        "Values": "Historias morales donde los personajes enfrentan dilemas éticos y toman decisiones que revelan sus valores.",
+        "Emotions": "Historias introspectivas donde los personajes exploran, reconocen y aprenden a gestionar diferentes emociones.",
+        "Habits": "Historias de transformación donde los personajes desarrollan nuevos hábitos y patrones de comportamiento positivos.",
+
+        # Cultural & Historical
+        "History": "Historias ambientadas en diferentes períodos históricos que educen sobre eventos, figuras y épocas del pasado.",
+        "Holidays & Traditions": "Historias que celebran y exploran las costumbres, tradiciones y festividades de culturas alrededor del mundo.",
+        "Stories & Tales": "Historias clásicas, folclore y fábulas tradicionales adaptadas con elementos narrativos interactivos.",
+
     }
 
     messages.append({
