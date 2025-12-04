@@ -1,8 +1,10 @@
 import base64
+import pytz
 import traceback
 import json
 import requests
 import asyncio
+from datetime import datetime
 
 from bson import ObjectId
 from pydantic import BaseModel, Field
@@ -11,6 +13,7 @@ from character.schemas import SchemaCreateCharacter
 from config import settings
 from core import db
 from event.schemas import SchemaCreateEvent
+from game.reference_image_service import categorize_reference_images
 from game.tasks_provisional import update_game_provisional_status, get_template_definition, get_template_prompt, \
     create_game_service, deactivate_character_service, create_location_service, create_character_service, \
     create_event_service, new_interaction_character_service
@@ -23,10 +26,12 @@ from tasks_shared import generate_image_event_shared_task, generate_event_audio_
 
 
 class TaskCreateGameProvisional(BaseModel):
-    script: str = Field(..., example="script", description="Script extens for the game  in text format, in the requested language")
+    script: str = Field(..., example="script",
+                        description="Script extens for the game  in text format, in the requested language")
     title: str = Field(..., example="title", description="Title for the game provisional, in the requested language")
     num_scenes: int = Field(..., example=1, description="Number of scenes in the game provisional")
-    category: str = Field(..., example="Learning", description="Category of the game based on its content and purpose, always in english")
+    category: str = Field(..., example="Learning",
+                          description="Category of the game based on its content and purpose, always in english")
 
 
 async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = None) -> str:
@@ -68,22 +73,23 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
         await update_game_provisional_status(_id_game_provisional, "downloading_file", 10,
                                              "Downloading source file for processing.")
 
-        if game_provisional_db["file"]:
-            file_url = game_provisional_db["file"]
+        if game_provisional_db["reference_files"]:
+            files_url = game_provisional_db["reference_files"]["uncategorized"]
             # logger.info(f"Descargando archivo desde URL: {file_url}")
-            response = requests.get(file_url)
-
-            if response.status_code == 200:
-                # logger.debug("Archivo descargado correctamente")
-                data = response.content  # Contenido binario del archivo
-                # Codificar el archivo en base64
-                base64_string = base64.b64encode(data).decode("utf-8")
-                # logger.debug(f"Archivo codificado en base64 (primeros 100 caracteres): {base64_string[:100]}...")
-            else:
-                await update_game_provisional_status(_id_game_provisional, "error", 10,
-                                                     f"Failed to download file. HTTP status: {response.status_code}")
-                # logger.error(f"Error al descargar archivo. Código de estado: {response.status_code}")
-                return "Error generating file"
+            base64_string = []
+            categorized_images = await categorize_reference_images(
+                image_urls=files_url,
+                prompt_user=game_provisional_db.get('prompt_user', 'No prompt provided')
+            )
+            await db["game_provisional"].update_one(
+                {"_id": ObjectId(_id_game_provisional)},
+                {
+                    "$set": {
+                        "reference_images": categorized_images,
+                        "updated_at": datetime.now(pytz.utc)
+                    }
+                }
+            )
         else:
             base64_string = None
 
@@ -281,13 +287,17 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
 class CharactersProvisional(BaseModel):
     id: str = Field(..., example="character_1", description="Unique identifier for the character. always in english")
     name: str = Field(..., example="Character Name", description="Name of the character. in the requested language")
-    role: str = Field(..., example="principal", description="Role of the character in the game, if principal or secondary, just one principal, always in english")
-    visual_description: str = Field(..., example="A brave hero...", description="Description of the character. in the requested language")
-    gender: str = Field(..., example="male", description="Gender of the character, e.g., male, female, animal, other. always in english")
+    role: str = Field(..., example="principal",
+                      description="Role of the character in the game, if principal or secondary, just one principal, always in english")
+    visual_description: str = Field(..., example="A brave hero...",
+                                    description="Description of the character. in the requested language")
+    gender: str = Field(..., example="male",
+                        description="Gender of the character, e.g., male, female, animal, other. always in english")
 
 
 class TasksCreateCharactersProvisional(BaseModel):
-    characters: list[CharactersProvisional] = Field(..., example=[], description="List of characters for the game provisional")
+    characters: list[CharactersProvisional] = Field(..., example=[],
+                                                    description="List of characters for the game provisional")
 
 
 async def extract_characters_from_script(script: str, language: str = "es") -> list[CharactersProvisional]:
@@ -354,23 +364,29 @@ async def extract_characters_from_script(script: str, language: str = "es") -> l
 
 
 class EventsProvisional(BaseModel):
-    id: str = Field(..., example="event_start", description="Unique identifier for the event equal type. always in english")
-    description: str = Field(..., example="The hero arrives at the village...", description="Description of the event. in the requested language")
+    id: str = Field(..., example="event_start",
+                    description="Unique identifier for the event equal type. always in english")
+    description: str = Field(..., example="The hero arrives at the village...",
+                             description="Description of the event. in the requested language")
     visual_description: str = Field(..., example="A bustling medieval village...",
                                     description="Visual description of the event. in the requested language")
-    type: str = Field(..., example="event", description="Type of the event, e.g., event_inter, scene_start, scene_end. always in english")
+    type: str = Field(..., example="event",
+                      description="Type of the event, e.g., event_inter, scene_start, scene_end. always in english")
     id_characters: list[str] = Field(..., example=["character_1"],
                                      description="List of character IDs involved in this event. always in english")
     order: int = Field(..., example=1, description="Order of the event in the sequence of events")
-    id_location_start: str = Field(..., example="location_1", description="ID of the starting location for this event. always in english")
-    id_location_end: str = Field(..., example="location_2", description="ID of the ending location for this event. always in english")
+    id_location_start: str = Field(..., example="location_1",
+                                   description="ID of the starting location for this event. always in english")
+    id_location_end: str = Field(..., example="location_2",
+                                 description="ID of the ending location for this event. always in english")
 
 
 class TasksCreateEventsProvisional(BaseModel):
     events: list[EventsProvisional] = Field(..., example=[], description="List of events for the game provisional")
 
 
-async def extract_events_from_script(script: str, characters, locations, language: str = "es") -> list[EventsProvisional]:
+async def extract_events_from_script(script: str, characters, locations, language: str = "es") -> list[
+    EventsProvisional]:
     """
     Extract events from the provided script using OpenAI's GPT model.
     Language parameter: 'es' for Spanish, 'en' for English, 'fr' for French, 'it' for Italian, 'de' for German, or bilingual
@@ -540,20 +556,22 @@ class ConversationProvisional(BaseModel):
 
 
 class ConversationOptionProvisional(BaseModel):
-    option : ConversationProvisional = Field(..., description="response options presented to the main character")
-    answer: ConversationProvisional = Field(..., description="response to each option spoken by the secondary character")
-    guideline: str = Field(..., example="Be polite and welcoming.", description="Guideline for the answer to the option")
-
-
+    option: ConversationProvisional = Field(..., description="response options presented to the main character")
+    answer: ConversationProvisional = Field(...,
+                                            description="response to each option spoken by the secondary character")
+    guideline: str = Field(..., example="Be polite and welcoming.",
+                           description="Guideline for the answer to the option")
 
 
 class InteractionProvisional(BaseModel):
-    id: str = Field(..., example="interaction_1", description="Unique identifier for the interaction, always in english")
+    id: str = Field(..., example="interaction_1",
+                    description="Unique identifier for the interaction, always in english")
     type: str = Field(..., example="two_way",
                       description="Type of interaction, e.g., two_way, one_way, option_multiple, open_question, open_talk. always in english")
     conversations: list[ConversationProvisional] = Field(..., example=[],
                                                          description="List of conversations involved in this interaction. in the requested language")
-    options: list[ConversationOptionProvisional] = Field(..., example=[], description="Options presented to the interaction")
+    options: list[ConversationOptionProvisional] = Field(..., example=[],
+                                                         description="Options presented to the interaction")
 
     id_location: str = Field(..., example="location_1",
                              description="ID of the location where this interaction takes place, always in english")
@@ -566,7 +584,8 @@ class TasksCreateInteractionsProvisional(BaseModel):
                                                        description="List of interactions for the game provisional")
 
 
-async def extract_interactions_from_script(script: str, locations, characters, language: str = "es") -> list[InteractionProvisional]:
+async def extract_interactions_from_script(script: str, locations, characters, language: str = "es") -> list[
+    InteractionProvisional]:
     """
     Extract interactions from the provided script using OpenAI's GPT model.
     Language parameter: 'es' for Spanish, 'en' for English, 'fr' for French, 'it' for Italian, 'de' for German, or bilingual
@@ -1485,7 +1504,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     print(f"DEBUG: Processing options for interaction at location {inter_location_mapped}")
                     for option_item in inter["options"]:
                         # procesar y renombrar ambas partes
-                        for old_key, new_key in (("option", "prompt_user_option"), ("answer", "prompt_user_answer"), ("guideline","prompt_user_guideline")):
+                        for old_key, new_key in (("option", "prompt_user_option"), ("answer", "prompt_user_answer"),
+                                                 ("guideline", "prompt_user_guideline")):
                             # obtener la parte (dict u objeto)
                             if isinstance(option_item, dict):
                                 part = option_item.get(old_key)
@@ -1594,7 +1614,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                         audio_mp3=None,
                         audio=None,
                         image=event.get("image", None) if event_type == "event_start" else None,
-                        is_equal_option_number=True if event.get("interaction_type") in ["option_multiple", "open_question"] else False
+                        is_equal_option_number=True if event.get("interaction_type") in ["option_multiple",
+                                                                                         "open_question"] else False
                     ),
                     user_id=game_provisional_db.get("created_by", "anonymous")
                 )
@@ -1708,7 +1729,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                             audio_mp3=None,
                             audio=None,
                             image=None,
-                            is_equal_option_number=True if event.get("interaction_type") in ["option_multiple","open_question"] else False
+                            is_equal_option_number=True if event.get("interaction_type") in ["option_multiple",
+                                                                                             "open_question"] else False
                         ),
                         user_id=game_provisional_db.get("created_by", "anonymous")
                     )
@@ -2043,6 +2065,7 @@ def _get_id_character(obj):
         except Exception:
             return None
     return None
+
 
 def _set_id_character(obj, value):
     if obj is None:

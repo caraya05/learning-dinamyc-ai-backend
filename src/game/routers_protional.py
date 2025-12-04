@@ -92,7 +92,7 @@ async def create_game(
         request: Request,
         user: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-        file: UploadFile = File(None),
+        files: list[UploadFile] = File(...),
         prompt_user: str = Form(...),
         template_type: str = Form(...),
         language: str = Form("es", description="Language code for the game")
@@ -108,10 +108,13 @@ async def create_game(
 
     try:
 
-        if file:
-            url_file = upload_file(file=file)
+        if files:
+            urls_files = []
+            for file in files:
+                url_file = upload_file(file=file)
+                urls_files.append(url_file)
         else:
-            url_file = None
+            urls_files = None
 
         game_provisional_db = await db["game_provisional"].insert_one(
             {
@@ -124,7 +127,13 @@ async def create_game(
                 "state": "script_create",
                 "num_scenes": 0,
                 "scene_interactions": [],
-                "file": url_file,
+                "reference_files": {
+                    "characters": [],
+                    "objects": [],
+                    "scenarios": [],
+                    "logos": [],
+                    "uncategorized": urls_files
+                },
                 "image": None,
                 "title": None,
                 "script": None,
@@ -145,7 +154,6 @@ async def create_game(
             {"_id": game_provisional_db.inserted_id}
         )
 
-        # tasks = create_game_provisional_task.delay(str(game_provisional_db["_id"]))
         tasks = create_game_provisional_task_2.delay(str(game_provisional_db["_id"]), str(user["_id"]))
 
         task_db = await create_task_service(
@@ -220,7 +228,8 @@ async def get_game_provisional(
             detail="Game provisional not found",
         )
 
-    events_plus = create_intermediate_events(game_provisional_db.get("interactions"), game_provisional_db.get("characters"))
+    events_plus = create_intermediate_events(game_provisional_db.get("interactions"),
+                                             game_provisional_db.get("characters"))
 
     # Normalizar y combinar events_plus y events; mover 'scene_start' al inicio si existe
     combined_events = []
@@ -252,9 +261,8 @@ async def get_game_provisional(
                 if str(char_dict.get("role", "")).lower() == "principal":
                     principal_char_id = char_dict.get("id")
 
-
-        character_event = principal_char_id if principal_char_id else (characters_in_last_loc[0] if characters_in_last_loc else None)
-
+        character_event = principal_char_id if principal_char_id else (
+            characters_in_last_loc[0] if characters_in_last_loc else None)
 
         scene_end_event = {
             "id": "event_end",
@@ -334,9 +342,19 @@ async def get_game_provisional(
         "locations": locations_with_images,
         "events": combined_events,
         "interactions": interactions_with_audio,
-        "game_structure": create_game_structure(game_provisional_db.get("locations", []),game_provisional_db.get("events", []),game_provisional_db.get("interactions", []), game_provisional_db.get("characters", [])),
+        "game_structure": create_game_structure(game_provisional_db.get("locations", []),
+                                                game_provisional_db.get("events", []),
+                                                game_provisional_db.get("interactions", []),
+                                                game_provisional_db.get("characters", [])),
         "level_process": game_provisional_db.get("level_process", 1),
         "game_id": str(game_provisional_db["game_id"]) if game_provisional_db.get("game_id") else None,
+        "reference_files": game_provisional_db.get("reference_files", {
+            "characters": [],
+            "objects": [],
+            "scenarios": [],
+            "logos": [],
+            "uncategorized": []
+        }),
         # Diccionarios de mapeo
         "id_map_characters": game_provisional_db.get("id_map_characters", {}),
         "id_map_locations": game_provisional_db.get("id_map_locations", {}),
@@ -539,13 +557,37 @@ async def websocket_game_provisional(websocket: WebSocket, game_id: str, token: 
                     data = await asyncio.wait_for(websocket.receive_json(), timeout=1.0)
                     if data.get("action") == "check_status":
                         # El cliente solicita explícitamente un estado actualizado
-                        await send_task_status_update(websocket, game_id)
+                        try:
+                            await send_task_status_update(websocket, game_id)
+                        except Exception as e:
+                            print(f"Error al enviar actualización de estado solicitada para game_id {game_id}: {str(e)}")
+                            print(traceback.format_exc())
+                            # Cerrar la conexión WebSocket cuando ocurra un error
+                            try:
+                                if websocket.client_state == WebSocketState.CONNECTED:
+                                    await websocket.close(code=1011, reason=f"Error: {str(e)}")
+                            except:
+                                pass
+                            manager.disconnect(websocket, game_id)
+                            return
                 except asyncio.TimeoutError:
                     # No se recibieron mensajes, seguimos con la verificación periódica
                     pass
 
                 # Verificar y enviar actualizaciones de estado periódicamente
-                await send_task_status_update(websocket, game_id)
+                try:
+                    await send_task_status_update(websocket, game_id)
+                except Exception as e:
+                    print(f"Error al enviar actualización de estado para game_id {game_id}: {str(e)}")
+                    print(traceback.format_exc())
+                    # Cerrar la conexión WebSocket cuando ocurra un error
+                    try:
+                        if websocket.client_state == WebSocketState.CONNECTED:
+                            await websocket.close(code=1011, reason=f"Error: {str(e)}")
+                    except:
+                        pass
+                    manager.disconnect(websocket, game_id)
+                    return
 
                 # Esperar antes de la próxima verificación para evitar sobrecarga
                 await asyncio.sleep(2.0)
@@ -590,8 +632,10 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
             "num_scenes": game_provisional_db.get("num_scenes", 0),
             "has_scene_interactions": bool(game_provisional_db.get("scene_interactions")),
             "has_locations": bool(game_provisional_db.get("locations")),
-            "created_at": game_provisional_db.get("created_at").isoformat() if game_provisional_db.get("created_at") else None,
-            "updated_at": game_provisional_db.get("updated_at").isoformat() if game_provisional_db.get("updated_at") else None,
+            "created_at": game_provisional_db.get("created_at").isoformat() if game_provisional_db.get(
+                "created_at") else None,
+            "updated_at": game_provisional_db.get("updated_at").isoformat() if game_provisional_db.get(
+                "updated_at") else None,
             "game_id": str(game_provisional_db.get("game_id")) if game_provisional_db.get("game_id") else None,
         }
 
@@ -667,7 +711,13 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
     except Exception as e:
         print(f"Error al enviar actualización de estado: {str(e)}")
         print(traceback.format_exc())
-        await manager.send_personal_message(
-            {"status": "error", "message": f"Error al procesar el estado: {str(e)}"},
-            websocket
-        )
+        # Enviar mensaje de error antes de lanzar la excepción
+        try:
+            await manager.send_personal_message(
+                {"status": "error", "message": f"Error al procesar el estado: {str(e)}"},
+                websocket
+            )
+        except:
+            pass
+        # Lanzar la excepción para que sea capturada en el nivel superior
+        raise
