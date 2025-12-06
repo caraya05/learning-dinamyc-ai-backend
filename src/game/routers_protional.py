@@ -92,7 +92,7 @@ async def create_game(
         request: Request,
         user: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-        files: list[UploadFile] = File(...),
+        files: list[UploadFile] = File(None),
         prompt_user: str = Form(...),
         template_type: str = Form(...),
         language: str = Form("es", description="Language code for the game")
@@ -178,7 +178,13 @@ async def create_game(
             "num_scenes": 0,
             "scene_interactions": [],
             "task_id": str(tasks.id),
-            "file": url_file,
+            "reference_files": {
+                "characters": [],
+                "objects": [],
+                "scenarios": [],
+                "logos": [],
+                "uncategorized": urls_files
+            },
             "image": None,
             "title": None,
             "script": None,
@@ -328,7 +334,6 @@ async def get_game_provisional(
         "template_type": game_provisional_db["type_template"],
         "created_at": game_provisional_db["created_at"],
         "updated_at": game_provisional_db["updated_at"],
-        "file": game_provisional_db["file"],
         "image": game_provisional_db["image"],
         "title": game_provisional_db["title"],
         "script": game_provisional_db["script"],

@@ -8,7 +8,7 @@ from voice.task import async_generate_voice_task
 
 
 @shared_task(name="generate_image_character_shared_task")
-def generate_image_character_shared_task(_user_id, _prompt_user, _gender, _id_character, _game_provisional):
+def generate_image_character_shared_task(_user_id, _prompt_user, _gender, _id_character, _game_provisional, _url_image_reference=None):
     """Tarea compartida para generar la imagen de un personaje"""
     try:
         loop = asyncio.get_event_loop()
@@ -17,7 +17,7 @@ def generate_image_character_shared_task(_user_id, _prompt_user, _gender, _id_ch
         asyncio.set_event_loop(loop)
 
     return loop.run_until_complete(
-        _generate_image_character(_user_id, _prompt_user, _gender, _id_character, _game_provisional)
+        _generate_image_character(_user_id, _prompt_user, _gender, _id_character, _game_provisional, _url_image_reference)
     )
 
 
@@ -117,7 +117,7 @@ def generate_location_task(
 
 
 @shared_task(name="generate_image_event_shared_task")
-def generate_image_event_shared_task(_user_id, _prompt_user_image, _id_event, _game_provisional, _is_init):
+def generate_image_event_shared_task(_user_id, _prompt_user_image, _id_event, _game_provisional, _is_init, _url_image_reference=None):
     """Tarea compartida para generar la imagen de un evento"""
     try:
         loop = asyncio.get_event_loop()
@@ -126,7 +126,7 @@ def generate_image_event_shared_task(_user_id, _prompt_user_image, _id_event, _g
         asyncio.set_event_loop(loop)
 
     return loop.run_until_complete(
-        _generate_image_event(_user_id, _prompt_user_image, _id_event, _game_provisional, _is_init)
+        _generate_image_event(_user_id, _prompt_user_image, _id_event, _game_provisional, _is_init, _url_image_reference)
     )
 
 

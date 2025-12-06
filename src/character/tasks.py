@@ -3,6 +3,7 @@ import traceback
 import requests
 import base64
 import os
+import logging
 
 from uuid import uuid4
 
@@ -1963,21 +1964,55 @@ async def _generate_image_character(_user_id,
                                     _prompt_user,
                                     _gender,
                                     _id_character,
-                                    _game_provisional):
+                                    _game_provisional,
+                                    _url_image_reference=None):
     try:
-        image_face = await openai_generator.generate_image(
-            prompt=f"Genera una imagen en vista frontal cuadrada de 1024x1024 de un personaje de fondo transparente,"
-                   f" ({_prompt_user}) en estilo 3D low poly, de la cintura para arriba, sin objetos adicionales, "
-                   f"mirando al frente con los brazos hacia abajo."
-                   f"genero: {_gender},"
-                   f" Utilizando la imagen de referencia.",
-            size="1024x1024",
-            user_id=_user_id,
-            model="gpt-image-1",
-            style=None,
-            type_generation="character_face",
-            background="transparent"
+        # Construir el prompt base
+        prompt_base = (
+            f"Genera una imagen en vista frontal cuadrada de 1024x1024 de un personaje de fondo transparente,"
+            f" ({_prompt_user}) en estilo 3D low poly, de la cintura para arriba, sin objetos adicionales, "
+            f"mirando al frente con los brazos hacia abajo."
+            f"genero: {_gender},"
         )
+
+        # Si existe referencia de imagen, usar generate_image(), sino usar generate_gpt()
+        image_face = None
+        if _url_image_reference:
+            # Usar generate_image con la referencia en el prompt
+            prompt_with_reference = (
+                prompt_base +
+                f" Basándote en el estilo visual de esta referencia ({_url_image_reference}), "
+                f"mantén coherencia visual con esa imagen de referencia."
+            )
+            try:
+                image_face = await openai_generator.generate_image(
+                    prompt=prompt_with_reference,
+                    size="1024x1024",
+                    user_id=_user_id,
+                    model="gpt-image-1",
+                    style=None,
+                    type_generation="character_face",
+                    background="transparent"
+                )
+            except Exception as e:
+                logger.warning(f"Error generando imagen de personaje con referencia: {str(e)}, usando fallback generate_gpt")
+                image_face = None
+
+        # Si no hay respuesta, usar método original con generate_gpt como fallback
+        if not image_face:
+            content_prompt = [
+                {"role": "user", "content": [
+                    {"type": "input_text", "text": prompt_base}
+                ]}
+            ]
+            image_face = await openai_generator.generate_gpt(
+                content_prompt=content_prompt,
+                model="gpt-4.1",
+                type_generation="character_face",
+                tools=[{"type": "image_generation", "size": "1024x1024"}],
+                image=True,
+                user_id=_user_id,
+            )
 
         image_bytes = base64.b64decode(image_face)
         image_generated = upload_image(

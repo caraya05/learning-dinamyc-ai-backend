@@ -5,6 +5,7 @@ import base64
 import os
 import time
 import asyncio
+import logging
 
 from PIL import Image
 from bson import ObjectId
@@ -20,6 +21,8 @@ from gpt_ai.utils import openai_generator
 from prompt.services import get_prompt_by_category_service
 from sound.services import get_sounds_service
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 from task.services import update_task_service
 
 from utils import upload_image
@@ -376,16 +379,34 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                     })
 
             # Generar imagen
-            image_location = await openai_generator.generate_gpt(
-                content_prompt=content_prompt,
-                model="gpt-4.1",
-                user_id=_user_id,
-                type_generation="location_image_2d",
-                image=True,
-                tools=[{"type": "image_generation",
-                        "size": "1024x1024",
-                        "quality": "high"}]
-            )
+            # Si existe imagen de referencia, usar método mejorado con generate_image
+            image_location = None
+            if imagen_loc:
+                try:
+                    image_location = await openai_generator.generate_image(
+                        prompt=prompt + f" Basándote en el estilo visual de esta referencia ({imagen_loc}), mantén coherencia visual con esa imagen.",
+                        size="1024x1024",
+                        user_id=_user_id,
+                        model="gpt-image-1",
+                        style=None,
+                        type_generation="location_image_2d"
+                    )
+                except Exception as e:
+                    logger.warning(f"Error generando imagen de locación con referencia: {str(e)}, usando fallback generate_gpt")
+                    image_location = None
+
+            # Si no hay respuesta, usar método original con generate_gpt como fallback
+            if not image_location:
+                image_location = await openai_generator.generate_gpt(
+                    content_prompt=content_prompt,
+                    model="gpt-4.1",
+                    user_id=_user_id,
+                    type_generation="location_image_2d",
+                    image=True,
+                    tools=[{"type": "image_generation",
+                            "size": "1024x1024",
+                            "quality": "high"}]
+                )
             image_data = base64.b64decode(image_location)
             image_face = BytesIO(image_data)
 

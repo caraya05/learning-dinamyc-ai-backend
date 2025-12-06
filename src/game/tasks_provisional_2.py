@@ -75,24 +75,28 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
 
         if game_provisional_db["reference_files"]:
             files_url = game_provisional_db["reference_files"]["uncategorized"]
-            # logger.info(f"Descargando archivo desde URL: {file_url}")
-            base64_string = []
             categorized_images = await categorize_reference_images(
                 image_urls=files_url,
                 prompt_user=game_provisional_db.get('prompt_user', 'No prompt provided')
             )
+
+            # Pasar las imágenes categorizadas directamente
+            # No necesitamos convertir a base64 ya que GPT-4 Vision usa image_url
+            base64_string = categorized_images
+
             await db["game_provisional"].update_one(
                 {"_id": ObjectId(_id_game_provisional)},
                 {
                     "$set": {
                         "reference_images": categorized_images,
+                        "reference_images_categorized": base64_string,
                         "updated_at": datetime.now(pytz.utc)
                     }
                 }
             )
+
         else:
             base64_string = None
-
         # Actualizar estado: Generando contenido del juego
         await update_game_provisional_status(_id_game_provisional, "generating_content", 25,
                                              "Generating game script and title using AI.")
@@ -160,21 +164,24 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
                                                  "Test mode active: skipping image generation and upload.")
             url_image = "https://storage.googleapis.com/qwestar/voxel_.jpg"
         else:
-            characters = await extract_characters_from_script(script, game_language)
+            characters = await extract_characters_from_script(script, game_language, base64_string)
             await db["game_provisional"].update_one(
                 {"_id": ObjectId(_id_game_provisional)},
                 {"$set": {"characters": [character.dict() for character in characters]}}
             )
 
+            print("characters:", characters)
+
             # Generar tareas para cada personaje (si hay)
             last_task_character_id = None
             for character in characters:
                 task_character = generate_image_character_shared_task.delay(
-                    _id_game_provisional,
+                    _user_id,
                     character.visual_description,
                     character.gender,
                     character.id,
-                    _id_game_provisional
+                    _id_game_provisional,
+                    character.url_image_reference
                 )
 
                 # Guardar último id de tarea para uso opcional en el estado
@@ -216,7 +223,7 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
                                                      f"Creating image generation for character '{character_name}'",
                                                      task=last_task_character_id)
 
-            locations = await extract_locations_from_script(script, characters, game_language)
+            locations = await extract_locations_from_script(script, characters, game_language, base64_string)
             await db["game_provisional"].update_one(
                 {"_id": ObjectId(_id_game_provisional)},
                 {"$set": {"locations": [location.dict() for location in locations]}}
@@ -225,7 +232,7 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
             await update_game_provisional_status(_id_game_provisional, "extract_locations", 50,
                                                  "Extracts locations from script")
 
-            events = await extract_events_from_script(script, characters, locations, game_language)
+            events = await extract_events_from_script(script, characters, locations, game_language, base64_string)
             await db["game_provisional"].update_one(
                 {"_id": ObjectId(_id_game_provisional)},
                 {"$set": {"events": [event.dict() for event in events]}}
@@ -234,11 +241,12 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
             event_intro = next((e for e in events if e.type and str(e.type).lower() == "scene_start"), None)
             if event_intro:
                 task_event = generate_image_event_shared_task.delay(
-                    _id_game_provisional,
+                    _user_id,
                     event_intro.visual_description,
                     event_intro.id,
                     _id_game_provisional,
-                    True
+                    True,
+                    event_intro.url_image_reference
                 )
 
                 task_db = await create_task_service(
@@ -293,6 +301,8 @@ class CharactersProvisional(BaseModel):
                                     description="Description of the character. in the requested language")
     gender: str = Field(..., example="male",
                         description="Gender of the character, e.g., male, female, animal, other. always in english")
+    url_image_reference: str | None = Field(None, example=None,
+                                             description="Reference image URL for the character, if any.")
 
 
 class TasksCreateCharactersProvisional(BaseModel):
@@ -300,10 +310,11 @@ class TasksCreateCharactersProvisional(BaseModel):
                                                     description="List of characters for the game provisional")
 
 
-async def extract_characters_from_script(script: str, language: str = "es") -> list[CharactersProvisional]:
+async def extract_characters_from_script(script: str, language: str = "es", base64_string: dict = None) -> list[CharactersProvisional]:
     """
     Extract characters from the provided script using OpenAI's GPT model.
     Language parameter: 'es' for Spanish, 'en' for English, 'fr' for French, 'it' for Italian, 'de' for German, or bilingual
+    base64_string: dict with categorized images for reference
     """
     try:
         lang_instruction = ""
@@ -323,15 +334,61 @@ async def extract_characters_from_script(script: str, language: str = "es") -> l
         prompt = f"""
         Extract the main characters from the following game script. Provide a list of characters with their names, 
         roles (principal or secondary), and visual descriptions. Ensure there is only one principal character.
+        When describing characters, try to match them with the reference images provided if available.
         {lang_instruction}
         Script:
         {script}
         """
+        messages = [
+            {"role": "system", "content": "You are an expert game designer assistant."},
+            {"role": "user", "content": prompt}
+        ]
+
+        # Agregar las imágenes de referencia si están disponibles
+        if base64_string:
+            for category, images in base64_string.items():
+                for image_data in images:
+                    # Manejar tanto el nuevo formato (dict con metadatos) como el antiguo (string base64)
+                    if isinstance(image_data, dict) and 'url' in image_data:
+                        # Nuevo formato: {'url', 'name', 'description', 'base64'}
+                        # Usar la URL directa en lugar de base64 para GPT-4 Vision
+                        image_url = image_data.get('url')
+                        name = image_data.get('name', 'sin nombre')
+                        if image_url:
+                            messages.append({
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": image_url,
+                                            "detail": "high"
+                                        }
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": f"Imagen de referencia ({category}): {name}"
+                                    }
+                                ]
+                            })
+                    elif isinstance(image_data, str):
+                        # Formato antiguo: string URL directo
+                        if image_data.startswith('http'):
+                            messages.append({
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": image_data,
+                                            "detail": "high"
+                                        }
+                                    }
+                                ]
+                            })
+
         response = await openai_generator.generate_gpt(
-            content_prompt=[
-                {"role": "system", "content": "You are an expert game designer assistant."},
-                {"role": "user", "content": prompt}
-            ],
+            content_prompt=messages,
             model="gpt-4.1",
             response_format=TasksCreateCharactersProvisional,
             type_generation="extract_characters",
@@ -379,17 +436,20 @@ class EventsProvisional(BaseModel):
                                    description="ID of the starting location for this event. always in english")
     id_location_end: str = Field(..., example="location_2",
                                  description="ID of the ending location for this event. always in english")
+    url_image_reference: str | None = Field(None, example=None,
+                                             description="Reference image URL for the event, if any.")
 
 
 class TasksCreateEventsProvisional(BaseModel):
     events: list[EventsProvisional] = Field(..., example=[], description="List of events for the game provisional")
 
 
-async def extract_events_from_script(script: str, characters, locations, language: str = "es") -> list[
+async def extract_events_from_script(script: str, characters, locations, language: str = "es", base64_string: dict = None) -> list[
     EventsProvisional]:
     """
     Extract events from the provided script using OpenAI's GPT model.
     Language parameter: 'es' for Spanish, 'en' for English, 'fr' for French, 'it' for Italian, 'de' for German, or bilingual
+    base64_string: dict with categorized images for reference
     """
     try:
         lang_instruction = ""
@@ -409,6 +469,7 @@ async def extract_events_from_script(script: str, characters, locations, languag
         prompt = f"""
         Extract only the first event of type 'scene_start' (the intro event) from the following game script. 
         Provide its description, visual description, and type. Do not extract any other events.
+        When describing events, try to match them with the reference images provided if available.
         {lang_instruction}
         Script:
         {script}
@@ -417,11 +478,56 @@ async def extract_events_from_script(script: str, characters, locations, languag
         Locations available (with their IDs):
         {locations}
         """
+        messages = [
+            {"role": "system", "content": "You are an expert game designer assistant."},
+            {"role": "user", "content": prompt}
+        ]
+
+        # # Agregar las imágenes de referencia si están disponibles
+        # if base64_string:
+        #     for category, images in base64_string.items():
+        #         for image_data in images:
+        #             # Manejar tanto el nuevo formato (dict con metadatos) como el antiguo (string base64)
+        #             if isinstance(image_data, dict) and 'url' in image_data:
+        #                 # Nuevo formato: {'url', 'name', 'description', 'base64'}
+        #                 # Usar la URL directa en lugar de base64 para GPT-4 Vision
+        #                 image_url = image_data.get('url')
+        #                 name = image_data.get('name', 'sin nombre')
+        #                 if image_url:
+        #                     messages.append({
+        #                         "role": "user",
+        #                         "content": [
+        #                             {
+        #                                 "type": "image_url",
+        #                                 "image_url": {
+        #                                     "url": image_url,
+        #                                     "detail": "high"
+        #                                 }
+        #                             },
+        #                             {
+        #                                 "type": "text",
+        #                                 "text": f"Imagen de referencia ({category}): {name}"
+        #                             }
+        #                         ]
+        #                     })
+        #             elif isinstance(image_data, str):
+        #                 # Formato antiguo: string URL directo
+        #                 if image_data.startswith('http'):
+        #                     messages.append({
+        #                         "role": "user",
+        #                         "content": [
+        #                             {
+        #                                 "type": "image_url",
+        #                                 "image_url": {
+        #                                     "url": image_data,
+        #                                     "detail": "high"
+        #                                 }
+        #                             }
+        #                         ]
+        #                     })
+
         response = await openai_generator.generate_gpt(
-            content_prompt=[
-                {"role": "system", "content": "You are an expert game designer assistant."},
-                {"role": "user", "content": prompt}
-            ],
+            content_prompt=messages,
             model="gpt-4.1",
             response_format=TasksCreateEventsProvisional,
             type_generation="extract_events",
@@ -466,6 +572,8 @@ class LocationsProvisional(BaseModel):
     order: int = Field(..., example=1, description="Order of the location in the sequence of locations")
     id_characters_reused: list[str] = Field(..., example=["character_2"],
                                             description="List of character IDs reused from previous locations, always in english")
+    url_image_reference: str | None = Field(None, example=None,
+                                                description="Reference image URL for the location, if any.")
 
 
 class TasksCreateLocationsProvisional(BaseModel):
@@ -473,10 +581,11 @@ class TasksCreateLocationsProvisional(BaseModel):
                                                   description="List of locations for the game provisional")
 
 
-async def extract_locations_from_script(script: str, characters, language: str = "es") -> list[LocationsProvisional]:
+async def extract_locations_from_script(script: str, characters, language: str = "es", base64_string: dict = None) -> list[LocationsProvisional]:
     """
     Extract locations from the provided script using OpenAI's GPT model.
     Language parameter: 'es' for Spanish, 'en' for English, 'fr' for French, 'it' for Italian, 'de' for German, or bilingual
+    base64_string: dict with categorized images for reference
     """
     try:
         lang_instruction = ""
@@ -496,6 +605,7 @@ async def extract_locations_from_script(script: str, characters, language: str =
         prompt = f"""
         Extract the main locations from the following game script. Provide a list of locations with their names,
         visual descriptions, descriptions situacional and characters present in each location.
+        When describing locations, try to match them with the reference images provided if available.
         {lang_instruction}
         
         IMPORTANT: In the visual description of each location, include descriptions of adjacent or nearby places to create
@@ -514,11 +624,56 @@ async def extract_locations_from_script(script: str, characters, language: str =
         Characters available (with their IDs):
         {characters}
         """
+        messages = [
+            {"role": "system", "content": "You are an expert game designer assistant."},
+            {"role": "user", "content": prompt}
+        ]
+
+        # Agregar las imágenes de referencia si están disponibles
+        if base64_string:
+            for category, images in base64_string.items():
+                for image_data in images:
+                    # Manejar tanto el nuevo formato (dict con metadatos) como el antiguo (string base64)
+                    if isinstance(image_data, dict) and 'url' in image_data:
+                        # Nuevo formato: {'url', 'name', 'description', 'base64'}
+                        # Usar la URL directa en lugar de base64 para GPT-4 Vision
+                        image_url = image_data.get('url')
+                        name = image_data.get('name', 'sin nombre')
+                        if image_url:
+                            messages.append({
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": image_url,
+                                            "detail": "high"
+                                        }
+                                    },
+                                    {
+                                        "type": "text",
+                                        "text": f"Imagen de referencia ({category}): {name}"
+                                    }
+                                ]
+                            })
+                    elif isinstance(image_data, str):
+                        # Formato antiguo: string URL directo
+                        if image_data.startswith('http'):
+                            messages.append({
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "image_url",
+                                        "image_url": {
+                                            "url": image_data,
+                                            "detail": "high"
+                                        }
+                                    }
+                                ]
+                            })
+
         response = await openai_generator.generate_gpt(
-            content_prompt=[
-                {"role": "system", "content": "You are an expert game designer assistant."},
-                {"role": "user", "content": prompt}
-            ],
+            content_prompt=messages,
             model="gpt-4.1",
             response_format=TasksCreateLocationsProvisional,
             type_generation="extract_locations",
@@ -1431,7 +1586,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     prompt_user=loc["visual_description"],
                     prompt_user_description=loc["description_situacional"],
                     game_id=str(game_db.get("_id")),
-                    state_game=id_map_states[str(index + 1)]
+                    state_game=id_map_states[str(index + 1)],
+                    url_image_reference=loc.get("url_image_reference")
                 ),
                 user_id=str(game_provisional_db.get("created_by", "anonymous")),
                 file=None

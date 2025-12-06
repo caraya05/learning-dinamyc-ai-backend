@@ -32,7 +32,7 @@ from game.narrative_templates import TemplateType
 from gpt_ai.utils import openai_generator
 from location.models import Location, LocationGLIC
 from location.schemas import SchemaCreateLocation
-from location.tasks import  generate_location_image
+from location.tasks import generate_location_image
 from state_game.services import create_state_game, get_state_game_by_game_id, get_state_game_by_id
 from state_glic.services import create_state_glic, get_list_state_glic_by_element_id
 
@@ -780,7 +780,7 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
                 f"EJEMPLOS:\n"
                 f"Interacción open_question:\n"
                 f"- open_question: Diálogo donde el jugador puede responder libremente a una pregunta o comentario del personaje.\n"
-              f"  Ejemplo:\n"
+                f"  Ejemplo:\n"
                 f"    interacción:\n"
                 f"    2: Hola, como estas?\n"
                 f"    1: Muy bien, gracias. ¿Y tú?\n"
@@ -1017,7 +1017,7 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
                 data=character_db_state.dict(),
             )
 
-        task_celery =  generate_character_task.delay(
+        task_celery = generate_character_task.delay(
             _character_id=str(character_created.inserted_id),
             _user_id=user_id,
             _task_id="",
@@ -1074,7 +1074,11 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str, 
         else:
             state_game = await get_state_game_by_game_id(location.game_id)
 
-        # Procesar la imagen de referencia si se proporciona
+        # Procesar la imagen de referencia si se proporciona vía URL
+        if location.url_image_reference:
+            location_db_state.image_reference = location.url_image_reference
+
+        # Procesar la imagen de referencia si se proporciona como archivo
         if file:
             file_content = file.file.read()
             if not file_content:
@@ -2341,19 +2345,47 @@ REGLAS:
         ]
 
     # Agregar el archivo solo si base64_string no es None y no está vacío
-    if base64_string and base64_string.strip():
-        messages.append({
-            "role": "user",
-            "content": [
-                {
-                    "type": "file",
-                    "file": {
-                        "filename": "archivo.pdf",
-                        "file_data": f"data:application/pdf;base64,{base64_string}",
-                    }
-                }
-            ]
-        })
+    if base64_string:
+        for category, images in base64_string.items():
+            for image_data in images:
+                # Manejar tanto el nuevo formato (dict con metadatos) como el antiguo (string base64)
+                if isinstance(image_data, dict) and 'url' in image_data:
+                    # Nuevo formato: {'url', 'name', 'description', 'base64'}
+                    # Usar la URL directa en lugar de base64 para GPT-4 Vision
+                    image_url = image_data.get('url')
+                    name = image_data.get('name', 'sin nombre')
+                    if image_url:
+                        messages.append({
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": image_url,
+                                        "detail": "high"
+                                    }
+                                },
+                                {
+                                    "type": "text",
+                                    "text": f"Imagen de referencia ({category}): {name}"
+                                }
+                            ]
+                        })
+                elif isinstance(image_data, str):
+                    # Formato antiguo: string URL directo
+                    if image_data.startswith('http'):
+                        messages.append({
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "image_url",
+                                    "image_url": {
+                                        "url": image_data,
+                                        "detail": "high"
+                                    }
+                                }
+                            ]
+                        })
 
     GAME_CATEGORIES = {
         # Educational Categories
@@ -2380,7 +2412,8 @@ REGLAS:
         "content": [
             {
                 "type": "text",
-                "text": f"Available categories:\n" + "\n".join([f"- {cat}: {desc}" for cat, desc in GAME_CATEGORIES.items()])
+                "text": f"Available categories:\n" + "\n".join(
+                    [f"- {cat}: {desc}" for cat, desc in GAME_CATEGORIES.items()])
             }
         ]
     })
@@ -2390,7 +2423,13 @@ REGLAS:
         "content": [
             {
                 "type": "text",
-                "text": "ESTRUCTURA OBLIGATORIA:\n- Total de escenas: Exactamente 3 escenas\n- Total de locaciones: Exactamente 3 locaciones (una por escena)\n- Personajes por locación: Exactamente 2 personajes\n  * 1 personaje principal (puede ser el mismo en todas las escenas)\n  * 1 personaje secundario (puede variar por escena)\n- No incluyas más de 2 personajes por locación bajo ninguna circunstancia"
+                "text": "ESTRUCTURA OBLIGATORIA:\n- Total de escenas: Exactamente 3 escenas\n"
+                        "- Total de locaciones: Exactamente 3 locaciones (una por escena)\n"
+                        "- Personajes por locación: Exactamente 2 personajes\n "
+                        " * 1 personaje principal (puede ser el mismo en todas las escenas)\n"
+                        " * 1 personaje secundario (puede variar por escena)\n"
+                        "- No incluyas más de 2 personajes por locación bajo ninguna circunstancia\n"
+                        "- Incluye las url de las imágenes de referencia que te di en el prompt para que las uses en la generación de imágenes\n"
             }
         ]
     })
@@ -2400,14 +2439,14 @@ REGLAS:
         "content": [
             {
                 "type": "text",
-"text": "RECUERDA: \n - el idioma del juego es " + (
+                "text": "RECUERDA: \n - el idioma del juego es " + (
                     "español" if language == "es" else
                     "inglés" if language == "en" else
                     "francés" if language == "fr" else
                     "italiano" if language == "it" else
                     "alemán" if language == "de" else
                     "español e inglés"
-                ) + ".\n - Debes seguir las reglas y estructura del template seleccionado al pie de la letra.\n - Si no sigues las reglas, el resultado será rechazado."            }
+                ) + ".\n - Debes seguir las reglas y estructura del template seleccionado al pie de la letra.\n - Si no sigues las reglas, el resultado será rechazado."}
         ]
     })
 

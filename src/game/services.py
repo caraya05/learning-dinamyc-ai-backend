@@ -754,17 +754,16 @@ class GameService:
                 {'$sort': {'created_at': -1}},
                 {'$skip': (skip - 1) * limit},
                 {'$limit': limit},
-                # Lookup para contar jugadores únicos
+                # Lookup para contar analíticas (plays)
                 {
                     '$lookup': {
-                        'from': 'record_game',
+                        'from': 'analytics',
                         'let': {'game_id': {'$toString': '$_id'}},
                         'pipeline': [
                             {'$match': {'$expr': {'$eq': ['$game_id', '$$game_id']}}},
-                            {'$group': {'_id': '$user_id'}},
-                            {'$count': 'count'}
+                            {'$count': 'total'}
                         ],
-                        'as': 'player_stats'
+                        'as': 'analytics_data'
                     }
                 },
                 # Lookup para obtener estado de publicación
@@ -801,7 +800,7 @@ class GameService:
                     '$addFields': {
                         'plays': {
                             '$ifNull': [
-                                {'$arrayElemAt': ['$player_stats.count', 0]},
+                                {'$arrayElemAt': ['$analytics_data.total', 0]},
                                 0
                             ]
                         },
@@ -820,7 +819,7 @@ class GameService:
                     }
                 },
                 # Limpiar campos temporales
-                {'$project': {'player_stats': 0, 'published_info': 0, 'game_provisional_data': 0}}
+                {'$project': {'analytics_data': 0, 'published_info': 0, 'game_provisional_data': 0}}
             ]
 
             # Ejecutar agregación y conteo en paralelo

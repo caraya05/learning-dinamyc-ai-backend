@@ -45,6 +45,7 @@ class SchemaCreateLocation(BaseModel):
     Attributes:
     name (str): The name of the location.
     description (Optional[str]): The description of the location.
+    url_image_reference (Optional[str]): Reference image URL for the location.
     """
 
     title: Optional[str]
@@ -52,6 +53,7 @@ class SchemaCreateLocation(BaseModel):
     prompt_user_description: Optional[str] = Field(None, example="This is a prompt user")
     game_id: Optional[str]
     state_game: Optional[str]
+    url_image_reference: Optional[str] = Field(None, example=None, description="Reference image URL for the location")
 
 
 class SchemaPartialUpdateLocation(BaseModel):
