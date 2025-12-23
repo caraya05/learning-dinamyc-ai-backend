@@ -32,3 +32,4 @@ class Game(BaseModel):
     created_by: Optional[str] = Field(default="system", example="system")
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     updated_by: str = Field(default="system", example="system")
+    number_music_track: Optional[int] = Field(0, example=0)

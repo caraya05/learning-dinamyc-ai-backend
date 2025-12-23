@@ -91,7 +91,7 @@ async def generate_image_event(
         validate_prompt = await openai_generator.moderation_text(
             text=f"Genera una imagen de portada en estilo 3D low poly de proporciones realistas para el juego  {game_db['title']}"
                  f" con el personaje {character_principal_state_game['data']['prompt_user']}. "
-                 f"La imagen debe ser portrait y tener el contenido vertical."
+                 f"La imagen debe ser cuadrada."
                  f"Usa la info que tienes de los personajes y locaciones para crear un prompt para crear la imagen."
                  f" {prompt_user_image}"
                  f"Game: {game_db['title']}\n"
@@ -122,7 +122,7 @@ async def generate_image_event(
         prompt_base = (
             f"Genera una imagen de portada en estilo 3D medium poly de proporciones realistas para el juego {game_db['title']} "
             f"con el personaje principal {character_principal_state_game['data']['prompt_user']}. "
-            f"La imagen debe ser portrait y tener el contenido vertical. Sin texto. "
+            f"La imagen debe ser cuadrada. Sin texto. "
             f"Usa la info de los personajes y locaciones para crear la escena.\n"
             f"Personajes en la escena (usa sus imágenes como referencia):\n{personajes_str}\n"
             f"prompt del usuario: {prompt_user_image}"
@@ -161,7 +161,7 @@ async def generate_image_event(
         image_generated = upload_image(
             img_byte_arr=image_face,
             file_name=f"event/{uuid4()}.jpg",
-            size=(512, 896),
+            size=(512, 512),
         )
 
         await db["event"].update_one(
@@ -254,7 +254,7 @@ async def _generate_image_event(_user_id, _prompt_user_image, _id_event, _game_p
 
         prompt_base = (
             f"Genera una imagen de portada en estilo 3D medium poly  "
-            f"La imagen debe ser portrait y tener el contenido vertical. Sin texto. "
+            f"La imagen debe ser cuadrada. Sin texto. "
             f"Usa la info de los personajes para crear la escena.\n"
             f"Personajes en la escena (usa sus imágenes como referencia):\n{personajes_str}\n"
             f"descripcion de la escena: {_prompt_user_image}"
@@ -297,7 +297,7 @@ async def _generate_image_event(_user_id, _prompt_user_image, _id_event, _game_p
             # Usar generate_image con la referencia en el prompt
             simple_prompt = (
                 f"Genera una imagen de portada en estilo 3D medium poly. "
-                f"La imagen debe ser portrait y tener el contenido vertical. Sin texto. "
+                f"La imagen debe ser cuadrada. Sin texto. "
                 f"Personajes en la escena: {personajes_str}. "
                 f"Descripción de la escena: {_prompt_user_image}. "
                 f"Basándote en el estilo visual de esta referencia ({_url_image_reference}), "
@@ -306,7 +306,7 @@ async def _generate_image_event(_user_id, _prompt_user_image, _id_event, _game_p
             try:
                 response_prompt_image = await openai_generator.generate_image(
                     prompt=simple_prompt,
-                    size="1024x1536",
+                    size="1024x1024",
                     user_id=_user_id,
                     model="gpt-image-1",
                     style=None,
@@ -337,7 +337,7 @@ async def _generate_image_event(_user_id, _prompt_user_image, _id_event, _game_p
         image_generated = upload_image(
             img_byte_arr=image_face,
             file_name=f"event/{uuid4()}.jpg",
-            size=(512, 896),
+            size=(512, 512),
         )
 
         events = game_db.get("events", [])

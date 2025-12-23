@@ -1148,13 +1148,43 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str, 
         return "Location not created"
 
 
+async def calculate_number_music_track():
+    """
+    Calcula el número de pista de música para el siguiente juego.
+    Busca el último juego creado, obtiene su número y lo incrementa en 1.
+    Si es mayor a 3, lo resetea a 1.
+    """
+    try:
+        # Buscar el último juego creado ordenado por fecha de creación descendente
+        last_game = await db['game'].find_one(
+            {},
+            sort=[('created_at', -1)]
+        )
+
+        if last_game and 'number_music_track' in last_game:
+            current_track = last_game['number_music_track']
+            # Incrementar en 1, si es mayor a 3, resetear a 1
+            next_track = (current_track % 3) + 1
+            return next_track
+        else:
+            # Si no hay juegos previos, empezar en 1
+            return 1
+    except Exception as e:
+        print(f"Error calculating number_music_track: {str(e)}")
+        return 1
+
+
 async def create_game_service(user_id: str):
     try:
+        # Calcular el número de pista de música
+        number_music_track = await calculate_number_music_track()
+
         game_db = Game(
             updated_by=user_id,
             created_by=user_id,
             version=2,
             code_access=await generate_code_access_game_service(),
+            number_music_track=number_music_track,
         )
         if game_created := await db['game'].insert_one(game_db.dict()):
             # Crear el estado inicial del juego

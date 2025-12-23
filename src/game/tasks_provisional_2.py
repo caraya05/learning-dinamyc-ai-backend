@@ -1433,6 +1433,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
             characters=game_provisional_db.get("characters", [])
         )
 
+        print("DEBUG: Game structure built successfully.", game_structure)
+
         # Validar estructura de eventos antes de proceder
         if game_structure is None:
             await update_game_provisional_status(
@@ -1714,6 +1716,9 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
 
             for event_type in ["event_start", "event_end"]:
                 event = block.get(event_type)
+
+                print(f"DEBUG: Processing {event_type} for block {index + 1}: {block}")
+
                 if not event:
                     continue
 

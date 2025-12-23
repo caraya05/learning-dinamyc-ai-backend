@@ -1,6 +1,8 @@
 import asyncio
 import base64
 from io import BytesIO
+from typing import Optional
+
 from fastapi import Depends
 
 import traceback
@@ -19,6 +21,8 @@ from fastapi import UploadFile
 from fastapi import File
 from fastapi import WebSocket, WebSocketDisconnect
 from fastapi.websockets import WebSocketState
+from pydantic import BaseModel
+
 from core.database import db
 from fastapi.security import HTTPAuthorizationCredentials
 from auth.auth import auth
@@ -372,19 +376,28 @@ async def get_game_provisional(
     }
 
 
+class GameUpdateRequest(BaseModel):
+    image: Optional[str] = None
+    script: Optional[str] = None
+    title: Optional[str] = None
+    user_name: Optional[str] = None
+    user_email: Optional[str] = None
+    is_draft: bool = False
+    characters: Optional[list] = None
+    locations: Optional[list] = None
+    interactions: Optional[list] = None
+    events: Optional[list] = None
+
+
 @router.patch("/{id_game_provisional}", status_code=status.HTTP_200_OK)
 @limiter.limit("10/minute", error_message="Intentalo de nuevo más tarde")
 async def update_game_provisional(
         request: Request,
         id_game_provisional: str,
+        data: GameUpdateRequest,
         user: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-        image: str = Form(None),
-        script: str = Form(None),
-        title: str = Form(None),
-        user_name: str = Form(None),
-        user_email: str = Form(None),
-        is_draft: bool = Form(False),
+
 ):
     """
     This endpoint updates a game provisional by its ID.
@@ -405,38 +418,47 @@ async def update_game_provisional(
         "updated_at": datetime.now(pytz.utc),
     }
 
-    if script is not None:
-        update_fields["script"] = script
-    if title is not None:
-        update_fields["title"] = title
-    if image is not None and not image.startswith("https://"):
-        # Asegurar el relleno correcto para la cadena Base64
-        missing_padding = len(image) % 4
-        if missing_padding:
-            image += "=" * (4 - missing_padding)
-
-        # Decodificar la imagen Base64
-        try:
-            image_data = base64.b64decode(image)
-            img_byte_arr = BytesIO(image_data)
-        except Exception as e:
-            print(f"Error decoding Base64 image: {e}")
-
-        # Subir la imagen
-        update_fields["image"] = upload_image(
-            img_byte_arr=img_byte_arr,
-            file_name=f"game-provisional/{uuid4()}.jpg",
-            size=(512, 896)
-        )
-    if user_name is not None:
-        update_fields["user_name"] = user_name
-    if user_email is not None:
-        update_fields["user_email"] = user_email
+    if data.script is not None:
+        update_fields["script"] = data.script
+    if data.title is not None:
+        update_fields["title"] = data.title
+    if data.characters is not None:
+        update_fields["characters"] = data.characters
+    if data.locations is not None:
+        update_fields["locations"] = data.locations
+    if data.interactions is not None:
+        update_fields["interactions"] = data.interactions
+    # if data.events is not None:
+    #     update_fields["events"] = data.events
+    # if data.image is not None and not data.image.startswith("https://"):
+    #     # Asegurar el relleno correcto para la cadena Base64
+    #     missing_padding = len(data.image) % 4
+    #     if missing_padding:
+    #         data.image += "=" * (4 - missing_padding)
+    #
+    #     # Decodificar la imagen Base64
+    #     try:
+    #         image_data = base64.b64decode(data.image)
+    #         img_byte_arr = BytesIO(image_data)
+    #     except Exception as e:
+    #         print(f"Error decoding Base64 image: {e}")
+    #
+    #     # Subir la imagen
+    #     update_fields["image"] = upload_image(
+    #         img_byte_arr=img_byte_arr,
+    #         file_name=f"game-provisional/{uuid4()}.jpg",
+    #         size=(512, 896)
+    #     )
+    if data.user_name is not None:
+        update_fields["user_name"] = data.user_name
+    if data.user_email is not None:
+        update_fields["user_email"] = data.user_email
 
     await db["game_provisional"].update_one(
         {"_id": ObjectId(id_game_provisional)},
         {"$set": update_fields}
     )
+    print("Updating game provisional with fields:", update_fields)
 
     game_provisional_db = await db["game_provisional"].find_one(
         {"_id": ObjectId(id_game_provisional)}
@@ -448,7 +470,7 @@ async def update_game_provisional(
             detail="Game provisional not found",
         )
 
-    if not is_draft:
+    if not data.is_draft:
         update_fields["state"] = "game_create"
         continue_create_game_provisional_2.delay(id_game_provisional=id_game_provisional, user_id=str(user["_id"]))
         game_provisional_db["state"] = "game_create"
@@ -460,6 +482,8 @@ async def update_game_provisional(
     update_fields["progress"] = 0
     update_fields["progress_text"] = "Game provisional is ready, waiting for processing."
     update_fields["level_process"] = 2
+
+    print("Updating game provisional with fields:", update_fields)
 
     await db["game_provisional"].update_one(
         {"_id": ObjectId(id_game_provisional)},
@@ -565,7 +589,8 @@ async def websocket_game_provisional(websocket: WebSocket, game_id: str, token: 
                         try:
                             await send_task_status_update(websocket, game_id)
                         except Exception as e:
-                            print(f"Error al enviar actualización de estado solicitada para game_id {game_id}: {str(e)}")
+                            print(
+                                f"Error al enviar actualización de estado solicitada para game_id {game_id}: {str(e)}")
                             print(traceback.format_exc())
                             # Cerrar la conexión WebSocket cuando ocurra un error
                             try:

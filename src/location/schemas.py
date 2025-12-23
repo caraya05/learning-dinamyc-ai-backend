@@ -28,8 +28,8 @@ class SchemaStateData(BaseModel):
     connections: Optional[dict] = Field(None, example="")
     environment: Optional[dict] = Field(None, example="{}")
     is_active: Optional[bool] = Field(None, example=True)
-    sound: Optional[str] = Field(None, example="123")
-    sound_mp3: Optional[str] = Field(None, example="123.mp3")
+    # sound: Optional[str] = Field(None, example="123")
+    # sound_mp3: Optional[str] = Field(None, example="123.mp3")
 
 
 class SchemaStateLocation(BaseModel):

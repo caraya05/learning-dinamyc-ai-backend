@@ -422,18 +422,47 @@ class GameService:
             )
             code = ''.join(random.sample(code, len(code)))  # Shuffle the characters
 
-            existing_code = await db['game'].find_one({'code_access': code})
+            existing_code = await self.db['game'].find_one({'code_access': code})
 
             if not existing_code:
                 return code
 
+    async def calculate_number_music_track(self):
+        """
+        Calcula el número de pista de música para el siguiente juego.
+        Busca el último juego creado, obtiene su número y lo incrementa en 1.
+        Si es mayor a 3, lo resetea a 1.
+        """
+        try:
+            # Buscar el último juego creado ordenado por fecha de creación descendente
+            last_game = await self.db['game'].find_one(
+                {},
+                sort=[('created_at', -1)]
+            )
+
+            if last_game and 'number_music_track' in last_game:
+                current_track = last_game['number_music_track']
+                # Incrementar en 1, si es mayor a 3, resetear a 1
+                next_track = (current_track % 3) + 1
+                return next_track
+            else:
+                # Si no hay juegos previos, empezar en 1
+                return 1
+        except Exception as e:
+            self.logger.error(f"Error calculating number_music_track: {str(e)}")
+            return 1
+
     async def create_game_v2_service(self, user_id: str):
         try:
+            # Calcular el número de pista de música
+            number_music_track = await self.calculate_number_music_track()
+
             game_db = Game(
                 updated_by=user_id,
                 created_by=user_id,
                 version=2,
-                code_access=await generate_code_access_game_service(),
+                code_access=await self.generate_code_access_game_service(),
+                number_music_track=number_music_track,
             )
             if game_created := await db['game'].insert_one(game_db.dict()):
                 # Crear el estado inicial del juego
@@ -862,17 +891,17 @@ class GameService:
         Optimizado con agregación MongoDB para una sola consulta.
         """
         community_categories = [
-            "Marketing",
-            "Talent Development",
-            "Compliance",
-            "Recruiting",
-            "Events",
-            "Fan Engagement",
-            "Health & Wellness",
-            "Data Collection",
-            "Storytelling",
-            "Social Impact",
-            "Learning"
+           "Reading",
+           "Maths",
+           "Languages",
+           "Science & Nature",
+           "Social Skills",
+           "Values",
+           "History",
+           "Holidays & Traditions",
+           "Emotions",
+           "Habits",
+           "Stories & Tales"
         ]
 
         match_query = {
