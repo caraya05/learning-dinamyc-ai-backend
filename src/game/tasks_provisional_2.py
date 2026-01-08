@@ -1883,7 +1883,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                             prompt_user_text=None,
                             character_id=character_id_mapped,
                             type_conversation=event.get("interaction_type"),
-                            option_number=0,
+                            option_number=event.get("index_option_correct", 0),
                             state_game_init=state_init,
                             state_game_end=state_end,
                             location_state_game_init=loc_start,
@@ -2196,6 +2196,9 @@ def create_intermediate_events(interactions, characters=None):
         if loc_start_id is not None and loc_end_id is not None and loc_start_id != loc_end_id:
             ev_type = "event_inter"
 
+            # Obtener el index_option_correct de la interacción actual
+            index_option = _get_field(inter_start, "index_option_correct", None)
+
             event = {
                 "id": f"event_inter",
                 "description": "",
@@ -2205,6 +2208,7 @@ def create_intermediate_events(interactions, characters=None):
                 "order": i + 1,
                 "id_location_start": loc_start_id,
                 "id_location_end": loc_end_id,
+                "index_option_correct": index_option,
             }
             events.append(event)
 
