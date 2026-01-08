@@ -21,14 +21,13 @@ from location.services import (
     get_all_location_service,
     deactivate_location_service,
 )
-from location.services import generate_image_location_service
 from location.services import get_location_service
 from location.services import create_location_service
 from location.services import partial_update_location_service
-from sound.services import get_sound_service
-
+from location.services_video import (
+    save_interaction_video_service,
+)
 # TODO: falta implemntar el desconteo de estrellas
-from user.services import disable_user_service
 from user.services import validate_star_user_service
 
 router = APIRouter(prefix="/location", tags=["Location"])
@@ -86,7 +85,6 @@ async def get_location(
         publish: bool = False,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-        game_service=Depends(GameService)
 ):
     """
     This endpoint retrieves a location.
@@ -95,38 +93,21 @@ async def get_location(
     If the location is successfully retrieved, it returns the location's information.
     """
 
-    if publish:
-        game_id = location_id.split("_")[-1]
-        location_id = location_id.split("_")[0]
-        try:
-            locations_db = await game_service.get_location_game_publish_service(
-                game_id=game_id, location_id=location_id
-            )
-            if locations_db.get("sound"):
-                sound_db = await get_sound_service(locations_db["sound"])
-                locations_db["sound"] = sound_db["file"]
-                locations_db["sound_mp3"] = sound_db["file_mp3"]
-            return locations_db
-        except Exception as e:
-            print(f"Error in get locations: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Locations not found",
-            )
-    else:
-        try:
+    try:
 
-            location_db = await get_location_service(
-                location_id=location_id, user_id=str(user_db['_id'])
-            )
-            return location_db
+        location_db = await get_location_service(
+            location_id=location_id, user_id=str(user_db['_id'])
+        )
+        print(location_db)
+        return location_db
 
-        except Exception as e:
-            print(f"Error in get location: {str(e)}")
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Location not found",
-            )
+    except Exception as e:
+        print(f"Error in get location: {traceback.print_exc()}")
+        print(f"Error in get location: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Location not found",
+        )
 
 
 @router.get("/me/", status_code=status.HTTP_200_OK, response_model=SchemaListLocation)
@@ -195,8 +176,10 @@ async def create_location(
             location=SchemaCreateLocation(
                 title=title,
                 prompt_user=prompt_user,
+                prompt_user_description=None,
                 game_id=game_id,
-                state_game=state_game
+                state_game=state_game,
+                url_image_reference=None
             ),
             user_id=str(user_db['_id']),
             file=file
@@ -297,4 +280,45 @@ async def disable_location(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Location not disabled",
+        )
+
+
+@router.post("/interaction-video/upload", status_code=status.HTTP_201_CREATED)
+async def upload_interaction_video(
+        location_id: str = Form(..., description="Location ID"),
+        state: str = Form(..., description="State/State Game ID"),
+        dialog_number: int = Form(..., description="Dialog number in the interaction"),
+        quality: str = Form("medium", description="Video compression quality: low, medium, high"),
+        video_file: UploadFile = File(..., description="Video file to upload"),
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint uploads a compressed video for a location interaction dialog.
+
+    It expects:
+    - location_id: The ID of the location
+    - state: The state/state_game ID
+    - dialog_number: The dialog number in the interaction
+    - quality: Video compression quality (low, medium, high)
+    - video_file: The video file to upload
+
+    Returns the uploaded video information and URL.
+    """
+    try:
+        result = await save_interaction_video_service(
+            location_id=location_id,
+            state=state,
+            dialog_number=dialog_number,
+            video_file=video_file,
+            quality=quality
+        )
+        return result
+
+    except Exception as e:
+        print(traceback.print_exc())
+        print(f"Error in upload interaction video: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error uploading interaction video",
         )

@@ -1,9 +1,9 @@
 from bson import ObjectId
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from pydantic import Field
 
-from typing import Optional
+from typing import Optional, Any
 
 from core import PyObjectId
 
@@ -19,15 +19,23 @@ class ResponseModelStr(BaseModel):
     id: str = Field(alias="_id")
 
 
+class SchemaInteractionVideo(BaseModel):
+    url: Optional[str] = Field(None, example="https://storage.googleapis.com/qwestar/location-interactions/6949c6b6637f32684a99b357/state-6949c689637f32684a99b34a/dialog-2-21e5fa0d-19b3-4897-9734-20ed502f9bda.mp4")
+    dialog_number: Optional[int] = Field(None, example=2)
+    compressed_quality: Optional[str] = Field(None, example="medium")
+    file_name: Optional[str] = Field(None, example="location-interactions/6949c6b6637f32684a99b357/state-6949c689637f32684a99b34a/dialog-2-21e5fa0d-19b3-4897-9734-20ed502f9bda.mp4")
+
+
 class SchemaStateData(BaseModel):
-    title: str = Field(None, example="Location Title")
+    title: Optional[str] = Field(None, example="Location Title")
     description: Optional[str] = Field(None, example="This is a location description")
-    prompt_user: str = Field(None, example="This is a prompt user")
+    prompt_user: Optional[str] = Field(None, example="This is a prompt user")
     image: Optional[str] = Field(None, example="image.jpg")
     configuration: Optional[dict] = Field(None, example="")
     connections: Optional[dict] = Field(None, example="")
     environment: Optional[dict] = Field(None, example="{}")
     is_active: Optional[bool] = Field(None, example=True)
+    interaction_videos: Optional[SchemaInteractionVideo] = Field(default_factory=list, example=[])
     # sound: Optional[str] = Field(None, example="123")
     # sound_mp3: Optional[str] = Field(None, example="123.mp3")
 
@@ -48,11 +56,11 @@ class SchemaCreateLocation(BaseModel):
     url_image_reference (Optional[str]): Reference image URL for the location.
     """
 
-    title: Optional[str]
-    prompt_user: Optional[str]
+    title: Optional[str] = None
+    prompt_user: Optional[str] = None
     prompt_user_description: Optional[str] = Field(None, example="This is a prompt user")
-    game_id: Optional[str]
-    state_game: Optional[str]
+    game_id: Optional[str] = None
+    state_game: Optional[str] = None
     url_image_reference: Optional[str] = Field(None, example=None, description="Reference image URL for the location")
 
 
@@ -68,8 +76,8 @@ class SchemaPartialUpdateLocation(BaseModel):
 
     title: Optional[str] = Field(None, example="Location Title")
     prompt_user: Optional[str] = Field(None, example="This is a prompt user")
-    configuration: Optional[dict] = Field(None, example="")
-    connections: Optional[dict] = Field(None, example="")
+    configuration: Optional[dict] = Field(None, example={})
+    connections: Optional[dict] = Field(None, example={})
     game_id: Optional[str] = Field(None, example="game_id")
     state_game: Optional[str] = Field(None, example="state_game")
 
@@ -105,11 +113,17 @@ class SchemaRetrieveLocationStr(ResponseModelStr):
 
     game_id: Optional[str] = Field(None)
     task_id: Optional[str] = Field(None, example="task_db")
-    state_game: Optional[list[SchemaStateLocation]] = Field([], example=["state_game"])
+    state_game: Optional[list[SchemaStateLocation]] = Field(default_factory=list, example=[])
     status: Optional[int] = Field(1, example="status")
+    characters: Optional[list[dict]] = Field(default_factory=list)
+    tasks_request: Optional[list[str]] = Field(default_factory=list)
+    tasks_notified: Optional[list[str]] = Field(default_factory=list)
+    created_at: Optional[Any] = Field(None)
+    created_by: Optional[str] = Field(None)
+    updated_at: Optional[Any] = Field(None)
+    updated_by: Optional[str] = Field(None)
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SchemaListLocation(BaseModel):
@@ -121,11 +135,10 @@ class SchemaListLocation(BaseModel):
     count (int): The number of locations.
     """
 
-    results: list[SchemaRetrieveLocationStr]
-    count: int
+    results: list[SchemaRetrieveLocationStr] = Field(default_factory=list)
+    count: int = 0
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SchemaDeactivateLocation(BaseModel):
@@ -137,4 +150,19 @@ class SchemaDeactivateLocation(BaseModel):
     """
 
     is_active: bool = Field(False, example=False)
-    state_game: str = Field(None, example="state_game")
+    state_game: Optional[str] = Field(None, example="state_game")
+
+
+class SchemaLocationInteractionVideo(BaseModel):
+    """
+    Schema for uploading interaction video to a location.
+
+    Attributes:
+    location_id (str): The location ID.
+    state (str): The state/state_game ID.
+    dialog_number (int): The dialog number in the interaction.
+    """
+
+    location_id: str = Field(..., example="location_id")
+    state: str = Field(..., example="state_game_id")
+    dialog_number: int = Field(..., example=1, description="Dialog number in the interaction")

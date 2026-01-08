@@ -1153,7 +1153,7 @@ async def generate_option_character(
             #     type_generation="create_monologue_character",
             # )
 
-            print(element_state_db["data"]["options_dialog"]["options"][option], option)
+            print("debug.. ",element_state_db["data"]["options_dialog"]["options"][option], option)
 
             conversation_ = {
                 "id_character": str(character_principal_db["_id"]),

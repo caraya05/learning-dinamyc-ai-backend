@@ -31,6 +31,30 @@ from gpt_ai.utils import openai_generator
 from user.services import validate_star_user_service, disable_user_service
 
 
+def sanitize_mongodb_document(data):
+    """
+    Convierte recursivamente todos los ObjectId a strings en un documento.
+
+    Args:
+        data: Documento o estructura de datos de MongoDB
+
+    Returns:
+        Documento con ObjectId convertidos a strings
+    """
+    if isinstance(data, ObjectId):
+        return str(data)  # ✅ Convierte ObjectId a string
+    elif isinstance(data, dict):
+        return {k: sanitize_mongodb_document(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [sanitize_mongodb_document(item) for item in data]
+    elif hasattr(data, '__dict__'):
+        # Por si hay objetos personalizados con atributos
+        return {k: sanitize_mongodb_document(v) for k, v in data.__dict__.items()}
+    else:
+        return data
+
+
+
 async def get_locations_service(*, game_id: str, skip: int = 0, limit: int = 100):
     """
     Get a list of locations.
@@ -381,18 +405,17 @@ async def partial_update_location_service(
                     location_db["tasks_request"] = []
 
                 location_db["tasks_request"].append(str(task_db["_id"]))
-
                 await db['location'].update_one(
                     {"_id": ObjectId(location_id)},
                     {"$set": {"tasks_request": location_db["tasks_request"]}},
                 )
                 location_db = await db['location'].find_one({"_id": ObjectId(location_id)})
                 location_db["task_id"] = str(task_db["_id"])
-            element_state_db = (
+            element_state_db_list = (
                 await db['state_glic'].find({"element_id": location_id}).to_list(None)
             )
-            location_db["state_game"] = element_state_db
-            return location_db
+            location_db["state_game"] = element_state_db_list
+            return sanitize_mongodb_document(location_db)
     except Exception as e:
         print(traceback.print_exc())
         print(f"Error in partial update location service: {e}")
@@ -432,7 +455,7 @@ async def generate_image_location_service(location_id: str, user_id: str):
         )
 
         location_db["task_id"] = str(task_db["_id"])
-        return location_db
+        return sanitize_mongodb_document(location_db)
     except Exception as e:
         print(f"Error in generate image location service: {e}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image not generated.")
@@ -471,6 +494,9 @@ async def get_all_location_service(user_id: str, skip: int = 1, limit: int = 10)
                         element_state_db["data"]["sound"] = None
                         pass
                 locations[i]["state_game"] = [element_state_db]
+
+        # Sanitizar todos los documentos para remover ObjectId
+        locations = [sanitize_mongodb_document(loc) for loc in locations]
 
         count_characters = await db["location"].count_documents({"created_by": user_id})
         return locations, count_characters

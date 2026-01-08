@@ -438,6 +438,8 @@ class EventsProvisional(BaseModel):
                                  description="ID of the ending location for this event. always in english")
     url_image_reference: str | None = Field(None, example=None,
                                              description="Reference image URL for the event, if any.")
+    index_option_correct: int | None = Field(None, example=None,
+                                                description="Index of the correct option for interactive events, if applicable.")
 
 
 class TasksCreateEventsProvisional(BaseModel):
@@ -732,6 +734,8 @@ class InteractionProvisional(BaseModel):
                              description="ID of the location where this interaction takes place, always in english")
     id_characters: list[str] = Field(..., example=["character_1"],
                                      description="List of character IDs involved in this interaction, always in english")
+    index_option_correct: int | None = Field(None, example=None,
+                                                description="Index of the correct option in case of option_multiple interactions")
 
 
 class TasksCreateInteractionsProvisional(BaseModel):
@@ -885,7 +889,7 @@ def _validate_and_get_character(chars_mapped, block_characters, principal_id):
 
 
 def validate_provisional_game_structure(game_structure: list, game_provisional_db: dict) -> dict:
-    """
+    """ƒ
     Valida que la estructura provisional del juego tenga los eventos correctos:
     - 4 eventos en total
     - 1 evento inicial (solo locación 1)
@@ -1662,7 +1666,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     print(f"DEBUG: Processing options for interaction at location {inter_location_mapped}")
                     for option_item in inter["options"]:
                         # procesar y renombrar ambas partes
-                        for old_key, new_key in (("option", "prompt_user_option"), ("answer", "prompt_user_answer"),
+                        for old_key, new_key in (("options", "prompt_user_option"), ("answer", "prompt_user_answer"),
                                                  ("guideline", "prompt_user_guideline")):
                             # obtener la parte (dict u objeto)
                             if isinstance(option_item, dict):
@@ -1702,7 +1706,6 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     options_dialog=None,
                     state_game=id_map_states[str(index + 1)]
                 )
-
                 await update_game_provisional_status(
                     _id_game_provisional,
                     "create_interaction",
@@ -1765,7 +1768,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                         prompt_user_text=event.get("description", "") if event_type == "event_start" else None,
                         character_id=None if event_type == "event_start" else character_id_mapped,
                         type_conversation=event.get("interaction_type"),
-                        option_number=0,
+                        option_number=event.get("index_option_correct", 0),
                         state_game_init=state_init,
                         state_game_end=state_end,
                         location_state_game_init=loc_start if loc_start else loc_end,

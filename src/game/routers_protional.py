@@ -418,6 +418,8 @@ async def update_game_provisional(
         "updated_at": datetime.now(pytz.utc),
     }
 
+    print("data",data.interactions)
+
     if data.script is not None:
         update_fields["script"] = data.script
     if data.title is not None:
@@ -458,36 +460,30 @@ async def update_game_provisional(
         {"_id": ObjectId(id_game_provisional)},
         {"$set": update_fields}
     )
-    print("Updating game provisional with fields:", update_fields)
+    # print("Updating game provisional with fields:", update_fields)
 
-    game_provisional_db = await db["game_provisional"].find_one(
-        {"_id": ObjectId(id_game_provisional)}
-    )
 
-    if not game_provisional_db:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Game provisional not found",
-        )
+
 
     if not data.is_draft:
         update_fields["state"] = "game_create"
         continue_create_game_provisional_2.delay(id_game_provisional=id_game_provisional, user_id=str(user["_id"]))
-        game_provisional_db["state"] = "game_create"
 
     else:
         update_fields["state"] = "draft"
-        game_provisional_db["state"] = "draft"
 
     update_fields["progress"] = 0
     update_fields["progress_text"] = "Game provisional is ready, waiting for processing."
     update_fields["level_process"] = 2
 
-    print("Updating game provisional with fields:", update_fields)
+    # print("Updating game provisional with fields:", update_fields)
 
     await db["game_provisional"].update_one(
         {"_id": ObjectId(id_game_provisional)},
         {"$set": update_fields}
+    )
+    game_provisional_db = await db["game_provisional"].find_one(
+        {"_id": ObjectId(id_game_provisional)}
     )
 
     return {

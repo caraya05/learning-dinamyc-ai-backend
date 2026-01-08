@@ -104,6 +104,61 @@ async def get_all_character_service(user_id: str, skip: int = 1, limit: int = 10
             detail="Characters not found",
         )
 
+def sanitize_mongodb_document(data):
+    """Convierte recursivamente todos los ObjectId a strings"""
+    if isinstance(data, ObjectId):
+        return str(data)
+    elif isinstance(data, dict):
+        return {k: sanitize_mongodb_document(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [sanitize_mongodb_document(item) for item in data]
+    else:
+        return data
+
+def _move_personaje_to_second(interactions, character_id):
+    """Mueve el elemento que corresponde al personaje a la posición 1 si existe."""
+    if not isinstance(interactions, list) or not interactions:
+        return interactions
+
+    for idx, item in enumerate(interactions):
+        if not isinstance(item, dict):
+            continue
+
+        # Intentos de obtener un id de personaje en campos comunes
+        candidate = (
+            item.get("id_character")
+            or item.get("character_id")
+            or item.get("personaje")
+        )
+
+        # Si no está en el nivel superior, revisar posibles campos anidados como 'options' u 'options_dialog'
+        if not candidate:
+            for key in ("options", "options_dialog", "option"):
+                nested = item.get(key)
+                if isinstance(nested, dict):
+                    candidate = nested.get("id_character") or nested.get("character_id")
+                    if candidate:
+                        break
+                elif isinstance(nested, list) and nested:
+                    first = nested[0]
+                    if isinstance(first, dict):
+                        candidate = first.get("id_character") or first.get("character_id")
+                        if candidate:
+                            break
+
+        if candidate and str(candidate) == str(character_id):
+            # mover a la segunda posición (índice 1)
+            if idx != 1:
+                element = interactions.pop(idx)
+                # si la lista es muy corta, asegurar la inserción en la posición correcta
+                if len(interactions) >= 1:
+                    interactions.insert(1, element)
+                else:
+                    interactions.append(element)
+            break
+
+    return interactions
+
 
 async def get_characters_by_location_service(
         skip: int = 1, limit: int = 100, location_id: str = None
@@ -129,13 +184,27 @@ async def get_characters_by_location_service(
         ]
         characters_db = await db["character"].find({"_id": {"$in": character_ids}}).to_list(None)
 
+        characters_db = [sanitize_mongodb_document(char) for char in characters_db]
+        characters_locations_db = [sanitize_mongodb_document(loc) for loc in characters_locations_db]
+
         for character_db in characters_db:
             character_db["_id"] = str(character_db["_id"])
-            character_db["state_game"] = [
+
+            # seleccionar las entradas state_glic del personaje
+            states = [
                 character_location
                 for character_location in characters_locations_db
                 if character_location["element_id"] == str(character_db["_id"])
             ]
+
+            # reordenar cada 'interaction' dentro de cada state para que el personaje quede en segunda posición
+            for state in states:
+                data = state.get("data", {})
+                if "interaction" in data and isinstance(data["interaction"], list):
+                    data["interaction"] = _move_personaje_to_second(data["interaction"], character_db["_id"])
+                    state["data"] = data
+
+            character_db["state_game"] = states
 
         return characters_db
 
