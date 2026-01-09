@@ -105,6 +105,7 @@ class SchemaRetrieveEvent(BaseModel):
     audio: Optional[str] = Field(None, example={"url": "audio_url", "duration": 10})
     audio_mp3: Optional[str] = Field(None, example={"url": "audio_url", "duration": 10})
     is_final: Optional[bool] = Field(default=False, example=False)
+    video_url: Optional[str] = Field(None, example="video_url")
 
     class Config:
         json_encoders = {ObjectId: str}
