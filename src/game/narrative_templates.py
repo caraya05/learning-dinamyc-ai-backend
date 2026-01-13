@@ -9,12 +9,14 @@ class TemplateType(str, Enum):
     FORM = "form"
     TRIVIA = "trivia"
     SURVEY = "survey"
+    SOLVE = "solve"
 
 
 class InteractionType(str, Enum):
-    TWO_WAY = "2way"
+    ONE_WAY = "one_way"
+    TWO_WAY = "two_way"
     OPEN_ANSWER = "open_answer"
-    MULTIPLE_CHOICE = "multiple"
+    MULTIPLE_CHOICE = "option_multiple"
     OPEN_TALK = "open_talk"
 
 

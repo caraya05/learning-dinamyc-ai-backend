@@ -1617,43 +1617,46 @@ async def generate_monologue_character(
     character_state_db = await db["state_glic"].find_one(
         {"element_id": _character_id, "state": _state_game_id}
     )
+    element_state_db = await db["state_glic"].find_one(
+        {"element_id": _character_id, "state": _state_game_id}
+    )
     try:
         # if not character_other_db.get("prompt_user_dialog"):
         #     character_other_db["prompt_user_dialog"] = game_db["history"]
 
-        language_detection = await generate_language_detection(
-            character_state_db["data"]['prompt_user_dialog'], _user_id
-        )
+        # language_detection = await generate_language_detection(
+        #     character_state_db["data"]['prompt_user_dialog'], _user_id
+        # )
 
-        response = await openai_generator.generate_gpt(
-            content_prompt=[
-                {
-                    "role": "system",
-                    "content": f" Correct spelling on the text of dialogue in the {language_detection} language. ",
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": f"character dialog: {character_state_db['data']['prompt_user_dialog']}"
-                                    f"id: {str(character_other_db['_id'])}",
-                        },
-                    ],
-                },
-            ],
-            model="gpt-4o-mini-2024-07-18",
-            max_tokens=4096,
-            response_format=SchemaCharacterConversations,
-            user_id=_user_id,
-            type_generation="create_monologue_character",
-        )
+        # response = await openai_generator.generate_gpt(
+        #     content_prompt=[
+        #         {
+        #             "role": "system",
+        #             "content": f" Correct spelling on the text of dialogue in the {language_detection} language. ",
+        #         },
+        #         {
+        #             "role": "user",
+        #             "content": [
+        #                 {
+        #                     "type": "text",
+        #                     "text": f"character dialog: {character_state_db['data']['prompt_user_dialog']}"
+        #                             f"id: {str(character_other_db['_id'])}",
+        #                 },
+        #             ],
+        #         },
+        #     ],
+        #     model="gpt-4o-mini-2024-07-18",
+        #     max_tokens=4096,
+        #     response_format=SchemaCharacterConversations,
+        #     user_id=_user_id,
+        #     type_generation="create_monologue_character",
+        # )
 
-        conversation_ = [
-            {"id_character": str(character_other_db["_id"]), "dialog": dialog.dialog, "audio": None,
-             "audio_mp3": None, }
-            for dialog in response.conversation
-        ]
+        # conversation_ = [
+        #     {"id_character": str(character_other_db["_id"]), "dialog": dialog.dialog, "audio": None,
+        #      "audio_mp3": None, }
+        #     for dialog in response.conversation
+        # ]
 
         interaction_exists = False
 
@@ -1665,7 +1668,7 @@ async def generate_monologue_character(
                     interaction["location_id"] == _location_id
                     and interaction["state_game"] == _state_game_id
             ):
-                interaction["conversation"] = conversation_
+                interaction["conversation"] = element_state_db["data"]["conversation"]
                 interaction["prompt_user_dialog"] = character_state_db["data"]["prompt_user_dialog"]
                 interaction["type_conversation"] = "one_way"
                 interaction_exists = True
@@ -1678,9 +1681,11 @@ async def generate_monologue_character(
                     "state_game": _state_game_id,
                     "type_conversation": "one_way",
                     "prompt_user_dialog": character_state_db["data"]["prompt_user_dialog"],
-                    "conversation": conversation_,
+                    "conversation": element_state_db["data"]["conversation"],
                 }
             )
+
+        element_state_db["data"]["conversation"] = element_state_db["data"]["conversation"]
 
         await db["state_glic"].update_one(
             {"_id": character_state_db["_id"]},

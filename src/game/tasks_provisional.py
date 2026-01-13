@@ -728,48 +728,85 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
 
         if type_template == "story":
             prompt = (
-                f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones. el tipo de interacción debe concordar con lo deseado \n\n"
+                f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones. El tipo de interacción debe concordar con lo deseado.\n\n"
                 f"INFO DE LAS ESCENAS:\n{info_scenes}\n\n"
                 f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
                 f"Para cada locación, devuelve un objeto JSON con:\n"
                 f"- titulo: nombre de la locación (debe coincidir exactamente con las locaciones existentes)\n"
                 f"- personaje_principal: objeto con 'nombre' y 'prompt_descriptivo' (debe ser el mismo personaje en TODAS las locaciones)\n"
-                f"- personaje_secundario: objeto con 'nombre' y 'prompt_descriptivo' (diferente para cada locación)\n"
+                f"- personaje_secundario: objeto con 'nombre' y 'prompt_descriptivo' (diferente para cada locación, puede ser None si la interacción es one_way)\n"
                 f"- interaccion: objeto con:\n"
-                f"  * tipo: "
-                f"    - 'one_way' (solo habla el secundario al principal). solo para el tipo de template (story)\n"
-                f"    - 'two_way' (diálogo entre principal y secundario). solo para el tipo de template (story)\n"
-                f"  * dialogo: \n"
-                f"    - Para 'one_way': un diálogo corto que dice el secundario al principal solo para el tipo de template (story)\n"
-                f"    - Para 'two_way': formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario de 4 a 6 interacciones solo para el tipo de template (story)\n\n"
+                f"  * tipo:\n"
+                f"    - 'one_way' (solo habla el personaje principal, puede dirigirse a un objeto o pensamiento en voz alta)\n"
+                f"    - 'two_way' (diálogo bidireccional entre principal y secundario)\n"
+                f"  * dialogo:\n"
+                f"    - Para 'one_way': monólogo del personaje principal (4 a 6 líneas), puede ser reflexión, narración o diálogo con un objeto\n"
+                f"    - Para 'two_way': formato '1 texto 2 texto 1 texto' donde 1=principal y 2=secundario (4 a 6 interacciones)\n\n"
                 f"REGLAS IMPORTANTES:\n"
                 f"- El personaje principal debe ser el MISMO en todas las locaciones\n"
-                f"- Cada locación tiene exactamente 1 personaje secundario (diferente por locación)\n"
-                f"- Exactamente 1 interacción por locación\n"
-                f"- Los tipos son: 'one_way' , 'two_way'\n\n"
-                f"EJEMPL0 DE RESPUESTA:\n"
+                f"- Cada locación tiene exactamente 1 interacción\n"
+                f"- En 'one_way': el personaje secundario puede ser None, un objeto inanimado o un elemento del entorno\n"
+                f"- En 'two_way': debe haber un personaje secundario diferente por locación\n"
+                f"- Los tipos de interacción permitidos son: 'one_way', 'two_way'\n\n"
+                f"EJEMPLO DE RESPUESTA:\n"
                 f"[\n"
                 f"  {{\n"
                 f"    'titulo': 'Locación 1',\n"
                 f"    'personaje_principal': {{'nombre': 'Nombre Principal', 'prompt_descriptivo': 'Descripción del personaje principal'}},\n"
-                f"    'personaje_secundario': {{'nombre': 'Nombre Secundario', 'prompt_descriptivo': 'Descripción del personaje secundario'}},\n"
-                f"    'interaccion': {{'tipo': 'one_way', 'dialogo': 'Diálogo del secundario al principal'}}\n"
+                f"    'personaje_secundario': {{'nombre': 'Espejo antiguo', 'prompt_descriptivo': 'Un espejo que refleja pensamientos'}},\n"
+                f"    'interaccion': {{'tipo': 'one_way', 'dialogo': 'Hola, sé que parece extraño hablar contigo, pero necesito aclarar mis pensamientos. ¿Quién soy realmente? A veces me pregunto si tomo las decisiones correctas.'}}\n"
                 f"  }},\n"
                 f"  {{\n"
                 f"    'titulo': 'Locación 2',\n"
                 f"    'personaje_principal': {{'nombre': 'Nombre Principal', 'prompt_descriptivo': 'Descripción del personaje principal'}},\n"
                 f"    'personaje_secundario': {{'nombre': 'Nombre Secundario', 'prompt_descriptivo': 'Descripción del personaje secundario'}},\n"
-                f"    'interaccion': {{'tipo': 'two_way', 'dialogo': '1 Hola 2 Hola, ¿cómo estás? 1 Bien, ¿y tú? 2 Muy bien, gracias.'}}\n"
+                f"    'interaccion': {{'tipo': 'two_way', 'dialogo': '1 Hola, ¿cómo estás? 2 Muy bien, gracias. ¿Y tú? 1 También bien, ¿qué planes tienes? 2 Voy a estudiar un poco.'}}\n"
                 f"  }}\n"
                 f"]\n\n"
             )
         elif type_template == "trivia":
             prompt = (
-                f"IMPORTANTE: El template es TRIVIA. TODAS las escenas deben tener interacción de tipo 'option_multiple', siguiendo exactamente el formato del ejemplo. No incluyas interacciones de tipo 'two_way' ni 'one_way'. Si no sigues el formato, el resultado será rechazado.\n\n"
-                f"Ejemplo de interacción option_multiple:\nPrincipal: Mago\nSecundario: Aprendiz\ninteracción:\n1: Hola, ¿listo para la pregunta?\\n2: Sí, adelante.\\n1: ¿Cuál es la capital de Francia?\nOpciones:\n  - París\n  - Madrid\n  - Berlín\nRespuestas:\n  - París: ¡Correcto! París es la capital de Francia.\n  - Madrid: Incorrecto. Madrid es la capital de España.\n  - Berlín: Incorrecto. Berlín es la capital de Alemania.\n\n"
-                f"Estructura exacta:\n- Evento inicial\n- Escena 1\n  - Locación 1\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (open_question): [formato del ejemplo]\n  - Evento después de la interacción\n- Escena 2\n  - Locación 2\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (open_question): [formato del ejemplo]\n- Escena 3\n  - Locación 3\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (open_question): [formato del ejemplo]\n  - Evento final\n\n"
+                f"IMPORTANTE: El template es TRIVIA. TODAS las escenas deben tener interacción de tipo 'option_multiple',"
+                f" siguiendo exactamente el formato del ejemplo. No incluyas interacciones de tipo 'two_way' ni 'one_way'."
+                f" Si no sigues el formato, el resultado será rechazado.\n\n"
+                f"Ejemplo de interacción option_multiple:\n"
+                f"Principal: Mago\n"
+                f"Secundario: Aprendiz\n"
+                f"interacción:\n"
+                f"1: Hola, ¿listo para la pregunta?\n"
+                f"2: Sí, adelante.\n"
+                f"1: ¿Cuál es la capital de Francia?\n"
+                f"Opciones:\n"
+                f"  - París\n"
+                f"  - Madrid\n"
+                f"  - Berlín\n"
+                f"Respuestas:\n"
+                f"  - París: ¡Correcto! París es la capital de Francia.\n"
+                f"  - Madrid: Incorrecto. Madrid es la capital de España.\n"
+                f"  - Berlín: Incorrecto. Berlín es la capital de Alemania.\n\n"
+                f"Estructura exacta:\n"
+                f"- Evento inicial\n"
+                f"- Escena 1\n"
+                f"  - Locación 1\n"
+                f"  - Personaje principal\n"
+                f"  - Personaje secundario\n"
+                f"  - Interacción (open_question): [formato del ejemplo]\n"
+                f"  - Evento después de la interacción\n"
+                f"- Escena 2\n"
+                f"  - Locación 2\n"
+                f"  - Personaje principal\n"
+                f"  - Personaje secundario\n"
+                f"  - Interacción (open_question): [formato del ejemplo]\n"
+                f"- Escena 3\n"
+                f"  - Locación 3\n"
+                f"  - Personaje principal\n"
+                f"  - Personaje secundario\n"
+                f"  - Interacción (open_question): [formato del ejemplo]\n"
+                f"  - Evento final\n\n"
                 f"No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al pie de la letra.\n\n"
-                f"INFO DE LAS ESCENAS:\n{info_scenes}\n\nLOCACIONES EXISTENTES:\n{locations_list}\n\n{template_select}"
+                f"INFO DE LAS ESCENAS:\n{info_scenes}\n\n"
+                f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
+                f"{template_select}"
             )
         elif type_template == "form":
             prompt = (
@@ -822,12 +859,57 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
             )
         elif type_template == "solve":
             prompt = (
-                f"IMPORTANTE: El template es SOLVE. Las dos primeras escenas deben tener interacción de tipo 'two_way' (diálogo bidireccional entre personajes, orientado a analizar y desarrollar la solución). La tercera escena debe ser de tipo 'open_question' (el jugador propone una solución libremente). No incluyas interacciones de tipo 'option_multiple' ni 'one_way'. Si no sigues el formato, el resultado será rechazado.\n\n"
-                f"Ejemplo de interacción two_way:\nPrincipal: Mentor\nSecundario: Aprendiz\ninteracción:\n1: ¿Qué harías en esta situación?\\n2: Buscaría ayuda.\\n1: ¿Por qué?\\n2: Porque es importante aprender de otros.\n\n"
-                f"Ejemplo de interacción open_question:\nPrincipal: Mentor\nSecundario: Aprendiz\ninteracción:\n1: ¿Cuál crees que es la mejor solución?\\n2: Yo propondría...\n\n"
-                f"Estructura exacta:\n- Evento inicial\n- Escena 1\n  - Locación 1\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (two_way): [formato del ejemplo]\n  - Evento después de la interacción\n- Escena 2\n  - Locación 2\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (two_way): [formato del ejemplo]\n- Escena 3\n  - Locación 3\n  - Personaje principal\n  - Personaje secundario\n  - Interacción (open_question): [formato del ejemplo]\n  - Evento final\n\n"
+                f"IMPORTANTE: El template es SOLVE. Las dos primeras escenas deben tener interacción de tipo 'two_way'"
+                f" (diálogo bidireccional entre personajes, orientado a analizar y desarrollar la solución). La tercera "
+                f"escena debe ser de tipo 'option_multiple' (el jugador elige entre varias soluciones propuestas). "
+                f"No incluyas interacciones de tipo 'one_way'. Si no sigues el formato, el resultado será rechazado.\n\n"
+                f"Ejemplo de interacción two_way:\n"
+                f"Principal: Mentor\n"
+                f"Secundario: Aprendiz\n"
+                f"interacción:\n"
+                f"1: ¿Qué harías en esta situación?\n"
+                f"2: Buscaría ayuda.\n"
+                f"1: ¿Por qué?\n"
+                f"2: Porque es importante "
+                f"aprender de otros.\n\n"
+                f"Ejemplo de interacción option_multiple:\n"
+                f"Principal: Mago\n"
+                f"Secundario: Aprendiz\n"
+                f"interacción:\n"
+                f"1: Hola, ¿listo para la pregunta?\n"
+                f"2: Sí, adelante.\n"
+                f"1: ¿Cuál es la capital de Francia?\n"
+                f"Opciones:\n"
+                f"  - París\n"
+                f"  - Madrid\n"
+                f"  - Berlín\n"
+                f"Respuestas:\n"
+                f"  - París: ¡Correcto! París es la capital de Francia.\n"
+                f"  - Madrid: Incorrecto. Madrid es la capital de España.\n"
+                f"  - Berlín: Incorrecto. Berlín es la capital de Alemania.\n\n"
+                f"Estructura exacta:\n"
+                f"- Evento inicial\n"
+                f"- Escena 1\n"
+                f"  - Locación 1\n"
+                f"  - Personaje principal\n"
+                f"  - Personaje secundario\n"
+                f"  - Interacción (two_way): [formato del ejemplo]\n"
+                f"  - Evento después de la interacción\n"
+                f"- Escena 2\n"
+                f"  - Locación 2\n"
+                f"  - Personaje principal\n"
+                f"  - Personaje secundario\n"
+                f"  - Interacción (two_way): [formato del ejemplo]\n"
+                f"- Escena 3\n"
+                f"  - Locación 3\n"
+                f"  - Personaje principal\n"
+                f"  - Personaje secundario\n"
+                f"  - Interacción (option_multiple): [formato del ejemplo]\n"
+                f"  - Evento final\n\n"
                 f"No incluyas ningún otro tipo de interacción. Sigue el formato del ejemplo al pie de la letra.\n\n"
-                f"INFO DE LAS ESCENAS:\n{info_scenes}\n\nLOCACIONES EXISTENTES:\n{locations_list}\n\n{template_select}"
+                f"INFO DE LAS ESCENAS:\n{info_scenes}\n\n"
+                f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
+                f"{template_select}"
             )
 
         else:
@@ -2073,7 +2155,58 @@ REGLAS ESPECÍFICAS:
 - La retroalimentación debe ser única por opción (no repetir textos iguales) y contener al menos una frase que valide la elección.
 - Objetivo: recopilar datos o preferencias manteniendo una experiencia positiva y coherente.
 - Solo debe de tener 3 locaciones con sus respectivas interacciones.
-"""
+""",
+        TemplateType.SOLVE: """
+TEMPLATE TIPO: SOLVE (Resolución de Problemas)
+
+DEFINICIÓN:
+Formato de resolución de problemas en 3 escenas. Las dos primeras escenas presentan interacciones tipo `two_way` donde los personajes dialogan para analizar y desarrollar soluciones. La tercera escena presenta una interacción tipo `option_multiple` donde el jugador elige entre varias soluciones propuestas. El objetivo es guiar al jugador a través del análisis del problema y luego permitirle seleccionar la mejor solución.
+
+GUIA DE INTERACCIÓN
+
+- `two_way`: Diálogo bidireccional entre el personaje principal y secundario para analizar el problema y desarrollar posibles soluciones.
+  Ejemplo:
+  1: Tenemos un problema que necesitamos resolver.
+  2: ¿Cuál es el problema exactamente?
+  1: El sistema no está funcionando correctamente. ¿Qué crees que podría ser?
+  2: Podría ser un error de configuración. Deberíamos revisar los parámetros.
+
+- `option_multiple`: Diálogo donde el jugador elige entre varias soluciones propuestas, con retroalimentación específica para cada opción.
+  Ejemplo:
+  interacción:
+  1: Hemos analizado el problema. ¿Cuál crees que es la mejor solución?
+  2: De acuerdo, estoy listo.
+  1: ¿Cuál de estas opciones implementarías?
+  
+  Opciones:
+    - Opción 1: Revisar la configuración del sistema
+    - Opción 2: Reinstalar el software completamente
+    - Opción 3: Consultar con un especialista
+  
+  Respuestas:
+    - Opción 1: Excelente elección. Revisar la configuración es el primer paso lógico para identificar errores.
+    - Opción 2: Buena consideración, aunque reinstalar podría ser excesivo sin antes revisar la configuración.
+    - Opción 3: Interesante perspectiva, pero primero deberías intentar soluciones más simples.
+
+ESTRUCTURA REQUERIDA:
+- Evento Intro: ✅
+- Escena A: Personajes con interacción `two_way` (análisis inicial)
+- Evento A → B: ✅
+- Escena B: Personajes con interacción `two_way` (desarrollo de soluciones)
+- Evento B → C: ✅
+- Escena C: Personajes con interacción `option_multiple` (selección de solución)
+- Evento Final: ✅
+
+REGLAS ESPECÍFICAS:
+- Escena 1 y 2: Interacciones tipo `two_way` de 4 a 6 intervenciones enfocadas en analizar y desarrollar posibles soluciones.
+- Escena 3: Interacción tipo `option_multiple` donde se presentan 3 a 5 soluciones propuestas.
+- Cada escena tiene dos personajes (principal y secundario) y una locación; el principal puede ser el mismo en todas las escenas.
+- Las dos primeras escenas guían el pensamiento analítico del jugador.
+- La tercera escena permite que el jugador elija la solución que considera más adecuada.
+- La retroalimentación en `option_multiple` debe ser diferenciada: algunas opciones pueden ser mejores que otras, pero todas son válidas pedagógicamente.
+- Objetivo: Desarrollar habilidades de resolución de problemas a través del análisis colaborativo y la toma de decisiones informada.
+- Solo debe de tener 3 locaciones con sus respectivas interacciones.
+        """
     }
 
     return definitions.get(template_type, "Template type not found")
@@ -2095,6 +2228,7 @@ async def validate_interaction_type(template_type: str, interaction_type: str) -
         "trivia": ["option_multiple"],
         "form": ["open_question"],
         "survey": ["option_multiple"],
+        "solve": ["two_way", "option_multiple"],
     }
 
     expected_types = template_interactions.get(template_type.lower(), [])
@@ -2362,6 +2496,93 @@ REGLAS:
                 "content": user_content
             }
         ]
+
+    elif tipo == "solve":
+        messages = [
+            {
+                "role": "system",
+                "content": f"""
+    IMPORTANTE: El template es SOLVE. Las dos primeras escenas deben tener interacción de tipo 'two_way' (diálogo bidireccional entre personajes, orientado a analizar y desarrollar la solución). La tercera escena debe ser de tipo 'option_multiple' (el jugador elige entre varias soluciones propuestas). No incluyas interacciones de tipo 'open_question' ni 'one_way'. Si no sigues el formato, el resultado será rechazado.
+    
+    REGLAS GENERALES:
+    - Número de escenas: 3.
+    - Cada escena debe contener: Locación, Personaje principal, Personaje secundario.
+    - Escenas 1 y 2: Interacciones tipo `two_way` de 4 a 6 intervenciones enfocadas en analizar y desarrollar posibles soluciones.
+    - Escena 3: Interacción tipo `option_multiple` donde se presentan 3 a 5 soluciones propuestas.
+    - Todas las opciones en la tercera escena son válidas pedagógicamente; algunas pueden ser mejores que otras.
+    - Para cada opción en `option_multiple` genera:
+      - `prompt_user_option`: texto que verá el usuario.
+      - `prompt_user_answer`: retroalimentación diferenciada que valide o cuestione la elección de forma constructiva.
+    - La retroalimentación debe ser única por opción y contextualizada al problema analizado.
+    - El flujo avanza independientemente de la opción seleccionada.
+    
+    Ejemplo de interacción two_way (Escena 1 y 2):
+    
+    Principal: Desarrollador (1)
+    Secundario: Analista (2)
+    
+    interacción:
+    1: Tenemos un problema que necesitamos resolver.
+    2: ¿Cuál es el problema exactamente?
+    1: El sistema no está funcionando correctamente. ¿Qué crees que podría ser?
+    2: Podría ser un error de configuración. Deberíamos revisar los parámetros.
+    
+    Ejemplo de interacción option_multiple (Escena 3):
+    
+    Principal: Desarrollador (1)
+    Secundario: Analista (2)
+    
+    interacción:
+    1: Hemos analizado el problema. ¿Cuál crees que es la mejor solución?
+    2: De acuerdo, estoy listo.
+    1: ¿Cuál de estas opciones implementarías?
+    
+    Opciones:
+    - 1: Revisar la configuración del sistema
+    - 1: Reinstalar el software completamente
+    - 1: Consultar con un especialista
+    
+    Respuestas:
+    - 2: Excelente elección. Revisar la configuración es el primer paso lógico para identificar errores sin perder información.
+    - 2: Buena consideración, aunque reinstalar podría ser excesivo sin antes revisar la configuración. Considera esto como plan B.
+    - 2: Interesante perspectiva, pero primero deberías intentar soluciones más simples. Consultar con un especialista es mejor como último recurso.
+    
+    ESTRUCTURA EXACTA DEL SCRIPT:
+    - Evento inicial
+    - Escena 1
+      - Locación 1
+      - Personaje principal
+      - Personaje secundario
+      - Interacción (two_way): [formato del ejemplo]
+      - Evento después de la interacción
+    - Escena 2
+      - Locación 2
+      - Personaje principal
+      - Personaje secundario
+      - Interacción (two_way): [formato del ejemplo]
+      - Evento transición
+    - Escena 3
+      - Locación 3
+      - Personaje principal
+      - Personaje secundario
+      - Interacción (option_multiple): [formato del ejemplo]
+      - Evento final
+    
+    RECUERDA:
+    - {instruccion_personajes}
+    - Las dos primeras escenas guían el pensamiento analítico del jugador.
+    - La tercera escena permite que el jugador elija la solución que considera más adecuada.
+    - Mantén tono colaborativo y orientado a la resolución de problemas.
+    - El output debe ser solo texto siguiendo el formato al pie de la letra.
+    {template_definition}
+    """
+            },
+            {
+                "role": "user",
+                "content": user_content
+            }
+        ]
+
     else:
         messages = [
             {
