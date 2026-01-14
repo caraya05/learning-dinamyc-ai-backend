@@ -8,7 +8,6 @@ from datetime import timedelta
 import redis
 
 from event.tasks import async_generate_image_event
-from location.tasks import async_generate_location_task, async_generate_image_location_task
 from character.tasks import async_generate_character_task, async_generate_image_character_task, \
     async_update_character_task
 from game.tasks import async_identify_category_game_task, async_generate_image_cover_game_task
@@ -77,9 +76,9 @@ celery.conf.update(
     enable_utc=True,
 
     # Configuración de serialización
-    task_serializer='json',
-    accept_content=['json'],
-    result_serializer='json',
+    task_serializer='pickle',
+    accept_content=['pickle', 'json'],
+    result_serializer='pickle',
 )
 
 # Configurar colas específicas

@@ -6,6 +6,12 @@ from event.tasks import _generate_image_event, async_generate_image_event, async
 from location.tasks import async_generate_location_task
 from voice.task import async_generate_voice_task
 
+import traceback
+from location.services_video import compress_video, upload_video_to_gcs
+from core.database import db
+from uuid import uuid4
+from bson import ObjectId
+import datetime
 
 @shared_task(name="generate_image_character_shared_task")
 def generate_image_character_shared_task(_user_id, _prompt_user, _gender, _id_character, _game_provisional, _url_image_reference=None):
@@ -169,3 +175,90 @@ def generate_event_audio_shared_task(event_id: str, user_id: str, text: str = No
     return loop.run_until_complete(
         async_generate_event_audio(event_id=event_id, user_id=user_id, text=text)
     )
+
+
+async def _async_process_interaction_video(
+        location_id: str,
+        state: str,
+        dialog_number: int,
+        video_bytes: bytes,
+        quality: str,
+):
+    """Lógica async para procesar el video de interacción"""
+
+    class VideoFile:
+        def __init__(self, content, filename):
+            self.content = content
+            self.filename = filename
+            self.content_type = 'video/mp4'
+
+        async def read(self):
+            return self.content
+
+    video_file = VideoFile(video_bytes, f"interaction-{uuid4()}.mp4")
+
+    print(f"   Compressing video (quality: {quality})...")
+    compressed_video = await compress_video(video_file, quality=quality)  # type: ignore
+
+    file_name = f"location-interactions/{location_id}/state-{state}/dialog-{dialog_number}-{uuid4()}.mp4"
+
+    print(f"   Uploading to GCS: {file_name}...")
+    video_url = await upload_video_to_gcs(compressed_video, file_name)
+
+    print(f"   Updating database...")
+    state_glic = await db["state_glic"].find_one({
+        "element_id": location_id,
+        "state": state
+    })
+
+    if not state_glic:
+        return None
+
+    state_glic["data"] = state_glic.get("data", {})
+    state_glic["data"]["interaction_videos"] = {
+        "url": video_url,
+        "dialog_number": dialog_number,
+        "compressed_quality": quality,
+        "created_at": datetime.datetime.now(datetime.timezone.utc),
+        "file_name": file_name,
+    }
+
+    await db["state_glic"].find_one_and_update(
+        {"_id": ObjectId(state_glic["_id"])},
+        {"$set": {"data": state_glic["data"]}},
+        return_document=True
+    )
+
+    return {
+        "status": "success",
+        "message": "Video processed successfully",
+        "video_url": video_url,
+        "state_glic_id": str(state_glic["_id"]),
+        "dialog_number": dialog_number
+    }
+
+
+@shared_task(name="process_interaction_video_task")
+def process_interaction_video_task(
+        location_id: str,
+        state: str,
+        dialog_number: int,
+        video_bytes: bytes,
+        quality: str = "medium"
+):
+    """Procesa un video de interacción en background"""
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    return loop.run_until_complete(
+            _async_process_interaction_video(
+                location_id=location_id,
+                state=state,
+                dialog_number=dialog_number,
+                video_bytes=video_bytes,
+                quality=quality
+            )
+        )

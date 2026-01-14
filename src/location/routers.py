@@ -24,9 +24,8 @@ from location.services import (
 from location.services import get_location_service
 from location.services import create_location_service
 from location.services import partial_update_location_service
-from location.services_video import (
-    save_interaction_video_service,
-)
+
+from tasks_shared import process_interaction_video_task
 # TODO: falta implemntar el desconteo de estrellas
 from user.services import validate_star_user_service
 
@@ -283,7 +282,7 @@ async def disable_location(
         )
 
 
-@router.post("/interaction-video/upload", status_code=status.HTTP_201_CREATED)
+@router.post("/interaction-video/upload", status_code=status.HTTP_202_ACCEPTED)
 async def upload_interaction_video(
         location_id: str = Form(..., description="Location ID"),
         state: str = Form(..., description="State/State Game ID"),
@@ -294,7 +293,7 @@ async def upload_interaction_video(
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     """
-    This endpoint uploads a compressed video for a location interaction dialog.
+    This endpoint uploads a compressed video for a location interaction dialog asynchronously.
 
     It expects:
     - location_id: The ID of the location
@@ -303,18 +302,40 @@ async def upload_interaction_video(
     - quality: Video compression quality (low, medium, high)
     - video_file: The video file to upload
 
-    Returns the uploaded video information and URL.
+    Returns immediately with a task_id for polling the status.
+    The video is processed asynchronously in the background.
     """
     try:
-        result = await save_interaction_video_service(
+        # Validar que el archivo sea un video
+        if video_file.content_type not in ['video/mp4', 'video/quicktime', 'video/avi', 'video/x-msvideo']:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Solo se permiten videos (mp4, mov, avi)",
+            )
+
+        # Leer el contenido del archivo
+        video_bytes = await video_file.read()
+
+        # Enviar a la cola de Celery para procesamiento asíncrono
+        task = process_interaction_video_task.delay(
             location_id=location_id,
             state=state,
             dialog_number=dialog_number,
-            video_file=video_file,
+            video_bytes=video_bytes,
             quality=quality
         )
-        return result
 
+        return {
+            "status": "processing",
+            "message": "Video is being processed in the background",
+            "task_id": task.id,
+            "location_id": location_id,
+            "state": state,
+            "dialog_number": dialog_number
+        }
+
+    except HTTPException:
+        raise
     except Exception as e:
         print(traceback.print_exc())
         print(f"Error in upload interaction video: {str(e)}")
@@ -322,3 +343,61 @@ async def upload_interaction_video(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error uploading interaction video",
         )
+
+
+@router.get("/interaction-video/status/{task_id}", status_code=status.HTTP_200_OK)
+async def get_video_upload_status(
+        task_id: str,
+        user_db: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    This endpoint retrieves the status of a video upload task.
+
+    It expects:
+    - task_id: The Celery task ID returned from the upload endpoint
+
+    Returns the current status of the video processing task.
+    Possible statuses: PENDING, STARTED, SUCCESS, FAILURE, RETRY
+    """
+    try:
+        from celery.result import AsyncResult
+        from location.tasks import process_interaction_video_task
+
+        # Obtener el resultado de la tarea
+        task_result = AsyncResult(task_id)
+
+        response = {
+            "task_id": task_id,
+            "status": task_result.status,
+        }
+
+        if task_result.state == 'PENDING':
+            response["message"] = "Task is waiting to be processed"
+            response["progress"] = 0
+        elif task_result.state == 'STARTED':
+            response["message"] = "Video is being processed"
+            response["progress"] = 50
+        elif task_result.state == 'SUCCESS':
+            response["message"] = "Video processed successfully"
+            response["progress"] = 100
+            response["result"] = task_result.result
+        elif task_result.state == 'FAILURE':
+            response["message"] = "Video processing failed"
+            response["error"] = str(task_result.info)
+            response["progress"] = 0
+        elif task_result.state == 'RETRY':
+            response["message"] = "Video processing is retrying"
+            response["progress"] = 25
+        else:
+            response["message"] = f"Unknown status: {task_result.state}"
+
+        return response
+
+    except Exception as e:
+        print(f"Error getting task status: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error retrieving task status",
+        )
+
