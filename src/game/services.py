@@ -1727,3 +1727,104 @@ async def replace_old_ids_in_object(obj: dict, id_mappings: dict) -> dict:
                 obj[i] = await replace_old_ids_in_object(item, id_mappings)
 
     return obj
+
+
+async def get_previous_game_characters_service(previous_game_id: str, new_game_id: str) -> dict:
+    """
+    Obtiene los personajes principales del juego anterior y proporciona su información
+    para ser reutilizados en el nuevo juego de la serie.
+
+    Args:
+        previous_game_id: ID del juego anterior
+        new_game_id: ID del nuevo juego
+
+    Returns:
+        dict con estructura:
+        {
+            "characters": [...],
+            "character_principal_id": "...",
+            "success": bool
+        }
+    """
+    try:
+        # Obtener personajes del juego anterior
+        characters = await db["character"].find({
+            "game_id": previous_game_id,
+            "is_active": True
+        }).to_list(None)
+
+        # Obtener el personaje principal
+        previous_game = await db["game"].find_one({
+            "_id": ObjectId(previous_game_id)
+        })
+
+        character_principal_id = previous_game.get("character_principal") if previous_game else None
+
+        return {
+            "characters": [
+                {
+                    "_id": str(char.get("_id")),
+                    "name": char.get("name"),
+                    "role": char.get("role"),
+                    "gender": char.get("gender"),
+                    "voice_id": char.get("voice_id"),
+                    "image": char.get("image"),
+                    "prompt_user": char.get("prompt_user"),
+                    "conversation_type": char.get("conversation_type")
+                }
+                for char in characters
+            ],
+            "character_principal_id": character_principal_id,
+            "success": True
+        }
+    except Exception as e:
+        return {
+            "characters": [],
+            "character_principal_id": None,
+            "success": False,
+            "error": str(e)
+        }
+
+
+async def get_previous_game_locations_service(previous_game_id: str) -> dict:
+    """
+    Obtiene las locaciones del juego anterior para reutilizarlas en el nuevo juego.
+
+    Args:
+        previous_game_id: ID del juego anterior
+
+    Returns:
+        dict con estructura:
+        {
+            "locations": [...],
+            "success": bool
+        }
+    """
+    try:
+        # Obtener locaciones del juego anterior
+        locations = await db["location"].find({
+            "game_id": previous_game_id,
+            "is_active": True
+        }).to_list(None)
+
+        return {
+            "locations": [
+                {
+                    "_id": str(loc.get("_id")),
+                    "title": loc.get("title"),
+                    "prompt_user": loc.get("prompt_user"),
+                    "description_situacional": loc.get("prompt_user_description"),
+                    "image": loc.get("image"),
+                    "url_image_reference": loc.get("url_image_reference")
+                }
+                for loc in locations
+            ],
+            "success": True
+        }
+    except Exception as e:
+        return {
+            "locations": [],
+            "success": False,
+            "error": str(e)
+        }
+

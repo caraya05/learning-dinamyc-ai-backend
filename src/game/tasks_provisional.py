@@ -242,10 +242,43 @@ async def create_game_provisional(_id_game_provisional: str):
         # logger.info("Generando contenido del juego con GPT-4.1")
         # Refuerzo para template TRIVIA
 
+        # Obtener información del juego anterior si existe serie
+        previous_context = None
+        serie_id = game_provisional_db.get('serie_id')
+        current_order = game_provisional_db.get('order', 1)
+
+        if serie_id:
+            previous_game_info = await get_previous_game_in_series(serie_id, current_order)
+
+            # Si existe información previa, construir contexto de continuidad separado
+            if previous_game_info and previous_game_info.get('game'):
+                previous_game = previous_game_info.get('game', {})
+                previous_characters = previous_game_info.get('characters', [])
+                previous_locations = previous_game_info.get('locations', [])
+
+                # Construir contexto de juego anterior
+                previous_context = f"""
+CONTEXTO DEL JUEGO ANTERIOR (Parte {previous_game.get('order', 1)}):
+Título: {previous_game.get('title', 'N/A')}
+Historia: {previous_game.get('history', 'N/A')}
+
+Personajes del juego anterior:
+"""
+                for char in previous_characters:
+                    previous_context += f"\n- {char.get('name', 'Unknown')}: {char.get('prompt_user', 'Sin descripción')}"
+
+                previous_context += f"\n\nLocaciones del juego anterior:"
+                for loc in previous_locations:
+                    previous_context += f"\n- {loc.get('title', 'Unknown')}: {loc.get('prompt_user', 'Sin descripción')}"
+
+                previous_context += f"\n\nEste es el juego {previous_game.get('order', 1) + 1} de una serie. Mantén la continuidad con los personajes y locaciones existentes, especialmente el personaje principal debe ser consistente."
+
         # Generación de contenido (sin reintentos)
         content_prompt = get_template_prompt(type_template, template_definition,
                                              game_provisional_db.get('prompt_user', 'No prompt provided'),
-                                             base64_string)
+                                             base64_string,
+                                             game_provisional_db.get('language', 'es'),
+                                             previous_context=previous_context)
         source_game_response = await openai_generator.generate_gpt(
             content_prompt=content_prompt,
             model="gpt-4.1",
@@ -943,12 +976,53 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
                 f"- Los tipos son: 'one_way' , 'two_way' , 'option_multiple'\n\n"
             )
 
+        # Obtener contexto previo si existe serie
+        previous_context_characters = None
+        serie_id = game_provisional_db.get('serie_id')
+        current_order = game_provisional_db.get('order', 1)
+
+        if serie_id:
+            previous_game_info = await get_previous_game_in_series(serie_id, current_order)
+
+            if previous_game_info and previous_game_info.get('game'):
+                previous_game = previous_game_info.get('game', {})
+                previous_characters = previous_game_info.get('characters', [])
+                previous_locations = previous_game_info.get('locations', [])
+
+                # Construir contexto con énfasis en mantener personaje principal
+                previous_context_characters = f"""
+IMPORTANTE - CONTEXTO DE LA SERIE:
+Este es el juego {previous_game.get('order', 1) + 1} de una serie. DEBES mantener continuidad con el juego anterior.
+
+Personaje Principal del juego anterior (DEBE SER EL MISMO):
+"""
+                # El primer personaje de la primera locación del juego anterior es generalmente el personaje principal
+                if previous_characters:
+                    principal_char = previous_characters[0]
+                    previous_context_characters += f"- Nombre: {principal_char.get('name', 'Unknown')}\n  Descripción: {principal_char.get('prompt_user', 'Sin descripción')}\n"
+
+                previous_context_characters += f"\nLocaciones del juego anterior (para referencia):"
+                for loc in previous_locations:
+                    previous_context_characters += f"\n- {loc.get('title', 'Unknown')}: {loc.get('prompt_user', 'Sin descripción')}"
+
+                previous_context_characters += f"\nNOTA: Reutiliza el mismo personaje principal con el mismo nombre y características del juego anterior para mantener la continuidad de la serie."
+
+        content_prompt = [
+            {"role": "system",
+             "content": "Eres un experto en análisis de guiones y creación de personajes para videojuegos. Analiza cuidadosamente el guión y crea personajes consistentes con interacciones naturales. y que acople al template"},
+        ]
+
+        # Agregar contexto previo si existe
+        if previous_context_characters:
+            content_prompt.append({
+                "role": "system",
+                "content": previous_context_characters
+            })
+
+        content_prompt.append({"role": "user", "content": prompt})
+
         characters_response = await openai_generator.generate_gpt(
-            content_prompt=[
-                {"role": "system",
-                 "content": "Eres un experto en análisis de guiones y creación de personajes para videojuegos. Analiza cuidadosamente el guión y crea personajes consistentes con interacciones naturales. y que acople al template"},
-                {"role": "user", "content": prompt}
-            ],
+            content_prompt=content_prompt,
             model="gpt-4.1",
             response_format=LocationCharactersResponse,
             user_id=None,
@@ -2237,7 +2311,7 @@ async def validate_interaction_type(template_type: str, interaction_type: str) -
     return is_valid, ", ".join(expected_types)
 
 
-def get_template_prompt(template_type, template_definition, prompt_user, base64_string, language):
+def get_template_prompt(template_type, template_definition, prompt_user, base64_string, language, previous_context=None):
     tipo = str(template_type).lower() if template_type else ""
     instruccion_personajes = "Antes de cada bloque de interacción, indica explícitamente el nombre del personaje principal y el secundario, usando el formato:\nPrincipal: [nombre]\nSecundario: [nombre]"
 
@@ -2546,7 +2620,7 @@ REGLAS:
     - 2: Excelente elección. Revisar la configuración es el primer paso lógico para identificar errores sin perder información.
     - 2: Buena consideración, aunque reinstalar podría ser excesivo sin antes revisar la configuración. Considera esto como plan B.
     - 2: Interesante perspectiva, pero primero deberías intentar soluciones más simples. Consultar con un especialista es mejor como último recurso.
-    
+
     ESTRUCTURA EXACTA DEL SCRIPT:
     - Evento inicial
     - Escena 1
@@ -2594,6 +2668,12 @@ REGLAS:
                 "content": f"Prompt del usuario: {prompt_user}"
             }
         ]
+
+    if previous_context:
+        messages.insert(0, {
+            "role": "system",
+            "content": f"Contexto previo a considerar para la nueva generación: {previous_context}"
+        })
 
     # Agregar el archivo solo si base64_string no es None y no está vacío
     if base64_string:
@@ -2702,3 +2782,102 @@ REGLAS:
     })
 
     return messages
+
+
+async def get_previous_game_in_series(serie_id: str, current_order: int) -> dict:
+    """
+    Obtiene la información del juego anterior en la serie.
+    Busca el juego con order = current_order - 1 y extrae:
+    - Información del juego (título, descripción, etc.)
+    - Personajes principales
+    - Locaciones
+    - Eventos
+
+    Returns:
+        dict con estructura:
+        {
+            "game": {...},
+            "characters": [...],
+            "locations": [...],
+            "events": [...],
+            "state_games": [...]
+        }
+    """
+    try:
+        if current_order <= 1:
+            return {
+                "game": None,
+                "characters": [],
+                "locations": []
+            }
+
+        previous_order = current_order - 1
+
+        # Buscar el juego anterior en la serie
+        previous_game = await db["game"].find_one({
+            "serie_id": serie_id,
+            "order": previous_order,
+            "is_active": True
+        })
+
+        if not previous_game:
+            return {
+                "game": None,
+                "characters": [],
+                "locations": []
+            }
+
+        game_id = str(previous_game.get("_id"))
+
+        # Obtener personajes del juego anterior
+        characters = await db["character"].find({
+            "game_id": game_id,
+            "is_active": True
+        }).to_list(None)
+
+        # Obtener locaciones del juego anterior
+        locations = await db["location"].find({
+            "game_id": game_id,
+            "is_active": True
+        }).to_list(None)
+
+        return {
+            "game": {
+                "_id": game_id,
+                "title": previous_game.get("title"),
+                "history": previous_game.get("history"),
+                "order": previous_game.get("order")
+            },
+            "characters": [
+                {
+                    "_id": str(char.get("_id")),
+                    "name": char.get("name"),
+                    "role": char.get("role"),
+                    "gender": char.get("gender"),
+                    "voice_id": char.get("voice_id"),
+                    "image": char.get("image"),
+                    "prompt_user": char.get("prompt_user"),
+                    "conversation_type": char.get("conversation_type")
+                }
+                for char in characters
+            ],
+            "locations": [
+                {
+                    "_id": str(loc.get("_id")),
+                    "title": loc.get("title"),
+                    "prompt_user": loc.get("prompt_user"),
+                    "description_situacional": loc.get("prompt_user_description"),
+                    "image": loc.get("image")
+                }
+                for loc in locations
+            ]
+        }
+
+    except Exception as e:
+        print(f"Error getting previous game in series: {str(e)}")
+        return {
+            "game": None,
+            "characters": [],
+            "locations": []
+        }
+

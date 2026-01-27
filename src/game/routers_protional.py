@@ -99,7 +99,8 @@ async def create_game(
         files: list[UploadFile] = File(None),
         prompt_user: str = Form(...),
         template_type: str = Form(...),
-        language: str = Form("es", description="Language code for the game")
+        language: str = Form("es", description="Language code for the game"),
+        series_id: str = Form(None, description="ID of the series to associate the game with")
 ):
     """
     This endpoint creates a new game.
@@ -120,6 +121,14 @@ async def create_game(
         else:
             urls_files = None
 
+        order_previous = 0
+
+        if series_id and ObjectId.is_valid(series_id):
+                games_serie = await db["game"].find({"serie_id": series_id}).sort("order", -1).to_list(None)
+                if games_serie and len(games_serie) > 0:
+                    order_previous = games_serie[0].get("order", 0)
+
+
         game_provisional_db = await db["game_provisional"].insert_one(
             {
                 "prompt_user": prompt_user,
@@ -130,6 +139,7 @@ async def create_game(
                 "updated_by": str(user["_id"]),
                 "state": "script_create",
                 "num_scenes": 0,
+                "order": order_previous + 1,
                 "scene_interactions": [],
                 "reference_files": {
                     "characters": [],
@@ -145,6 +155,7 @@ async def create_game(
                 "user_email": None,
                 "level_process": 1,
                 "language": language,
+                "serie_id": series_id,
             }
         )
 
@@ -198,6 +209,7 @@ async def create_game(
             "progress_text": "Game provisional created successfully, waiting for processing.",
             "game_id": None,
             "category": None,
+            "serie_id": game_provisional_db["serie_id"],
             "level_process": 1,
         }
     except Exception as e:
@@ -462,9 +474,6 @@ async def update_game_provisional(
     )
     # print("Updating game provisional with fields:", update_fields)
 
-
-
-
     if not data.is_draft:
         update_fields["state"] = "game_create"
         continue_create_game_provisional_2.delay(id_game_provisional=id_game_provisional, user_id=str(user["_id"]))
@@ -663,6 +672,7 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
             "updated_at": game_provisional_db.get("updated_at").isoformat() if game_provisional_db.get(
                 "updated_at") else None,
             "game_id": str(game_provisional_db.get("game_id")) if game_provisional_db.get("game_id") else None,
+            "series_id": str(game_provisional_db.get("serie_id")) if game_provisional_db.get("serie_id") else None,
         }
 
         task_states = []
@@ -747,3 +757,4 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
             pass
         # Lanzar la excepción para que sea capturada en el nivel superior
         raise
+

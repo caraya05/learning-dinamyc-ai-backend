@@ -21,6 +21,8 @@ class Game(BaseModel):
     locations_id: Optional[list[str]] = Field(None, example=["123", "456"])
     items_id: Optional[list[str]] = Field(None, example=["123", "456"])
     category_id: Optional[str] = Field(None, example="Category")
+    serie_id: Optional[str] = Field(None, example="Serie ID")
+    order: Optional[int] = Field(1, example=1)
     likes: Optional[list[str]] = Field([], example=["123", "456"])
     version: Optional[int] = Field(2, example=1)
     status: Optional[int] = Field(0, example=200)

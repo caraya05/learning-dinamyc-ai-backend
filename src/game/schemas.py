@@ -44,6 +44,7 @@ class SchemaRetrieveGame(ResponseModel):
     state_games: Optional[list[dict]] = Field(None, example=["state_game1", "state_game2"])
     game_provisional: Optional[dict] = Field(None, example={"provisional_field": "value"})
     number_music_track: Optional[int] = Field(0, example=0)
+    serie_id: Optional[str] = Field(None, example="serie_id")
 
 
 class ResponseModelStr(BaseModel):

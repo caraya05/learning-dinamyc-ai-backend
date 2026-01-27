@@ -10,6 +10,7 @@ import redis
 from event.tasks import async_generate_image_event
 from character.tasks import async_generate_character_task, async_generate_image_character_task, \
     async_update_character_task
+from location.tasks import async_generate_location_task, async_generate_image_location_task
 from game.tasks import async_identify_category_game_task, async_generate_image_cover_game_task
 from game.tasks_provisional import async_create_game_provisional_task, async_generate_scene_interactions_task
 from game.tasks_provisional_2 import async_create_game_provisional_task_2, async_continue_create_game_provisional_2
@@ -75,10 +76,10 @@ celery.conf.update(
     timezone='America/Bogota',
     enable_utc=True,
 
-    # Configuración de serialización
-    task_serializer='pickle',
-    accept_content=['pickle', 'json'],
-    result_serializer='pickle',
+    # Configuración de serialización - ACTUALIZADO A JSON (Pickle deprecado)
+    task_serializer='json',
+    accept_content=['json'],
+    result_serializer='json',
 )
 
 # Configurar colas específicas

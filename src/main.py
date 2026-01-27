@@ -26,6 +26,7 @@ from location import routers as location_routers
 from location import routers_admin as location_admin_routers
 from character import routers as character_routers
 from character import routers_admin as character_admin_routers
+from series import routers as series_routers
 from voice import routers as voice_routers
 from shortener import routers as shortener_routers
 from task import routers as task_routers
@@ -175,6 +176,7 @@ app.include_router(prompt_routers.router, prefix="/v1/api")
 app.include_router(user_routers.router, prefix="/v1/api")
 # app.include_router(weapon_routers.router2, prefix="/v2/api")
 app.include_router(state_game_routers.router, prefix="/v1/api")
+app.include_router(series_routers.router, prefix="/v1/api")
 app.include_router(shortener_routers.router, prefix="/v1/api")
 app.include_router(voice_routers.router, prefix="/v1/api")
 app.include_router(user_ws_routers.router, prefix="")

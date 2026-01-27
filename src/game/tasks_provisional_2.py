@@ -19,6 +19,8 @@ from game.tasks_provisional import update_game_provisional_status, get_template_
     create_event_service, new_interaction_character_service
 from gpt_ai.utils import openai_generator
 from location.schemas import SchemaCreateLocation
+from series.services import SeriesService
+from series.schemas import SchemaCreateSeries, SchemaUpdateSeries
 from state_game.services import create_state_game
 from task.services import create_task_service
 from tasks_shared import generate_image_character_shared_task, detection_voice_character_task
@@ -97,6 +99,7 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
 
         else:
             base64_string = None
+
         # Actualizar estado: Generando contenido del juego
         await update_game_provisional_status(_id_game_provisional, "generating_content", 25,
                                              "Generating game script and title using AI.")
@@ -104,9 +107,57 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
         type_template = game_provisional_db.get("type_template", None)
         template_definition = get_template_definition(type_template)
 
-        content_prompt = get_template_prompt(type_template, template_definition,
-                                             game_provisional_db.get('prompt_user', 'No prompt provided'),
-                                             base64_string, game_provisional_db.get('language', 'es'))
+        # Obtener información previa si existe (para series de juegos)
+        user_prompt = game_provisional_db.get('prompt_user', 'No prompt provided')
+        previous_context = None
+
+        # Obtener serie_id y order del game_provisional
+        serie_id = game_provisional_db.get('serie_id')
+        current_order = game_provisional_db.get('order', 1)
+
+        print("serie_id:", serie_id, "current_order:", current_order)
+
+        # Obtener información del juego anterior si existe serie
+        if serie_id:
+            print("existe serie_id:", serie_id)
+            previous_game_info = await get_previous_game_in_series(serie_id, current_order)
+
+            print("previous_game_info:", previous_game_info)
+
+            # Si existe información previa, construir contexto de continuidad separado
+            if previous_game_info and previous_game_info.get('game'):
+                previous_game = previous_game_info.get('game', {})
+                previous_characters = previous_game_info.get('characters', [])
+                previous_locations = previous_game_info.get('locations', [])
+
+                # Construir contexto de juego anterior
+                previous_context = f"""
+        CONTEXTO DEL JUEGO ANTERIOR (Parte {previous_game.get('order', 1)}):
+        Título del juego anterior: {previous_game.get('title', 'N/A')}
+        Historia previa: {previous_game.get('history', 'N/A')}
+        
+        Personajes del juego anterior:
+        """
+                for char in previous_characters:
+                    previous_context += f"\n- {char.get('name', 'Unknown')}: {char.get('prompt_user', 'Sin descripción')}"
+
+                previous_context += f"\n\nLocaciones del juego anterior:"
+                for loc in previous_locations:
+                    previous_context += f"\n- {loc.get('title', 'Unknown')}: {loc.get('prompt_user', 'Sin descripción')}"
+
+                previous_context += f"\n\nEste es el juego {previous_game.get('order', 1) + 1} de una serie."
+
+                print("previous context:", previous_context)
+
+        # Pasar contexto y prompt por separado
+        content_prompt = get_template_prompt(
+            type_template,
+            template_definition,
+            user_prompt,
+            base64_string,
+            game_provisional_db.get('language', 'es'),
+            previous_context=previous_context  # Enviar como parámetro separado
+        )
         source_game_response = await openai_generator.generate_gpt(
             content_prompt=content_prompt,
             model="gpt-4.1",
@@ -1406,6 +1457,111 @@ async def validate_game_events_structure(game_provisional_id: str, game_id: str,
         }
 
 
+async def get_previous_game_in_series(serie_id: str, current_order: int) -> dict:
+    """
+    Obtiene la información del juego anterior en la serie.
+    Busca el juego con order = current_order - 1 y extrae:
+    - Información del juego (título, descripción, etc.)
+    - Personajes principales
+    - Locaciones
+    - Eventos
+
+    Returns:
+        dict con estructura:
+        {
+            "game": {...},
+            "characters": [...],
+            "locations": [...],
+            "events": [...],
+            "state_games": [...]
+        }
+    """
+    try:
+        if current_order <= 1:
+            return {
+                "game": None,
+                "characters": [],
+                "locations": []
+            }
+
+        previous_order = current_order - 1
+
+        # Buscar el juego anterior en la serie
+        previous_game = await db["game"].find_one({
+            "serie_id": serie_id,
+            "order": previous_order
+        })
+
+        if not previous_game:
+            return {
+                "game": None,
+                "characters": [],
+                "locations": []
+            }
+
+        game_id = str(previous_game.get("_id"))
+
+        # Obtener state_games del juego anterior
+        state_games = await db["state_game"].find({
+            "data.game_id": game_id,
+            "is_active": True
+        }).to_list(None)
+
+        # Extraer personajes y locaciones de los state_games
+        characters = []
+        locations = []
+
+        for state_game in state_games:
+            state_game_data = state_game.get("data", {})
+
+            # Obtener personajes si type_element es "character"
+            if state_game.get("type_element") == "character":
+                characters.append(state_game_data)
+
+            # Obtener locaciones si type_element es "location"
+            elif state_game.get("type_element") == "location":
+                locations.append(state_game_data)
+
+        return {
+            "game": {
+                "_id": game_id,
+                "title": previous_game.get("title"),
+                "history": previous_game.get("history")
+            },
+            "characters": [
+                {
+                    "_id": str(char.get("_id")),
+                    "name": char.get("name"),
+                    "role": char.get("role"),
+                    "gender": char.get("gender"),
+                    "voice_id": char.get("voice_id"),
+                    "image": char.get("image"),
+                    "prompt_user": char.get("prompt_user"),
+                    "conversation_type": char.get("conversation_type")
+                }
+                for char in characters
+            ],
+            "locations": [
+                {
+                    "_id": str(loc.get("_id")),
+                    "title": loc.get("title"),
+                    "prompt_user": loc.get("prompt_user"),
+                    "description_situacional": loc.get("prompt_user_description"),
+                    "image": loc.get("image")
+                }
+                for loc in locations
+            ]
+        }
+
+    except Exception as e:
+        print(traceback.format_exc())
+        return {
+            "game": None,
+            "characters": [],
+            "locations": []
+        }
+
+
 async def async_continue_create_game_provisional_2(_id_game_provisional: str, _user_id: str = None) -> str:
     """
     Continue creating a provisional game entry in the database.
@@ -1429,6 +1585,35 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                 return repr(obj)
 
         game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(_id_game_provisional)})
+
+        # Obtener event_start temprano para usarlo en la creación de series
+        event_start = game_provisional_db.get("events", [])[0] if game_provisional_db.get("events", []) else None
+
+        # Implementar lógica de series al inicio
+        series_service = SeriesService()
+        serie_id = game_provisional_db.get("serie_id")
+
+        if not serie_id:
+            # Si la serie no existe, crearla
+            serie_data = SchemaCreateSeries(
+                title=game_provisional_db.get("title", "Untitled Series"),
+                description=f"Series containing game: {game_provisional_db.get('title')}",
+                category_id=game_provisional_db.get("category"),
+                image=event_start.get("image") if event_start else None,
+                main_character=None
+            )
+            serie_db = await series_service.create_series_service(
+                serie_data,
+                str(game_provisional_db.get("created_by", "anonymous"))
+            )
+            serie_id = str(serie_db.get("_id"))
+
+            # Actualizar game_provisional_db con el nuevo serie_id
+            await db["game_provisional"].update_one(
+                {"_id": ObjectId(_id_game_provisional)},
+                {"$set": {"serie_id": serie_id}}
+            )
+            game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(_id_game_provisional)})
 
         game_structure = create_game_structure(
             locations=game_provisional_db.get("locations", []),
@@ -1490,7 +1675,56 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
 
         game_db = await create_game_service(user_id=str(game_provisional_db.get("created_by", "anonymous")))
 
-        event_start = game_provisional_db.get("events", [])[0] if game_provisional_db.get("events", []) else None
+        # Agregar juego a la serie (serie_id ya fue creada o asignada al inicio)
+        game_id = str(game_db.get("_id"))
+        if serie_id:
+            # Agregar juego a la serie
+            await series_service.add_game_to_series_service(serie_id, game_id)
+
+            # Actualizar el juego con el serie_id
+            await db["game"].update_one(
+                {"_id": ObjectId(game_id)},
+                {"$set": {"serie_id": serie_id}}
+            )
+
+            # Asegurar que la serie tiene el game_id en su lista games_id
+            await db["series"].update_one(
+                {"_id": ObjectId(serie_id)},
+                {
+                    "$addToSet": {"games_id": game_id},
+                    "$set": {
+                        "updated_at": datetime.utcnow(),
+                        "updated_by": str(game_provisional_db.get("created_by", "anonymous"))
+                    }
+                }
+            )
+
+        # Calcular el orden del juego dentro de la serie
+        order = 1
+        previous_game_info = None
+
+        if serie_id:
+            # Buscar el máximo order de juegos con ese serie_id
+            max_order_game = await db["game"].find_one(
+                {"serie_id": serie_id, "is_active": True},
+                sort=[("order", -1)]
+            )
+            if max_order_game and max_order_game.get("order"):
+                order = max_order_game.get("order") + 1
+
+            # Obtener información del juego anterior en la serie
+            previous_game_info = await get_previous_game_in_series(serie_id, order)
+
+            # Guardar la información del juego anterior en el game_provisional
+            await db["game_provisional"].update_one(
+                {"_id": ObjectId(_id_game_provisional)},
+                {
+                    "$set": {
+                        "previous_game_info": previous_game_info,
+                        "serie_order": order
+                    }
+                }
+            )
 
         await db["game"].update_one({"_id": game_db.get("_id")}, {"$set": {
             "title": game_provisional_db.get("title"),
@@ -1501,6 +1735,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
             "updated_by": game_provisional_db.get("created_by", "anonymous"),
             "provisional_id": str(game_provisional_db.get("_id")),
             "category_id": game_provisional_db.get("category"),
+            "serie_id": serie_id,
+            "order": order,
             "is_active": True
         }})
 
@@ -1919,7 +2155,31 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
             "Game structure creation completed",
             task=str(game_db.get("_id"))
         )
-        await asyncio.sleep(10)
+
+        # Agregar juego a la serie (serie_id ya fue creada o asignada al inicio)
+        game_id = str(game_db.get("_id"))
+        if serie_id:
+            # Agregar juego a la serie
+            await series_service.add_game_to_series_service(serie_id, game_id)
+
+            # Actualizar el juego con el serie_id
+            await db["game"].update_one(
+                {"_id": ObjectId(game_id)},
+                {"$set": {"serie_id": serie_id}}
+            )
+
+            # Asegurar que la serie tiene el game_id en su lista games_id
+            await db["series"].update_one(
+                {"_id": ObjectId(serie_id)},
+                {
+                    "$addToSet": {"games_id": game_id},
+                    "$set": {
+                        "updated_at": datetime.utcnow(),
+                        "updated_by": str(game_provisional_db.get("created_by", "anonymous"))
+                    }
+                }
+            )
+
 
         return "Game created successfully from provisional data"
 
