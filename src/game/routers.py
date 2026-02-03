@@ -8,6 +8,8 @@ from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import status
 from fastapi import Request
+from fastapi import File
+from fastapi import UploadFile
 
 from fastapi.security import HTTPAuthorizationCredentials
 
@@ -27,6 +29,14 @@ from game.schemas import SchemaListGame
 from game.services import GameService
 
 from game.utils import number_players_have_played_game_util, last_date_played_game_util
+
+from game.text_update_services_game import GameTextUpdateService
+from game.text_update_schemas import (
+    SchemaUpdateGameTitle,
+    SchemaGameTitleResponse,
+)
+
+from game.image_update_services import GameImageUpdateService
 
 # from celery_worker import generate_context_new_location
 
@@ -483,12 +493,56 @@ async def change_character(
         )
 
 
-@router.get("/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
+@router.get("/published/{game_id}", status_code=status.HTTP_200_OK)
+async def get_published_game(
+        game_id: str,
+        service: GameService = Depends(get_game_service)
+):
+    """
+    Obtiene un juego publicado por ID.
+    No requiere autenticación. Solo retorna juegos publicados.
+
+    Args:
+        game_id: ID del juego publicado
+
+    Returns:
+        dict: Información del juego publicado
+
+    Raises:
+        HTTPException: Si el juego no se encuentra o no está publicado
+    """
+    if not ObjectId.is_valid(game_id):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid game ID",
+        )
+
+    try:
+        published_game = await service.get_published_game_detail_service(game_id)
+        if not published_game:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Published game not found",
+            )
+
+        return published_game
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting published game: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error getting published game",
+        )
+
+
+@router.get("/{game_id}", response_model=SchemaRetrieveGame)
 async def get_game(
         game_id: str,
+        publish: bool = False,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-        service: GameService = Depends(get_game_service)
+        game_service = Depends(get_game_service)
 ):
     """
     This endpoint retrieves a game.
@@ -509,7 +563,7 @@ async def get_game(
     """
 
     try:
-        game_db = await service.get_game(game_id)
+        game_db = await game_service.get_game(game_id)
         game_pending = await db['published_game'].find_one({'game_id': game_id})
         if game_pending:
             game_db["status"] = game_pending["status"]
@@ -761,88 +815,143 @@ async def clone_game(
         )
 
 
-@router_community.get("/community-games", status_code=status.HTTP_200_OK, response_model=SchemaListGame)
-async def get_community_games(
-        request: Request,
-        page: int = 1,
-        count: int = 10,
-        game_service: GameService = Depends(get_game_service),
+# ============ GAME TEXT UPDATE ENDPOINTS ============
+
+def get_game_text_service():
+    """Inyección de dependencias para el servicio de actualización de textos de juego"""
+    return GameTextUpdateService()
+
+
+@router.patch(
+    "/{game_id}/title/",
+    status_code=status.HTTP_200_OK,
+    response_model=SchemaGameTitleResponse,
+    tags=["Game"]
+)
+async def update_game_title_endpoint(
+    game_id: str,
+    request: SchemaUpdateGameTitle,
+    user: dict = Depends(auth),
+    token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    service: GameTextUpdateService = Depends(get_game_text_service)
 ):
-    """
-    This endpoint retrieves community games that are published and have specific categories.
-
-    Returns games that are published and belong to one of the following categories:
-    - Marketing: Games focused on product promotion, branding, advertising campaigns
-    - Talent Development: Games for professional skill development, leadership, training
-    - Compliance: Games about regulatory compliance, company policies, legal procedures
-    - Recruiting: Games for selection processes, candidate evaluation, onboarding
-    - Events: Games for corporate events, conferences, team activities
-    - Fan Engagement: Games for customer loyalty, fan communities, audience engagement
-    - Health & Wellness: Games about wellbeing, mental health, exercise, healthy habits
-    - Data Collection: Games for information gathering, interactive surveys, market research
-    - Storytelling: Narrative games, interactive stories, immersive experiences
-    - Social Impact: Games about social responsibility, sustainability, charitable causes
-    - Learning: Educational games, academic training, specific knowledge development
-    """
+    """Actualiza el título de un juego"""
     try:
-        # Use the new community games service that filters by categories
-        games_db, count_pages = await game_service.get_community_games_service(
-            skip=page,
-            limit=count
-        )
+        if not request.title or not request.title.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "Validation Error", "message": "Title cannot be empty", "code": "VALIDATION_ERROR"}
+            )
 
-        return SchemaListGame(
-            results=games_db, count=len(games_db), page=page, total_pages=count_pages // count + 1
-        )
+        user_id = str(user.get("_id"))
+        result = await service.update_game_title(game_id, request.title, user_id)
+        return result
 
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error getting community games: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Community games not found",
-        )
-
-
-@router_community.get("/{game_id}", status_code=status.HTTP_200_OK, response_model=SchemaRetrieveGame)
-async def get_game(
-        game_id: str,
-        game_service = Depends(GameService)
-):
-    """
-    This endpoint retrieves a game.
-
-    It expects the game's id in the request path.
-    If the game is successfully retrieved, it returns the game's information.
-    If the game does not exist, it raises an HTTPException with status code 404.
-
-    Parameters:
-    game_id (str): The game's id to be retrieved.
-    db (Session): Database session for executing queries.
-
-    Returns:
-    SchemaRetrieveGame: The retrieved game's information.
-
-    Raises:
-    HTTPException: If the game does not exist, an HTTPException is raised with status code 404.
-    """
-
-    try:
-        game_db = await game_service.get_game_service(game_id)
-        game_pending = await db['published_game'].find_one({'game_id': game_id})
-        user = await db['user'].find_one({'_id': ObjectId(game_db["created_by"])})
-        game_db["created_by"] = user.get("username", "Unknown User")
-        if game_pending:
-            game_db["status"] = game_pending["status"]
-            game_db["reject_note"] = game_pending["return_note"]
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "Not Found", "message": error_msg, "code": "RESOURCE_NOT_FOUND"})
+        elif "permission" in error_msg.lower():
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": "Forbidden", "message": error_msg, "code": "PERMISSION_DENIED"})
         else:
-            game_db["status"] = 0
-            game_db["reject_note"] = None
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Internal Server Error", "code": "INTERNAL_ERROR"})
 
-        return game_db
 
+# ============ GAME IMAGE UPDATE ENDPOINTS ============
+
+def get_game_image_service():
+    """Inyección de dependencias para el servicio de imágenes de juegos"""
+    return GameImageUpdateService()
+
+
+@router.patch(
+    "/{game_id}/cover/",
+    status_code=status.HTTP_200_OK,
+    tags=["Game"]
+)
+async def update_game_cover(
+    game_id: str,
+    image: UploadFile = File(..., description="Cover image (1920x1080px, max 5MB)"),
+    user: dict = Depends(auth),
+    token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    service: GameImageUpdateService = Depends(get_game_image_service)
+):
+    """Actualiza la portada (cover) de un juego"""
+    try:
+        user_id = str(user.get("_id"))
+        result = await service.update_game_cover(game_id, image, user_id)
+        return result
+
+    except HTTPException:
+        raise
     except Exception as e:
-        print(f"Error getting game: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Game not found",
-        )
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "Not Found", "message": error_msg, "code": "RESOURCE_NOT_FOUND"})
+        elif "permission" in error_msg.lower():
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": "Forbidden", "message": error_msg, "code": "PERMISSION_DENIED"})
+        else:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Internal Server Error", "code": "INTERNAL_ERROR"})
+
+
+@router.patch(
+    "/{game_id}/background/",
+    status_code=status.HTTP_200_OK,
+    tags=["Game"]
+)
+async def update_game_background(
+    game_id: str,
+    image: UploadFile = File(..., description="Background image (1920x1080px, max 5MB)"),
+    user: dict = Depends(auth),
+    token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    service: GameImageUpdateService = Depends(get_game_image_service)
+):
+    """Actualiza el fondo (background) de un juego"""
+    try:
+        user_id = str(user.get("_id"))
+        result = await service.update_game_background(game_id, image, user_id)
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "Not Found", "message": error_msg, "code": "RESOURCE_NOT_FOUND"})
+        elif "permission" in error_msg.lower():
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": "Forbidden", "message": error_msg, "code": "PERMISSION_DENIED"})
+        else:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Internal Server Error", "code": "INTERNAL_ERROR"})
+
+
+@router.patch(
+    "/{game_id}/minimalist/",
+    status_code=status.HTTP_200_OK,
+    tags=["Game"]
+)
+async def update_game_minimalist(
+    game_id: str,
+    image: UploadFile = File(..., description="Minimalist icon (512x512px, max 2MB)"),
+    user: dict = Depends(auth),
+    token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    service: GameImageUpdateService = Depends(get_game_image_service)
+):
+    """Actualiza el ícono minimalista de un juego"""
+    try:
+        user_id = str(user.get("_id"))
+        result = await service.update_game_minimalist(game_id, image, user_id)
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "Not Found", "message": error_msg, "code": "RESOURCE_NOT_FOUND"})
+        elif "permission" in error_msg.lower():
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": "Forbidden", "message": error_msg, "code": "PERMISSION_DENIED"})
+        else:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Internal Server Error", "code": "INTERNAL_ERROR"})
+

@@ -484,7 +484,8 @@ async def delete_interaction_video_service(
     try:
         state_glic = await db["state_glic"].find_one({
             "element_id": location_id,
-            "state": state
+            "state": state,
+            "type_element": "location"
         })
 
         if not state_glic:
@@ -493,22 +494,30 @@ async def delete_interaction_video_service(
                 detail="State GLIC not found",
             )
 
-        # Eliminar del diccionario
-        if "interaction_videos" in state_glic.get("data", {}):
-            if str(dialog_number) in state_glic["data"]["interaction_videos"]:
-                file_name = state_glic["data"]["interaction_videos"][str(dialog_number)].get("file_name")
-                del state_glic["data"]["interaction_videos"][str(dialog_number)]
+        # Verificar que existe data
+        if "data" not in state_glic:
+            state_glic["data"] = {}
 
-                # Actualizar en DB
-                await db["state_glic"].find_one_and_update(
-                    {"_id": ObjectId(state_glic["_id"])},
-                    {"$set": {"data": state_glic["data"]}}
+        # Eliminar el video de interaction_videos
+        if "interaction_videos" in state_glic["data"]:
+            # interaction_videos es un objeto simple con propiedades
+            # No es un diccionario con keys como "2", "3", etc.
+            # Eliminamos todos los campos
+            state_glic["data"]["interaction_videos"] = None
+
+            # Actualizar en DB usando replace_one
+            result = await db["state_glic"].replace_one(
+                {"_id": ObjectId(state_glic["_id"])},
+                state_glic
+            )
+
+            if result.modified_count == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Failed to delete video",
                 )
 
-                # Opcionalmente, eliminar del storage (comentado por ahora)
-                # await delete_video_from_gcs(file_name)
-
-                return {"message": "Video deleted successfully"}
+            return {"message": "Video deleted successfully"}
 
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

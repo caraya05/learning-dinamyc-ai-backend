@@ -1,0 +1,168 @@
+### Test de Endpoints de Audio para Opciones Múltiples
+
+# Variables
+@baseUrl = http://localhost:8000
+@characterId = 507f1f77bcf86cd799439011
+@stateId = game_state_001
+@interactionIndex = 0
+@optionIndex = 0
+@token = tu_token_aqui
+
+# ============ POST - Upload Audio de Pregunta de Opción ============
+
+### 1. Subir audio para pregunta de opción
+POST {{baseUrl}}/characters/{{characterId}}/state/{{stateId}}/interaction/{{interactionIndex}}/option/{{optionIndex}}/question/audio/
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="audio"; filename="question.mp3"
+Content-Type: audio/mpeg
+
+< ./test_audio.mp3
+------WebKitFormBoundary--
+
+### Expected Response (200):
+# {
+#     "message": "Audio updated successfully",
+#     "audio_url": "https://storage.googleapis.com/.../option-0-question.mp3",
+#     "database_url": "https://storage.googleapis.com/.../option-0-question.mp3",
+#     "urls_match": true,
+#     "updated_at": "2026-02-02T10:30:00",
+#     "metadata": {
+#         "size": 245760,
+#         "format": "mp3"
+#     }
+# }
+
+
+# ============ POST - Upload Audio de Respuesta de Opción ============
+
+### 2. Subir audio para respuesta de opción
+POST {{baseUrl}}/characters/{{characterId}}/state/{{stateId}}/interaction/{{interactionIndex}}/option/{{optionIndex}}/answer/audio/
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="audio"; filename="answer.mp3"
+Content-Type: audio/mpeg
+
+< ./test_audio.mp3
+------WebKitFormBoundary--
+
+### Expected Response (200):
+# {
+#     "message": "Audio updated successfully",
+#     "audio_url": "https://storage.googleapis.com/.../option-0-answer.mp3",
+#     "database_url": "https://storage.googleapis.com/.../option-0-answer.mp3",
+#     "urls_match": true,
+#     "updated_at": "2026-02-02T10:30:00",
+#     "metadata": {
+#         "size": 245760,
+#         "format": "mp3"
+#     }
+# }
+
+
+# ============ DELETE - Eliminar Audio de Pregunta ============
+
+### 3. Eliminar audio de pregunta de opción
+DELETE {{baseUrl}}/characters/{{characterId}}/state/{{stateId}}/interaction/{{interactionIndex}}/option/{{optionIndex}}/question/audio/
+Authorization: Bearer {{token}}
+
+### Expected Response (204):
+# No Content
+
+
+# ============ DELETE - Eliminar Audio de Respuesta ============
+
+### 4. Eliminar audio de respuesta de opción
+DELETE {{baseUrl}}/characters/{{characterId}}/state/{{stateId}}/interaction/{{interactionIndex}}/option/{{optionIndex}}/answer/audio/
+Authorization: Bearer {{token}}
+
+### Expected Response (204):
+# No Content
+
+
+# ============ CASOS DE ERROR ============
+
+### 5. Error - Character ID inválido
+POST {{baseUrl}}/characters/invalid_id/state/{{stateId}}/interaction/{{interactionIndex}}/option/{{optionIndex}}/question/audio/
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="audio"; filename="question.mp3"
+Content-Type: audio/mpeg
+
+< ./test_audio.mp3
+------WebKitFormBoundary--
+
+### Expected Response (404 o 500):
+# {
+#     "detail": {
+#         "error": "Not Found",
+#         "message": "Character not found",
+#         "code": "RESOURCE_NOT_FOUND"
+#     }
+# }
+
+
+### 6. Error - Option index fuera de rango
+POST {{baseUrl}}/characters/{{characterId}}/state/{{stateId}}/interaction/{{interactionIndex}}/option/999/question/audio/
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="audio"; filename="question.mp3"
+Content-Type: audio/mpeg
+
+< ./test_audio.mp3
+------WebKitFormBoundary--
+
+### Expected Response (404):
+# {
+#     "detail": {
+#         "error": "Not Found",
+#         "message": "Option index out of range",
+#         "code": "RESOURCE_NOT_FOUND"
+#     }
+# }
+
+
+### 7. Error - Sin autenticación
+POST {{baseUrl}}/characters/{{characterId}}/state/{{stateId}}/interaction/{{interactionIndex}}/option/{{optionIndex}}/question/audio/
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+------WebKitFormBoundary
+Content-Disposition: form-data; name="audio"; filename="question.mp3"
+Content-Type: audio/mpeg
+
+< ./test_audio.mp3
+------WebKitFormBoundary--
+
+### Expected Response (401):
+# Unauthorized
+
+
+# ============ NOTAS ============
+#
+# 1. Reemplaza los valores en las variables:
+#    - @token: Tu token de autenticación válido
+#    - @characterId: ID válido del personaje
+#    - @stateId: ID válido del estado
+#
+# 2. Para las pruebas locales, asegúrate que:
+#    - El backend está corriendo en http://localhost:8000
+#    - Tienes un archivo test_audio.mp3 en la raíz
+#    - El token es válido y no ha expirado
+#
+# 3. Los endpoints esperan:
+#    - Authorization header con Bearer token
+#    - Content-Type: multipart/form-data
+#    - Campo "audio" con el archivo
+#
+# 4. Errores comunes:
+#    - 404: Character/State/Option no encontrado
+#    - 403: Sin permisos (no eres dueño del juego)
+#    - 500: Error interno del servidor

@@ -25,6 +25,14 @@ from location.services import get_location_service
 from location.services import create_location_service
 from location.services import partial_update_location_service
 
+from location.text_update_services import LocationTextUpdateService
+from game.text_update_schemas import (
+    SchemaUpdateLocationData,
+    SchemaLocationStateDataResponse,
+)
+
+from location.image_update_services import LocationImageUpdateService
+
 from tasks_shared import process_interaction_video_task
 # TODO: falta implemntar el desconteo de estrellas
 from user.services import validate_star_user_service
@@ -401,3 +409,115 @@ async def get_video_upload_status(
             detail="Error retrieving task status",
         )
 
+
+# ============ LOCATION TEXT UPDATE ENDPOINTS ============
+
+def get_location_text_service():
+    """Inyección de dependencias para el servicio de actualización de textos de locación"""
+    return LocationTextUpdateService()
+
+
+@router.patch(
+    "/{location_id}/state/{state_id}/",
+    status_code=status.HTTP_200_OK,
+    response_model=SchemaLocationStateDataResponse,
+    tags=["Location"]
+)
+async def update_location_data(
+    location_id: str,
+    state_id: str,
+    request: SchemaUpdateLocationData,
+    user: dict = Depends(auth),
+    token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    service: LocationTextUpdateService = Depends(get_location_text_service)
+):
+    """Actualiza datos de una locación (título y/o descripción)"""
+    try:
+        if not request.title and not request.description:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail={"error": "Validation Error", "message": "At least one field is required", "code": "VALIDATION_ERROR"}
+            )
+
+        user_id = str(user.get("_id"))
+        result = await service.update_location_data(location_id, state_id, request.dict(exclude_unset=True), user_id)
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "Not Found", "message": error_msg, "code": "RESOURCE_NOT_FOUND"})
+        elif "permission" in error_msg.lower():
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": "Forbidden", "message": error_msg, "code": "PERMISSION_DENIED"})
+        else:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Internal Server Error", "code": "INTERNAL_ERROR"})
+
+
+# ============ LOCATION INTERACTION VIDEO DELETE ENDPOINT ============
+
+@router.delete(
+    "/{location_id}/state/{state_id}/interaction-video/{dialog_number}/",
+    status_code=status.HTTP_200_OK,
+    tags=["Location"]
+)
+async def delete_interaction_video(
+    location_id: str,
+    state_id: str,
+    dialog_number: int,
+    user: dict = Depends(auth),
+    token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """Elimina el video de una interacción de locación"""
+    try:
+        from location.services_video import delete_interaction_video_service
+        result = await delete_interaction_video_service(location_id, state_id, dialog_number)
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "Not Found", "message": error_msg, "code": "RESOURCE_NOT_FOUND"})
+        else:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Internal Server Error", "code": "INTERNAL_ERROR"})
+
+
+# ============ LOCATION IMAGE UPDATE ENDPOINTS ============
+
+def get_location_image_service():
+    """Inyección de dependencias para el servicio de imágenes de locaciones"""
+    return LocationImageUpdateService()
+
+
+@router.patch(
+    "/{location_id}/state/{state_id}/image/",
+    status_code=status.HTTP_200_OK,
+    tags=["Location"]
+)
+async def update_location_image(
+    location_id: str,
+    state_id: str,
+    image: UploadFile = File(..., description="Location image (1920x1080px, max 5MB)"),
+    user: dict = Depends(auth),
+    token: HTTPAuthorizationCredentials = Depends(auth_schema),
+    service: LocationImageUpdateService = Depends(get_location_image_service)
+):
+    """Actualiza la imagen de una locación"""
+    try:
+        user_id = str(user.get("_id"))
+        result = await service.update_location_image(location_id, state_id, image, user_id)
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        if "not found" in error_msg.lower():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail={"error": "Not Found", "message": error_msg, "code": "RESOURCE_NOT_FOUND"})
+        elif "permission" in error_msg.lower():
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": "Forbidden", "message": error_msg, "code": "PERMISSION_DENIED"})
+        else:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Internal Server Error", "code": "INTERNAL_ERROR"})
