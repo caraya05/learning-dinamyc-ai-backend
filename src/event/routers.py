@@ -74,7 +74,7 @@ async def update_event(
     )
 
 
-@router.post("/{event_id}/video", status_code=status.HTTP_201_CREATED)
+@router.post("/{event_id}/video/upload", status_code=status.HTTP_201_CREATED)
 async def upload_event_video(
         event_id: str,
         quality: str = Form("medium", description="Video compression quality: low, medium, high"),

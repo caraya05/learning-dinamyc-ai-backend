@@ -519,6 +519,7 @@ async def get_published_game(
 
     try:
         published_game = await service.get_published_game_detail_service(game_id)
+        print(published_game)
         if not published_game:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,

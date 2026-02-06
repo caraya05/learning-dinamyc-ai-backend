@@ -26,6 +26,7 @@ class SchemaOption(BaseModel):
     prompt_user_answer: str = Field(..., example="prompt_user_answer")
 
 
+
 class SchemaOptionMultiple(BaseModel):
     prompt_user_question: str = Field(..., example="prompt_user_question")
     options: list[SchemaOption] = Field(..., example=[{"key": "value"}])
@@ -94,6 +95,8 @@ class ConversationsCharacter(BaseModel):
     id_character: str = Field(..., example="character_id")
     dialog: str = Field(..., example="dialog")
     audio: str = Field(None, example="audio")
+    video_url: Optional[str] = Field(None, example="video_url")
+    video: Optional[str] = Field(None, example="video")
 
 class ConversationsOptionsCharacter(BaseModel):
     question: ConversationsCharacter = Field(..., example="question")

@@ -61,6 +61,7 @@ from character.services import update_character_service
 from character.text_update_services import CharacterTextUpdateService
 from character.image_update_services import CharacterImageUpdateService
 from character.audio_update_services import CharacterAudioUpdateService
+from character.video_update_services import CharacterVideoUpdateService, get_character_video_service
 
 from game.services import GameService
 
@@ -1065,47 +1066,29 @@ async def delete_interaction_video(
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Internal Server Error", "code": "INTERNAL_ERROR"})
 
 
-# ============ CHARACTER OPTION AUDIO ENDPOINTS ============
-
-def get_character_audio_service():
-    """Inyección de dependencias para el servicio de audio de personajes"""
-    return CharacterAudioUpdateService()
-
+# ============================================================================
+# ENDPOINTS DE VIDEO PARA OPCIONES MÚLTIPLES
+# ============================================================================
 
 @router.post(
-    "/{character_id}/state/{state_id}/interaction/{interaction_index}/option/{option_index}/question/audio/",
+    "/{character_id}/state/{state_id}/interaction/{interaction_index}/option/{option_index}/question/video/",
     status_code=status.HTTP_200_OK,
-    tags=["Characters - Option Audio"]
+    tags=["Characters"]
 )
-async def upload_option_question_audio(
+async def upload_option_question_video(
     character_id: str,
     state_id: str,
     interaction_index: int,
     option_index: int,
-    audio: UploadFile = File(...),
+    video: UploadFile = File(..., description="Option question video (MP4/MOV/AVI, max 100MB)"),
     user: dict = Depends(auth),
     token: HTTPAuthorizationCredentials = Depends(auth_schema),
-    service: CharacterAudioUpdateService = Depends(get_character_audio_service)
+    service: CharacterVideoUpdateService = Depends(get_character_video_service)
 ):
-    """
-    Sube un archivo de audio para la pregunta de una opción.
-
-    - **character_id**: ID del personaje (ObjectId)
-    - **state_id**: ID del estado del juego
-    - **interaction_index**: Índice de la interacción (0, 1, 2...)
-    - **option_index**: Índice de la opción (0, 1, 2...)
-    - **audio**: Archivo de audio (MP3, WAV, OGG - Max 10MB)
-    """
+    """Sube un video para la pregunta de una opción"""
     try:
         user_id = str(user.get("_id"))
-        result = await service.update_option_question_audio(
-            character_id,
-            state_id,
-            interaction_index,
-            option_index,
-            audio,
-            user_id
-        )
+        result = await service.update_option_question_video(character_id, state_id, interaction_index, option_index, video, user_id)
         return result
 
     except HTTPException:
@@ -1121,39 +1104,24 @@ async def upload_option_question_audio(
 
 
 @router.post(
-    "/{character_id}/state/{state_id}/interaction/{interaction_index}/option/{option_index}/answer/audio/",
+    "/{character_id}/state/{state_id}/interaction/{interaction_index}/option/{option_index}/answer/video/",
     status_code=status.HTTP_200_OK,
-    tags=["Characters - Option Audio"]
+    tags=["Characters"]
 )
-async def upload_option_answer_audio(
+async def upload_option_answer_video(
     character_id: str,
     state_id: str,
     interaction_index: int,
     option_index: int,
-    audio: UploadFile = File(...),
+    video: UploadFile = File(..., description="Option answer video (MP4/MOV/AVI, max 100MB)"),
     user: dict = Depends(auth),
     token: HTTPAuthorizationCredentials = Depends(auth_schema),
-    service: CharacterAudioUpdateService = Depends(get_character_audio_service)
+    service: CharacterVideoUpdateService = Depends(get_character_video_service)
 ):
-    """
-    Sube un archivo de audio para la respuesta de una opción.
-
-    - **character_id**: ID del personaje (ObjectId)
-    - **state_id**: ID del estado del juego
-    - **interaction_index**: Índice de la interacción (0, 1, 2...)
-    - **option_index**: Índice de la opción (0, 1, 2...)
-    - **audio**: Archivo de audio (MP3, WAV, OGG - Max 10MB)
-    """
+    """Sube un video para la respuesta de una opción"""
     try:
         user_id = str(user.get("_id"))
-        result = await service.update_option_answer_audio(
-            character_id,
-            state_id,
-            interaction_index,
-            option_index,
-            audio,
-            user_id
-        )
+        result = await service.update_option_answer_video(character_id, state_id, interaction_index, option_index, video, user_id)
         return result
 
     except HTTPException:
@@ -1169,30 +1137,23 @@ async def upload_option_answer_audio(
 
 
 @router.delete(
-    "/{character_id}/state/{state_id}/interaction/{interaction_index}/option/{option_index}/question/audio/",
+    "/{character_id}/state/{state_id}/interaction/{interaction_index}/option/{option_index}/question/video/",
     status_code=status.HTTP_204_NO_CONTENT,
-    tags=["Characters - Option Audio"]
+    tags=["Characters"]
 )
-async def delete_option_question_audio(
+async def delete_option_question_video(
     character_id: str,
     state_id: str,
     interaction_index: int,
     option_index: int,
     user: dict = Depends(auth),
     token: HTTPAuthorizationCredentials = Depends(auth_schema),
-    service: CharacterAudioUpdateService = Depends(get_character_audio_service)
+    service: CharacterVideoUpdateService = Depends(get_character_video_service)
 ):
-    """
-    Elimina el audio de la pregunta de una opción.
-
-    - **character_id**: ID del personaje (ObjectId)
-    - **state_id**: ID del estado del juego
-    - **interaction_index**: Índice de la interacción
-    - **option_index**: Índice de la opción
-    """
+    """Elimina el video de la pregunta de una opción"""
     try:
         user_id = str(user.get("_id"))
-        await service.delete_option_question_audio(
+        await service.delete_option_question_video(
             character_id,
             state_id,
             interaction_index,
@@ -1214,30 +1175,23 @@ async def delete_option_question_audio(
 
 
 @router.delete(
-    "/{character_id}/state/{state_id}/interaction/{interaction_index}/option/{option_index}/answer/audio/",
+    "/{character_id}/state/{state_id}/interaction/{interaction_index}/option/{option_index}/answer/video/",
     status_code=status.HTTP_204_NO_CONTENT,
-    tags=["Characters - Option Audio"]
+    tags=["Characters"]
 )
-async def delete_option_answer_audio(
+async def delete_option_answer_video(
     character_id: str,
     state_id: str,
     interaction_index: int,
     option_index: int,
     user: dict = Depends(auth),
     token: HTTPAuthorizationCredentials = Depends(auth_schema),
-    service: CharacterAudioUpdateService = Depends(get_character_audio_service)
+    service: CharacterVideoUpdateService = Depends(get_character_video_service)
 ):
-    """
-    Elimina el audio de la respuesta de una opción.
-
-    - **character_id**: ID del personaje (ObjectId)
-    - **state_id**: ID del estado del juego
-    - **interaction_index**: Índice de la interacción
-    - **option_index**: Índice de la opción
-    """
+    """Elimina el video de la respuesta de una opción"""
     try:
         user_id = str(user.get("_id"))
-        await service.delete_option_answer_audio(
+        await service.delete_option_answer_video(
             character_id,
             state_id,
             interaction_index,
@@ -1256,5 +1210,4 @@ async def delete_option_answer_audio(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": "Forbidden", "message": error_msg, "code": "PERMISSION_DENIED"})
         else:
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail={"error": "Internal Server Error", "code": "INTERNAL_ERROR"})
-
 

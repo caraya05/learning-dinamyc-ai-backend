@@ -1100,7 +1100,7 @@ class GameService:
 
             # Verificar si la serie del juego está publicada
             if game_db.get('serie_id'):
-                serie_db = await self.db['serie'].find_one({
+                serie_db = await self.db['series'].find_one({
                     '_id': ObjectId(game_db['serie_id']),
                     'is_published': True,
                     'is_active': True

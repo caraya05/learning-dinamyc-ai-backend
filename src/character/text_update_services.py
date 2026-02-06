@@ -157,45 +157,92 @@ class CharacterTextUpdateService:
             if interaction_index >= len(interactions):
                 raise Exception("Invalid interaction index")
 
-            conversation = interactions[interaction_index].get('conversation', [])
-            if dialog_index >= len(conversation):
-                raise Exception("Invalid dialog index")
+            interaction = interactions[interaction_index]
+            interaction_type = interaction.get('type_conversation')
 
-            # Actualizar diálogo
-            interactions[interaction_index]['conversation'][dialog_index]['dialog'] = dialog_text
-            data['interaction'] = interactions
+            # Manejar diferente según el tipo de interacción
+            if interaction_type == 'option_multiple':
+                # Para option_multiple, usar prompt_user_question
+                questions = interaction.get('options_dialog', {}).get('prompt_user_question', [])
+                if dialog_index >= len(questions):
+                    raise Exception("Invalid dialog index")
 
-            result = await self.db['state_glic'].update_one(
-                {
+                # Actualizar diálogo en prompt_user_question
+                interactions[interaction_index]['options_dialog']['prompt_user_question'][dialog_index]['dialog'] = dialog_text
+                data['interaction'] = interactions
+
+                result = await self.db['state_glic'].update_one(
+                    {
+                        'element_id': character_id,
+                        'state': state_game,
+                        'type_element': 'character'
+                    },
+                    {
+                        '$set': {
+                            'data': data,
+                            'updated_at': datetime.utcnow(),
+                            'updated_by': user_id
+                        }
+                    }
+                )
+
+                if result.modified_count == 0:
+                    raise Exception("Failed to update dialog")
+
+                # Retornar respuesta
+                updated_state = await self.db['state_glic'].find_one({
                     'element_id': character_id,
                     'state': state_game,
                     'type_element': 'character'
-                },
-                {
-                    '$set': {
-                        'data': data,
-                        'updated_at': datetime.utcnow(),
-                        'updated_by': user_id
-                    }
+                })
+                updated_dialog = updated_state['data']['interaction'][interaction_index]['options_dialog']['prompt_user_question'][dialog_index]
+
+                return {
+                    'success': True,
+                    'dialog': updated_dialog,
+                    'updated_at': updated_state['updated_at']
                 }
-            )
+            else:
+                # Para otros tipos, usar conversation
+                conversation = interaction.get('conversation', [])
+                if dialog_index >= len(conversation):
+                    raise Exception("Invalid dialog index")
 
-            if result.modified_count == 0:
-                raise Exception("Failed to update dialog")
+                # Actualizar diálogo
+                interactions[interaction_index]['conversation'][dialog_index]['dialog'] = dialog_text
+                data['interaction'] = interactions
 
-            # Retornar respuesta
-            updated_state = await self.db['state_glic'].find_one({
-                'element_id': character_id,
-                'state': state_game,
-                'type_element': 'character'
-            })
-            updated_dialog = updated_state['data']['interaction'][interaction_index]['conversation'][dialog_index]
+                result = await self.db['state_glic'].update_one(
+                    {
+                        'element_id': character_id,
+                        'state': state_game,
+                        'type_element': 'character'
+                    },
+                    {
+                        '$set': {
+                            'data': data,
+                            'updated_at': datetime.utcnow(),
+                            'updated_by': user_id
+                        }
+                    }
+                )
 
-            return {
-                'success': True,
-                'dialog': updated_dialog,
-                'updated_at': updated_state['updated_at']
-            }
+                if result.modified_count == 0:
+                    raise Exception("Failed to update dialog")
+
+                # Retornar respuesta
+                updated_state = await self.db['state_glic'].find_one({
+                    'element_id': character_id,
+                    'state': state_game,
+                    'type_element': 'character'
+                })
+                updated_dialog = updated_state['data']['interaction'][interaction_index]['conversation'][dialog_index]
+
+                return {
+                    'success': True,
+                    'dialog': updated_dialog,
+                    'updated_at': updated_state['updated_at']
+                }
 
         except Exception as e:
             self.logger.error(f"Error updating interaction dialog: {str(e)}")
