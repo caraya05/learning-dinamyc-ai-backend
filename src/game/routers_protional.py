@@ -442,8 +442,8 @@ async def update_game_provisional(
         update_fields["locations"] = data.locations
     if data.interactions is not None:
         update_fields["interactions"] = data.interactions
-    # if data.events is not None:
-    #     update_fields["events"] = data.events
+    if data.events is not None:
+        update_fields["events"] = data.events
     # if data.image is not None and not data.image.startswith("https://"):
     #     # Asegurar el relleno correcto para la cadena Base64
     #     missing_padding = len(data.image) % 4

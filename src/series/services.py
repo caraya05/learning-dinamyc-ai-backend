@@ -7,6 +7,7 @@ from starlette import status
 from core.database import db
 from series.models import Series
 from series.schemas import SchemaCreateSeries, SchemaUpdateSeries
+from utils import delete_asset_from_url
 
 
 class SeriesService:
@@ -32,7 +33,9 @@ class SeriesService:
                 image=series.image,
                 category_id=series.category_id,
                 main_character=series.main_character,
+                rating=series.rating,
                 games_id=[],
+                hidden_games=[],
                 created_by=user_id,
                 updated_by=user_id,
             )
@@ -247,6 +250,7 @@ class SeriesService:
             # Obtener los juegos de la serie
             games_ids = series_db.get("games_id", [])
             games = []
+            hidden_games = set(series_db.get("hidden_games", []))
 
             if games_ids:
                 db_games = await self.db["game"].find({
@@ -276,6 +280,7 @@ class SeriesService:
                             "category_id": game.get("category_id"),
                             "order": game.get("order", 1),
                             "provisional_id": str(provisional_id) if provisional_id else None,
+                            "is_hidden": game_id in hidden_games,
                             "game_provisional": {
                                 "_id": str(game_provisional.get("_id", "")),
                                 "title": game_provisional.get("title"),
@@ -308,14 +313,15 @@ class SeriesService:
             self.logger.error(f"Error getting series with games: {str(e)}")
             return None
 
-    async def publish_series_service(self, series_id: str, is_published: bool, user_id: str) -> dict:
+    async def publish_series_service(self, series_id: str, publish_type: str, user_id: str, requested_is_published: bool | None = None) -> dict:
         """
-        Publish or unpublish a series.
+        Publish or unpublish a series. publish_type controls is_published/is_link flags.
 
         Args:
             series_id: ID of the series to publish/unpublish
-            is_published: Boolean indicating publish status
+            publish_type: Type of publish action ("public", "private", "link")
             user_id: ID of the user publishing the series
+            requested_is_published: Optional explicit publish status
 
         Returns:
             dict: The updated series document
@@ -335,11 +341,20 @@ class SeriesService:
                     detail="Series not found",
                 )
 
+            effective_is_published = publish_type != "private"
+            is_link = publish_type == "link"
+
+            # Optionally warn about mismatched legacy flag
+            if requested_is_published is not None and requested_is_published != effective_is_published:
+                self.logger.warning("publish_type overrides is_published: %s -> %s", requested_is_published, effective_is_published)
+
             await self.db["series"].update_one(
                 {"_id": ObjectId(series_id)},
                 {
                     "$set": {
-                        "is_published": is_published,
+                        "is_published": effective_is_published,
+                        "is_link": is_link,
+                        "publish_type": publish_type,
                         "updated_by": user_id,
                         "updated_at": datetime.utcnow()
                     }
@@ -378,7 +393,12 @@ class SeriesService:
             # Construir el match stage con filtros opcionales
             match_stage = {
                 "is_published": True,
-                "is_active": True
+                "is_active": True,
+                "$or": [
+                    {"is_link": False},
+                    {"is_link": {"$exists": False}},
+                    {"is_link": None}
+                ]
             }
 
             if category_id:
@@ -451,6 +471,9 @@ class SeriesService:
                             }
                         },
                         "rating": {"$ifNull": ["$rating", 0.0]},
+                        "publish_type": {"$ifNull": ["$publish_type", "private"]},
+                        "is_published": {"$ifNull": ["$is_published", False]},
+                        "is_link": {"$ifNull": ["$is_link", False]},
                         "games": 1
                     }
                 },
@@ -508,8 +531,9 @@ class SeriesService:
             if not series_db:
                 return None
 
-            # Obtener los juegos de la serie
+            # Obtener los juegos de la serie excluyendo los ocultos
             games_ids = series_db.get("games_id", [])
+            hidden_games = set(series_db.get("hidden_games", []))
             games = []
 
             if games_ids:
@@ -521,6 +545,11 @@ class SeriesService:
                 # Para cada juego, obtener su game_provisional
                 for game in db_games:
                     game_id = str(game.get("_id", ""))
+
+                    # Saltar juegos marcados como ocultos en la relación serie-juego
+                    if game_id in hidden_games:
+                        continue
+
                     provisional_id = game.get("provisional_id")
 
                     # Obtener el game_provisional
@@ -673,7 +702,7 @@ class SeriesService:
                         # Solo agregar el juego si tiene game_provisional válido
                         if game_provisional:
                             game_data = {
-                                "_id": game_id,
+                                "_id": str(game.get("_id", "")),
                                 "title": game.get("title"),
                                 "history": game.get("history"),
                                 "image": game.get("image"),
@@ -730,3 +759,231 @@ class SeriesService:
                 "series": []
             }
 
+    async def reorder_games_service(self, series_id: str, games_order: list[str], user_id: str) -> dict:
+        try:
+            if not ObjectId.is_valid(series_id):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid series ID")
+
+            series_db = await self.db["series"].find_one({"_id": ObjectId(series_id)})
+            if not series_db:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Series not found")
+
+            current_games = series_db.get("games_id", [])
+            if len(current_games) != len(games_order):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="games_order length mismatch")
+
+            if set(current_games) != set(games_order):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="games_order must include all series games")
+
+            order_map = {gid: idx + 1 for idx, gid in enumerate(games_order)}
+
+            # Actualizar orden de cada juego
+            for gid, order_value in order_map.items():
+                if ObjectId.is_valid(gid):
+                    await self.db["game"].update_one({"_id": ObjectId(gid)}, {"$set": {"order": order_value, "updated_at": datetime.utcnow(), "updated_by": user_id}})
+                else:
+                    await self.db["game"].update_one({"_id": gid}, {"$set": {"order": order_value, "updated_at": datetime.utcnow(), "updated_by": user_id}})
+
+            # Persistir el orden normalizado en la serie
+            await self.db["series"].update_one(
+                {"_id": ObjectId(series_id)},
+                {"$set": {"games_id": games_order, "updated_at": datetime.utcnow(), "updated_by": user_id}}
+            )
+
+            return await self.get_series_with_games_service(series_id)
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error reordering games: {str(e)}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error reordering games")
+
+    async def update_game_visibility_service(self, series_id: str, game_id: str, is_hidden: bool, user_id: str) -> dict:
+        try:
+            if not ObjectId.is_valid(series_id):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid series ID")
+
+            series_db = await self.db["series"].find_one({"_id": ObjectId(series_id)})
+            if not series_db:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Series not found")
+
+            if game_id not in series_db.get("games_id", []):
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Game not in series")
+
+            hidden_games = set(series_db.get("hidden_games", []))
+            if is_hidden:
+                hidden_games.add(game_id)
+            else:
+                hidden_games.discard(game_id)
+
+            await self.db["series"].update_one(
+                {"_id": ObjectId(series_id)},
+                {"$set": {"hidden_games": list(hidden_games), "updated_at": datetime.utcnow(), "updated_by": user_id}}
+            )
+
+            return await self.get_series_with_games_service(series_id)
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error updating game visibility: {str(e)}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error updating game visibility")
+
+    async def remove_game_from_series_service(self, series_id: str, game_id: str, user_id: str) -> dict:
+        try:
+            if not ObjectId.is_valid(series_id):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid series ID")
+
+            series_db = await self.db["series"].find_one({"_id": ObjectId(series_id)})
+            if not series_db:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Series not found")
+
+            games = series_db.get("games_id", [])
+            if game_id not in games:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Game not in series")
+
+            # Eliminar relaciones dependientes del juego
+            await self._delete_game_with_relations(game_id)
+
+            # Recompactar orden y lista de juegos de la serie
+            remaining_games = [gid for gid in games if gid != game_id]
+            await self.db["series"].update_one(
+                {"_id": ObjectId(series_id)},
+                {"$set": {"games_id": remaining_games, "hidden_games": [g for g in series_db.get("hidden_games", []) if g != game_id], "updated_at": datetime.utcnow(), "updated_by": user_id}}
+            )
+
+            # Reordenar los juegos restantes
+            for idx, gid in enumerate(remaining_games):
+                if ObjectId.is_valid(gid):
+                    await self.db["game"].update_one({"_id": ObjectId(gid)}, {"$set": {"order": idx + 1, "updated_at": datetime.utcnow(), "updated_by": user_id}})
+                else:
+                    await self.db["game"].update_one({"_id": gid}, {"$set": {"order": idx + 1, "updated_at": datetime.utcnow(), "updated_by": user_id}})
+
+            return await self.get_series_with_games_service(series_id)
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error removing game from series: {str(e)}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error removing game from series")
+
+    async def delete_series_hard_service(self, series_id: str, user_id: str) -> dict:
+        try:
+            if not ObjectId.is_valid(series_id):
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid series ID")
+
+            series_db = await self.db["series"].find_one({"_id": ObjectId(series_id)})
+            if not series_db:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Series not found")
+
+            games = series_db.get("games_id", [])
+            deletion_summary = {
+                "series_deleted": 0,
+                "games": 0,
+                "game_provisional": 0,
+                "state_glic": 0,
+                "character": 0,
+                "location": 0,
+                "state_game": 0,
+                "event": 0,
+                "assets": 0,
+            }
+
+            # Borrar assets de la serie (normal + variantes minificadas si existen)
+            for key in ("image", "image_min", "image_minified", "image_thumbnail", "image_small"):
+                if delete_asset_from_url(series_db.get(key)):
+                    deletion_summary["assets"] += 1
+
+            for gid in games:
+                cascade_counts = await self._delete_game_with_relations(gid)
+                deletion_summary["games"] += cascade_counts.get("game", 0)
+                deletion_summary["game_provisional"] += cascade_counts.get("game_provisional", 0)
+                deletion_summary["state_glic"] += cascade_counts.get("state_glic", 0)
+                deletion_summary["character"] += cascade_counts.get("character", 0)
+                deletion_summary["location"] += cascade_counts.get("location", 0)
+                deletion_summary["state_game"] += cascade_counts.get("state_game", 0)
+                deletion_summary["event"] += cascade_counts.get("event", 0)
+                deletion_summary["assets"] += cascade_counts.get("assets", 0)
+
+            series_delete_result = await self.db["series"].delete_one({"_id": ObjectId(series_id)})
+            deletion_summary["series_deleted"] = series_delete_result.deleted_count
+
+            return deletion_summary
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error deleting series: {str(e)}")
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Error deleting series")
+
+    async def _delete_game_with_relations(self, game_id: str) -> dict:
+        try:
+            query_id = ObjectId(game_id) if ObjectId.is_valid(game_id) else game_id
+            game_db = await self.db["game"].find_one({"_id": query_id})
+            provisional_id = game_db.get("provisional_id") if game_db else None
+
+            assets_deleted = 0
+            if game_db and delete_asset_from_url(game_db.get("image")):
+                assets_deleted += 1
+
+            # Preparar documentos relacionados para limpiar assets antes de borrar
+            state_glic_docs = await self.db["state_glic"].find({"$or": [{"game_id": game_id}, {"data.game_id": game_id}]}).to_list(None)
+            event_docs = await self.db["event"].find({"game_id": game_id}).to_list(None)
+
+            for doc in state_glic_docs:
+                assets_deleted += self._delete_assets_from_document(doc)
+
+            for doc in event_docs:
+                # Campos explícitos de eventos
+                for key in ("image", "image_description", "text_image"):
+                    if delete_asset_from_url(doc.get(key)):
+                        assets_deleted += 1
+                assets_deleted += self._delete_assets_from_document(doc.get("data", {}))
+
+            state_glic_result = await self.db["state_glic"].delete_many({"$or": [{"game_id": game_id}, {"data.game_id": game_id}]})
+            character_result = await self.db["character"].delete_many({"game_id": game_id})
+            location_result = await self.db["location"].delete_many({"game_id": game_id})
+            state_game_result = await self.db["state_game"].delete_many({"game_id": game_id})
+            event_result = await self.db["event"].delete_many({"game_id": game_id})
+
+            deleted_provisional = 0
+            if provisional_id:
+                provisional_query = ObjectId(provisional_id) if ObjectId.is_valid(provisional_id) else provisional_id
+                provisional_doc = await self.db["game_provisional"].find_one({"_id": provisional_query})
+                if provisional_doc and delete_asset_from_url(provisional_doc.get("image")):
+                    assets_deleted += 1
+                provisional_result = await self.db["game_provisional"].delete_one({"_id": provisional_query})
+                deleted_provisional = provisional_result.deleted_count
+
+            game_delete_result = await self.db["game"].delete_one({"_id": query_id})
+
+            return {
+                "state_glic": state_glic_result.deleted_count,
+                "character": character_result.deleted_count,
+                "location": location_result.deleted_count,
+                "state_game": state_game_result.deleted_count,
+                "event": event_result.deleted_count,
+                "game_provisional": deleted_provisional,
+                "game": game_delete_result.deleted_count,
+                "assets": assets_deleted,
+            }
+        except Exception as e:
+            self.logger.error(f"Error deleting game and relations: {str(e)}")
+            raise
+
+    def _delete_assets_from_document(self, doc: dict | list | None) -> int:
+        """Recorre un documento o lista y borra URLs de assets (GCS/Spaces)."""
+        deleted = 0
+        if not doc:
+            return deleted
+
+        def _walk(value):
+            nonlocal deleted
+            if isinstance(value, dict):
+                for v in value.values():
+                    _walk(v)
+            elif isinstance(value, list):
+                for item in value:
+                    _walk(item)
+            elif isinstance(value, str):
+                if delete_asset_from_url(value):
+                    deleted += 1
+
+        _walk(doc)
+        return deleted

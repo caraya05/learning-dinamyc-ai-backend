@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Union
+from typing import Optional, Union, List, Literal
 from bson import ObjectId
 from core.schemas import ResponseModel
 from pydantic import BaseModel, Field, validator
@@ -11,6 +11,7 @@ class SchemaCreateSeries(BaseModel):
     image: Optional[str] = Field(None, example="image.jpg")
     category_id: Optional[str] = Field(None, example="category_id")
     main_character: Optional[str] = Field(None, example="Character Name")
+    rating: Optional[float] = Field(None, example=4.5)
 
 
 class SchemaRetrieveSeries(ResponseModel):
@@ -25,6 +26,8 @@ class SchemaRetrieveSeries(ResponseModel):
     games_id: list[str] = Field([], example=["123", "456"])
     is_active: bool = Field(True, example=True)
     is_published: bool = Field(False, example=False)
+    is_link: bool = Field(False, example=False, description="True if published by shareable link")
+    publish_type: Optional[str] = Field("private", example="public")
     created_at: datetime
     created_by: str
     updated_at: datetime
@@ -50,6 +53,8 @@ class SchemaRetrieveSeriesStr(ResponseModelStr):
     games_id: list[str] = Field([], example=["123", "456"])
     is_active: bool = Field(True, example=True)
     is_published: bool = Field(False, example=False)
+    is_link: bool = Field(False, example=False, description="True if published by shareable link")
+    publish_type: Optional[str] = Field("private", example="public")
     created_at: datetime
     created_by: str
     updated_at: datetime
@@ -73,7 +78,20 @@ class SchemaUpdateSeries(BaseModel):
 
 
 class SchemaPublishSeries(BaseModel):
-    is_published: bool = Field(..., example=True, description="Whether to publish or unpublish the series")
+    is_published: bool = Field(..., example=True, description="Legacy publish flag; actual value derived from publish_type")
+    publish_type: Literal["public", "link", "private"] = Field(..., example="public")
+
+
+class SchemaReorderGames(BaseModel):
+    games_order: List[str] = Field(..., min_items=1, description="List of game ids in the desired order")
+
+
+class SchemaRemoveGame(BaseModel):
+    game_id: str = Field(..., description="Game id to remove from the series")
+
+
+class SchemaUpdateGameVisibility(BaseModel):
+    is_hidden: bool = Field(..., description="Visibility flag scoped to the series-game relation")
 
 
 class SchemaViewsInfo(BaseModel):
@@ -91,6 +109,9 @@ class SchemaPublishedSeriesDetail(BaseModel):
     played_count: int = Field(0, example=0)
     views: int = Field(0, example=0)
     rating: float = Field(0.0, example=4.5)
+    publish_type: Optional[str] = Field("private", example="public")
+    is_published: bool = Field(False, example=True)
+    is_link: bool = Field(False, example=False)
     games: Optional[list] = Field([], example=[])
 
     class Config:
@@ -107,6 +128,9 @@ class SchemaPublishedSeriesListItem(BaseModel):
     played_count: int = Field(default=0, example=0)
     views: Union[SchemaViewsInfo, dict] = Field(default_factory=lambda: SchemaViewsInfo(total=0, most_viewed_game=0), description="Views analytics from games in the series")
     rating: float = Field(default=0.0, example=4.5)
+    publish_type: Optional[str] = Field("private", example="public")
+    is_published: bool = Field(False, example=True)
+    is_link: bool = Field(False, example=False)
     games: Optional[list] = Field(default_factory=list, example=[])
 
     @validator("views", pre=True)
@@ -129,12 +153,4 @@ class SchemaListPublishedSeries(BaseModel):
     results: list[SchemaPublishedSeriesListItem]
     page: int
     total_pages: int
-
-
-
-
-
-
-
-
 

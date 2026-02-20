@@ -597,6 +597,24 @@ class OptionsDialogo(BaseModel):
     index_opcion_correcta: int = Field(..., description="Índice de la opción correcta (0 basado en cero)")
 
 
+def _shuffle_options_dialog(options_dialogo: dict | None) -> dict | None:
+    """Mezcla las opciones y recalcula el índice de la correcta para evitar posición fija."""
+    if not options_dialogo:
+        return options_dialogo
+    options = options_dialogo.get("options") or []
+    if not options:
+        return options_dialogo
+    correct_idx = options_dialogo.get("index_opcion_correcta", 0)
+    enumerated = list(enumerate(options))
+    random.shuffle(enumerated)
+    shuffled_options = [opt for _, opt in enumerated]
+    new_correct = next((i for i, (orig_idx, _) in enumerate(enumerated) if orig_idx == correct_idx), 0)
+    updated = options_dialogo.copy()
+    updated["options"] = shuffled_options
+    updated["index_opcion_correcta"] = new_correct
+    return updated
+
+
 class LocationWithCharacters(BaseModel):
     titulo: str = Field(..., description="Nombre de la locación")
     personaje_principal: PersonajeLocacion = Field(..., description="Personaje principal de la locación")
@@ -944,7 +962,6 @@ async def extract_characters_and_interactions_for_locations(id_game_provisional:
                 f"LOCACIONES EXISTENTES:\n{locations_list}\n\n"
                 f"{template_select}"
             )
-
         else:
             prompt = (
                 f"Analiza el siguiente guion y las locaciones extraídas. Para cada locación, identifica y crea personajes e interacciones. el tipo de interacción debe concordar con lo deseado \n\n"
@@ -1084,12 +1101,14 @@ Personaje Principal del juego anterior (DEBE SER EL MISMO):
                         for option in options_dialogo['options']:
                             if 'prompt_user_guideline' in option:
                                 del option['prompt_user_guideline']
+                        options_dialogo = _shuffle_options_dialog(options_dialogo)
                         updated_location['options_dialogo'] = options_dialogo
                 else:
                     updated_location['personaje_principal'] = char_info.get('personaje_principal')
                     updated_location['personaje_secundario'] = char_info.get('personaje_secundario')
                     updated_location['interaccion'] = char_info.get('interaccion')
-                    updated_location['options_dialogo'] = char_info.get('options_dialogo')
+                    options_dialogo_raw = char_info.get('options_dialogo')
+                    updated_location['options_dialogo'] = _shuffle_options_dialog(options_dialogo_raw)
 
             updated_locations.append(updated_location)
 
@@ -1109,7 +1128,6 @@ Personaje Principal del juego anterior (DEBE SER EL MISMO):
         )
 
         return f"Successfully added characters and interactions to {len(updated_locations)} locations"
-
     except Exception as e:
         print(traceback.format_exc())
     return f"Failed to extract characters and interactions: {str(e)}"
@@ -2088,8 +2106,7 @@ GUIA DE INTERACCIÓN
   Ejemplo:
   1: Hola, ¿cómo estás?
   2: Muy bien, gracias. ¿Y tú?
-  1: También bien, ¿qué planes tienes hoy?
-  2: Voy a estudiar un poco y luego salir a caminar.
+  1: También bien, ¿qué planes tienes? 2 Voy a estudiar un poco y luego salir a caminar.
 
 REGLAS ESPECÍFICAS:
 - Interacciones tipo "two_way" de 4 a 6 intervenciones, en formato de diálogo lineal, sin opciones de decisión.
@@ -2260,15 +2277,15 @@ GUIA DE INTERACCIÓN
   Respuestas:
     - Opción 1: Excelente elección. Revisar la configuración es el primer paso lógico para identificar errores.
     - Opción 2: Buena consideración, aunque reinstalar podría ser excesivo sin antes revisar la configuración.
-    - Opción 3: Interesante perspectiva, pero primero deberías intentar soluciones más simples.
+    - Opción 3: Interesante perspectiva, pero primero deberías intentar soluciones más simples. Consultar con un especialista es mejor como último recurso.
 
 ESTRUCTURA REQUERIDA:
 - Evento Intro: ✅
-- Escena A: Personajes con interacción `two_way` (análisis inicial)
+- Escena 1: Personajes con interacción `two_way` (análisis inicial)
 - Evento A → B: ✅
-- Escena B: Personajes con interacción `two_way` (desarrollo de soluciones)
+- Escena 2: Personajes con interacción `two_way` (desarrollo de soluciones)
 - Evento B → C: ✅
-- Escena C: Personajes con interacción `option_multiple` (selección de solución)
+- Escena 3: Personajes con interacción `option_multiple` (selección de solución)
 - Evento Final: ✅
 
 REGLAS ESPECÍFICAS:
@@ -2355,22 +2372,22 @@ Respuestas:
 Estructura exacta:
 - Evento inicial
 - Escena 1
-- Locación 1
-- Personaje principal
-- Personaje secundario
-- Interacción (open_question): [formato del ejemplo]
-- Evento después de la interacción
+  - Locación 1
+  - Personaje principal
+  - Personaje secundario
+  - Interacción (open_question): [formato del ejemplo]
+  - Evento después de la interacción
 - Escena 2
-- Locación 2
-- Personaje principal
-- Personaje secundario
-- Interacción (open_question): [formato del ejemplo]
+  - Locación 2
+  - Personaje principal
+  - Personaje secundario
+  - Interacción (open_question): [formato del ejemplo]
 - Escena 3
-- Locación 3
-- Personaje principal
-- Personaje secundario
-- Interacción (open_question): [formato del ejemplo]
-- Evento final
+  - Locación 3
+  - Personaje principal
+  - Personaje secundario
+  - Interacción (open_question): [formato del ejemplo]
+  - Evento final
 f"REGLAS:
 - {instruccion_personajes}
 - El juego debe tener la dinamica que el principal es el usuario entonces es el que debe aprender del secundario.
@@ -2381,6 +2398,8 @@ f"REGLAS:
 - No incluyas ningún otro tipo de interacción ni formato JSON.
 - No incluyas el título en el script.
 - El output debe ser solo texto, siguiendo el formato del ejemplo al pie de la letra.
+- Los eventos son breves descripciones del entorno y la situación antes y después de las interacciones.
+- Las locaciones deben ser descriptivas y ambientar la interacción que se va a dar en esa locación.
 {template_definition}
 """
             },
@@ -2462,6 +2481,7 @@ Respuestas de las opciones (prompt_user_answer) :
   - prompt_user_guideline: la respuesta aca debe ser abierta, puede ser cualquier cosa que el usuario responda.
   - prompt_user_answer: la retroalimentación generica que se acomoda a todo.
 
+
 La lógica debe ser: si la respuesta del usuario es similar a alguno de los prompt_user_guideline, se responde con el prompt_user_answer correspondiente. Si no hay coincidencia, se puede dar la retroalimentación genérica o la del guideline más cercano.
     
 Estructura exacta:
@@ -2511,11 +2531,11 @@ REGLAS:
         - Cada escena debe contener: Locación, Personaje principal, Personaje secundario y una interacción de tipo `option_multiple`.
         - Todas las opciones son válidas; ninguna opción debe considerarse incorrecta ni bloquear el flujo.
         - Número de opciones por pregunta: 2 a 5.
-        - Para cada opción genera:
-          - `prompt_user_option`: texto que verá el usuario.
-          - `prompt_user_answer`: retroalimentación positiva, única por opción y que contenga al menos una frase que valide la elección y, si aplica, sugerencia de continuación.
-        - La retroalimentación debe ser distinta para cada opción y no repetir textos iguales.
-        - El flujo avanza independientemente de la opción seleccionada.
+        - Para cada opción se debe generar un `prompt_user_guideline` (breve descripción o etiqueta) y un `prompt_user_answer` (retroalimentación positiva y contextual).
+        - No hay respuestas incorrectas ni bloqueo por elección; el flujo avanza independientemente de la opción seleccionada.
+        - La retroalimentación debe ser única por opción (no repetir textos iguales) y contener al menos una frase que valide la elección.
+        - Objetivo: recopilar datos o preferencias manteniendo una experiencia positiva y coherente.
+        - Solo debe de tener 3 locaciones con sus respectivas interacciones.
 
         Ejemplo de interacción: option_multiple
 
@@ -2612,14 +2632,14 @@ REGLAS:
     1: ¿Cuál de estas opciones implementarías?
     
     Opciones:
-    - 1: Revisar la configuración del sistema
-    - 1: Reinstalar el software completamente
-    - 1: Consultar con un especialista
+    - Opción 1: Revisar la configuración del sistema
+    - Opción 2: Reinstalar el software completamente
+    - Opción 3: Consultar con un especialista
     
     Respuestas:
-    - 2: Excelente elección. Revisar la configuración es el primer paso lógico para identificar errores sin perder información.
-    - 2: Buena consideración, aunque reinstalar podría ser excesivo sin antes revisar la configuración. Considera esto como plan B.
-    - 2: Interesante perspectiva, pero primero deberías intentar soluciones más simples. Consultar con un especialista es mejor como último recurso.
+    - Opción 1: Excelente elección. Revisar la configuración es el primer paso lógico para identificar errores.
+    - Opción 2: Buena consideración, aunque reinstalar podría ser excesivo sin antes revisar la configuración. Considera esto como plan B.
+    - Opción 3: Interesante perspectiva, pero primero deberías intentar soluciones más simples. Consultar con un especialista es mejor como último recurso.
 
     ESTRUCTURA EXACTA DEL SCRIPT:
     - Evento inicial

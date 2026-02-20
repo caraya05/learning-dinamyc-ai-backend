@@ -3,6 +3,8 @@ import uuid
 import jwt
 import requests
 import time
+import logging
+from urllib.parse import urlparse
 
 from PIL import Image
 from io import BytesIO
@@ -377,3 +379,57 @@ def enviar_progreso(intervalo: int, total: int, delay_inicial: int = 0):
         mensaje = f"Progreso: {progreso}/{total}"
         print(mensaje)  # Aquí puedes reemplazar por el envío real del mensaje
         time.sleep(intervalo)
+
+
+def delete_asset_from_url(file_url: str, default_bucket: str = "qwestar") -> bool:
+    """Borra un asset en cloud (GCS o DigitalOcean Spaces) dada su URL pública."""
+    if not file_url:
+        return False
+    try:
+        parsed = urlparse(file_url)
+        path = parsed.path.lstrip("/")
+        netloc = parsed.netloc
+
+        # Google Cloud Storage
+        if netloc == "storage.googleapis.com" or netloc.endswith(".storage.googleapis.com"):
+            bucket_name = default_bucket
+            blob_name = path
+            if netloc == "storage.googleapis.com":
+                segments = path.split("/", 1)
+                if len(segments) == 2:
+                    bucket_name, blob_name = segments
+            elif netloc.endswith(".storage.googleapis.com"):
+                bucket_name = netloc.split(".storage.googleapis.com", 1)[0]
+            if not blob_name:
+                return False
+            storage_client = storage.Client.from_service_account_json("credentials.json")
+            bucket = storage_client.bucket(bucket_name)
+            bucket.blob(blob_name).delete()
+            return True
+
+        # DigitalOcean Spaces (S3 compatible)
+        if "digitaloceanspaces.com" in netloc:
+            segments = path.split("/", 1)
+            bucket_name = segments[0] if segments and segments[0] else default_bucket
+            key = segments[1] if len(segments) == 2 else ""
+            if not key:
+                return False
+            client = session.client(
+                's3',
+                region_name='qwestar',
+                endpoint_url=f"https://{netloc}",
+                aws_access_key_id=settings.ACCESS_ID_DIGITAL_OCEAN,
+                aws_secret_access_key=settings.SECRET_KEY_DIGITAL_OCEAN,
+            )
+            client.delete_object(Bucket=bucket_name, Key=key)
+            return True
+
+        return False
+    except Exception as e:
+        logging.getLogger(__name__).warning("Error deleting asset %s: %s", file_url, e)
+        return False
+
+
+def delete_gcs_file(file_url: str, default_bucket: str = "qwestar") -> bool:
+    """Compatibilidad: delega en delete_asset_from_url para GCS/Spaces."""
+    return delete_asset_from_url(file_url, default_bucket=default_bucket)

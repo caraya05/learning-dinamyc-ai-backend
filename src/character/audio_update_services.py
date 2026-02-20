@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 from bson import ObjectId
 from fastapi import UploadFile
+from fastapi import HTTPException, status
 from io import BytesIO
 from uuid import uuid4
 from core.database import db
@@ -53,18 +54,21 @@ class CharacterAudioUpdateService:
             Diccionario con información del audio actualizado
         """
         try:
+            if interaction_index < 0 or dialog_index < 0:
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Indices must be non-negative")
+
             if not self._is_valid_objectid(character_id):
-                raise Exception("Invalid character ID format")
+                raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Invalid character ID format")
 
             # Buscar personaje
             character = await self.db['character'].find_one({'_id': ObjectId(character_id)})
             if not character:
-                raise Exception("Character not found")
+                raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Character not found")
 
             # Verificar permisos
             game = await self.db['game'].find_one({'_id': ObjectId(character.get('game_id'))})
             if not game or str(game.get('created_by')) != user_id:
-                raise Exception("Permission denied")
+                raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Permission denied")
 
             # Validar que el estado_game existe y obtener su _id
             state_glic_check = await self.db['state_glic'].find_one({
@@ -74,17 +78,25 @@ class CharacterAudioUpdateService:
             })
 
             if not state_glic_check:
-                raise Exception("State not found")
+                raise HTTPException(status.HTTP_404_NOT_FOUND, detail="State not found")
 
             state_glic_id = state_glic_check.get('_id')
 
             # Validar que la interacción existe
-            if interaction_index >= len(state_glic_check.get('data', {}).get('interaction', [])):
-                raise Exception("Interaction index out of range")
+            interactions = state_glic_check.get('data', {}).get('interaction', [])
+            print("interactions: ", len(interactions)>=1)
+            if not len(interactions) >= 1:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Interaction index out of range")
 
-            interaction = state_glic_check['data']['interaction'][interaction_index]
-            if dialog_index >= len(interaction.get('conversation', [])):
-                raise Exception("Dialog index out of range")
+            interaction = interactions[0]
+            if interaction.get('type_conversation',None) == 'option_multiple' :
+                conversations = interaction.get('prompt_user_question', [])
+                if dialog_index >= len(conversations):
+                    raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Dialog index out of range")
+            else:
+                conversations = interaction.get('conversation', [])
+                if dialog_index >= len(conversations):
+                    raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Dialog index out of range")
 
             # Leer contenido del archivo
             content = await file.read()
@@ -97,19 +109,28 @@ class CharacterAudioUpdateService:
                 audio_byte_arr=audio_byte_arr
             )
 
+            print("interaction index: ", interaction_index, "dialog index: ", dialog_index)
+
             # Actualizar directamente el objeto en memoria y luego reemplazar en BD
             # Esto asegura que el update funciona correctamente
-            state_glic_check['data']['interaction'][interaction_index]['conversation'][dialog_index]['audio'] = audio_url
-            state_glic_check['data']['interaction'][interaction_index]['conversation'][dialog_index]['audio_mp3'] = audio_url
+            if interaction.get('type_conversation',None) == 'option_multiple' :
+                state_glic_check['data']['interaction'][interaction_index]['options_dialog']['prompt_user_question'][dialog_index][
+                    'audio'] = audio_url
+                state_glic_check['data']['interaction'][interaction_index]['options_dialog']['prompt_user_question'][dialog_index][
+                    'audio_mp3'] = audio_url
+            else:
+                state_glic_check['data']['interaction'][interaction_index]['conversation'][dialog_index]['audio'] = audio_url
+                state_glic_check['data']['interaction'][interaction_index]['conversation'][dialog_index]['audio_mp3'] = audio_url
             state_glic_check['updated_at'] = datetime.utcnow()
             state_glic_check['updated_by'] = user_id
 
+
             # Reemplazar el documento completo en la BD
-            result = await self.db['state_glic'].replace_one(
+            result = await self.db['state_glic'].update_one(
+                {'_id': ObjectId(state_glic_id)},
                 {
-                    '_id': ObjectId(state_glic_id)
-                },
-                state_glic_check
+                    '$set': state_glic_check,
+                }
             )
 
             if result.matched_count == 0:
@@ -127,8 +148,13 @@ class CharacterAudioUpdateService:
                 raise Exception("Failed to retrieve updated document")
 
             # Obtener el audio actualizado desde la BD
-            updated_audio = updated_state_glic['data']['interaction'][interaction_index]['conversation'][dialog_index].get('audio')
-            updated_audio_mp3 = updated_state_glic['data']['interaction'][interaction_index]['conversation'][dialog_index].get('audio_mp3')
+
+            if interaction.get('type_conversation',None) == 'option_multiple' :
+                updated_audio = updated_state_glic['data']['interaction'][interaction_index]['options_dialog']['prompt_user_question'][dialog_index].get('audio')
+                updated_audio_mp3 = updated_state_glic['data']['interaction'][interaction_index]['options_dialog']['prompt_user_question'][dialog_index].get('audio_mp3')
+            else:
+                updated_audio = updated_state_glic['data']['interaction'][interaction_index]['conversation'][dialog_index].get('audio')
+                updated_audio_mp3 = updated_state_glic['data']['interaction'][interaction_index]['conversation'][dialog_index].get('audio_mp3')
 
             # Comparar que la URL se cambió correctamente
             if updated_audio != audio_url or updated_audio_mp3 != audio_url:
@@ -146,9 +172,12 @@ class CharacterAudioUpdateService:
                 }
             }
 
+        except HTTPException as e:
+            self.logger.error(f"Error updating dialog audio: {str(e.detail)}")
+            raise
         except Exception as e:
             self.logger.error(f"Error updating dialog audio: {str(e)}")
-            raise
+            raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error updating dialog audio")
 
     async def update_option_question_audio(
         self,

@@ -1,16 +1,29 @@
 import logging
 
 from bson import ObjectId
-from fastapi import APIRouter
+from fastapi import APIRouter, Form
 from fastapi import Depends
 from fastapi import HTTPException
+from fastapi import Response
 from fastapi import status
+from fastapi import UploadFile, File
 from fastapi.security import HTTPAuthorizationCredentials
 
 from auth.auth import auth
 from auth.utils import auth_schema
+from utils import upload_file
 
-from series.schemas import SchemaCreateSeries, SchemaListSeries, SchemaUpdateSeries, SchemaPublishSeries, SchemaPublishedSeriesDetail, SchemaListPublishedSeries
+from series.schemas import (
+    SchemaCreateSeries,
+    SchemaListSeries,
+    SchemaUpdateSeries,
+    SchemaPublishSeries,
+    SchemaPublishedSeriesDetail,
+    SchemaListPublishedSeries,
+    SchemaReorderGames,
+    SchemaRemoveGame,
+    SchemaUpdateGameVisibility,
+)
 from series.services import SeriesService
 
 logger = logging.getLogger(__name__)
@@ -24,10 +37,10 @@ def get_series_service():
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_series(
-    series_data: SchemaCreateSeries,
-    user: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-    service: SeriesService = Depends(get_series_service)
+        series_data: SchemaCreateSeries,
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: SeriesService = Depends(get_series_service)
 ):
     """
     Create a new series.
@@ -47,12 +60,12 @@ async def create_series(
         )
 
 
-@router.get("/{series_id}", status_code=status.HTTP_200_OK)
+@router.get("/{series_id}/", status_code=status.HTTP_200_OK)
 async def get_series(
-    series_id: str,
-    user: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-    service: SeriesService = Depends(get_series_service)
+        series_id: str,
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: SeriesService = Depends(get_series_service)
 ):
     """
     Get a series by ID with all its games and game_provisional data.
@@ -88,16 +101,20 @@ async def get_series(
         )
 
 
-@router.put("/{series_id}", status_code=status.HTTP_200_OK)
+@router.put("/{series_id}/", status_code=status.HTTP_200_OK)
 async def update_series(
-    series_id: str,
-    series_data: SchemaUpdateSeries,
-    user: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-    service: SeriesService = Depends(get_series_service)
+        series_id: str,
+        title: str | None = Form(None),
+        description: str | None = Form(None),
+        category_id: str | None = Form(None),
+        main_character: str | None = Form(None),
+        image: UploadFile | None = File(None),
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: SeriesService = Depends(get_series_service)
 ):
     """
-    Update a series.
+    Update a series. Allows changing metadata and image URL.
     Requires authentication.
     """
     if not ObjectId.is_valid(series_id):
@@ -105,6 +122,21 @@ async def update_series(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid series ID",
         )
+
+
+    series_data = SchemaUpdateSeries(
+        title=title,
+        description=description,
+        category_id=category_id,
+        main_character=main_character,
+        image=None
+    )
+
+    # Si se adjunta archivo en el campo image, súbelo al bucket y reemplaza el campo
+    if image is not None:
+        uploaded_url = upload_file(image)
+
+        series_data.image = uploaded_url
 
     try:
         series_db = await service.update_series_service(series_id, series_data, str(user.get("_id")))
@@ -122,11 +154,11 @@ async def update_series(
 
 @router.get("/", status_code=status.HTTP_200_OK, response_model=SchemaListSeries)
 async def list_series(
-    user: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-    page: int = 1,
-    count: int = 10,
-    service: SeriesService = Depends(get_series_service)
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        page: int = 1,
+        count: int = 10,
+        service: SeriesService = Depends(get_series_service)
 ):
     """
     Get all series with pagination.
@@ -157,11 +189,11 @@ async def list_series(
 
 @router.get("/user/my-series", status_code=status.HTTP_200_OK, response_model=SchemaListSeries)
 async def get_user_series(
-    user: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-    page: int = 1,
-    count: int = 10,
-    service: SeriesService = Depends(get_series_service)
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        page: int = 1,
+        count: int = 10,
+        service: SeriesService = Depends(get_series_service)
 ):
     """
     Get all series created by the authenticated user with pagination.
@@ -193,10 +225,10 @@ async def get_user_series(
 
 @router.get("/{series_id}/games", status_code=status.HTTP_200_OK)
 async def get_series_games(
-    series_id: str,
-    user: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-    service: SeriesService = Depends(get_series_service)
+        series_id: str,
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: SeriesService = Depends(get_series_service)
 ):
     """
     Get a series with all its associated games.
@@ -236,16 +268,111 @@ async def get_series_games(
         )
 
 
+@router.post("/{series_id}/reorder-games/", status_code=status.HTTP_200_OK)
+async def reorder_series_games(
+        series_id: str,
+        payload: SchemaReorderGames,
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: SeriesService = Depends(get_series_service)
+):
+    """Reordenar todos los juegos de una serie."""
+    try:
+        updated_series = await service.reorder_games_service(series_id, payload.games_order, str(user.get("_id")))
+        if updated_series:
+            updated_series["_id"] = str(updated_series.get("_id", ""))
+        return updated_series
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error reordering series games: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error reordering series games",
+        )
+
+
+@router.put("/{series_id}/games/{game_id}/visibility", status_code=status.HTTP_200_OK)
+async def update_series_game_visibility(
+        series_id: str,
+        game_id: str,
+        payload: SchemaUpdateGameVisibility,
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: SeriesService = Depends(get_series_service)
+):
+    """Ocultar o mostrar un juego dentro de la serie."""
+    try:
+        updated_series = await service.update_game_visibility_service(series_id, game_id, payload.is_hidden,
+                                                                      str(user.get("_id")))
+        if updated_series:
+            updated_series["_id"] = str(updated_series.get("_id", ""))
+        return updated_series
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating game visibility: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error updating game visibility",
+        )
+
+
+@router.delete("/{series_id}/remove-game/", status_code=status.HTTP_200_OK)
+async def remove_game_from_series(
+        series_id: str,
+        payload: SchemaRemoveGame,
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: SeriesService = Depends(get_series_service)
+):
+    """Eliminar un juego de la serie (hard delete del juego y dependencias)."""
+    try:
+        updated_series = await service.remove_game_from_series_service(series_id, payload.game_id, str(user.get("_id")))
+        if updated_series:
+            updated_series["_id"] = str(updated_series.get("_id", ""))
+        return updated_series
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing game from series: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error removing game from series",
+        )
+
+
+@router.delete("/{series_id}/", status_code=status.HTTP_200_OK)
+async def delete_series_hard(
+        series_id: str,
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: SeriesService = Depends(get_series_service)
+):
+    """Eliminar en cascada la serie y todos los recursos asociados en un solo llamado."""
+    try:
+        deletion_summary = await service.delete_series_hard_service(series_id, str(user.get("_id")))
+        return {"series_id": series_id, "deleted": deletion_summary}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting series: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error deleting series",
+        )
+
+
 @router.get("/user/series-with-games", status_code=status.HTTP_200_OK)
 async def get_user_series_with_games(
-    user: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-    page: int = 1,
-    limit: int = 10,
-    search_series_name: str = None,
-    game_category: str = None,
-    template_type: str = None,
-    service: SeriesService = Depends(get_series_service)
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        page: int = 1,
+        limit: int = 10,
+        search_series_name: str = None,
+        game_category: str = None,
+        template_type: str = None,
+        service: SeriesService = Depends(get_series_service)
 ):
     """
     Get all series of the authenticated user with all associated games and their game_provisional data.
@@ -296,16 +423,17 @@ async def get_user_series_with_games(
 
 @router.put("/{series_id}/publish", status_code=status.HTTP_200_OK)
 async def publish_series(
-    series_id: str,
-    publish_data: SchemaPublishSeries,
-    user: dict = Depends(auth),
-    Token: HTTPAuthorizationCredentials = Depends(auth_schema),
-    service: SeriesService = Depends(get_series_service)
+        series_id: str,
+        publish_data: SchemaPublishSeries,
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: SeriesService = Depends(get_series_service)
 ):
     """
-    Publish or unpublish a series.
-    Only the owner of the series can publish it.
-    Requires authentication.
+    Publish or unpublish a series. publish_type controls whether it is public, link-only or private.
+    - public: is_published=True, is_link=False
+    - link: is_published=True, is_link=True
+    - private: is_published=False, is_link=False
     """
     if not ObjectId.is_valid(series_id):
         raise HTTPException(
@@ -313,11 +441,19 @@ async def publish_series(
             detail="Invalid series ID",
         )
 
+    expected_is_published = publish_data.publish_type != "private"
+    if publish_data.is_published != expected_is_published:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="is_published must match publish_type (private => false, others => true)",
+        )
+
     try:
         series_db = await service.publish_series_service(
             series_id,
-            publish_data.is_published,
-            str(user.get("_id"))
+            publish_data.publish_type,
+            str(user.get("_id")),
+            requested_is_published=publish_data.is_published
         )
         series_db["_id"] = str(series_db["_id"])
         return series_db
@@ -333,11 +469,11 @@ async def publish_series(
 
 @router.get("/published/list", status_code=status.HTTP_200_OK, response_model=SchemaListPublishedSeries)
 async def list_published_series(
-    page: int = 1,
-    limit: int = 10,
-    category_id: str = None,
-    search_name: str = None,
-    service: SeriesService = Depends(get_series_service)
+        page: int = 1,
+        limit: int = 10,
+        category_id: str = None,
+        search_name: str = None,
+        service: SeriesService = Depends(get_series_service)
 ):
     """
     Get all published series with pagination.
@@ -357,8 +493,8 @@ async def list_published_series(
             limit = 10
 
         skip = (page - 1) * limit
-        series_list, total = await service.get_published_series_service(skip=skip, limit=limit, category_id=category_id, search_name=search_name)
-
+        series_list, total = await service.get_published_series_service(skip=skip, limit=limit, category_id=category_id,
+                                                                        search_name=search_name)
 
         for series in series_list:
             series["_id"] = str(series["_id"])
@@ -381,8 +517,8 @@ async def list_published_series(
 
 @router.get("/published/{series_id}", status_code=status.HTTP_200_OK)
 async def get_published_series_detail(
-    series_id: str,
-    service: SeriesService = Depends(get_series_service)
+        series_id: str,
+        service: SeriesService = Depends(get_series_service)
 ):
     """
     Get a published series with all its associated games and their game_provisional data.

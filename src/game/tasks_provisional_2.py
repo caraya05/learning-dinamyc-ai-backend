@@ -4,6 +4,7 @@ import traceback
 import json
 import requests
 import asyncio
+import random
 from datetime import datetime
 
 from bson import ObjectId
@@ -314,9 +315,10 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
                                                      task=str(task_event.id))
 
             interactions = await extract_interactions_from_script(script, locations, characters, game_language)
+            interactions = _shuffle_interaction_options(interactions)
             await db["game_provisional"].update_one(
                 {"_id": ObjectId(_id_game_provisional)},
-                {"$set": {"interactions": [interaction.dict() for interaction in interactions]}}
+                {"$set": {"interactions": [interaction.dict() if hasattr(interaction, "dict") else interaction for interaction in interactions]}}
             )
 
             # Guardar la lista ya serializada en la base de datos
@@ -789,6 +791,60 @@ class InteractionProvisional(BaseModel):
                                                 description="Index of the correct option in case of option_multiple interactions")
 
 
+# Helpers para mezclar opciones manteniendo referencia al índice correcto
+
+def _shuffle_options_with_index(options: list, correct_index: int | None):
+    if not options:
+        return options, correct_index
+    enumerated = list(enumerate(options))
+    random.shuffle(enumerated)
+    shuffled = [opt for _, opt in enumerated]
+    if correct_index is None:
+        return shuffled, None
+    new_idx = next((i for i, (orig_idx, _) in enumerate(enumerated) if orig_idx == correct_index), None)
+    return shuffled, new_idx
+
+
+def _shuffle_interaction_options(interactions: list):
+    """Mezcla opciones de cada interacción y recalcula el índice correcto."""
+    if not interactions:
+        return interactions
+    for inter in interactions:
+        try:
+            options = inter.get("options") if isinstance(inter, dict) else getattr(inter, "options", None)
+            correct_idx = inter.get("index_option_correct") if isinstance(inter, dict) else getattr(
+                inter, "index_option_correct", None)
+            if not options:
+                continue
+            shuffled_options, new_idx = _shuffle_options_with_index(options, correct_idx)
+            if isinstance(inter, dict):
+                inter["options"] = shuffled_options
+                inter["index_option_correct"] = new_idx
+            else:
+                try:
+                    inter.options = shuffled_options
+                except Exception:
+                    pass
+                try:
+                    inter.index_option_correct = new_idx
+                except Exception:
+                    pass
+        except Exception:
+            continue
+    return interactions
+
+
+def _get_option_index_from_interactions(block_interactions: list):
+    """Obtiene el índice correcto desde las interacciones del bloque, si existe."""
+    if not block_interactions:
+        return None
+    for inter in block_interactions:
+        idx = inter.get("index_option_correct") if isinstance(inter, dict) else getattr(inter, "index_option_correct", None)
+        if idx is not None:
+            return idx
+    return None
+
+
 class TasksCreateInteractionsProvisional(BaseModel):
     interactions: list[InteractionProvisional] = Field(..., example=[],
                                                        description="List of interactions for the game provisional")
@@ -818,6 +874,7 @@ async def extract_interactions_from_script(script: str, locations, characters, l
         prompt = f"""
         Extract the main interactions from the following game script. Provide a list of interactions with their types 
         (two_way, one_way, option_multiple, open_question, open_talk), conversations, locations, and characters involved.
+        For interactions of type option_multiple or open_question, include an integer field index_option_correct indicating which option is correct (use 0-based index matching the options list order). Also, shuffle or randomize the options so the correct answer is not always the first one; reflect the final position of the correct option in index_option_correct.
         {lang_instruction}
         Script:
         {script}
@@ -863,7 +920,6 @@ async def extract_interactions_from_script(script: str, locations, characters, l
     except Exception as e:
         print(traceback.format_exc())
         return []
-
 
 async def async_create_game_provisional_task_2(id_game_provisional: str, user_id: str = None) -> str:
     """
@@ -1736,7 +1792,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
             "provisional_id": str(game_provisional_db.get("_id")),
             "category_id": game_provisional_db.get("category"),
             "serie_id": serie_id,
-            "order": order,
+            # "order": order,
             "is_active": True
         }})
 
@@ -2004,7 +2060,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                         prompt_user_text=event.get("description", "") if event_type == "event_start" else None,
                         character_id=None if event_type == "event_start" else character_id_mapped,
                         type_conversation=event.get("interaction_type"),
-                        option_number=event.get("index_option_correct", 0),
+                        option_number=_get_option_index_from_interactions(block.get("interaction")) or 0,
                         state_game_init=state_init,
                         state_game_end=state_end,
                         location_state_game_init=loc_start if loc_start else loc_end,
@@ -2119,7 +2175,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                             prompt_user_text=None,
                             character_id=character_id_mapped,
                             type_conversation=event.get("interaction_type"),
-                            option_number=event.get("index_option_correct", 0),
+                            option_number=_get_option_index_from_interactions(block.get("interaction")) or 0,
                             state_game_init=state_init,
                             state_game_end=state_end,
                             location_state_game_init=loc_start,

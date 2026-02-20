@@ -89,7 +89,7 @@ async def get_list_state_glic_by_element_id(element_id: str) -> list:
                                         "state_game_init": state_glic[j]["state"],
                                         "location_state_game_init": state_glic[j]["data"]["interaction"][i]["location_id"],
                                         "type_conversation": type_conversation,
-                                        "is_equal_option_number": True,
+                                        # "is_equal_option_number": True,
                                     }
                                 )
                                 options_list = state_glic[j]["data"]["interaction"][i]["options_dialog"]["options"]
