@@ -53,10 +53,21 @@ NOT_GIVEN = NotGiven()
 
 async def deactivate_character_service(character_id: str, state_game: str, active: bool):
     try:
+        # Validar que character_id no sea None
+        if not character_id or character_id is None:
+            print(f"[ERROR] deactivate_character_service called with None character_id")
+            return None
+
+        character_id_str = str(character_id)
+        print(f"[DEBUG] deactivate_character_service: character_id_str={character_id_str}, state_game={state_game}")
+
         if character_db := await db["character"].find_one({"_id": ObjectId(character_id)}):
             state_element_db = await db["state_glic"].find_one(
-                {"element_id": character_id, "type_element": "character", "state": state_game}
+                {"element_id": character_id_str, "type_element": "character", "state": state_game}
             )
+
+            print(f"[DEBUG] Buscando state_glic existente: element_id={character_id_str}, state={state_game}, type_element=character")
+            print(f"[DEBUG] state_element_db encontrado: {state_element_db is not None}")
 
             state_game_max = await db["state_game"].find_one({"game_id": character_db["game_id"]}, sort=[("order", -1)])
 
@@ -67,7 +78,7 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
 
                 while state_element_db is None:
                     state_element_db = await db["state_glic"].find_one(
-                        {"element_id": character_id, "type_element": "character", "order": order}
+                        {"element_id": character_id_str, "type_element": "character", "order": order}
                     )
                     if state_element_db:
                         break
@@ -82,29 +93,56 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
 
                     while state_element_db is None:
                         state_element_db = await db["state_glic"].find_one(
-                            {"element_id": character_id, "type_element": "character", "order": order}
+                            {"element_id": character_id_str, "type_element": "character", "order": order}
                         )
                         if state_element_db:
                             break
                         if order < 1:
                             break
                         order -= 1
-                    if not state_element_db:
-                        return "failed deactivate / activate character"
 
+                    # Si tampoco encontró en órdenes anteriores, crear uno nuevo en el estado solicitado
+                    if not state_element_db:
+                        print(f"[DEBUG] No se encontró state_glic existente para {character_id_str}, creando uno nuevo en state={state_game}")
+                        state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
+
+                        # Crear data básica para el state_glic
+                        basic_data = {
+                            "is_active": active,
+                            "interaction": [],
+                            "locations_id": []
+                        }
+
+                        state_element_db = await create_state_glic(
+                            element_id=character_id_str,
+                            type_element="character",
+                            state=state_game,
+                            order=state_game_db['order'],
+                            created_by=state_game_db['created_by'],
+                            data=basic_data,
+                        )
+
+                        print(f"[DEBUG] state_glic nuevo creado: {state_element_db.get('_id')}")
+                        return "Character created and deactivated / activate successfully"
+
+                    # Si encontró un state_glic anterior, copiar sus datos al nuevo estado
                     state_game_db = await db["state_game"].find_one({"_id": ObjectId(state_game)})
 
                     state_element_db['data']['is_active'] = active
                     state_element_db['data']['interaction'] = []
 
+                    print(f"[DEBUG] Creando nuevo state_glic para {character_id_str} con state={state_game}")
+
                     state_element_db = await create_state_glic(
-                        element_id=str(character_id),
+                        element_id=character_id_str,
                         type_element="character",
                         state=state_game,
                         order=state_game_db['order'],
                         created_by=state_game_db['created_by'],
                         data=state_element_db['data'],
                     )
+
+                    print(f"[DEBUG] state_glic creado: {state_element_db.get('_id')}")
 
                     return "Character created and deactivated / activate successfully"
 
@@ -113,6 +151,7 @@ async def deactivate_character_service(character_id: str, state_game: str, activ
                 {"_id": state_element_db["_id"]}, {"$set": {"data": state_element_db["data"]}}
             )
 
+            print(f"[DEBUG] state_glic actualizado para {character_id_str}")
             return "Character deactivated / activate successfully"
     except Exception as e:
         print(traceback.print_exc())
@@ -1706,6 +1745,11 @@ async def new_interaction_character_service(
         options_dialog: dict = None,
         state_game: str = None,
 ):
+    # Validar que character_id no sea None
+    if not character_id or character_id is None:
+        print(f"[ERROR] new_interaction_character_service called with None character_id")
+        raise Exception("error character_id is None")
+
     character_db = await db["character"].find_one({"_id": ObjectId(character_id)})
     if not character_db:
         raise Exception("error character not found")
@@ -1715,9 +1759,40 @@ async def new_interaction_character_service(
     else:
         state_game = await get_state_game_by_id(state_game)
 
-    stage_element_db = await db["state_glic"].find_one({"element_id": character_id, "state": state_game["_id"]})
+    # Convertir character_id a string para la búsqueda
+    character_id_str = str(character_id)
+    state_game_id = state_game.get("_id") if isinstance(state_game, dict) else state_game
+
+    print(f"[DEBUG] Buscando state_glic: element_id={character_id_str}, state={state_game_id}, type_element=character")
+
+    stage_element_db = await db["state_glic"].find_one({
+        "element_id": character_id_str,
+        "state": state_game_id,
+        "type_element": "character"
+    })
+
     if not stage_element_db:
-        raise Exception("error state glic not found for character")
+        print(f"[ERROR] state_glic no encontrado para character_id={character_id_str}, state={state_game_id}")
+        print(f"[DEBUG] Buscando cualquier state_glic para element_id={character_id_str}")
+
+        # Buscar cualquier state_glic para este personaje como fallback
+        stage_element_db = await db["state_glic"].find_one({
+            "element_id": character_id_str,
+            "type_element": "character"
+        })
+
+        if stage_element_db:
+            print(f"[DEBUG] Encontrado state_glic alternativo con state={stage_element_db.get('state')}")
+        else:
+            # Intentar buscar sin type_element como último fallback
+            stage_element_db = await db["state_glic"].find_one({
+                "element_id": character_id_str,
+                "state": state_game_id
+            })
+
+        if not stage_element_db:
+            print(f"[ERROR] No se encontró ningún state_glic para character_id={character_id_str}")
+            raise Exception("error state glic not found for character")
     if option:
         options_dialog = {
             "prompt_user_question": conversation,

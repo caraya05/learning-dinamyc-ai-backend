@@ -9,6 +9,7 @@ from starlette.websockets import WebSocket
 from auth.services import validate_game_token, get_token_type
 from core.database import create_indexes
 from user import routers as user_routers
+from user import routers_dash as user_routers_dash
 from user import router_admin as user_admin_routers
 from user import router_ws as user_ws_routers
 from auth import routers as token_routers
@@ -174,6 +175,7 @@ app.include_router(object_routers.router, prefix="/v1/api")
 # app.include_router(place_routers.router, prefix="/v1/api")
 app.include_router(prompt_routers.router, prefix="/v1/api")
 app.include_router(user_routers.router, prefix="/v1/api")
+app.include_router(user_routers_dash.router, prefix="/v1/api")
 # app.include_router(weapon_routers.router2, prefix="/v2/api")
 app.include_router(state_game_routers.router, prefix="/v1/api")
 app.include_router(series_routers.router, prefix="/v1/api")

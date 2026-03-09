@@ -660,9 +660,40 @@ async def new_interaction_character_service(
     else:
         state_game = await get_state_game_by_id(state_game)
 
-    stage_element_db = await db["state_glic"].find_one({"element_id": character_id, "state": state_game["_id"]})
+    # Convertir character_id a string para la búsqueda
+    character_id_str = str(character_id)
+    state_game_id = state_game.get("_id") if isinstance(state_game, dict) else state_game
+
+    print(f"[DEBUG] Buscando state_glic: element_id={character_id_str}, state={state_game_id}, type_element=character")
+
+    stage_element_db = await db["state_glic"].find_one({
+        "element_id": character_id_str,
+        "state": state_game_id,
+        "type_element": "character"
+    })
+
     if not stage_element_db:
-        raise Exception("error state glic not found for character")
+        print(f"[DEBUG] state_glic no encontrado para character_id={character_id_str}, state={state_game_id}")
+        print(f"[DEBUG] Buscando cualquier state_glic para element_id={character_id_str}")
+
+        # Buscar cualquier state_glic para este personaje como fallback
+        stage_element_db = await db["state_glic"].find_one({
+            "element_id": character_id_str,
+            "type_element": "character"
+        })
+
+        if stage_element_db:
+            print(f"[DEBUG] Encontrado state_glic alternativo con state={stage_element_db.get('state')}")
+        else:
+            # Intentar buscar sin type_element como último fallback
+            stage_element_db = await db["state_glic"].find_one({
+                "element_id": character_id_str,
+                "state": state_game_id
+            })
+
+        if not stage_element_db:
+            print(f"[ERROR] No se encontró ningún state_glic para character_id={character_id_str}")
+            raise Exception("error state glic not found for character")
     if options_dialog:
         options_dialog = options_dialog
 

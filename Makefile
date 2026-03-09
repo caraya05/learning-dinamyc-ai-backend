@@ -145,6 +145,70 @@ arm-bash:
 
 arm-test:
 	docker-compose -f docker-compose-arm.yml run --rm fastapi pytest tests/
+
+arm-update-docker:
+	make arm-down && docker system prune -a && make arm-build && make arm-up
+
+# ============================================================================
+# TESTING - Analytics Module
+# ============================================================================
+
+test:
+	cd src && python -m pytest analytics/tests_analytics.py -v
+
+test-coverage:
+	cd src && python -m pytest analytics/tests_analytics.py --cov=analytics --cov-report=html
+	@echo "✅ Coverage report generated: htmlcov/index.html"
+
+test-integration:
+	cd src && python -m pytest analytics/tests_integration.py -v
+
+test-all:
+	cd src && python -m pytest analytics/ -v
+
+test-watch:
+	cd src && python -m pytest analytics/tests_analytics.py -v --tb=short
+
+test-quick:
+	cd src && python -m pytest analytics/tests_analytics.py -q
+
+test-schemas:
+	cd src && python -m pytest analytics/tests_analytics.py::TestAnalyticCreateSchema -v
+
+test-exceptions:
+	cd src && python -m pytest analytics/tests_analytics.py::TestExceptions -v
+
+test-services:
+	cd src && python -m pytest analytics/tests_analytics.py -k "Service" -v
+
+test-analytics-docker:
+	docker-compose -f docker-compose-develop.yml run --rm fastapi sh -c "python -m pytest analytics/tests_analytics.py -v"
+
+test-coverage-docker:
+	docker-compose -f docker-compose-develop.yml run --rm fastapi sh -c "python -m pytest analytics/tests_analytics.py --cov=analytics --cov-report=html"
+
+# ============================================================================
+# TESTING - User Dashboard Module
+# ============================================================================
+
+test-dashboard:
+	cd src && python -m pytest user/tests_dashboard.py -v
+
+test-dashboard-coverage:
+	cd src && python -m pytest user/tests_dashboard.py --cov=user --cov-report=html
+	@echo "✅ Coverage report generated: htmlcov/index.html"
+
+test-dashboard-integration:
+	cd src && python -m pytest user/tests_integration_dashboard.py -v
+
+test-dashboard-docker:
+	docker-compose -f docker-compose-develop.yml run --rm fastapi sh -c "python -m pytest user/tests_dashboard.py -v"
+
+test-dashboard-coverage-docker:
+	docker-compose -f docker-compose-develop.yml run --rm fastapi sh -c "python -m pytest user/tests_dashboard.py --cov=user --cov-report=html"
+
+# ============================================================================
+
 git:
 	git config  --global user.name "caraya05"
 	git config  --global user.email "carlos.amy375d@gmail.com"

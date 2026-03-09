@@ -23,6 +23,7 @@ from series.schemas import (
     SchemaReorderGames,
     SchemaRemoveGame,
     SchemaUpdateGameVisibility,
+    SchemaUserStats,
 )
 from series.services import SeriesService
 
@@ -184,6 +185,45 @@ async def list_series(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error listing series",
+        )
+
+
+@router.get("/user/stats", status_code=status.HTTP_200_OK, response_model=SchemaUserStats)
+async def get_user_stats(
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: SeriesService = Depends(get_series_service)
+):
+    """
+    Get aggregated statistics for the authenticated user.
+
+    Returns statistics including:
+    - total_series: Total number of series created by the user
+    - total_episodes: Total number of episodes/games in all user series
+    - published_series: Total number of published series by the user
+    - analytics_records: Total number of analytics records for user's games
+
+    Requires authentication.
+
+    Response:
+    {
+        "total_series": 5,
+        "total_episodes": 24,
+        "published_series": 3,
+        "analytics_records": 156
+    }
+    """
+    try:
+        user_id = str(user.get("_id"))
+        stats = await service.get_user_stats_service(user_id)
+        return stats
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting user stats: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error retrieving user statistics",
         )
 
 
@@ -547,3 +587,44 @@ async def get_published_series_detail(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Error getting published series detail",
         )
+
+
+@router.get("/debug/analytics/{game_id}", status_code=status.HTTP_200_OK)
+async def debug_analytics(
+        game_id: str = None,
+        service: SeriesService = Depends(get_series_service)
+):
+    """
+    Debug endpoint to check the structure of analytics collection.
+    Shows sample documents and how analytics are stored.
+    """
+    try:
+        analytics_info = await service.debug_analytics_structure(game_id)
+        return analytics_info
+    except Exception as e:
+        logger.error(f"Error in debug analytics: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error in debug analytics: {str(e)}",
+        )
+
+
+@router.get("/debug/mapping/{series_id}", status_code=status.HTTP_200_OK)
+async def debug_series_analytics_mapping(
+        series_id: str,
+        service: SeriesService = Depends(get_series_service)
+):
+    """
+    Debug endpoint to verify how analytics are matched with games in a series.
+    Shows which games have analytics and which don't, and what values they have.
+    """
+    try:
+        mapping_info = await service.debug_series_analytics_mapping(series_id)
+        return mapping_info
+    except Exception as e:
+        logger.error(f"Error in debug series analytics mapping: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error in debug series analytics mapping: {str(e)}",
+        )
+

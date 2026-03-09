@@ -47,9 +47,24 @@ async def generate_voice_character(
 ):
     try:
         voice = {}
+        # Convertir character_id a string para búsqueda
+        character_id_str = str(character_id)
+
         character_state_db = await db["state_glic"].find_one(
-            {"element_id": character_id, "state": state_game}
+            {"element_id": character_id_str, "state": state_game}
         )
+
+        # Si no se encuentra, intentar búsquedas alternativas
+        if not character_state_db:
+            print(f"[DEBUG] state_glic no encontrado para element_id={character_id_str}, state={state_game}")
+            character_state_db = await db["state_glic"].find_one(
+                {"element_id": character_id_str}
+            )
+
+        if not character_state_db:
+            print(f"[ERROR] No se encontró state_glic para character_id={character_id_str}")
+            return False
+
         if not character_state_db["data"].get("voice_id"):
             variants_voices = await get_variants_service()
             response_generated = await openai_generator.generate_gpt(
@@ -187,19 +202,54 @@ async def generate_voice_character(
                         for j in range(
                                 len(character_state_db["data"]["interaction"][i]["conversation"])
                         ):
+                            # Obtener character_id de la conversación
+                            conversation_character_id = character_state_db["data"]["interaction"][i]["conversation"][j].get('id_character')
+
+                            if not conversation_character_id:
+                                print(f"[WARNING] No se encontró id_character en la conversación")
+                                continue
+
+                            # Convertir character_id a string para búsqueda
+                            conversation_character_id_str = str(conversation_character_id)
+
                             character_state_db_ = await db["state_glic"].find_one(
                                 {
-                                    "element_id": character_state_db["data"]["interaction"][i][
-                                        "conversation"
-                                    ][j]['id_character'],
+                                    "element_id": conversation_character_id_str,
                                     "state": state_game,
+                                    "type_element": "character"
                                 }
                             )
 
+                            # Si no se encuentra, intentar sin type_element
+                            if not character_state_db_:
+                                print(f"[DEBUG] state_glic no encontrado para element_id={conversation_character_id_str}, state={state_game}")
+                                character_state_db_ = await db["state_glic"].find_one(
+                                    {
+                                        "element_id": conversation_character_id_str,
+                                        "state": state_game
+                                    }
+                                )
+
+                            # Si aún no se encuentra, intentar cualquier state_glic
+                            if not character_state_db_:
+                                print(f"[DEBUG] state_glic no encontrado para element_id={conversation_character_id_str}")
+                                character_state_db_ = await db["state_glic"].find_one(
+                                    {"element_id": conversation_character_id_str}
+                                )
+
+                            if not character_state_db_:
+                                print(f"[WARNING] No se encontró state_glic para character_id={conversation_character_id_str}")
+                                continue
+
                             try:
+                                voice_id = character_state_db_.get("data", {}).get("voice_id")
+                                if not voice_id:
+                                    print(f"[WARNING] No se encontró voice_id para character_id={conversation_character_id_str}")
+                                    continue
+
                                 audio = await generate_audio(
                                     text=character_state_db["data"]["interaction"][i]["conversation"][j]["dialog"],
-                                    voice_id=character_state_db_["data"]["voice_id"],
+                                    voice_id=voice_id,
                                     user_id=user_id,
                                 )
 
@@ -391,6 +441,9 @@ async def generate_image_character_face(_character_id, _user_id, _state_game_id)
         character_state_db = await db["state_glic"].find_one(
             {"element_id": _character_id, "state": _state_game_id}
         )
+
+        if character_state_db["data"].get("image") and character_state_db["data"]["image"] != "":
+            return True, "Image already exists"
 
         validate_prompt = await openai_generator.moderation_text(
             text=f"Genera una imagen cuadrada en vista frontal de {character_state_db['data']['prompt_user']},"
@@ -1972,6 +2025,19 @@ async def _generate_image_character(_user_id,
                                     _game_provisional,
                                     _url_image_reference=None):
     try:
+        game_db = await db["game_provisional"].find_one({"_id": ObjectId(_game_provisional)})
+        if not game_db:
+            return "Error game provisional not found"
+
+        characters = game_db.get("characters", [])
+        index_found = next((i for i, c in enumerate(characters) if c.get("id") == _id_character), None)
+        if index_found is None:
+            return "Error character not found in game provisional"
+
+        # Si ya tiene imagen, no regenerar
+        if characters[index_found].get("image") and characters[index_found]["image"] != "":
+            return "Image already exists in game provisional"
+
         # Construir el prompt base
         prompt_base = (
             f"Genera una imagen en vista frontal cuadrada de 1024x1024 de un personaje de fondo transparente,"

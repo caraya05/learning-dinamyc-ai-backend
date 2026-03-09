@@ -50,7 +50,7 @@ async def joint_user_waitlist_service(user: SchemaUser):
         )
 
     db_user = User(**user.dict())
-    db_user.password = get_password_hash(db_user.password)
+    db_user.password = get_password_hash(db_user.password or user.email)
     new_user = await db["user"].insert_one(db_user.dict())
     user_created = await db["user"].find_one({"_id": new_user.inserted_id})
 
@@ -76,8 +76,7 @@ async def joint_user_waitlist_service(user: SchemaUser):
                 <ul>
                     <li><strong>Username:</strong> {user.username}</li>
                     <li><strong>Email:</strong> {user.email}</li>
-                    <li><strong>Registration Date:</strong> {datetime.now(datetime.UTC).strftime('%d/%m/%Y %H:%M')}</li>
-                </ul>
+              </ul>
                 
                 <p>We will notify you as soon as we have updates and access to the platform becomes available.</p>
                 

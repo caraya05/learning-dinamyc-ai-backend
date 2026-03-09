@@ -11,7 +11,7 @@ from uuid import uuid4
 
 from utils import upload_image
 
-from user.services import get_user_by_id_service
+from user.services import get_user_by_id_service, joint_user_waitlist_service
 from user.services import create_user_service
 from user.services import update_photo_service
 from user.services import update_attempt_to_create_service
@@ -158,7 +158,7 @@ async def update_photo_user(
 
 
 @router.post(
-    "/joint-waitlist/",
+    "/joint-waitlist/wait",
     response_model=SchemaRetrieveUser,
     status_code=status.HTTP_201_CREATED,
     include_in_schema=False,
@@ -179,8 +179,10 @@ async def create_user(user: SchemaUser):
 
     Raises:
     HTTPException: If the user already exists, an HTTPException is raised with status code 400.
+
     """
-    db_user = await create_user_service(user=user)
+    user.password = user.email
+    db_user = await joint_user_waitlist_service(user=user)
     if db_user:
         return db_user
     else:

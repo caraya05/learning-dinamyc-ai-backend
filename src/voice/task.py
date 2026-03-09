@@ -34,14 +34,46 @@ async def async_generate_voice_task(
         )
         return "Error can't find character"
 
-    element_state_db = await db["state_glic"].find_one({"element_id": _character_id, "type_element": "character", "state": _state_game_id})
+    # Convertir character_id a string para búsqueda
+    character_id_str = str(_character_id)
+
+    # Búsqueda robusta de state_glic con fallbacks
+    element_state_db = await db["state_glic"].find_one({
+        "element_id": character_id_str,
+        "type_element": "character",
+        "state": _state_game_id
+    })
+
+    # Si no se encuentra, intentar buscar sin state
+    if not element_state_db:
+        print(f"[DEBUG] state_glic no encontrado para element_id={character_id_str}, state={_state_game_id}")
+        element_state_db = await db["state_glic"].find_one({
+            "element_id": character_id_str,
+            "type_element": "character"
+        })
+
+    # Si aún no se encuentra, intentar sin type_element
+    if not element_state_db:
+        print(f"[DEBUG] state_glic no encontrado para element_id={character_id_str} con type_element")
+        element_state_db = await db["state_glic"].find_one({
+            "element_id": character_id_str,
+            "state": _state_game_id
+        })
+
+    if not element_state_db:
+        await update_task_service(
+            _id=_task_id,
+            _status="failed",
+            _message=f"Error can't find state_glic for character {_character_id}",
+        )
+        return f"Error can't find state_glic for character {_character_id}"
 
     if not _type_conversation:
-        _type_conversation = element_state_db["data"]["conversation_type"]
+        _type_conversation = element_state_db.get("data", {}).get("conversation_type")
     if not _prompt_user_dialog:
-        _prompt_user_dialog = element_state_db["data"]["prompt_user_dialog"]
+        _prompt_user_dialog = element_state_db.get("data", {}).get("prompt_user_dialog")
     if not _options_dialog:
-        _options_dialog = element_state_db["data"]["options_dialog"]
+        _options_dialog = element_state_db.get("data", {}).get("options_dialog")
 
     voice_generated = await generate_voice_character(
         game_id=_game_id,

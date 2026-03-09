@@ -119,6 +119,7 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
         print("serie_id:", serie_id, "current_order:", current_order)
 
         # Obtener información del juego anterior si existe serie
+        previous_game_info = None
         if serie_id:
             print("existe serie_id:", serie_id)
             previous_game_info = await get_previous_game_in_series(serie_id, current_order)
@@ -222,58 +223,131 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
                 {"$set": {"characters": [character.dict() for character in characters]}}
             )
 
-            print("characters:", characters)
+            print("characters:", previous_game_info)
 
             # Generar tareas para cada personaje (si hay)
             last_task_character_id = None
             for character in characters:
-                task_character = generate_image_character_shared_task.delay(
-                    _user_id,
-                    character.visual_description,
-                    character.gender,
-                    character.id,
-                    _id_game_provisional,
-                    character.url_image_reference
-                )
+                # Lógica para reutilizar el personaje principal de la serie y evitar extracción innecesaria
+                is_reused = False
+                reused_char_data = None
 
-                # Guardar último id de tarea para uso opcional en el estado
-                last_task_character_id = task_character.id
+                print(f"[DEBUG] Evaluando personaje: {character.name}")
 
-                task_db = await create_task_service(
-                    _task_id=task_character.id,
-                    _user_id=_user_id,
-                    _task_data={},
-                    _element_id=_id_game_provisional,
-                    _element_type="game_provisional",
-                    _process="create_image_character",
-                )
+                if previous_game_info and previous_game_info.get("characters"):
+                    char_name_norm = str(character.name).strip().lower()
+                    print(f"[DEBUG] Nombre normalizado a buscar: '{char_name_norm}'")
+                    print(f"[DEBUG] Personajes previos disponibles: {len(previous_game_info['characters'])}")
 
-                task_character_2 = detection_voice_character_task.delay(
-                    _prompt_user=character.visual_description,
-                    _gender=character.gender,
-                    _id_character=character.id,
-                    _game_provisional=_id_game_provisional,
-                    _user_id=_user_id
-                )
+                    for prev_char in previous_game_info["characters"]:
+                        prev_name_norm = str(prev_char.get("name", "")).strip().lower()
+                        print(f"[DEBUG]   Comparando con: '{prev_name_norm}'")
 
-                task_db = await create_task_service(
-                    _task_id=task_character_2.id,
-                    _user_id=_user_id,
-                    _task_data={},
-                    _element_id=_id_game_provisional,
-                    _element_type="game_provisional",
-                    _process="detection_voice_character",
-                )
+                        if char_name_norm == prev_name_norm:
+                            is_reused = True
+                            reused_char_data = prev_char
+                            print(f"[DEBUG] ✓ Personaje '{character.name}' encontrado en juego anterior. Reutilizando.")
+                            break
+
+                if is_reused:
+                    print(f"[DEBUG] Aplicando datos reutilizados a '{character.name}'")
+
+                    # Si el personaje es reutilizado, actualizar sus datos en el game_provisional
+                    # con la información del personaje previo (imagen, descripción, etc.)
+                    character.visual_description = reused_char_data.get("prompt_user", character.visual_description)
+                    print(f"[DEBUG]   - Descripción visual actualizada")
+
+                    character.gender = reused_char_data.get("gender", character.gender)
+                    print(f"[DEBUG]   - Género: {character.gender}")
+
+                    # No sobreescribimos name ya que lo usamos para el match y debería ser igual
+                    # Pero sí podemos actualizar la imagen de referencia si existe
+                    if reused_char_data.get("image"):
+                        character.url_image_reference = reused_char_data.get("image")
+                        # ASIGNAR DIRECTAMENTE LA IMAGEN REUTILIZADA
+                        character.image = reused_char_data.get("image")
+                        print(f"[DEBUG]   - Imagen reutilizada: {character.image}")
+                    else:
+                        print(f"[DEBUG]   - Sin imagen previa disponible")
+
+                    if reused_char_data.get("voice_id"):
+                        character.voice_id = reused_char_data.get("voice_id")
+                        print(f"[DEBUG]   - Voz reutilizada: {character.voice_id}")
+
+                    print(f"[DEBUG] Personaje '{character.name}' procesado como reutilizado\n")
+                else:
+                    print(f"[DEBUG] Personaje '{character.name}' requiere nueva generación de imagen\n")
+
+                    task_character = generate_image_character_shared_task.delay(
+                        _user_id,
+                        character.visual_description,
+                        character.gender,
+                        character.id,
+                        _id_game_provisional,
+                        character.url_image_reference
+                    )
+
+                    # Guardar último id de tarea para uso opcional en el estado
+                    last_task_character_id = task_character.id
+
+                    task_db = await create_task_service(
+                        _task_id=task_character.id,
+                        _user_id=_user_id,
+                        _task_data={},
+                        _element_id=_id_game_provisional,
+                        _element_type="game_provisional",
+                        _process="create_image_character",
+                    )
+
+                    task_character_2 = detection_voice_character_task.delay(
+                        _prompt_user=character.visual_description,
+                        _gender=character.gender,
+                        _id_character=character.id,
+                        _game_provisional=_id_game_provisional,
+                        _user_id=_user_id
+                    )
+
+                    task_db = await create_task_service(
+                        _task_id=task_character_2.id,
+                        _user_id=_user_id,
+                        _task_data={},
+                        _element_id=_id_game_provisional,
+                        _element_type="game_provisional",
+                        _process="detection_voice_character",
+                    )
+
+            # Guardar los personajes actualizados (posiblemente con datos reutilizados)
+            await db["game_provisional"].update_one(
+                {"_id": ObjectId(_id_game_provisional)},
+                {"$set": {"characters": [character.dict() for character in characters]}}
+            )
 
             # Actualizar estado solo si se creó al menos una tarea
             if last_task_character_id and len(characters) > 0:
                 try:
-                    character_name = characters[0].name
+                    # Encontrar el primer personaje que no fue reutilizado para mostrar su nombre
+                    display_char = None
+                    if previous_game_info and previous_game_info.get("characters"):
+                        for character in characters:
+                            char_name_norm = str(character.name).strip().lower()
+                            is_reused = any(str(pc.get("name", "")).strip().lower() == char_name_norm 
+                                          for pc in previous_game_info["characters"])
+                            if not is_reused:
+                                display_char = character
+                                break
+                    else:
+                        display_char = characters[0]
+
+                    character_name = display_char.name if display_char else "secondary"
                 except Exception:
                     character_name = ""
                 await update_game_provisional_status(_id_game_provisional, "create_image_character", 40,
                                                      f"Creating image generation for character '{character_name}'",
                                                      task=last_task_character_id)
+            elif len(characters) > 0:
+                # Si todos los personajes fueron reutilizados, saltamos al siguiente paso visualmente
+                await update_game_provisional_status(_id_game_provisional, "create_image_character", 40,
+                                                     "Reusing existing characters from the series.")
 
             locations = await extract_locations_from_script(script, characters, game_language, base64_string)
             await db["game_provisional"].update_one(
@@ -356,6 +430,8 @@ class CharactersProvisional(BaseModel):
                         description="Gender of the character, e.g., male, female, animal, other. always in english")
     url_image_reference: str | None = Field(None, example=None,
                                              description="Reference image URL for the character, if any.")
+    image: str | None = Field(None, description="URL of the character image")
+    voice_id: str | None = Field(None, description="ID of the character voice")
 
 
 class TasksCreateCharactersProvisional(BaseModel):
@@ -1558,9 +1634,8 @@ async def get_previous_game_in_series(serie_id: str, current_order: int) -> dict
         game_id = str(previous_game.get("_id"))
 
         # Obtener state_games del juego anterior
-        state_games = await db["state_game"].find({
+        state_games = await db["state_glic"].find({
             "data.game_id": game_id,
-            "is_active": True
         }).to_list(None)
 
         # Extraer personajes y locaciones de los state_games
@@ -1572,10 +1647,16 @@ async def get_previous_game_in_series(serie_id: str, current_order: int) -> dict
 
             # Obtener personajes si type_element es "character"
             if state_game.get("type_element") == "character":
+                # Asegurar que el _id está presente (puede venir de data._id o del element_id)
+                if "_id" not in state_game_data and state_game.get("element_id"):
+                    state_game_data["_id"] = state_game.get("element_id")
                 characters.append(state_game_data)
 
             # Obtener locaciones si type_element es "location"
             elif state_game.get("type_element") == "location":
+                # Asegurar que el _id está presente (puede venir de data._id o del element_id)
+                if "_id" not in state_game_data and state_game.get("element_id"):
+                    state_game_data["_id"] = state_game.get("element_id")
                 locations.append(state_game_data)
 
         return {
@@ -1771,13 +1852,29 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
             # Obtener información del juego anterior en la serie
             previous_game_info = await get_previous_game_in_series(serie_id, order)
 
+            # Intentar obtener el nombre del personaje principal previo o definido en la serie
+            preferred_main_name = None
+            try:
+                series_db = await series_service.get_series_service(serie_id)
+                if series_db and series_db.get("main_character"):
+                    preferred_main_name = series_db.get("main_character")
+                if not preferred_main_name and order and order > 1:
+                    prev_game_db = await db["game"].find_one({"serie_id": serie_id, "order": order - 1})
+                    if prev_game_db and prev_game_db.get("character_principal"):
+                        prev_char_db = await db["character"].find_one({"_id": ObjectId(prev_game_db["character_principal"])})
+                        if prev_char_db and prev_char_db.get("name"):
+                            preferred_main_name = prev_char_db.get("name")
+            except Exception:
+                preferred_main_name = preferred_main_name or None
+
             # Guardar la información del juego anterior en el game_provisional
             await db["game_provisional"].update_one(
                 {"_id": ObjectId(_id_game_provisional)},
                 {
                     "$set": {
                         "previous_game_info": previous_game_info,
-                        "serie_order": order
+                        "serie_order": order,
+                        "preferred_main_name": preferred_main_name
                     }
                 }
             )
@@ -1825,9 +1922,12 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                 current_character_index += 1
                 progress = 40 + int((current_character_index / total_characters) * 10) if total_characters > 0 else 40
 
-                if char["id"] in id_map_characters:
+                if char["id"] in id_map_characters and id_map_characters[char["id"]] is not None:
+                    print(f"[DEBUG] Deactivating character with ID: {id_map_characters[char['id']]}")
                     await deactivate_character_service(id_map_characters[char["id"]], state_for_chars, True)
                 else:
+                    print(f"CREANDO NUEVO PERSONAJE: '{char['name']}'")
+                    # Crear nuevo personaje
                     character_db = await create_character_service(
                         character=SchemaCreateCharacter(
                             name=char["name"],
@@ -1908,17 +2008,55 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
             )
             await asyncio.sleep(10)
 
-        principal_char = next(
-            (char for char in game_provisional_db.get("characters", []) if
-             str(char.get("role")).lower() == "principal"),
-            None
-        )
-
-        if principal_char and principal_char.get("id") in id_map_characters:
-            await db["game"].update_one(
-                {"_id": ObjectId(str(game_db.get("_id")))},
-                {"$set": {"character_principal": id_map_characters[principal_char["id"]]}}
+        # Determinar y fijar el personaje principal del juego usando preferencia de serie o del juego previo
+        principal_set = False
+        preferred_main_name = game_provisional_db.get("preferred_main_name")
+        if preferred_main_name:
+            target_char = next(
+                (char for char in game_provisional_db.get("characters", []) if str(char.get("name", "")).strip().lower() == str(preferred_main_name).strip().lower()),
+                None
             )
+            if target_char and target_char.get("id") in id_map_characters:
+                await db["game"].update_one(
+                    {"_id": ObjectId(str(game_db.get("_id")))},
+                    {"$set": {"character_principal": id_map_characters[target_char["id"]]}}
+                )
+                principal_set = True
+                # Si la serie no tiene main_character definido, guardarlo
+                try:
+                    series_db = await series_service.get_series_service(serie_id) if serie_id else None
+                    if series_db and not series_db.get("main_character"):
+                        await series_service.update_series_service(
+                            serie_id,
+                            SchemaUpdateSeries(main_character=preferred_main_name),
+                            str(game_provisional_db.get("created_by", "anonymous"))
+                        )
+                except Exception:
+                    pass
+
+        if not principal_set:
+            principal_char = next(
+                (char for char in game_provisional_db.get("characters", []) if
+                 str(char.get("role")).lower() == "principal"),
+                None
+            )
+
+            if principal_char and principal_char.get("id") in id_map_characters:
+                await db["game"].update_one(
+                    {"_id": ObjectId(str(game_db.get("_id")))},
+                    {"$set": {"character_principal": id_map_characters[principal_char["id"]]}}
+                )
+                # Si la serie no tiene main_character, usar el del personaje actual
+                try:
+                    series_db = await series_service.get_series_service(serie_id) if serie_id else None
+                    if series_db and not series_db.get("main_character") and principal_char.get("name"):
+                        await series_service.update_series_service(
+                            serie_id,
+                            SchemaUpdateSeries(main_character=principal_char.get("name")),
+                            str(game_provisional_db.get("created_by", "anonymous"))
+                        )
+                except Exception:
+                    pass
 
         for index, block in enumerate(game_structure):
             created_loc_id = id_map_locations.get(block["location"]["id"])
@@ -1949,6 +2087,11 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                     for cid in inter.get("id_characters", [])
                     if cid in id_map_characters and cid != principal_orig_id
                 ]
+
+                # Validar que hay al menos un personaje antes de procesar la interacción
+                if not inter_characters_mapped:
+                    print(f"[WARNING] No mapped characters found for interaction at location {inter_location_mapped}. Skipping.")
+                    continue
 
                 for conv in inter["conversations"]:
                     if conv.get("id_character") in id_map_characters:

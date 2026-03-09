@@ -178,7 +178,8 @@ class SeriesService:
         """
         return await self.get_series_service(series_id)
 
-    async def get_all_series_service(self, skip: int = 0, limit: int = 10, active_only: bool = True) -> tuple[list, int]:
+    async def get_all_series_service(self, skip: int = 0, limit: int = 10, active_only: bool = True) -> tuple[
+        list, int]:
         """
         Get all series with pagination.
 
@@ -220,7 +221,8 @@ class SeriesService:
 
             total = await self.db["series"].count_documents(query)
 
-            series_list = await self.db["series"].find(query).sort("created_at", -1).skip(skip).limit(limit).to_list(None)
+            series_list = await self.db["series"].find(query).sort("created_at", -1).skip(skip).limit(limit).to_list(
+                None)
 
             return series_list, total
         except Exception as e:
@@ -313,7 +315,8 @@ class SeriesService:
             self.logger.error(f"Error getting series with games: {str(e)}")
             return None
 
-    async def publish_series_service(self, series_id: str, publish_type: str, user_id: str, requested_is_published: bool | None = None) -> dict:
+    async def publish_series_service(self, series_id: str, publish_type: str, user_id: str,
+                                     requested_is_published: bool | None = None) -> dict:
         """
         Publish or unpublish a series. publish_type controls is_published/is_link flags.
 
@@ -346,7 +349,8 @@ class SeriesService:
 
             # Optionally warn about mismatched legacy flag
             if requested_is_published is not None and requested_is_published != effective_is_published:
-                self.logger.warning("publish_type overrides is_published: %s -> %s", requested_is_published, effective_is_published)
+                self.logger.warning("publish_type overrides is_published: %s -> %s", requested_is_published,
+                                    effective_is_published)
 
             await self.db["series"].update_one(
                 {"_id": ObjectId(series_id)},
@@ -373,12 +377,119 @@ class SeriesService:
                 detail="Error publishing series",
             )
 
-    async def get_published_series_service(self, skip: int = 0, limit: int = 10, category_id: str = None, search_name: str = None) -> tuple[list, int]:
+    async def debug_analytics_structure(self, game_id: str = None) -> dict:
+        """
+        Debug method to understand the structure of analytics collection.
+
+        Args:
+            game_id: Optional game ID to filter analytics
+
+        Returns:
+            dict: Sample analytics documents for debugging
+        """
+        try:
+            query = {}
+            if game_id:
+                query = {"$or": [{"game_id": game_id}, {"_id": game_id}]}
+
+            samples = await self.db["analytics"].find(query).limit(5).to_list(None)
+
+            # Also check the schema
+            analytics_count = await self.db["analytics"].count_documents({})
+
+            return {
+                "total_analytics_documents": analytics_count,
+                "sample_documents": [
+                    {
+                        "_id": str(doc.get("_id", "")),
+                        "keys": list(doc.keys()),
+                        "game_id": doc.get("game_id"),
+                        "views": doc.get("views"),
+                        "likes": doc.get("likes"),
+                        "plays": doc.get("plays")
+                    } for doc in samples
+                ],
+                "query_used": query
+            }
+        except Exception as e:
+            self.logger.error(f"Error in debug_analytics_structure: {str(e)}")
+            return {"error": str(e)}
+
+    async def debug_series_analytics_mapping(self, series_id: str) -> dict:
+        """
+        Debug method to verify how analytics are matched with games in a series.
+        Shows which games have analytics and which don't.
+
+        Args:
+            series_id: ID of the series to debug
+
+        Returns:
+            dict: Mapping information between games and analytics
+        """
+        try:
+            if not ObjectId.is_valid(series_id):
+                return {"error": "Invalid series ID"}
+
+            series_db = await self.db["series"].find_one({"_id": ObjectId(series_id)})
+            if not series_db:
+                return {"error": "Series not found"}
+
+            games_ids = series_db.get("games_id", [])
+
+            # Get games
+            games = await self.db["game"].find({
+                "_id": {"$in": [ObjectId(gid) if ObjectId.is_valid(gid) else gid for gid in games_ids]}
+            }).to_list(None)
+
+            # Get all analytics
+            all_analytics = await self.db["analytics"].find({}).to_list(None)
+
+            games_info = []
+            for game in games:
+                game_id_str = str(game.get("_id", ""))
+                game_id_obj = game.get("_id")
+
+                # Try to find analytics with different ID formats
+                analytics_found = None
+
+                # Try string format
+                analytics_found = next((a for a in all_analytics if str(a.get("game_id", "")) == game_id_str), None)
+
+                # Try ObjectId format
+                if not analytics_found:
+                    analytics_found = next((a for a in all_analytics if a.get("game_id") == game_id_obj), None)
+
+                games_info.append({
+                    "game_id": game_id_str,
+                    "game_title": game.get("title"),
+                    "order": game.get("order"),
+                    "has_analytics": analytics_found is not None,
+                    "analytics": {
+                        "views": analytics_found.get("views", 0) if analytics_found else 0,
+                        "likes": analytics_found.get("likes", 0) if analytics_found else 0,
+                        "plays": analytics_found.get("plays", 0) if analytics_found else 0
+                    } if analytics_found else None
+                })
+
+            return {
+                "series_id": series_id,
+                "series_title": series_db.get("title"),
+                "total_games": len(games_ids),
+                "total_analytics_in_db": len(all_analytics),
+                "games_mapping": games_info
+            }
+        except Exception as e:
+            self.logger.error(f"Error in debug_series_analytics_mapping: {str(e)}")
+            return {"error": str(e)}
+
+    async def get_published_series_service(self, skip: int = 0, limit: int = 10, category_id: str = None,
+                                           search_name: str = None) -> tuple[list, int]:
         """
         Get all published series with pagination including games and game_provisional data.
         Uses MongoDB aggregation for efficiency.
         Supports filtering by category and searching by series name.
         No authentication required.
+        Includes analytics: counts views and likes of games from analytics collection, and highlights the most viewed game.
 
         Args:
             skip: Number of documents to skip
@@ -387,7 +498,7 @@ class SeriesService:
             search_name: (optional) Search series by name (case-insensitive)
 
         Returns:
-            tuple: (list of published series with games, total count)
+            tuple: (list of published series with games and analytics, total count)
         """
         try:
             # Construir el match stage con filtros opcionales
@@ -408,7 +519,7 @@ class SeriesService:
                 # Búsqueda case-insensitive por nombre
                 match_stage["title"] = {"$regex": search_name, "$options": "i"}
 
-            # Pipeline de agregación
+            # Pipeline de agregación mejorado con analytics desde la colección analytics
             pipeline = [
                 {
                     "$match": match_stage
@@ -445,12 +556,91 @@ class SeriesService:
                                     "image": 1,
                                     "category_id": 1,
                                     "order": 1,
-                                    "provisional_id": {"$toString": "$provisional_id"},
-                                    "views": {"$ifNull": ["$views", 0]}
+                                    "provisional_id": {"$toString": "$provisional_id"}
                                 }
                             }
                         ],
                         "as": "games"
+                    }
+                },
+          {
+              "$lookup": {
+                  "from": "analytics",
+                  "let": {"games_ids": {
+                      "$map": {
+                          "input": "$games_id",
+                          "as": "id",
+                          "in": {"$toString": "$$id"}
+                      }
+                  }},
+                  "pipeline": [
+                      {
+                          "$match": {
+                              "$expr": {
+                                  "$in": [{"$toString": "$game_id"}, "$$games_ids"]
+                              }
+                          }
+                      },
+                      {
+                          "$group": {
+                              "_id": "$game_id",
+                              "total_records": {"$sum": 1}
+                          }
+                      },
+                      {
+                          "$sort": {"total_records": -1}
+                      },
+                      {
+                          "$limit": 1
+                      },
+                      {
+                          "$project": {
+                              "game_id": "$_id",
+                              "total_records": 1,
+                              "_id": 0
+                          }
+                      }
+                  ],
+                  "as": "analytics_data"
+              }
+          },
+                {
+                    "$addFields": {
+                        "games": {
+                            "$map": {
+                                "input": "$games",
+                                "as": "game",
+                                "in": {
+                                    "$let": {
+                                        "vars": {
+                                            "matchedAnalytics": {
+                                                "$arrayElemAt": [
+                                                    {
+                                                        "$filter": {
+                                                            "input": "$analytics_data",
+                                                            "as": "analytic",
+                                                            "cond": {"$eq": ["$$analytic.game_id", "$$game._id"]}
+                                                        }
+                                                    },
+                                                    0
+                                                ]
+                                            }
+                                        },
+                                        "in": {
+                                            "_id": "$$game._id",
+                                            "title": "$$game.title",
+                                            "history": "$$game.history",
+                                            "image": "$$game.image",
+                                            "category_id": "$$game.category_id",
+                                            "order": "$$game.order",
+                                            "provisional_id": "$$game.provisional_id",
+                                            "analytics_records_count": {
+                                                "$ifNull": ["$$matchedAnalytics.total_records", 0]}
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 },
                 {
@@ -462,18 +652,37 @@ class SeriesService:
                         "category_id": 1,
                         "main_character": 1,
                         "played_count": {"$ifNull": ["$played_count", 0]},
-                        "views": {
-                            "total": {
-                                "$sum": "$games.views"
-                            },
-                            "most_viewed_game": {
-                                "$max": "$games.views"
-                            }
-                        },
                         "rating": {"$ifNull": ["$rating", 0.0]},
                         "publish_type": {"$ifNull": ["$publish_type", "private"]},
                         "is_published": {"$ifNull": ["$is_published", False]},
                         "is_link": {"$ifNull": ["$is_link", False]},
+                        # Obtener el juego con más views usando $reduce
+                        "most_viewed_game_info": {
+                            "$reduce": {
+                                "input": "$games",
+                                "initialValue": {
+                                    "_id": None,
+                                    "title": None,
+                                    "views": 0,
+                                    "likes": 0,
+                                    "plays": 0,
+                                    "order": None,
+                                    "image": None
+                                },
+                                "in": {
+                                    "$cond": [
+                                        {"$gt": [{"$ifNull": ["$$this.views", 0]}, "$$value.views"]},
+                                        {
+                                            "_id": "$$this._id",
+                                            "title": "$$this.title",
+                                            "order": "$$this.order",
+                                            "image": "$$this.image"
+                                        },
+                                        "$$value"
+                                    ]
+                                }
+                            }
+                        },
                         "games": 1
                     }
                 },
@@ -500,6 +709,12 @@ class SeriesService:
             for series in series_list:
                 if "_id" in series and hasattr(series["_id"], "__str__"):
                     series["_id"] = str(series["_id"])
+
+                # Limpiar campos innecesarios del most_viewed_game_info si no hay datos
+                if series.get("most_viewed_game_info", {}).get("_id") is None:
+                    series["most_viewed_game_info"] = None
+
+            print(series_list[0:2])
 
             return series_list, total
 
@@ -602,13 +817,13 @@ class SeriesService:
             return None
 
     async def get_user_series_with_games_service(
-        self,
-        user_id: str,
-        page: int = 1,
-        limit: int = 10,
-        search_series_name: str = None,
-        game_category: str = None,
-        template_type: str = None
+            self,
+            user_id: str,
+            page: int = 1,
+            limit: int = 10,
+            search_series_name: str = None,
+            game_category: str = None,
+            template_type: str = None
     ) -> dict | None:
         """
         Get all series created by a user with all their games and game_provisional data.
@@ -696,7 +911,8 @@ class SeriesService:
                         # Si hay filtro de template_type, verificar si coincide
                         if template_type:
                             # Si no existe game_provisional o no coincide el template, saltar este juego
-                            if not game_provisional or game_provisional.get("type_template", "").lower() != template_type.lower():
+                            if not game_provisional or game_provisional.get("type_template",
+                                                                            "").lower() != template_type.lower():
                                 continue
 
                         # Solo agregar el juego si tiene game_provisional válido
@@ -773,16 +989,19 @@ class SeriesService:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="games_order length mismatch")
 
             if set(current_games) != set(games_order):
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="games_order must include all series games")
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                    detail="games_order must include all series games")
 
             order_map = {gid: idx + 1 for idx, gid in enumerate(games_order)}
 
             # Actualizar orden de cada juego
             for gid, order_value in order_map.items():
                 if ObjectId.is_valid(gid):
-                    await self.db["game"].update_one({"_id": ObjectId(gid)}, {"$set": {"order": order_value, "updated_at": datetime.utcnow(), "updated_by": user_id}})
+                    await self.db["game"].update_one({"_id": ObjectId(gid)}, {
+                        "$set": {"order": order_value, "updated_at": datetime.utcnow(), "updated_by": user_id}})
                 else:
-                    await self.db["game"].update_one({"_id": gid}, {"$set": {"order": order_value, "updated_at": datetime.utcnow(), "updated_by": user_id}})
+                    await self.db["game"].update_one({"_id": gid}, {
+                        "$set": {"order": order_value, "updated_at": datetime.utcnow(), "updated_by": user_id}})
 
             # Persistir el orden normalizado en la serie
             await self.db["series"].update_one(
@@ -847,15 +1066,19 @@ class SeriesService:
             remaining_games = [gid for gid in games if gid != game_id]
             await self.db["series"].update_one(
                 {"_id": ObjectId(series_id)},
-                {"$set": {"games_id": remaining_games, "hidden_games": [g for g in series_db.get("hidden_games", []) if g != game_id], "updated_at": datetime.utcnow(), "updated_by": user_id}}
+                {"$set": {"games_id": remaining_games,
+                          "hidden_games": [g for g in series_db.get("hidden_games", []) if g != game_id],
+                          "updated_at": datetime.utcnow(), "updated_by": user_id}}
             )
 
             # Reordenar los juegos restantes
             for idx, gid in enumerate(remaining_games):
                 if ObjectId.is_valid(gid):
-                    await self.db["game"].update_one({"_id": ObjectId(gid)}, {"$set": {"order": idx + 1, "updated_at": datetime.utcnow(), "updated_by": user_id}})
+                    await self.db["game"].update_one({"_id": ObjectId(gid)}, {
+                        "$set": {"order": idx + 1, "updated_at": datetime.utcnow(), "updated_by": user_id}})
                 else:
-                    await self.db["game"].update_one({"_id": gid}, {"$set": {"order": idx + 1, "updated_at": datetime.utcnow(), "updated_by": user_id}})
+                    await self.db["game"].update_one({"_id": gid}, {
+                        "$set": {"order": idx + 1, "updated_at": datetime.utcnow(), "updated_by": user_id}})
 
             return await self.get_series_with_games_service(series_id)
         except HTTPException:
@@ -923,7 +1146,8 @@ class SeriesService:
                 assets_deleted += 1
 
             # Preparar documentos relacionados para limpiar assets antes de borrar
-            state_glic_docs = await self.db["state_glic"].find({"$or": [{"game_id": game_id}, {"data.game_id": game_id}]}).to_list(None)
+            state_glic_docs = await self.db["state_glic"].find(
+                {"$or": [{"game_id": game_id}, {"data.game_id": game_id}]}).to_list(None)
             event_docs = await self.db["event"].find({"game_id": game_id}).to_list(None)
 
             for doc in state_glic_docs:
@@ -936,7 +1160,8 @@ class SeriesService:
                         assets_deleted += 1
                 assets_deleted += self._delete_assets_from_document(doc.get("data", {}))
 
-            state_glic_result = await self.db["state_glic"].delete_many({"$or": [{"game_id": game_id}, {"data.game_id": game_id}]})
+            state_glic_result = await self.db["state_glic"].delete_many(
+                {"$or": [{"game_id": game_id}, {"data.game_id": game_id}]})
             character_result = await self.db["character"].delete_many({"game_id": game_id})
             location_result = await self.db["location"].delete_many({"game_id": game_id})
             state_game_result = await self.db["state_game"].delete_many({"game_id": game_id})
@@ -987,3 +1212,79 @@ class SeriesService:
 
         _walk(doc)
         return deleted
+
+    async def get_user_stats_service(self, user_id: str) -> dict:
+                """
+                Get aggregated statistics for the authenticated user.
+
+                Returns:
+                    dict: User statistics including:
+                        - total_series: Count of all active series created by user
+                        - total_episodes: Count of all visible games in user's series (all series, not just published)
+                        - published_episodes: Count of all visible games in user's published series
+                        - analytics_records: Count of analytics records for user's games
+                """
+                try:
+                    # 1. Total de series creadas por el usuario (activas)
+                    total_series = await self.db["series"].count_documents({
+                        "created_by": user_id,
+                        "is_active": True
+                    })
+
+                    # 2. Total de episodios/juegos visibles en TODAS las series del usuario
+                    all_user_series = await self.db["series"].find({
+                        "created_by": user_id,
+                        "is_active": True
+                    }).to_list(None)
+
+                    total_episodes = 0
+                    for series in all_user_series:
+                        games_ids = series.get("games_id", [])
+                        hidden_games = set(series.get("hidden_games", []))
+                        visible_games_count = len([gid for gid in games_ids if gid not in hidden_games])
+                        total_episodes += visible_games_count
+
+                    # 3. Total de episodios/juegos visibles en series PUBLICADAS
+                    published_series_docs = await self.db["series"].find({
+                        "created_by": user_id,
+                        "is_published": True,
+                        "is_active": True
+                    }).to_list(None)
+
+                    published_episodes = 0
+                    for series in published_series_docs:
+                        games_ids = series.get("games_id", [])
+                        hidden_games = set(series.get("hidden_games", []))
+                        visible_games_count = len([gid for gid in games_ids if gid not in hidden_games])
+                        published_episodes += visible_games_count
+
+                    # 4. Registros de analíticas
+                    user_games = await self.db["game"].find({
+                        "created_by": user_id,
+                        "is_active": True
+                    }).to_list(None)
+
+                    game_ids_set = {str(game.get("_id")) for game in user_games}
+
+                    analytics_records = 0
+                    if game_ids_set:
+                        analytics_records = await self.db["analytics"].count_documents({
+                            "$or": [
+                                {"game_id": {"$in": list(game_ids_set)}},
+                                {"gameId": {"$in": list(game_ids_set)}}
+                            ]
+                        })
+
+                    return {
+                        "total_series": total_series,
+                        "total_episodes": total_episodes,
+                        "published_episodes": published_episodes,
+                        "analytics_records": analytics_records
+                    }
+                except Exception as e:
+                    self.logger.error(f"Error getting user stats: {str(e)}")
+                    raise HTTPException(
+                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                        detail="Error retrieving user statistics",
+                    )
+
