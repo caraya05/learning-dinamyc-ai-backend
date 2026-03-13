@@ -7,6 +7,7 @@ para construir un dashboard en una sola petición.
 
 from datetime import datetime, timedelta
 from typing import Optional, List
+import asyncio
 from bson import ObjectId
 from fastapi import HTTPException
 from starlette import status
@@ -27,39 +28,52 @@ from user.schemas_dash import (
 )
 
 
-async def _build_user_kpis(user_db: dict) -> KPIs:
+async def _build_user_kpis(user_db: dict, games_list: Optional[List[dict]] = None) -> KPIs:
     """
     Construye las tarjetas de KPI del usuario.
 
     Args:
         user_db: Documento del usuario desde MongoDB
+        games_list: Lista de games del usuario (para reutilizar datos)
 
     Returns:
         KPIs: Objeto con todos los KPIs
     """
     stars = user_db.get("stars", 0)
     is_active = user_db.get("is_active", False)
+    user_id = str(user_db.get("_id"))
 
-    # Contar series creadas
-    series_count = await db["game"].count_documents({"created_by": str(user_db.get("_id"))})
+    # Obtener IDs de games creados por el usuario (si no se proporcionó)
+    if games_list is None:
+        games_list = await db["game"].find({"created_by": user_id}).to_list(None)
 
-    # Obtener IDs de games creados por el usuario
-    games_list = await db["game"].find({"created_by": str(user_db.get("_id"))}).to_list(None)
+    series_count = len(games_list)
     game_ids = [str(g.get("_id")) for g in games_list]
 
-    # Contar analytics de esos games
-    analytics_count = 0
+    # Contar analytics de esos games y tokens cargados en paralelo
+    analytics_count_task = (
+        db["analytics"].count_documents({"gameId": {"$in": game_ids}})
+        if game_ids else asyncio.sleep(0)
+    )
+
+    tokens_task = db["star_recharge"].aggregate([
+        {"$match": {"user_id": user_id}},
+        {"$group": {"_id": None, "total": {"$sum": "$stars_recharged"}}}
+    ]).to_list(None)
+
+    # Ejecutar en paralelo
     if game_ids:
-        analytics_count = await db["analytics"].count_documents({"gameId": {"$in": game_ids}})
+        analytics_result = await asyncio.gather(analytics_count_task, tokens_task)
+        analytics_count = analytics_result[0]
+        tokens_records = analytics_result[1]
+    else:
+        tokens_records = await tokens_task
+        analytics_count = 0
 
-    # Contar tokens cargados
-    tokens_charged_records = await db["star_recharge"].find({
-        "user_id": str(user_db.get("_id"))
-    }).to_list(None)
-
+    # Extraer tokens cargados del agregado
     tokens_charged = 0.0
-    if tokens_charged_records:
-        tokens_charged = sum([item.get("stars_recharged", 0) for item in tokens_charged_records])
+    if tokens_records and tokens_records[0]:
+        tokens_charged = float(tokens_records[0].get("total", 0))
 
     # Contar tokens usados (games_created * 10)
     tokens_used = series_count * 10
@@ -78,6 +92,7 @@ async def _build_user_timeseries(
         user_id: str,
         from_date: str,
         to_date: str,
+        game_ids: Optional[List[str]] = None,
         group_by: str = "day",
 ) -> Optional[List[TimeSeriesData]]:
     """
@@ -93,17 +108,23 @@ async def _build_user_timeseries(
         user_id: ID del usuario
         from_date: Fecha de inicio
         to_date: Fecha de fin
+        game_ids: Lista de game_ids del usuario (para reutilizar datos)
         group_by: 'day', 'week' o 'month'
 
     Returns:
         Lista de series de tiempo o None si no hay datos
     """
     try:
-        from_datetime = datetime.strptime(from_date, "%Y-%m-%d")
-        to_datetime = datetime.strptime(to_date, "%Y-%m-%d")
+        from_datetime = datetime.strptime(from_date, "%Y-%m-%d").replace(hour=0, minute=0, second=0)
+        to_datetime = datetime.strptime(to_date, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
 
-        # ============ SERIES CREADAS POR MES ============
-        series_by_month = await db["series"].aggregate([
+        # Obtener games del usuario si no se proporciona
+        if game_ids is None:
+            games_list = await db["game"].find({"created_by": user_id}).to_list(None)
+            game_ids = [str(g.get("_id")) for g in games_list]
+
+        # Ejecutar todas las agregaciones en paralelo
+        series_agg_task = db["game"].aggregate([
             {
                 "$match": {
                     "created_by": user_id,
@@ -127,19 +148,14 @@ async def _build_user_timeseries(
             {"$sort": {"_id": 1}}
         ]).to_list(None)
 
-        series_dict = {item["_id"]: item["count"] for item in series_by_month}
-
-        # ============ ANALYTICS POR MES ============
-        # Obtener games del usuario
-        games_list = await db["game"].find({"created_by": user_id}).to_list(None)
-        game_ids = [str(g.get("_id")) for g in games_list]
-
-        analytics_by_month = {}
-        if game_ids:
-            analytics_result = await db["analytics"].aggregate([
+        analytics_agg_task = (
+            db["analytics"].aggregate([
                 {
                     "$match": {
-                        "game_id": {"$in": game_ids},
+                        "$or": [
+                            {"gameId": {"$in": game_ids}},
+                            {"game_id": {"$in": game_ids}}
+                        ],
                         "created_at": {
                             "$gte": from_datetime,
                             "$lte": to_datetime,
@@ -159,13 +175,10 @@ async def _build_user_timeseries(
                 },
                 {"$sort": {"_id": 1}}
             ]).to_list(None)
+            if game_ids else asyncio.sleep(0)
+        )
 
-            analytics_dict = {item["_id"]: item["count"] for item in analytics_result}
-        else:
-            analytics_dict = {}
-
-        # ============ TOKENS CARGADOS POR MES ============
-        tokens_charged_result = await db["star_recharge"].aggregate([
+        tokens_charged_agg_task = db["star_recharge"].aggregate([
             {
                 "$match": {
                     "user_id": user_id,
@@ -189,10 +202,7 @@ async def _build_user_timeseries(
             {"$sort": {"_id": 1}}
         ]).to_list(None)
 
-        tokens_charged_dict = {item["_id"]: item["total"] for item in tokens_charged_result}
-
-        # ============ TOKENS USADOS POR MES ============
-        tokens_used_result = await db["game"].aggregate([
+        tokens_used_agg_task = db["game"].aggregate([
             {
                 "$match": {
                     "created_by": user_id,
@@ -216,6 +226,23 @@ async def _build_user_timeseries(
             {"$sort": {"_id": 1}}
         ]).to_list(None)
 
+        # Ejecutar todas las agregaciones en paralelo
+        results = await asyncio.gather(
+            series_agg_task,
+            analytics_agg_task,
+            tokens_charged_agg_task,
+            tokens_used_agg_task,
+        )
+
+        series_by_month = results[0]
+        analytics_result = results[1] if isinstance(results[1], list) else []
+        tokens_charged_result = results[2]
+        tokens_used_result = results[3]
+
+        # Convertir resultados a diccionarios
+        series_dict = {item["_id"]: item["count"] for item in series_by_month}
+        analytics_dict = {item["_id"]: item["count"] for item in analytics_result}
+        tokens_charged_dict = {item["_id"]: item["total"] for item in tokens_charged_result}
         tokens_used_dict = {item["_id"]: item["count"] for item in tokens_used_result}
 
         # Generar todos los meses en el rango
@@ -286,12 +313,13 @@ async def _build_user_timeseries(
         return None
 
 
-async def _build_user_breakdowns(user_db: dict) -> Optional[Breakdowns]:
+async def _build_user_breakdowns(user_db: dict, games_list: Optional[List[dict]] = None) -> Optional[Breakdowns]:
     """
     Construye los desgloces (breakdowns) del usuario.
 
     Args:
         user_db: Documento del usuario desde MongoDB
+        games_list: Lista de games del usuario (para reutilizar datos)
 
     Returns:
         Breakdowns: Objeto con los desgloces
@@ -316,6 +344,13 @@ async def _build_user_breakdowns(user_db: dict) -> Optional[Breakdowns]:
 
         # Desglose por estado de creación
         attempt_to_create = user_db.get("attempt_to_create", False)
+
+        # Reutilizar games_list si se proporciona, si no obtenerla
+        if games_list is None:
+            games_list = await db["game"].find({"created_by": str(user_db.get("_id"))}).to_list(None)
+
+        games_created_count = len(games_list)
+
         creation_breakdown = [
             BreakdownItem(
                 key="without_balance",
@@ -326,7 +361,7 @@ async def _build_user_breakdowns(user_db: dict) -> Optional[Breakdowns]:
             BreakdownItem(
                 key="with_balance",
                 label="Creaciones Realizadas",
-                total=await db["game"].count_documents({"created_by": str(user_db.get("_id"))}),
+                total=games_created_count,
                 percentage=None,
             ),
         ]
@@ -345,99 +380,151 @@ async def _get_user_series_with_analytics(user_id: str) -> Optional[List[dict]]:
     """
     Construye la lista de series del usuario con información de analíticas.
 
-    Para cada serie:
-    1. Obtiene todos los juegos asociados
-    2. Cuenta las analíticas de cada juego
-    3. Selecciona el juego con más analíticas
-    4. Ordena las series por cantidad total de analíticas (descendente)
+    - Obtiene todas las series del usuario
+    - Obtiene los juegos de cada serie
+    - Cuenta analíticas por juego
+    - Devuelve series ordenadas por cantidad de analíticas
 
     Args:
         user_id: ID del usuario
 
     Returns:
-        Lista de series ordenadas por cantidad de analíticas (descendente) o None
+        Lista de series con sus juegos y analíticas o None si no hay datos
     """
     try:
-        # Obtener todas las series del usuario
-        series_list = await db["series"].find({"created_by": user_id}).to_list(None)
+        # Agregación: series con sus juegos y analíticas
+        series_data = await db["series"].aggregate([
+            {
+                "$match": {"created_by": user_id}
+            },
+            {
+                "$lookup": {
+                    "from": "game",
+                    "let": {"serie_id": {"$toString": "$_id"}},
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "$expr": {"$eq": ["$serie_id", "$$serie_id"]}
+                            }
+                        }
+                    ],
+                    "as": "games"
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "analytics",
+                    "let": {"game_ids": {"$map": {"input": "$games", "as": "g", "in": {"$toString": "$$g._id"}}}},
+                    "pipeline": [
+                        {
+                            "$match": {
+                                "$expr": {
+                                    "$or": [
+                                        {"$in": ["$gameId", "$$game_ids"]},
+                                        {"$in": ["$game_id", "$$game_ids"]}
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    "as": "all_analytics"
+                }
+            },
+            {
+                "$addFields": {
+                    "serie_id": {"$toString": "$_id"},
+                    "total_analytics": {"$size": "$all_analytics"},
+                    "games_count": {"$size": "$games"},
+                    "hidden_games_count": {
+                        "$size": {
+                            "$filter": {
+                                "input": "$games",
+                                "as": "g",
+                                "cond": {"$eq": ["$$g.is_hidden", True]}
+                            }
+                        }
+                    }
+                }
+            },
+            {
+                "$sort": {"total_analytics": -1}
+            },
+            {
+                "$project": {
+                    "serie_id": 1,
+                    "title": 1,
+                    "image": 1,
+                    "is_active": 1,
+                    "is_published": 1,
+                    "publish_type": 1,
+                    "published_at": 1,
+                    "created_at": 1,
+                    "total_analytics": 1,
+                    "games_count": 1,
+                    "hidden_games_count": 1,
+                    "games": {
+                        "$map": {
+                            "input": "$games",
+                            "as": "game",
+                            "in": {
+                                "game_id": {"$toString": "$$game._id"},
+                                "title": "$$game.title",
+                                "is_hidden": "$$game.is_hidden",
+                                "analytics_count": {
+                                    "$size": {
+                                        "$filter": {
+                                            "input": "$all_analytics",
+                                            "as": "a",
+                                            "cond": {
+                                                "$or": [
+                                                    {"$eq": ["$$a.gameId", {"$toString": "$$game._id"}]},
+                                                    {"$eq": ["$$a.game_id", {"$toString": "$$game._id"}]}
+                                                ]
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ]).to_list(None)
 
-        if not series_list:
+        if not series_data:
             return None
 
-        # Procesar cada serie
-        series_with_analytics = []
+        # Construir objetos SeriesData con juegos poblados
+        result = []
+        for serie_doc in series_data:
+            games_list = serie_doc.get("games", [])
+            top_game = games_list[0] if games_list else None
 
-        for series_db in series_list:
-            series_id = str(series_db.get("_id"))
-            games_ids = series_db.get("games_id", [])
-
-            # Inicializar contadores
-            total_analytics = 0
-            top_game = None
-            games_count = len(games_ids)
-
-            if games_count > 0:
-                # Convertir IDs de string a ObjectId si es necesario
-                games_ids_obj = []
-                for game_id in games_ids:
-                    if isinstance(game_id, str):
-                        try:
-                            games_ids_obj.append(ObjectId(game_id))
-                        except:
-                            games_ids_obj.append(game_id)
-                    else:
-                        games_ids_obj.append(game_id)
-
-                # Obtener todos los juegos de esta serie
-                games = await db["game"].find({
-                    "_id": {"$in": games_ids_obj}
-                }).to_list(None)
-
-                # Para cada juego, contar analíticas
-                games_analytics = {}
-                for game in games:
-                    game_id = str(game.get("_id"))
-                    analytics_count = await db["analytics"].count_documents({
-                        "game_id": game_id
-                    })
-                    games_analytics[game_id] = {
-                        "game": game,
-                        "analytics_count": analytics_count
-                    }
-                    total_analytics += analytics_count
-
-                # Seleccionar el juego con más analíticas
-                if games_analytics:
-                    top_game_id = max(games_analytics, key=lambda x: games_analytics[x]["analytics_count"])
-                    top_game_data = games_analytics[top_game_id]
-                    top_game = GameInfoForSeries(
-                        game_id=top_game_id,
-                        title=top_game_data["game"].get("title"),
-                        analytics_count=top_game_data["analytics_count"]
-                    )
-
-            # Crear objeto SeriesData
-            series_data = SeriesData(
-                series_id=series_id,
-                title=series_db.get("title", ""),
-                description=series_db.get("description"),
-                image=series_db.get("image"),
-                rating=series_db.get("rating", 0.0),
-                is_active=series_db.get("is_active", True),
-                is_published=series_db.get("is_published", False),
-                publish_type=series_db.get("publish_type", "private"),
-                created_at=series_db.get("created_at", datetime.utcnow()),
-                games_count=games_count,
-                total_analytics=total_analytics,
-                top_game=top_game
+            serie_obj = SeriesData(
+                series_id=serie_doc.get("serie_id"),
+                is_active=serie_doc.get("is_active", True),
+                is_published=serie_doc.get("is_published", False),
+                publish_type=serie_doc.get("publish_type", "private"),
+                created_at=serie_doc.get("created_at", datetime.utcnow()),
+                games_count=serie_doc.get("games_count", 0),
+                total_analytics=serie_doc.get("total_analytics", 0),
+                top_game=GameInfoForSeries(
+                    game_id=top_game.get("game_id") if top_game else "",
+                    title=top_game.get("title") if top_game else "",
+                    analytics_count=top_game.get("analytics_count", 0) if top_game else 0,
+                    games_in_series=[
+                        {
+                            "game_id": g.get("game_id"),
+                            "title": g.get("title"),
+                            "analytics_count": g.get("analytics_count", 0)
+                        }
+                        for g in games_list
+                    ]
+                )
             )
+            result.append(serie_obj)
 
-            series_with_analytics.append(series_data)
-
-        # Ordenar por cantidad de analíticas (descendente)
-        series_with_analytics.sort(key=lambda x: x.total_analytics, reverse=True)
-
-        return series_with_analytics if series_with_analytics else None
+        return result if result else None
 
     except Exception as e:
         print(f"Error in _get_user_series_with_analytics: {str(e)}")
@@ -495,29 +582,29 @@ async def get_user_dashboard_summary_service(
             user_id=str(user_db.get("_id")),
             username=user_db.get("username", ""),
             email=user_db.get("email", ""),
-            photo=user_db.get("photo"),
             is_active=user_db.get("is_active", False),
-            is_superuser=user_db.get("is_superuser", False),
-            is_staff=user_db.get("is_staff", False),
         )
 
-        # Construir KPIs
-        kpis = await _build_user_kpis(user_db)
+        # OPTIMIZACIÓN: Obtener solo IDs de games con agregación (sin cargar documentos completos)
+        user_id_str = str(user_db.get("_id"))
+        games_id_agg = await db["game"].aggregate([
+            {"$match": {"created_by": user_id_str}},
+            {"$project": {"_id": 1}}
+        ]).to_list(None)
 
-        # Construir series de tiempo
-        timeseries = await _build_user_timeseries(str(user_db.get("_id")), from_date, to_date)
+        game_ids = [str(g.get("_id")) for g in games_id_agg]
+        games_list = games_id_agg  # Reutilizar para _build_user_kpis
 
-        # Construir desgloces
-        breakdowns = await _build_user_breakdowns(user_db)
+        # Ejecutar todas las operaciones en paralelo
+        kpis_task = _build_user_kpis(user_db, games_list=games_list)
+        timeseries_task = _build_user_timeseries(user_id_str, from_date, to_date, game_ids=game_ids)
+        series_data_task = _get_user_series_with_analytics(user_id_str)
 
-        # Construir series con analíticas
-        series_data = await _get_user_series_with_analytics(str(user_db.get("_id")))
-
-        # Construir métricas de completación de series (incluye tokens)
-        completion_metrics = await get_series_completion_metrics_service(
-            user_id=str(user_db.get("_id")),
-            from_date=from_date,
-            to_date=to_date,
+        # Aguardar todas las tareas en paralelo
+        (kpis, timeseries, series_data) = await asyncio.gather(
+            kpis_task,
+            timeseries_task,
+            series_data_task
         )
 
         # Construir respuesta del dashboard
@@ -530,9 +617,7 @@ async def get_user_dashboard_summary_service(
             user=user_profile,
             kpis=kpis,
             timeseries=timeseries,
-            breakdowns=breakdowns,
             series=series_data,
-            series_completion_metrics=completion_metrics,
             generated_at=datetime.utcnow(),
         )
 
@@ -593,6 +678,9 @@ async def get_all_users_dashboard_summary_service(
             total_stars=float(total_stars_value),
             active_status=active_users_count > 0,
             series_created=await db["game"].count_documents({}),
+            count_analytics=await db["analytics"].count_documents({}),
+            charged_tokens=0.0,
+            used_tokens=0.0,
         )
 
         return {
@@ -625,6 +713,8 @@ async def get_all_users_detailed_service(
         limit: int = 10,
         sort_by: str = "games_created",
         order: str = "desc",
+        search: Optional[str] = None,
+        is_preview: Optional[bool] = None,
 ) -> dict:
     """
     Obtiene un listado simplificado de TODOS los usuarios con información esencial.
@@ -644,6 +734,8 @@ async def get_all_users_detailed_service(
         limit: Número máximo de usuarios a devolver
         sort_by: Campo por el cual ordenar ('games_created', 'stars', 'views', 'created_at')
         order: Dirección del ordenamiento ('asc' para ascendente, 'desc' para descendente)
+        search: Búsqueda parcial por nombre de usuario o email (case-insensitive)
+        is_preview: Filtrar por estado de preview (True/False). Si es None, devuelve todos
 
     Returns:
         Dict con lista de usuarios simplificados y metadata de paginación
@@ -652,42 +744,93 @@ async def get_all_users_detailed_service(
         HTTPException: Si hay error en la consulta
     """
     try:
-        # Obtener todos los usuarios (sin límite para poder ordenarlos)
-        users_db = await db["user"].find().to_list(None)
-        total_users = await db["user"].count_documents({})
+        # OPTIMIZACIÓN: Una sola agregación en lugar de loops con queries
+        # Obtener estadísticas de usuarios con games y analytics en una pasada
+
+        # Construir pipeline de agregación
+        match_stage = {}
+
+        # Agregar filtro de búsqueda si existe
+        if search:
+            match_stage["$or"] = [
+                {"username": {"$regex": search, "$options": "i"}},
+                {"email": {"$regex": search, "$options": "i"}}
+            ]
+
+        # Agregar filtro de is_preview si existe
+        if is_preview is not None:
+            match_stage["is_preview"] = is_preview
+
+        # Construir el pipeline
+        pipeline = []
+
+        # Agregar match stage solo si hay filtros
+        if match_stage:
+            pipeline.append({"$match": match_stage})
+
+        # Continuar con lookups y proyecciones
+        pipeline.extend([
+            {
+                "$lookup": {
+                    "from": "game",
+                    "let": {"user_id": {"$toString": "$_id"}},
+                    "pipeline": [
+                        {"$match": {"$expr": {"$eq": ["$created_by", "$$user_id"]}}}
+                    ],
+                    "as": "games"
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "analytics",
+                    "let": {"game_ids": {"$map": {"input": "$games", "as": "g", "in": {"$toString": "$$g._id"}}}},
+                    "pipeline": [
+                        {"$match": {"$expr": {"$in": ["$gameId", "$$game_ids"]}}}
+                    ],
+                    "as": "analytics"
+                }
+            },
+            {
+                "$addFields": {
+                    "user_id": {"$toString": "$_id"},
+                    "games_created": {"$size": "$games"},
+                    "views": {"$size": "$analytics"}
+                }
+            },
+            {
+                "$project": {
+                    "user_id": 1,
+                    "username": 1,
+                    "email": 1,
+                    "created_at": 1,
+                    "stars": 1,
+                    "games_created": 1,
+                    "views": 1,
+                    "is_preview": 1
+                }
+            }
+        ])
+
+        users_agg = await db["user"].aggregate(pipeline).to_list(None)
+
+        total_users = len(users_agg)
 
         # Construir lista de usuarios simplificados
         users_detailed = []
-        for user_db in users_db:
-            user_id_str = str(user_db.get("_id"))
+        for user in users_agg:
+            games_created = user.get("games_created", 0)
+            stars_used = games_created * 10
 
-            # Contar juegos/series del usuario
-            games_count = await db["game"].count_documents({"created_by": user_id_str})
-
-            # Calcular estrellas usadas (games_created * 10)
-            stars_used = games_count * 10
-
-            # Obtener todas las analíticas de los juegos del usuario
-            total_views = 0
-            if games_count > 0:
-                # Obtener todos los game_ids del usuario
-                games = await db["game"].find({"created_by": user_id_str}).to_list(None)
-                game_ids = [str(game.get("_id")) for game in games]
-
-                # Sumar vistas de todas las analíticas de esos juegos
-                if game_ids:
-                    total_views = await db["analytics"].count_documents({"gameId": {"$in": game_ids}})
-
-            # Construir objeto simplificado del usuario
             user_detail = {
-                "user_id": user_id_str,
-                "username": user_db.get("username", ""),
-                "email": user_db.get("email", ""),
-                "created_at": user_db.get("created_at", datetime.utcnow()),
-                "stars": float(user_db.get("stars", 0)),
-                "games_created": games_count,
+                "user_id": user.get("user_id"),
+                "username": user.get("username", ""),
+                "email": user.get("email", ""),
+                "created_at": user.get("created_at", datetime.utcnow()),
+                "stars": float(user.get("stars", 0)),
+                "games_created": games_created,
                 "stars_used": stars_used,
-                "views": total_views,
+                "views": user.get("views", 0),
+                "is_preview": user.get("is_preview", False),
             }
             users_detailed.append(user_detail)
 
@@ -713,6 +856,8 @@ async def get_all_users_detailed_service(
             "limit": limit,
             "sort_by": sort_by,
             "order": order,
+            "search": search,
+            "is_preview": is_preview,
             "generated_at": datetime.utcnow(),
         }
 
@@ -792,7 +937,7 @@ async def get_global_kpis_service(
         })
 
         # Usuarios únicos que crearon series en el período
-        users_creators = await db["series"].aggregate([
+        users_creators = await db["game"].aggregate([
             {
                 "$match": {
                     "created_at": {
@@ -815,7 +960,7 @@ async def get_global_kpis_service(
         # ============ CONSTRUIR SERIES DE TIEMPO MENSUAL ============
 
         # Series creadas por mes
-        series_by_month = await db["series"].aggregate([
+        series_by_month = await db["game"].aggregate([
             {
                 "$match": {
                     "created_at": {
@@ -839,7 +984,7 @@ async def get_global_kpis_service(
         ]).to_list(None)
 
         # Usuarios creadores por mes
-        users_by_month = await db["series"].aggregate([
+        users_by_month = await db["game"].aggregate([
             {
                 "$match": {
                     "created_at": {
@@ -1006,67 +1151,151 @@ async def get_series_completion_metrics_service(
         from_datetime = datetime.strptime(from_date, "%Y-%m-%d")
         to_datetime = datetime.strptime(to_date, "%Y-%m-%d")
 
-        # Obtener todas las series del usuario creadas en el período
-        series_list = await db["game"].find({
-            "created_by": user_id,
-            "created_at": {
-                "$gte": from_datetime,
-                "$lte": to_datetime,
+        # OPTIMIZACIÓN: Usar agregación única con $lookup en lugar de loops
+        # Obtener series con analíticas vinculadas en una sola consulta
+        series_with_analytics = await db["game"].aggregate([
+            {
+                "$match": {
+                    "created_by": user_id,
+                    "created_at": {
+                        "$gte": from_datetime,
+                        "$lte": to_datetime,
+                    }
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "analytics",
+                    "localField": "_id",
+                    "foreignField": "gameId",
+                    "as": "analytics"
+                }
+            },
+            {
+                "$addFields": {
+                    "month": {
+                        "$dateToString": {
+                            "format": "%Y-%m",
+                            "date": "$created_at"
+                        }
+                    },
+                    "analytics_count": {"$size": "$analytics"},
+                    "completed_analytics_count": {
+                        "$size": {
+                            "$filter": {
+                                "input": "$analytics",
+                                "as": "a",
+                                "cond": {"$eq": ["$$a.completed", True]}
+                            }
+                        }
+                    },
+                    "has_completed_analytics": {
+                        "$gt": [
+                            {
+                                "$size": {
+                                    "$filter": {
+                                        "input": "$analytics",
+                                        "as": "a",
+                                        "cond": {"$eq": ["$$a.completed", True]}
+                                    }
+                                }
+                            },
+                            0
+                        ]
+                    },
+                    "has_any_analytics": {"$gt": ["$analytics_count", 0]}
+                }
             }
-        }).to_list(None)
+        ]).to_list(None)
 
-        # Agrupar series por mes
+        # Agrupar por mes
         series_by_month = {}
-        for series_db in series_list:
-            month_key = series_db.get("created_at", datetime.utcnow()).strftime("%Y-%m")
-            if month_key not in series_by_month:
-                series_by_month[month_key] = []
-            series_by_month[month_key].append(series_db)
+        for game_doc in series_with_analytics:
+            month = game_doc["month"]
+            if month not in series_by_month:
+                series_by_month[month] = {
+                    "games": [],
+                    "total_analytics": 0,
+                    "total_completed_analytics": 0,
+                    "completed_count": 0,
+                    "partially_completed_count": 0,
+                }
 
-        # Procesar cada mes
-        monthly_metrics_list = []
-        total_series_created = 0
-        total_series_completed = 0
-        total_series_partially_completed = 0
-        total_tokens_charged = 0.0
-        total_tokens_used = 0.0
+            series_by_month[month]["games"].append(game_doc)
+            series_by_month[month]["total_analytics"] += game_doc["analytics_count"]
+            series_by_month[month]["total_completed_analytics"] += game_doc["completed_analytics_count"]
 
-        # Obtener registros de tokens para el período
-        recharge_records = await db["star_recharge"].find({
-            "user_id": user_id,
-            "created_at": {
-                "$gte": from_datetime,
-                "$lte": to_datetime,
+            if game_doc["has_completed_analytics"]:
+                series_by_month[month]["completed_count"] += 1
+            elif game_doc["has_any_analytics"]:
+                series_by_month[month]["partially_completed_count"] += 1
+
+        # Procesar tokens en paralelo
+        tokens_charged_agg_task = db["star_recharge"].aggregate([
+            {
+                "$match": {
+                    "user_id": user_id,
+                    "created_at": {
+                        "$gte": from_datetime,
+                        "$lte": to_datetime,
+                    }
+                }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "$dateToString": {
+                            "format": "%Y-%m",
+                            "date": "$created_at"
+                        }
+                    },
+                    "total": {"$sum": "$stars_recharged"}
+                }
             }
-        }).to_list(None)
+        ]).to_list(None)
 
-        daily_records = await db["record_daily"].find({
-            "user_id": user_id,
-            "created_at": {
-                "$gte": from_datetime,
-                "$lte": to_datetime,
+        tokens_used_agg_task = db["record_daily"].aggregate([
+            {
+                "$match": {
+                    "user_id": user_id,
+                    "created_at": {
+                        "$gte": from_datetime,
+                        "$lte": to_datetime,
+                    }
+                }
+            },
+            {
+                "$group": {
+                    "_id": {
+                        "$dateToString": {
+                            "format": "%Y-%m",
+                            "date": "$created_at"
+                        }
+                    },
+                    "total": {"$sum": "$stars_used"}
+                }
             }
-        }).to_list(None)
+        ]).to_list(None)
 
-        # Agrupar tokens por mes
-        tokens_charged_by_month = {}
-        tokens_used_by_month = {}
+        # Ejecutar agregaciones de tokens en paralelo
+        tokens_results = await asyncio.gather(
+            tokens_charged_agg_task,
+            tokens_used_agg_task,
+        )
 
-        for recharge in recharge_records:
-            stars = recharge.get("stars_recharged", 0)
-            total_tokens_charged += stars
-            month_key = recharge.get("created_at", datetime.utcnow()).strftime("%Y-%m")
-            if month_key not in tokens_charged_by_month:
-                tokens_charged_by_month[month_key] = 0
-            tokens_charged_by_month[month_key] += stars
+        tokens_charged_records = tokens_results[0]
+        tokens_used_records = tokens_results[1]
 
-        for record in daily_records:
-            stars_used = record.get("stars_used", 0)
-            total_tokens_used += stars_used
-            month_key = record.get("created_at", datetime.utcnow()).strftime("%Y-%m")
-            if month_key not in tokens_used_by_month:
-                tokens_used_by_month[month_key] = 0
-            tokens_used_by_month[month_key] += stars_used
+        # Convertir a diccionarios
+        tokens_charged_by_month = {item["_id"]: item["total"] for item in tokens_charged_records}
+        tokens_used_by_month = {item["_id"]: item["total"] for item in tokens_used_records}
+
+        # Calcular totales
+        total_tokens_charged = sum(tokens_charged_by_month.values())
+        total_tokens_used = sum(tokens_used_by_month.values())
+        total_series_created = sum(len(data["games"]) for data in series_by_month.values())
+        total_series_completed = sum(data["completed_count"] for data in series_by_month.values())
+        total_series_partially_completed = sum(data["partially_completed_count"] for data in series_by_month.values())
 
         # Generar todos los meses en el rango
         all_months = []
@@ -1080,10 +1309,12 @@ async def get_series_completion_metrics_service(
             else:
                 current_date = current_date.replace(month=current_date.month + 1)
 
+        # Construir resultados por mes
+        monthly_metrics_list = []
         for month in all_months:
-            series_in_month = series_by_month.get(month, [])
+            month_data = series_by_month.get(month, {})
 
-            if not series_in_month:
+            if not month_data or len(month_data.get("games", [])) == 0:
                 # Mes sin series
                 monthly_metrics_list.append(MonthlySeriesMetrics(
                     month=month,
@@ -1097,55 +1328,25 @@ async def get_series_completion_metrics_service(
                 ))
                 continue
 
-            # Procesar series del mes
-            series_completed_count = 0
-            series_partially_completed_count = 0
-            total_games_played_in_month = 0
-            total_analytics_in_month = 0
-            total_completed_analytics_in_month = 0
-
-            for game_db in series_in_month:
-                game_id = str(game_db.get("_id"))
-
-                # Obtener analíticas de este juego
-                series_analytics = await db["analytics"].find({
-                    "gameId": game_id
-                }).to_list(None)
-
-                total_analytics_in_month += len(series_analytics)
-                completed_analytics = len([a for a in series_analytics if a.get("completed", False)])
-                total_completed_analytics_in_month += completed_analytics
-
-                # Contar juegos jugados
-                games_played = len(set(a.get("gameId") for a in series_analytics if a.get("gameId")))
-                total_games_played_in_month += games_played
-
-                # Determinar si juego está completado (tiene al menos una analítica completada)
-                has_completed_analytics = any(a.get("completed", False) for a in series_analytics)
-
-                if has_completed_analytics:
-                    series_completed_count += 1
-                elif len(series_analytics) > 0:
-                    series_partially_completed_count += 1
-
             # Calcular métricas del mes
-            series_count = len(series_in_month)
-            completion_percentage = (series_completed_count / series_count * 100) if series_count > 0 else 0.0
-            avg_games_played = (total_games_played_in_month / series_count) if series_count > 0 else 0.0
+            series_count = len(month_data["games"])
+            completed_count = month_data["completed_count"]
+            partially_completed_count = month_data["partially_completed_count"]
+            total_analytics = month_data["total_analytics"]
+            total_completed_analytics = month_data["total_completed_analytics"]
 
-            total_series_created += series_count
-            total_series_completed += series_completed_count
-            total_series_partially_completed += series_partially_completed_count
+            completion_percentage = (completed_count / series_count * 100) if series_count > 0 else 0.0
+            avg_games_played = (series_count / series_count) if series_count > 0 else 0.0
 
             monthly_metrics_list.append(MonthlySeriesMetrics(
                 month=month,
                 series_created=series_count,
-                series_completed=series_completed_count,
-                series_partially_completed=series_partially_completed_count,
+                series_completed=completed_count,
+                series_partially_completed=partially_completed_count,
                 completion_percentage=round(completion_percentage, 2),
                 avg_games_played_per_series=round(avg_games_played, 2),
-                total_analytics=total_analytics_in_month,
-                total_completed_analytics=total_completed_analytics_in_month,
+                total_analytics=total_analytics,
+                total_completed_analytics=total_completed_analytics,
                 tokens_charged=tokens_charged_by_month.get(month, 0.0),
                 tokens_used=tokens_used_by_month.get(month, 0.0),
             ))
@@ -1303,3 +1504,80 @@ async def recharge_user_stars_service(user_id: str, stars_amount: float) -> dict
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error al recargar estrellas: {str(e)}"
         )
+
+
+async def activate_user_service(user_id: str) -> dict:
+    """
+    Activa un usuario cambiando su estado de is_preview a True.
+
+    Args:
+        user_id: ID del usuario a activar
+
+    Returns:
+        Dict con información del usuario activado
+
+    Raises:
+        HTTPException: Si el usuario no existe o hay error en la actualización
+    """
+    try:
+        # Validar que el user_id sea un ObjectId válido
+        if not user_id or len(user_id) != 24:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="ID de usuario inválido"
+            )
+
+        # Obtener usuario actual
+        user = await db["user"].find_one({"_id": ObjectId(user_id)})
+
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Usuario con ID {user_id} no encontrado"
+            )
+
+        # Verificar si ya está activado
+        if user.get("is_preview", False):
+            return {
+                "user_id": user_id,
+                "username": user.get("username", ""),
+                "email": user.get("email", ""),
+                "is_preview": True,
+                "message": "El usuario ya estaba activado",
+                "activated_at": datetime.utcnow()
+            }
+
+        # Actualizar is_preview a True
+        update_result = await db["user"].update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"is_preview": True, "activated_at": datetime.utcnow()}}
+        )
+
+        if update_result.modified_count == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No se pudo actualizar el usuario"
+            )
+
+        # Obtener usuario actualizado
+        updated_user = await db["user"].find_one({"_id": ObjectId(user_id)})
+
+        return {
+            "user_id": user_id,
+            "username": updated_user.get("username", ""),
+            "email": updated_user.get("email", ""),
+            "is_preview": updated_user.get("is_preview", False),
+            "created_at": updated_user.get("created_at"),
+            "activated_at": updated_user.get("activated_at"),
+            "message": "Usuario activado exitosamente"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in activate_user_service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error al activar usuario: {str(e)}"
+        )
+

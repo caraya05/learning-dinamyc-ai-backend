@@ -77,10 +77,7 @@ class UserProfileDash(BaseModel):
     user_id: str = Field(..., example="507f1f77bcf86cd799439011")
     username: str = Field(..., example="jhon_doe")
     email: str = Field(..., example="jhon@gmail.com")
-    photo: Optional[str] = Field(default=None, example="https://...")
     is_active: bool = Field(..., example=True)
-    is_superuser: bool = Field(default=False)
-    is_staff: bool = Field(default=False)
 
 
 # ============================================================================
@@ -92,22 +89,19 @@ class GameInfoForSeries(BaseModel):
     game_id: str = Field(..., example="507f1f77bcf86cd799439011")
     title: Optional[str] = Field(None, example="Game Title")
     analytics_count: int = Field(default=0, example=15, description="Cantidad de analíticas de este juego")
+    games_in_series: Optional[List[dict]] = Field(None, description="Lista de todos los juegos de la serie: id, title, analytics_count")
 
 
 class SeriesData(BaseModel):
     """Datos de una serie con información de su juego con más analíticas"""
     series_id: str = Field(..., example="507f1f77bcf86cd799439011")
-    title: str = Field(..., example="Series Title")
-    description: Optional[str] = Field(None, example="Series description")
-    image: Optional[str] = Field(None, example="image.jpg")
-    rating: Optional[float] = Field(0.0, example=4.5)
     is_active: bool = Field(default=True, example=True)
     is_published: bool = Field(default=False, example=False)
     publish_type: Optional[str] = Field("private", example="public")
     created_at: datetime = Field(..., example="2026-02-25T16:18:59")
     games_count: int = Field(default=0, example=3, description="Total de juegos en la serie")
     total_analytics: int = Field(default=0, example=45, description="Total de analíticas de todos los juegos de la serie")
-    top_game: Optional[GameInfoForSeries] = Field(None, description="Juego con más analíticas en esta serie")
+    top_game: Optional[GameInfoForSeries] = Field(None, description="Juego con más analíticas + lista de todos los juegos de la serie")
 
 
 # ============================================================================
@@ -198,11 +192,7 @@ class DashboardSummary(BaseModel):
         description="Series del usuario ordenadas por cantidad de analíticas (descendente)"
     )
 
-    # Series Completion Metrics (incluye historias, vistas, tokens)
-    series_completion_metrics: Optional[SeriesCompletionMetrics] = Field(
-        default=None,
-        description="Métricas de completación de series: historias, vistas, tokens cargados y usados"
-    )
+
 
     # Timestamp
     generated_at: datetime = Field(

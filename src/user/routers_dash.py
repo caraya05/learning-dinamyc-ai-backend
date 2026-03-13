@@ -15,7 +15,7 @@ IMPORTANTE: Las rutas más específicas deben ir antes que las genéricas.
 """
 
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Path, status
 from fastapi.security import HTTPAuthorizationCredentials
 
 from auth.auth import auth
@@ -26,7 +26,7 @@ from user.services_dash import (
     get_global_kpis_service,
     get_user_dashboard_summary_service,
     get_waitlist_users_export_service,
-    recharge_user_stars_service,
+    activate_user_service,
 )
 
 
@@ -49,16 +49,23 @@ router = APIRouter(prefix="/user/dashboard", tags=["User Dashboard"])
     
     Ideal para una vista de administración con tabla/grid de usuarios.
     
+    **Parámetros de búsqueda y filtrado:**
+    - `search`: Buscar por nombre de usuario o email (búsqueda parcial)
+    - `is_preview`: Filtrar solo usuarios en preview (True) o solo en waitlist (False)
+    
     Incluye por usuario:
     - Información básica (id, username, email, foto, estado)
     - KPIs: estrellas, juegos creados, intentos de creación
     - Fechas: creación y última actualización
     - Roles: superuser, staff
+    - Estado de preview (is_preview)
     """,
 )
 async def get_global_users_list(
     skip: int = Query(0, ge=0, description="Número de usuarios a saltar (paginación)"),
     limit: int = Query(10, ge=1, le=100, description="Límite de usuarios por página (1-100)"),
+    search: Optional[str] = Query(None, description="Buscar por nombre de usuario o email"),
+    is_preview: Optional[bool] = Query(None, description="Filtrar por is_preview (True/False)"),
     user_db: dict = Depends(auth),
     token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
@@ -70,6 +77,10 @@ async def get_global_users_list(
     Parámetros de paginación:
     - skip: número de usuarios a saltar (default: 0)
     - limit: usuarios por página (default: 10, máximo: 100)
+
+    Parámetros de búsqueda y filtrado:
+    - search: Busca por nombre de usuario o email (búsqueda parcial, case-insensitive)
+    - is_preview: Filtra por estado de preview (True = usuarios en preview, False = usuarios en waitlist)
     """
     try:
         # Verificar que el usuario sea administrador
@@ -79,7 +90,12 @@ async def get_global_users_list(
                 detail="Solo administradores pueden acceder a este endpoint"
             )
 
-        result = await get_all_users_detailed_service(skip=skip, limit=limit)
+        result = await get_all_users_detailed_service(
+            skip=skip,
+            limit=limit,
+            search=search,
+            is_preview=is_preview,
+        )
 
         return {"data": result}
 
@@ -409,9 +425,70 @@ async def recharge_user_stars(
         )
 
 
+# ============================================================================
+# 8. POST /activate/{user_id} - Activar usuario (cambiar is_preview a True)
+# ============================================================================
 
+@router.post(
+    "/activate/{user_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Activar usuario",
+    description="""
+    Activa un usuario cambiando su estado de `is_preview` a `True`.
+    
+    Esto permite que usuarios que estaban en waitlist pasen a tener acceso al sistema.
+    
+    Requiere:
+    - Autenticación (JWT)
+    - Permiso de administrador (is_superuser=True o is_staff=True)
+    - ID de usuario válido (formato MongoDB ObjectId)
+    """,
+)
+async def activate_user(
+    user_id: str = Path(..., description="ID del usuario a activar"),
+    user_db: dict = Depends(auth),
+    token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    Endpoint para activar un usuario.
 
+    Cambia el estado de `is_preview` a `True`, permitiendo que el usuario acceda al sistema.
 
+    **Respuesta exitosa:**
+    ```json
+    {
+        "data": {
+            "user_id": "507f1f77bcf86cd799439011",
+            "username": "juan_perez",
+            "email": "juan@example.com",
+            "is_preview": true,
+            "created_at": "2025-12-01T10:30:00",
+            "activated_at": "2026-03-12T15:45:30",
+            "message": "Usuario activado exitosamente"
+        },
+        "message": "Usuario activado exitosamente"
+    }
+    ```
+    """
+    try:
+        # Verificar que el usuario sea administrador
+        if not user_db.get("is_superuser") and not user_db.get("is_staff"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Solo administradores pueden activar usuarios"
+            )
 
+        result = await activate_user_service(user_id=user_id)
 
+        return {
+            "data": result,
+            "message": "Usuario activado exitosamente"
+        }
 
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error al activar usuario: {str(e)}"
+        )
