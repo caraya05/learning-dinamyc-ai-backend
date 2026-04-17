@@ -6,7 +6,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from fastapi import File, UploadFile, Form
 import traceback
 
-from auth.auth import auth
+from auth.auth import auth, auth_team
 from auth.utils import auth_schema
 
 from event.schemas import SchemaRetrieveEvent
@@ -66,7 +66,7 @@ async def get_events(
 async def update_event(
     event_id: str,
     event: SchemaUpdateEvent,
-    user_db: dict = Depends(auth),
+    user_db: dict = Depends(auth_team),
     Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     return await update_event_service(

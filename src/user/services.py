@@ -17,6 +17,70 @@ from configuration.services import get_configurations_service
 from utils import send_email
 
 
+async def create_user_service_basic(email: str, username: str, created_by: str, team_id: str = None, role: str = None):
+    """
+    Crea un usuario básico con solo email y username.
+    Se usa para crear usuarios automáticamente al invitarlos a un equipo.
+    
+    Parámetros:
+    - email: Email del usuario
+    - username: Username del usuario
+    - created_by: ID del usuario que lo creó
+    - team_id: ID del equipo al que pertenece (opcional)
+    - role: Rol en el equipo (owner, admin, creator, viewer)
+    """
+    try:
+        # Validar que el email no exista
+        if await db["user"].find_one({"email": email}):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El email ya está registrado"
+            )
+        
+        # Validar que el username no exista
+        if await db["user"].find_one({"username": username}):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El username ya está registrado"
+            )
+        
+        # Crear usuario básico
+        db_user = User(
+            email=email,
+            username=username,
+            password=get_password_hash(email),  # Usar email como contraseña temporal
+            provider="invitation",
+            is_active=True,
+            uid=None,
+            photo=None,
+            created_by=created_by,
+            updated_by=created_by,
+            stars=20,  # Estrellas por defecto
+            plan_type="team" if team_id else "individual",  # Team si pertenece a equipo, individual si no
+            team_id=team_id,
+            team_role=role,
+            is_team_owner=role == "owner" if role else False,
+            is_preview=True,
+        )
+        
+        # Insertar en base de datos
+        result = await db["user"].insert_one(db_user.dict())
+        user_created = await db["user"].find_one({"_id": result.inserted_id})
+        
+        # Convertir _id a string
+        if user_created:
+            user_created["_id"] = str(user_created["_id"])
+        
+        return user_created
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error creando usuario: {str(e)}"
+        )
+
+
 async def create_user_service(user: SchemaUser):
     if user_db := await db["user"].find_one({"email": user.email}):
         raise HTTPException(
@@ -31,7 +95,10 @@ async def create_user_service(user: SchemaUser):
 
     db_user = User(**user.dict())
     db_user.password = get_password_hash(db_user.password)
-    new_user = await db["user"].insert_one(db_user.dict())
+    db_user.plan_type = "individual"  # Inicializar plan como individual
+    db_user.team_id = None
+    db_user.team_role = None
+    db_user.is_team_owner = False
     user_created = await db["user"].find_one({"_id": new_user.inserted_id})
 
     return user_created
@@ -52,6 +119,10 @@ async def joint_user_waitlist_service(user: SchemaUser):
     db_user = User(**user.dict())
     db_user.password = get_password_hash(db_user.password or user.email)
     new_user = await db["user"].insert_one(db_user.dict())
+    db_user.plan_type = "individual"  # Inicializar plan como individual
+    db_user.team_id = None
+    db_user.team_role = None
+    db_user.is_team_owner = False
     user_created = await db["user"].find_one({"_id": new_user.inserted_id})
 
     # Enviar correo de bienvenida a la lista de espera
@@ -197,6 +268,10 @@ async def get_or_created_user_service(user: dict):
                     if configuration_db.get("stars_news_users", None)
                     else 20
                 ),
+                plan_type="individual",  # Inicializar plan como individual
+                team_id=None,
+                team_role=None,
+                is_team_owner=False
             )
             new_user = await db["user"].insert_one(user_db_.dict())
             user_created = await db["user"].find_one({"_id": new_user.inserted_id})
@@ -279,10 +354,27 @@ async def update_attempt_to_create_service(user_id: str):
         )
 
 
-async def get_user_by_id_service(user_id: str):
+async def get_user_by_id_service(user_id: str = None, search: str = None):
     try:
-        user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
-        return user_db
+        user_db = None
+        
+        if search:
+            # Búsqueda por email o username (case-insensitive)
+            user_db = await db["user"].find_one({
+                "$or": [
+                    {"email": {"$regex": search, "$options": "i"}},
+                    {"username": {"$regex": search, "$options": "i"}}
+                ]
+            })
+        elif user_id:
+            # Búsqueda por ID
+            user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
+        
+        if user_db:
+            user_db["_id"] = str(user_db["_id"])
+            return user_db
+        
+        return None
     except Exception as e:
         print(f"Error in get user by id {str(e)}")
         raise HTTPException(

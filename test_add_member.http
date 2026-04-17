@@ -1,0 +1,19 @@
+### Test agregar miembro al equipo
+POST http://localhost/v1/api/team/{{team_id}}/members
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "507f1f77bcf86cd799439011",
+  "role": "creator"
+}
+
+### Alternativa con datos diferentes
+POST http://localhost/v1/api/team/{{team_id}}/members
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "user_id": "507f1f77bcf86cd799439012"
+}
+

@@ -78,6 +78,10 @@ class UserProfileDash(BaseModel):
     username: str = Field(..., example="jhon_doe")
     email: str = Field(..., example="jhon@gmail.com")
     is_active: bool = Field(..., example=True)
+    plan_type: str = Field(default="individual", example="individual", description="individual o team")
+    team_role: Optional[str] = Field(None, example="owner", description="owner, admin, creator, viewer")
+    is_team_owner: bool = Field(default=False, example=False, description="Si es dueño del team")
+    team_members: Optional[list] = Field(None, description="Lista de miembros del team si aplica")
 
 
 # ============================================================================

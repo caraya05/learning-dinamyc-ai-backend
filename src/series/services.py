@@ -1,4 +1,5 @@
 import logging
+import traceback
 from datetime import datetime
 from bson import ObjectId
 from fastapi import HTTPException
@@ -316,15 +317,20 @@ class SeriesService:
             return None
 
     async def publish_series_service(self, series_id: str, publish_type: str, user_id: str,
-                                     requested_is_published: bool | None = None) -> dict:
+                                     requested_is_published: bool | None = None,
+                                     publish_to_team: bool = False,
+                                     team_id: str | None = None) -> dict:
         """
         Publish or unpublish a series. publish_type controls is_published/is_link flags.
+        Optionally publish the series to a team.
 
         Args:
             series_id: ID of the series to publish/unpublish
             publish_type: Type of publish action ("public", "private", "link")
             user_id: ID of the user publishing the series
             requested_is_published: Optional explicit publish status
+            publish_to_team: Whether to publish to a team
+            team_id: Team ID to publish to (required if publish_to_team is True)
 
         Returns:
             dict: The updated series document
@@ -344,6 +350,36 @@ class SeriesService:
                     detail="Series not found",
                 )
 
+            # Validate team_id if publishing to team
+            if publish_to_team:
+                if not team_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="team_id is required when publish_to_team is True",
+                    )
+                if not ObjectId.is_valid(team_id):
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Invalid team ID",
+                    )
+                # Verify team exists
+                team_db = await self.db["team"].find_one({"_id": ObjectId(team_id)})
+                if not team_db:
+                    raise HTTPException(
+                        status_code=status.HTTP_404_NOT_FOUND,
+                        detail="Team not found",
+                    )
+                # Verify user has permission to publish to this team (is team owner or admin)
+                user_is_owner = team_db.get("owner_id") == user_id
+                is_admin = any(m.get("user_id") == user_id and m.get("role") == "admin"
+                               for m in team_db.get("members", []))
+
+                if not (user_is_owner or is_admin):
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="You don't have permission to publish to this team",
+                    )
+
             effective_is_published = publish_type != "private"
             is_link = publish_type == "link"
 
@@ -352,17 +388,27 @@ class SeriesService:
                 self.logger.warning("publish_type overrides is_published: %s -> %s", requested_is_published,
                                     effective_is_published)
 
+            # Prepare update data
+            update_data = {
+                "is_published": effective_is_published,
+                "is_link": is_link,
+                "publish_type": publish_type,
+                "updated_by": user_id,
+                "updated_at": datetime.utcnow()
+            }
+
+            # Handle team publication
+            if publish_to_team and team_id:
+                # Get current published_to_teams list
+                current_teams = series_db.get("published_to_teams", [])
+                # Add team_id if not already in the list
+                if team_id not in current_teams:
+                    current_teams.append(team_id)
+                    update_data["published_to_teams"] = current_teams
+
             await self.db["series"].update_one(
                 {"_id": ObjectId(series_id)},
-                {
-                    "$set": {
-                        "is_published": effective_is_published,
-                        "is_link": is_link,
-                        "publish_type": publish_type,
-                        "updated_by": user_id,
-                        "updated_at": datetime.utcnow()
-                    }
-                }
+                {"$set": update_data}
             )
 
             series_updated = await self.db["series"].find_one({"_id": ObjectId(series_id)})
@@ -505,6 +551,7 @@ class SeriesService:
             match_stage = {
                 "is_published": True,
                 "is_active": True,
+                "published_to_teams": {"$exists": False}, # Excluir series publicadas a equipos
                 "$or": [
                     {"is_link": False},
                     {"is_link": {"$exists": False}},
@@ -563,47 +610,47 @@ class SeriesService:
                         "as": "games"
                     }
                 },
-          {
-              "$lookup": {
-                  "from": "analytics",
-                  "let": {"games_ids": {
-                      "$map": {
-                          "input": "$games_id",
-                          "as": "id",
-                          "in": {"$toString": "$$id"}
-                      }
-                  }},
-                  "pipeline": [
-                      {
-                          "$match": {
-                              "$expr": {
-                                  "$in": [{"$toString": "$game_id"}, "$$games_ids"]
-                              }
-                          }
-                      },
-                      {
-                          "$group": {
-                              "_id": "$game_id",
-                              "total_records": {"$sum": 1}
-                          }
-                      },
-                      {
-                          "$sort": {"total_records": -1}
-                      },
-                      {
-                          "$limit": 1
-                      },
-                      {
-                          "$project": {
-                              "game_id": "$_id",
-                              "total_records": 1,
-                              "_id": 0
-                          }
-                      }
-                  ],
-                  "as": "analytics_data"
-              }
-          },
+                {
+                    "$lookup": {
+                        "from": "analytics",
+                        "let": {"games_ids": {
+                            "$map": {
+                                "input": "$games_id",
+                                "as": "id",
+                                "in": {"$toString": "$$id"}
+                            }
+                        }},
+                        "pipeline": [
+                            {
+                                "$match": {
+                                    "$expr": {
+                                        "$in": [{"$toString": "$game_id"}, "$$games_ids"]
+                                    }
+                                }
+                            },
+                            {
+                                "$group": {
+                                    "_id": "$game_id",
+                                    "total_records": {"$sum": 1}
+                                }
+                            },
+                            {
+                                "$sort": {"total_records": -1}
+                            },
+                            {
+                                "$limit": 1
+                            },
+                            {
+                                "$project": {
+                                    "game_id": "$_id",
+                                    "total_records": 1,
+                                    "_id": 0
+                                }
+                            }
+                        ],
+                        "as": "analytics_data"
+                    }
+                },
                 {
                     "$addFields": {
                         "games": {
@@ -722,7 +769,7 @@ class SeriesService:
             self.logger.error(f"Error getting published series: {str(e)}")
             return [], 0
 
-    async def get_published_series_detail_service(self, series_id: str) -> dict | None:
+    async def get_published_series_detail_service(self, series_id: str, user_db: dict = None) -> dict | None:
         """
         Get a published series with all its associated games and their game_provisional data.
         No authentication required. Only returns published series.
@@ -745,6 +792,13 @@ class SeriesService:
 
             if not series_db:
                 return None
+
+            if series_db.get("published_to_teams"):
+                if not user_db and not series_db.get("published_to_teams")[0] == user_db:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="You don't have permission to access this series",
+                    )
 
             # Obtener los juegos de la serie excluyendo los ocultos
             games_ids = series_db.get("games_id", [])
@@ -1214,77 +1268,313 @@ class SeriesService:
         return deleted
 
     async def get_user_stats_service(self, user_id: str) -> dict:
-                """
-                Get aggregated statistics for the authenticated user.
+        """
+        Get aggregated statistics for the authenticated user.
 
-                Returns:
-                    dict: User statistics including:
-                        - total_series: Count of all active series created by user
-                        - total_episodes: Count of all visible games in user's series (all series, not just published)
-                        - published_episodes: Count of all visible games in user's published series
-                        - analytics_records: Count of analytics records for user's games
-                """
-                try:
-                    # 1. Total de series creadas por el usuario (activas)
-                    total_series = await self.db["series"].count_documents({
-                        "created_by": user_id,
-                        "is_active": True
-                    })
+        Returns:
+            dict: User statistics including:
+                - total_series: Count of all active series created by user
+                - total_episodes: Count of all visible games in user's series (all series, not just published)
+                - published_episodes: Count of all visible games in user's published series
+                - analytics_records: Count of analytics records for user's games
+        """
+        try:
+            # 1. Total de series creadas por el usuario (activas)
+            total_series = await self.db["series"].count_documents({
+                "created_by": user_id,
+                "is_active": True
+            })
 
-                    # 2. Total de episodios/juegos visibles en TODAS las series del usuario
-                    all_user_series = await self.db["series"].find({
-                        "created_by": user_id,
-                        "is_active": True
-                    }).to_list(None)
+            # 2. Total de episodios/juegos visibles en TODAS las series del usuario
+            all_user_series = await self.db["series"].find({
+                "created_by": user_id,
+                "is_active": True
+            }).to_list(None)
 
-                    total_episodes = 0
-                    for series in all_user_series:
-                        games_ids = series.get("games_id", [])
-                        hidden_games = set(series.get("hidden_games", []))
-                        visible_games_count = len([gid for gid in games_ids if gid not in hidden_games])
-                        total_episodes += visible_games_count
+            total_episodes = 0
+            for series in all_user_series:
+                games_ids = series.get("games_id", [])
+                hidden_games = set(series.get("hidden_games", []))
+                visible_games_count = len([gid for gid in games_ids if gid not in hidden_games])
+                total_episodes += visible_games_count
 
-                    # 3. Total de episodios/juegos visibles en series PUBLICADAS
-                    published_series_docs = await self.db["series"].find({
-                        "created_by": user_id,
-                        "is_published": True,
-                        "is_active": True
-                    }).to_list(None)
+            # 3. Total de episodios/juegos visibles en series PUBLICADAS
+            published_series_docs = await self.db["series"].find({
+                "created_by": user_id,
+                "is_published": True,
+                "is_active": True
+            }).to_list(None)
 
-                    published_episodes = 0
-                    for series in published_series_docs:
-                        games_ids = series.get("games_id", [])
-                        hidden_games = set(series.get("hidden_games", []))
-                        visible_games_count = len([gid for gid in games_ids if gid not in hidden_games])
-                        published_episodes += visible_games_count
+            published_episodes = 0
+            for series in published_series_docs:
+                games_ids = series.get("games_id", [])
+                hidden_games = set(series.get("hidden_games", []))
+                visible_games_count = len([gid for gid in games_ids if gid not in hidden_games])
+                published_episodes += visible_games_count
 
-                    # 4. Registros de analíticas
-                    user_games = await self.db["game"].find({
-                        "created_by": user_id,
-                        "is_active": True
-                    }).to_list(None)
+            # 4. Registros de analíticas
+            user_games = await self.db["game"].find({
+                "created_by": user_id,
+                "is_active": True
+            }).to_list(None)
 
-                    game_ids_set = {str(game.get("_id")) for game in user_games}
+            game_ids_set = {str(game.get("_id")) for game in user_games}
 
-                    analytics_records = 0
-                    if game_ids_set:
-                        analytics_records = await self.db["analytics"].count_documents({
-                            "$or": [
-                                {"game_id": {"$in": list(game_ids_set)}},
-                                {"gameId": {"$in": list(game_ids_set)}}
-                            ]
-                        })
+            analytics_records = 0
+            if game_ids_set:
+                analytics_records = await self.db["analytics"].count_documents({
+                    "$or": [
+                        {"game_id": {"$in": list(game_ids_set)}},
+                        {"gameId": {"$in": list(game_ids_set)}}
+                    ]
+                })
 
-                    return {
-                        "total_series": total_series,
-                        "total_episodes": total_episodes,
-                        "published_episodes": published_episodes,
-                        "analytics_records": analytics_records
-                    }
-                except Exception as e:
-                    self.logger.error(f"Error getting user stats: {str(e)}")
-                    raise HTTPException(
-                        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                        detail="Error retrieving user statistics",
-                    )
+            return {
+                "total_series": total_series,
+                "total_episodes": total_episodes,
+                "published_episodes": published_episodes,
+                "analytics_records": analytics_records
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting user stats: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error retrieving user statistics",
+            )
 
+    async def get_team_series_service(
+            self,
+            team_id: str,
+            published_only: bool = False,
+            page: int = 1,
+            limit: int = 10,
+            search_name: str | None = None,
+            category_id: str | None = None,
+    ) -> dict:
+        """
+        Obtiene las series del dueño de un equipo.
+        
+        Args:
+            team_id: ID del equipo
+            published_only: Si True, solo retorna series publicadas
+            page: Página para paginación
+            limit: Cantidad de resultados por página
+            
+        Returns:
+            dict: Información de series paginada con count y total_pages
+        """
+        try:
+            # Validar team_id
+            if not ObjectId.is_valid(team_id):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid team ID",
+                )
+
+            # Obtener el equipo
+            team_db = await self.db["team"].find_one({"_id": ObjectId(team_id)})
+            if not team_db:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Team not found",
+                )
+
+            # Obtener el dueño del equipo
+            owner_id = team_db.get("owner_id")
+            if not owner_id:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Team owner not found",
+                )
+
+            # Construir filtro
+            filter_query = {"created_by": owner_id}
+
+            # Si solo publicadas, agregar filtro
+            if published_only:
+                filter_query["is_published"] = True
+
+            # Agregar filtro de categoría si existe
+            if category_id:
+                filter_query["category_id"] = category_id
+
+            # Agregar filtro de búsqueda por nombre si existe
+            if search_name:
+                filter_query["title"] = {"$regex": search_name, "$options": "i"}
+
+            # Contar total de series
+            total_count = await self.db["series"].count_documents(filter_query)
+
+            # Calcular paginación
+            skip = (page - 1) * limit
+            total_pages = (total_count + limit - 1) // limit
+
+            # Obtener series paginadas
+            series_list = await self.db["series"].find(filter_query) \
+                .skip(skip) \
+                .limit(limit) \
+                .sort("created_at", -1) \
+                .to_list(length=None)
+
+            # Convertir ObjectIds a strings
+            for series in series_list:
+                series["_id"] = str(series["_id"])
+
+            return {
+                "results": series_list,
+                "count": total_count,
+                "page": page,
+                "total_pages": total_pages
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error getting team series: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error retrieving team series",
+            )
+
+    async def check_series_access(self, series_id: str, user_id: str) -> bool:
+        """
+        Check if a user has access to a series.
+        
+        Rules:
+        - If series is not published to any team, access is allowed
+        - If series is published to teams, user must be member of at least one team
+        
+        Args:
+            series_id: ID of the series
+            user_id: ID of the user
+            
+        Returns:
+            bool: True if user has access, False otherwise
+        """
+        try:
+            if not ObjectId.is_valid(series_id):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid series ID",
+                )
+
+            series_db = await self.db["series"].find_one({"_id": ObjectId(series_id)})
+
+            if not series_db:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Series not found",
+                )
+
+            published_to_teams = series_db.get("published_to_teams", [])
+
+            # If not published to any team, access is allowed
+            if not published_to_teams:
+                return True
+
+            # If published to teams, check if user is member of at least one
+            for team_id in published_to_teams:
+                team_db = await self.db["team"].find_one({"_id": ObjectId(team_id)})
+
+                if not team_db:
+                    continue
+
+                # Check if user is owner
+                if team_db.get("owner_id") == user_id:
+                    return True
+
+                # Check if user is member
+                members = team_db.get("members", [])
+                if any(m.get("user_id") == user_id for m in members):
+                    return True
+
+            return False
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error checking series access: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error checking access",
+            )
+
+    async def get_team_published_series_service(
+            self,
+            team_id: str,
+            skip: int = 0,
+            limit: int = 10,
+            category_id: str = None,
+            search_name: str = None
+    ) -> tuple[list, int]:
+        """
+        Get all published series of a team's owner with optional filtering.
+        
+        Args:
+            team_id: ID of the team
+            skip: Number of documents to skip
+            limit: Number of documents to return
+            category_id: (optional) Filter series by category ID
+            search_name: (optional) Search series by name (case-insensitive)
+            
+        Returns:
+            tuple: (list of published series, total count)
+        """
+        try:
+            # Validar team_id
+            if not ObjectId.is_valid(team_id):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid team ID",
+                )
+
+            # Obtener el equipo
+            team_db = await self.db["team"].find_one({"_id": ObjectId(team_id)})
+            if not team_db:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Team not found",
+                )
+
+            # Obtener el dueño del equipo
+            owner_id = team_db.get("owner_id")
+            if not owner_id:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Team owner not found",
+                )
+
+            # Construir filtro base para series publicadas del dueño
+            filter_query = {
+                "created_by": owner_id,
+                "is_published": True,
+                "is_active": True
+            }
+
+            # Agregar filtro de categoría si existe
+            if category_id:
+                filter_query["category_id"] = category_id
+
+            # Agregar filtro de búsqueda por nombre si existe
+            if search_name:
+                filter_query["title"] = {"$regex": search_name, "$options": "i"}
+
+            # Contar total
+            total = await self.db["series"].count_documents(filter_query)
+
+            # Obtener series paginadas
+            series_list = await self.db["series"].find(filter_query) \
+                .sort("created_at", -1) \
+                .skip(skip) \
+                .limit(limit) \
+                .to_list(length=None)
+
+            return series_list, total
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Error getting team published series: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error retrieving team published series",
+            )

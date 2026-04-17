@@ -28,6 +28,7 @@ class SchemaRetrieveSeries(ResponseModel):
     is_published: bool = Field(False, example=False)
     is_link: bool = Field(False, example=False, description="True if published by shareable link")
     publish_type: Optional[str] = Field("private", example="public")
+    published_to_teams: list[str] = Field([], example=[], description="List of team IDs this series is published to")
     created_at: datetime
     created_by: str
     updated_at: datetime
@@ -55,6 +56,7 @@ class SchemaRetrieveSeriesStr(ResponseModelStr):
     is_published: bool = Field(False, example=False)
     is_link: bool = Field(False, example=False, description="True if published by shareable link")
     publish_type: Optional[str] = Field("private", example="public")
+    published_to_teams: list[str] = Field([], example=[], description="List of team IDs this series is published to")
     created_at: datetime
     created_by: str
     updated_at: datetime
@@ -80,6 +82,8 @@ class SchemaUpdateSeries(BaseModel):
 class SchemaPublishSeries(BaseModel):
     is_published: bool = Field(..., example=True, description="Legacy publish flag; actual value derived from publish_type")
     publish_type: Literal["public", "link", "private"] = Field(..., example="public")
+    publish_to_team: Optional[bool] = Field(False, example=False, description="If True, also publish this series to the team")
+    team_id: Optional[str] = Field(None, example="507f1f77bcf86cd799439011", description="Team ID to publish to (required if publish_to_team is True)")
 
 
 class SchemaReorderGames(BaseModel):

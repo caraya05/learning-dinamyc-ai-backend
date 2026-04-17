@@ -1,0 +1,28 @@
+### Test User Stats Endpoint
+# Este archivo prueba el endpoint GET /v1/api/series/user/stats
+
+@baseUrl = http://localhost:8000/v1/api
+@token = YOUR_JWT_TOKEN_HERE
+
+### Get User Statistics (Authenticated)
+GET {{baseUrl}}/series/user/stats
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+### Expected Response (200 OK):
+# {
+#   "total_series": 5,
+#   "total_episodes": 24,
+#   "published_series": 3,
+#   "analytics_records": 156
+# }
+
+### Test without authentication (should return 401)
+GET {{baseUrl}}/series/user/stats
+Content-Type: application/json
+
+### Expected Response (401):
+# {
+#   "detail": "Not authenticated"
+# }
+

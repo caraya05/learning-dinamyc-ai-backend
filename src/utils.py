@@ -433,3 +433,28 @@ def delete_asset_from_url(file_url: str, default_bucket: str = "qwestar") -> boo
 def delete_gcs_file(file_url: str, default_bucket: str = "qwestar") -> bool:
     """Compatibilidad: delega en delete_asset_from_url para GCS/Spaces."""
     return delete_asset_from_url(file_url, default_bucket=default_bucket)
+
+
+def serialize_objectid(obj):
+    """
+    Convierte recursivamente todos los ObjectId y datetime a string en un objeto.
+    Maneja dict, list, tuple y ObjectId/datetime en cualquier nivel de profundidad.
+    """
+    from bson import ObjectId
+    from datetime import datetime
+    
+    if obj is None:
+        return None
+    elif isinstance(obj, ObjectId):
+        return str(obj)
+    elif isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        return {key: serialize_objectid(value) for key, value in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [serialize_objectid(item) for item in obj]
+    else:
+        return obj
+
+
+

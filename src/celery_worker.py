@@ -91,6 +91,7 @@ task_routes = {
     'generate_event_audio_shared_task': {'queue': 'default'},
     'detection_voice_character_task': {'queue': 'voice_detection_queue'},
     'generate_voice_character_task': {'queue': 'voice_queue'},
+    'analyze_visual_style_task': {'queue': 'default'},
     'update_voice_list': {'queue': 'maintenance_queue'},  # Nueva cola para tareas de mantenimiento
     '*': {'queue': 'default'},
 }
@@ -476,3 +477,9 @@ def generate_scene_interactions_task(id_game_provisional: str):
     return loop.run_until_complete(
         async_generate_scene_interactions_task(id_game_provisional)
     )
+
+# Register visual_style tasks (avoid circular imports)
+from visual_style.tasks import register_visual_style_tasks
+register_visual_style_tasks(celery)
+
+

@@ -7,7 +7,7 @@ from fastapi import File, UploadFile, Form, Request
 import traceback
 from typing import Optional
 
-from auth.auth import auth
+from auth.auth import auth, auth_team
 from auth.utils import auth_schema
 from game.services import GameService
 
@@ -427,7 +427,7 @@ async def update_location_data(
     location_id: str,
     state_id: str,
     request: SchemaUpdateLocationData,
-    user: dict = Depends(auth),
+    user: dict = Depends(auth_team),
     token: HTTPAuthorizationCredentials = Depends(auth_schema),
     service: LocationTextUpdateService = Depends(get_location_text_service)
 ):
@@ -501,7 +501,7 @@ async def update_location_image(
     location_id: str,
     state_id: str,
     image: UploadFile = File(..., description="Location image (1920x1080px, max 5MB)"),
-    user: dict = Depends(auth),
+    user: dict = Depends(auth_team),
     token: HTTPAuthorizationCredentials = Depends(auth_schema),
     service: LocationImageUpdateService = Depends(get_location_image_service)
 ):

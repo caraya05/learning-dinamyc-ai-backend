@@ -12,7 +12,8 @@ from user import routers as user_routers
 from user import routers_dash as user_routers_dash
 from user import router_admin as user_admin_routers
 from user import router_ws as user_ws_routers
-from auth import routers as token_routers
+from team import routers as team_routers
+from auth import routers as auth_routers
 from prompt import routers as prompt_routers
 from category import routers as category_routers
 from configuration import routers as configuration_routers
@@ -34,6 +35,7 @@ from task import routers as task_routers
 from event import routers as event_routers
 from event import routers_admin as event_routers_admin
 from state_game import routers as state_game_routers
+from visual_style import routers as visual_style_routers
 from contextlib import asynccontextmanager
 from config import settings
 
@@ -164,7 +166,6 @@ async def add_process_time_header(request: Request, call_next):
 
 app.include_router(analytics_routers.router, prefix="/v1/api")
 
-app.include_router(token_routers.router, prefix="/v1/api")
 app.include_router(category_routers.router, prefix="/v1/api")
 app.include_router(character_routers.router, prefix="/v1/api")
 app.include_router(configuration_routers.router, prefix="/v1/api")
@@ -177,6 +178,8 @@ app.include_router(prompt_routers.router, prefix="/v1/api")
 app.include_router(user_routers.router, prefix="/v1/api")
 app.include_router(user_routers_dash.router, prefix="/v1/api")
 # app.include_router(weapon_routers.router2, prefix="/v2/api")
+app.include_router(team_routers.router, prefix="/v1/api")
+app.include_router(auth_routers.router, prefix="/v1/api")
 app.include_router(state_game_routers.router, prefix="/v1/api")
 app.include_router(series_routers.router, prefix="/v1/api")
 app.include_router(voice_routers.router, prefix="/v1/api")
@@ -186,6 +189,7 @@ app.include_router(game_provisional_ws_routers, prefix="")
 
 app.include_router(task_routers.router, prefix="/v1/api")
 app.include_router(event_routers.router, prefix="/v1/api")
+app.include_router(visual_style_routers.router, prefix="/v1/api")
 app.include_router(shortener_routers.routerAPP)
 app.include_router(proxy_routers.router, prefix="/v1/api")
 # app.include_router(model_test_router)

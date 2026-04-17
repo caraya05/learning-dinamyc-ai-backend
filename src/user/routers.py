@@ -1,3 +1,4 @@
+"""User routers module"""
 import traceback
 
 from fastapi import APIRouter
@@ -5,10 +6,10 @@ from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import status
 from fastapi import UploadFile
+from bson import ObjectId
 from fastapi import File
 from fastapi.security import HTTPAuthorizationCredentials
 from uuid import uuid4
-
 from utils import upload_image
 
 from user.services import get_user_by_id_service, joint_user_waitlist_service
@@ -19,6 +20,7 @@ from user.services import update_attempt_to_create_service
 from user.schemas import SchemaRetrieveUser
 from user.schemas import SchemaUser
 
+from core.database import db
 from auth.utils import auth_schema
 from auth.auth import auth
 from PIL import Image
@@ -68,19 +70,37 @@ async def get_current_user(
     """
     This endpoint retrieves the current user's information.
 
-    It uses JWT for authentication. The JWT token is expected to be provided in the Authorization header.
+    If the user belongs to a team, the stars returned will be the owner's stars.
 
-    Parameters:
+    It uses JWT for authentication. The JWT token is expected to be provided in the Authorization header.
+    user_db (dict): Current user from auth dependency
     db (Session): Database session for executing queries.
     Authorize (AuthJWT): An instance of AuthJWT for handling JWT operations.
     Token (HTTPAuthorizationCredentials): The JWT token from the Authorization header.
-
+    SchemaRetrieveUser: The current user's information (with owner's stars if in a team).
     Returns:
     SchemaRetrieveUser: The current user's information.
 
     Raises:
     HTTPException: If there is an error in getting the user's information, an HTTPException is raised with status code 400.
     """
+    # Check if user belongs to a team
+    team_id = user_db.get("team_id")
+
+    if team_id:
+        # User belongs to a team, get the owner's stars
+        team_db = await db["team"].find_one({"_id": ObjectId(team_id)})
+
+        if team_db:
+            owner_id = team_db.get("owner_id")
+
+            if owner_id:
+                # Get owner's user data
+                owner_db = await db["user"].find_one({"_id": ObjectId(owner_id)})
+
+                if owner_db:
+                    # Replace stars with owner's stars
+                    user_db["stars"] = owner_db.get("stars", 0)
 
     try:
         return user_db
@@ -94,6 +114,7 @@ async def get_current_user(
 @router.get("/{user_id}", response_model=SchemaRetrieveUser)
 async def get_user(
         user_id: str,
+        search: str = None,
         user_db: dict = Depends(auth),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
@@ -119,7 +140,7 @@ async def get_user(
         # Authorize.jwt_required()
 
         # Retrieve the current user's information
-        return await get_user_by_id_service(user_id=str(user_id))
+        return await get_user_by_id_service(user_id=str(user_id), search=search)
     except Exception as ex:
         # If there is an error, raise an HTTPException
         raise HTTPException(

@@ -577,12 +577,42 @@ async def get_user_dashboard_summary_service(
                 detail=f"Usuario con ID {user_id} no encontrado"
             )
 
+        # Obtener información del team si el usuario tiene plan_type="team"
+        team_members = None
+        team_role = user_db.get("team_role")
+        is_team_owner = user_db.get("is_team_owner", False)
+        plan_type = user_db.get("plan_type", "individual")
+        
+        if plan_type == "team" and user_db.get("team_id"):
+            try:
+                team_db = await db["team"].find_one({"_id": ObjectId(user_db.get("team_id"))})
+                if team_db and team_db.get("members"):
+                    # Obtener información completa de los miembros
+                    team_members = []
+                    for member in team_db.get("members", []):
+                        member_user = await db["user"].find_one({"_id": ObjectId(member.get("user_id"))})
+                        if member_user:
+                            team_members.append({
+                                "user_id": str(member_user.get("_id")),
+                                "username": member_user.get("username", ""),
+                                "email": member_user.get("email", ""),
+                                "role": member.get("role"),
+                                "joined_at": member.get("joined_at")
+                            })
+            except Exception as e:
+                print(f"Error getting team info: {str(e)}")
+                # Continuar sin información del team
+
         # Construir perfil del usuario
         user_profile = UserProfileDash(
             user_id=str(user_db.get("_id")),
             username=user_db.get("username", ""),
             email=user_db.get("email", ""),
             is_active=user_db.get("is_active", False),
+            plan_type=plan_type,
+            team_role=team_role,
+            is_team_owner=is_team_owner,
+            team_members=team_members,
         )
 
         # OPTIMIZACIÓN: Obtener solo IDs de games con agregación (sin cargar documentos completos)
@@ -717,12 +747,22 @@ async def get_all_users_detailed_service(
         is_preview: Optional[bool] = None,
 ) -> dict:
     """
-    Obtiene un listado simplificado de TODOS los usuarios con información esencial.
+    Obtiene un listado simplificado de usuarios: individual y owners de teams.
+
+    **Usuarios mostrados:**
+    - Usuarios con plan "individual"
+    - Usuarios que son owners de teams (is_team_owner = true)
+
+    **Usuarios excluidos:**
+    - Miembros de teams que NO son owners (team members regulares)
 
     Información devuelta por usuario:
     - id: ID del usuario
     - nombre: Nombre de usuario (username)
     - correo: Correo electrónico
+    - plan: Plan del usuario (individual o team)
+    - rol_team: Rol del usuario en el team (owner, admin, creator, viewer)
+    - es_dueño_team: Si el usuario es dueño del team
     - cuando_se_crea: Fecha de creación
     - cantidad_stars: Saldo actual de estrellas
     - cantidad_series_creadas: Total de series/juegos creados
@@ -791,10 +831,34 @@ async def get_all_users_detailed_service(
                 }
             },
             {
+                "$lookup": {
+                    "from": "team",
+                    "let": {"team_id": "$team_id"},
+                    "pipeline": [
+                        {"$match": {"$expr": {"$eq": ["$_id", {"$toObjectId": "$$team_id"}]}}}
+                    ],
+                    "as": "team_info"
+                }
+            },
+            {
                 "$addFields": {
                     "user_id": {"$toString": "$_id"},
                     "games_created": {"$size": "$games"},
-                    "views": {"$size": "$analytics"}
+                    "views": {"$size": "$analytics"},
+                    "team_owner_id": {
+                        "$cond": [
+                            {"$gt": [{"$size": "$team_info"}, 0]},
+                            {"$arrayElemAt": ["$team_info.owner_id", 0]},
+                            None
+                        ]
+                    },
+                    "is_team_owner_calculated": {
+                        "$cond": [
+                            {"$eq": [{"$arrayElemAt": ["$team_info.owner_id", 0]}, {"$toString": "$_id"}]},
+                            True,
+                            False
+                        ]
+                    }
                 }
             },
             {
@@ -806,7 +870,20 @@ async def get_all_users_detailed_service(
                     "stars": 1,
                     "games_created": 1,
                     "views": 1,
-                    "is_preview": 1
+                    "is_preview": 1,
+                    "plan_type": 1,
+                    "team_role": 1,
+                    "is_team_owner": "$is_team_owner_calculated"
+                }
+            },
+            {
+                "$match": {
+                    "$or": [
+                        {"plan_type": "individual"},
+                        {"plan_type": {"$exists": False}},
+                        {"plan_type": None},
+                        {"is_team_owner": True}
+                    ]
                 }
             }
         ])
@@ -831,6 +908,9 @@ async def get_all_users_detailed_service(
                 "stars_used": stars_used,
                 "views": user.get("views", 0),
                 "is_preview": user.get("is_preview", False),
+                "plan_type": user.get("plan_type", "individual"),
+                "team_role": user.get("team_role"),
+                "is_team_owner": user.get("is_team_owner", False),
             }
             users_detailed.append(user_detail)
 
@@ -1395,6 +1475,9 @@ async def get_waitlist_users_export_service() -> List[dict]:
     Retorna lista de usuarios con información para exportar a Excel:
     - username: Nombre del usuario
     - email: Correo del usuario
+    - plan_type: Plan del usuario (individual o team)
+    - team_role: Rol del usuario en el team (si aplica)
+    - is_team_owner: Si el usuario es dueño del team
     - created_at: Fecha de creación
 
     Returns:
@@ -1404,10 +1487,43 @@ async def get_waitlist_users_export_service() -> List[dict]:
         HTTPException: Si hay error en la consulta
     """
     try:
-        # Obtener usuarios donde is_preview = False (lista de espera)
-        users_waitlist = await db["user"].find(
-            {"is_preview": False}
-        ).to_list(None)
+        # Usar agregación para obtener usuarios con información de team
+        pipeline = [
+            {"$match": {"is_preview": False}},
+            {
+                "$lookup": {
+                    "from": "team",
+                    "let": {"team_id": "$team_id"},
+                    "pipeline": [
+                        {"$match": {"$expr": {"$eq": ["$_id", {"$toObjectId": "$$team_id"}]}}}
+                    ],
+                    "as": "team_info"
+                }
+            },
+            {
+                "$addFields": {
+                    "is_team_owner_calculated": {
+                        "$cond": [
+                            {"$eq": [{"$arrayElemAt": ["$team_info.owner_id", 0]}, {"$toString": "$_id"}]},
+                            True,
+                            False
+                        ]
+                    }
+                }
+            },
+            {
+                "$project": {
+                    "username": 1,
+                    "email": 1,
+                    "plan_type": 1,
+                    "team_role": 1,
+                    "is_team_owner": "$is_team_owner_calculated",
+                    "created_at": 1
+                }
+            }
+        ]
+
+        users_waitlist = await db["user"].aggregate(pipeline).to_list(None)
 
         # Transformar datos para exportación
         result = []
@@ -1415,6 +1531,9 @@ async def get_waitlist_users_export_service() -> List[dict]:
             result.append({
                 "username": user.get("username", ""),
                 "email": user.get("email", ""),
+                "plan_type": user.get("plan_type", "individual"),
+                "team_role": user.get("team_role"),
+                "is_team_owner": user.get("is_team_owner", False),
                 "created_at": user.get("created_at", datetime.utcnow()),
             })
 
@@ -1579,5 +1698,190 @@ async def activate_user_service(user_id: str) -> dict:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error al activar usuario: {str(e)}"
+        )
+
+
+async def change_user_plan_type_service(user_id: str, new_plan_type: str) -> dict:
+    """
+    Cambia el tipo de plan del usuario entre 'individual' y 'team'.
+    
+    Cuando cambia de individual a team:
+    - Crea un nuevo team con el nombre del usuario
+    - Agrega al usuario como único miembro con rol 'owner'
+    - Actualiza el plan_type del usuario a 'team'
+    - Asigna el team_id al usuario
+    
+    Cuando cambia de team a individual:
+    - Desactiva el team actual del usuario
+    - Actualiza el plan_type del usuario a 'individual'
+    - Limpia team_id, team_role e is_team_owner del usuario
+    
+    Args:
+        user_id: ID del usuario
+        new_plan_type: Tipo de plan deseado ('individual' o 'team')
+    
+    Returns:
+        dict: Información actualizada del usuario
+    
+    Raises:
+        HTTPException: Si hay error en la operación
+    """
+    try:
+        # Validar que el nuevo plan sea válido
+        if new_plan_type not in ["individual", "team"]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El tipo de plan debe ser 'individual' o 'team'"
+            )
+        
+        # Obtener usuario actual
+        user_db = await db["user"].find_one({"_id": ObjectId(user_id)})
+        if not user_db:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Usuario con ID {user_id} no encontrado"
+            )
+        
+        current_plan = user_db.get("plan_type", "individual")
+        
+        # Si ya tiene el mismo plan, no hacer nada
+        if current_plan == new_plan_type:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"El usuario ya tiene el plan '{new_plan_type}'"
+            )
+        
+        # ============================================
+        # CASO 1: Cambio de individual a team
+        # ============================================
+        if current_plan == "individual" and new_plan_type == "team":
+            from team.models import Team, TeamMember
+            
+            # Crear nuevo team con el nombre del usuario
+            team_name = user_db.get("username", f"Team {user_id}")
+            new_team = Team(
+                name=team_name,
+                description="",
+                owner_id=user_id,
+                members=[
+                    TeamMember(
+                        user_id=user_id,
+                        role="owner"
+                    )
+                ],
+                is_active=True,
+                created_by=user_id,
+                updated_by=user_id
+            )
+            
+            # Insertar team en base de datos
+            team_result = await db["team"].insert_one(new_team.dict())
+            team_id = str(team_result.inserted_id)
+            
+            # Actualizar usuario con nuevo plan
+            update_result = await db["user"].update_one(
+                {"_id": ObjectId(user_id)},
+                {
+                    "$set": {
+                        "plan_type": "team",
+                        "team_id": team_id,
+                        "team_role": "owner",
+                        "is_team_owner": True,
+                        "updated_at": datetime.utcnow(),
+                        "updated_by": "system"
+                    }
+                }
+            )
+            
+            if update_result.modified_count == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No se pudo actualizar el usuario"
+                )
+            
+            # Obtener usuario actualizado
+            updated_user = await db["user"].find_one({"_id": ObjectId(user_id)})
+            
+            return {
+                "user_id": str(updated_user.get("_id")),
+                "username": updated_user.get("username", ""),
+                "email": updated_user.get("email", ""),
+                "plan_type": updated_user.get("plan_type"),
+                "team_id": updated_user.get("team_id"),
+                "team_role": updated_user.get("team_role"),
+                "is_team_owner": updated_user.get("is_team_owner"),
+                "created_at": updated_user.get("created_at"),
+                "updated_at": updated_user.get("updated_at"),
+                "message": f"Plan actualizado a 'team'. Team '{team_name}' creado exitosamente"
+            }
+        
+        # ============================================
+        # CASO 2: Cambio de team a individual
+        # ============================================
+        elif current_plan == "team" and new_plan_type == "individual":
+            team_id = user_db.get("team_id")
+            
+            if not team_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Usuario con plan 'team' pero sin team_id asignado"
+                )
+            
+            # Desactivar el team actual
+            await db["team"].update_one(
+                {"_id": ObjectId(team_id)},
+                {
+                    "$set": {
+                        "is_active": False,
+                        "updated_at": datetime.utcnow(),
+                        "updated_by": "system"
+                    }
+                }
+            )
+            
+            # Actualizar usuario a plan individual
+            update_result = await db["user"].update_one(
+                {"_id": ObjectId(user_id)},
+                {
+                    "$set": {
+                        "plan_type": "individual",
+                        "team_id": None,
+                        "team_role": None,
+                        "is_team_owner": False,
+                        "updated_at": datetime.utcnow(),
+                        "updated_by": "system"
+                    }
+                }
+            )
+            
+            if update_result.modified_count == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="No se pudo actualizar el usuario"
+                )
+            
+            # Obtener usuario actualizado
+            updated_user = await db["user"].find_one({"_id": ObjectId(user_id)})
+            
+            return {
+                "user_id": str(updated_user.get("_id")),
+                "username": updated_user.get("username", ""),
+                "email": updated_user.get("email", ""),
+                "plan_type": updated_user.get("plan_type"),
+                "team_id": updated_user.get("team_id"),
+                "team_role": updated_user.get("team_role"),
+                "is_team_owner": updated_user.get("is_team_owner"),
+                "created_at": updated_user.get("created_at"),
+                "updated_at": updated_user.get("updated_at"),
+                "message": f"Plan actualizado a 'individual'. Team desactivado exitosamente"
+            }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error in change_user_plan_type_service: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error al cambiar el tipo de plan: {str(e)}"
         )
 

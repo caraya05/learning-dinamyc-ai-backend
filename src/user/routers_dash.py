@@ -27,6 +27,7 @@ from user.services_dash import (
     get_user_dashboard_summary_service,
     get_waitlist_users_export_service,
     activate_user_service,
+    change_user_plan_type_service,
 )
 
 
@@ -55,6 +56,9 @@ router = APIRouter(prefix="/user/dashboard", tags=["User Dashboard"])
     
     Incluye por usuario:
     - Información básica (id, username, email, foto, estado)
+    - Plan: Plan del usuario (individual o team)
+    - Rol en team: Rol del usuario en el team (owner, admin, creator, viewer)
+    - Es dueño del team: Si el usuario es dueño del team
     - KPIs: estrellas, juegos creados, intentos de creación
     - Fechas: creación y última actualización
     - Roles: superuser, staff
@@ -191,18 +195,25 @@ async def get_global_kpis(
     description="""
     Obtiene el resumen agregado del dashboard para un usuario específico.
     
-    Métricas devueltas:
+    **Información del usuario:**
+    - ID, username, email, estado activo
+    - Plan: individual o team
+    - Rol en el team (si aplica): owner, admin, creator, viewer
+    - Si es dueño del team
+    - Lista de miembros del team (si aplica)
+    
+    **Métricas devueltas:**
     - Cantidad de historias creadas (series)
     - Cantidad de vistas (analíticas)
     - Cantidad de analíticas completadas
     - Stars utilizadas (series * 10)
     
-    Series de tiempo por mes:
+    **Series de tiempo por mes:**
     - Vistas por mes
     - Historias creadas por mes
     - Stars consumidas por mes
     
-    Normalmente utilizado por:
+    **Normalmente utilizado por:**
     - Administradores que necesitan ver el dashboard de otros usuarios
     - Análisis de datos de usuarios específicos
     """,
@@ -267,6 +278,9 @@ async def get_user_dashboard_summary_by_id(
     El Excel incluye:
     - Username: Nombre de usuario
     - Email: Correo electrónico
+    - Plan: Plan del usuario (individual o team)
+    - Rol en team: Rol del usuario en el team (si aplica)
+    - Es dueño del team: Si el usuario es dueño del team
     - Created At: Fecha de creación de la cuenta
     
     Solo administradores pueden acceder a este endpoint.
@@ -303,7 +317,7 @@ async def export_waitlist_users_excel(
         ws.title = "Waitlist Users"
 
         # Encabezados
-        headers = ["Username", "Email", "Created At"]
+        headers = ["Username", "Email", "Plan", "Team Role", "Is Team Owner", "Created At"]
         ws.append(headers)
 
         # Formato de encabezados
@@ -321,13 +335,19 @@ async def export_waitlist_users_excel(
             ws.append([
                 user["username"],
                 user["email"],
+                user.get("plan_type", "individual"),
+                user.get("team_role", ""),
+                str(user.get("is_team_owner", False)),
                 created_at_str,
             ])
 
         # Ajustar ancho de columnas
         ws.column_dimensions['A'].width = 20
         ws.column_dimensions['B'].width = 30
-        ws.column_dimensions['C'].width = 25
+        ws.column_dimensions['C'].width = 15
+        ws.column_dimensions['D'].width = 15
+        ws.column_dimensions['E'].width = 18
+        ws.column_dimensions['F'].width = 20
 
         # Guardar en BytesIO
         excel_file = BytesIO()
@@ -492,3 +512,70 @@ async def activate_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Error al activar usuario: {str(e)}"
         )
+
+
+# ============================================================================
+# Cambiar tipo de plan del usuario (individual ↔ team)
+# ============================================================================
+
+@router.patch(
+    "/{user_id}/plan-type",
+    status_code=status.HTTP_200_OK,
+    summary="Cambiar tipo de plan del usuario",
+    description="""
+    Cambia el tipo de plan del usuario entre 'individual' y 'team'.
+    
+    **Cambio de individual a team:**
+    - Crea un nuevo team con el nombre del usuario
+    - El usuario se asigna como dueño y único miembro del team
+    - El team se crea con is_active = true
+    
+    **Cambio de team a individual:**
+    - Desactiva el team actual del usuario (is_active = false)
+    - Se eliminan los datos de team del usuario
+    
+    **Solo administradores pueden realizar este cambio.**
+    """,
+)
+async def change_user_plan_type(
+    user_id: str = Path(..., description="ID del usuario"),
+    new_plan_type: str = Query(..., description="Nuevo tipo de plan: 'individual' o 'team'"),
+    user_db: dict = Depends(auth),
+    token: HTTPAuthorizationCredentials = Depends(auth_schema),
+):
+    """
+    Endpoint para cambiar el tipo de plan de un usuario.
+
+    Requiere autenticación y permisos de administrador.
+
+    Parámetros:
+    - user_id: ID del usuario cuyo plan se desea cambiar
+    - new_plan_type: Tipo de plan destino ('individual' o 'team')
+    """
+    try:
+        # Verificar que el usuario sea administrador
+        if not user_db.get("is_superuser") and not user_db.get("is_staff"):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Solo administradores pueden cambiar el tipo de plan"
+            )
+
+        result = await change_user_plan_type_service(
+            user_id=user_id,
+            new_plan_type=new_plan_type
+        )
+
+        return {
+            "data": result,
+            "message": f"Plan cambiado a '{new_plan_type}' exitosamente"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Error al cambiar el tipo de plan: {str(e)}"
+        )
+
+

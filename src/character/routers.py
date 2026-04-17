@@ -14,7 +14,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 
 import traceback
 
-from auth.auth import auth
+from auth.auth import auth, auth_team
 from auth.utils import auth_schema
 
 
@@ -116,7 +116,7 @@ async def get_characters(
         location_id: str = None,
         game_id: str = None,
         publish: bool = False,
-        user_db: dict = Depends(auth),
+        user_db: dict = Depends(auth_team),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
         game_service = Depends(GameService)
 ):
@@ -161,7 +161,7 @@ async def get_characters(
 
 @router.get("/me/", response_model=SchemaListCharacter)
 async def get_all_characters(
-        user_db: dict = Depends(auth),
+        user_db: dict = Depends(auth_team),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
         page: int = 1,
         count: int = 10,
@@ -211,7 +211,7 @@ async def create_character(
         location_id: Optional[str] = Form(None, example="location_id"),
         state_game: Optional[str] = Form(None, example="state_game"),
         file: Optional[UploadFile] = File(None),
-        user_db: dict = Depends(auth),
+        user_db: dict = Depends(auth_team),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
@@ -299,7 +299,7 @@ async def create_character(
 @router.post("/add-edit-characteristic/")
 async def add_edit_characteristic(
         character: SchemaUpdatedCharacterLocation,
-        user_db: dict = Depends(auth),
+        user_db: dict = Depends(auth_team),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:
@@ -324,7 +324,7 @@ async def add_edit_characteristic(
 async def partial_update_character(
         character_id: str,
         character_update: SchemaUpdateCharacterCollection,
-        user_db: dict = Depends(auth),
+        user_db: dict = Depends(auth_team),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     character_db = await update_character_service(
@@ -348,7 +348,7 @@ async def partial_update_character(
 async def generate_interaction_character(
         character_id: str,
         new_interaction: SchemaNewInteraction,
-        user_db: dict = Depends(auth),
+        user_db: dict = Depends(auth_team),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 ):
     try:

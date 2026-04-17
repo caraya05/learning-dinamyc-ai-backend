@@ -25,7 +25,7 @@ from pydantic import BaseModel
 
 from core.database import db
 from fastapi.security import HTTPAuthorizationCredentials
-from auth.auth import auth
+from auth.auth import auth, auth_team
 from auth.utils import auth_schema
 from game.tasks_provisional_2 import create_game_structure, create_intermediate_events
 from task.services import create_task_service
@@ -94,7 +94,7 @@ manager = ConnectionManager()
 @limiter.limit("5/minute", error_message="Intentalo de nuevo más tarde")
 async def create_game(
         request: Request,
-        user: dict = Depends(auth),
+        user: dict = Depends(auth_team),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
         files: list[UploadFile] = File(None),
         prompt_user: str = Form(...),
@@ -407,7 +407,7 @@ async def update_game_provisional(
         request: Request,
         id_game_provisional: str,
         data: GameUpdateRequest,
-        user: dict = Depends(auth),
+        user: dict = Depends(auth_team),
         Token: HTTPAuthorizationCredentials = Depends(auth_schema),
 
 ):
@@ -429,8 +429,6 @@ async def update_game_provisional(
     update_fields = {
         "updated_at": datetime.now(pytz.utc),
     }
-
-    print("data",data.interactions)
 
     if data.script is not None:
         update_fields["script"] = data.script

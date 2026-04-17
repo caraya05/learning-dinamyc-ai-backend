@@ -29,15 +29,20 @@ async def create_indexes():
 
     await db["user"].drop_indexes()
     await db["game"].drop_indexes()
-    await db["category"].drop_indexes()
-    await db["prompt"].drop_indexes()
 
     await db["user"].create_index("username")
     await db["user"].create_index("email")
+    await db["user"].create_index("team_id")
 
     await db["game"].create_index("title")
     await db["game"].create_index("category_id")
 
-    await db["category"].create_index("name")
 
-    await db["prompt"].create_index("category")
+    # Visual Style indexes
+    await db["visual_style"].create_index("user_id")
+    await db["visual_style"].create_index("created_at")
+    await db["visual_style"].create_index("is_active")
+    await db["visual_style"].create_index([("user_id", 1), ("is_active", 1)])
+
+
+

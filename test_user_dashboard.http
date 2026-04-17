@@ -1,0 +1,92 @@
+### User Dashboard Summary - Current User
+GET http://localhost:8000/v1/api/user/dashboard/summary?from_date=2026-02-01&to_date=2026-02-25&timezone=America/Bogota&group_by=day
+Authorization: Bearer {{JWT_TOKEN}}
+
+### User Dashboard Summary - Specific User
+GET http://localhost:8000/v1/api/user/507f1f77bcf86cd799439011/dashboard/summary?from_date=2026-02-01&to_date=2026-02-25
+Authorization: Bearer {{JWT_TOKEN}}
+
+### User Dashboard Summary - Last 7 Days
+GET http://localhost:8000/v1/api/user/dashboard/summary?from_date=2026-02-18&to_date=2026-02-25&group_by=day
+Authorization: Bearer {{JWT_TOKEN}}
+
+### User Dashboard Summary - Monthly Grouping
+GET http://localhost:8000/v1/api/user/dashboard/summary?from_date=2025-11-01&to_date=2026-02-25&group_by=month
+Authorization: Bearer {{JWT_TOKEN}}
+
+### User Dashboard Batch - KPIs Only
+POST http://localhost:8000/v1/api/user/dashboard/batch
+Authorization: Bearer {{JWT_TOKEN}}
+Content-Type: application/json
+
+{
+  "from_date": "2026-02-01",
+  "to_date": "2026-02-25",
+  "timezone": "America/Bogota",
+  "group_by": "day",
+  "widgets": ["kpis"]
+}
+
+### User Dashboard Batch - KPIs + Timeseries
+POST http://localhost:8000/v1/api/user/dashboard/batch
+Authorization: Bearer {{JWT_TOKEN}}
+Content-Type: application/json
+
+{
+  "from_date": "2026-02-01",
+  "to_date": "2026-02-25",
+  "timezone": "America/Bogota",
+  "group_by": "day",
+  "widgets": ["kpis", "timeseries"]
+}
+
+### User Dashboard Batch - All Widgets
+POST http://localhost:8000/v1/api/user/dashboard/batch
+Authorization: Bearer {{JWT_TOKEN}}
+Content-Type: application/json
+
+{
+  "from_date": "2026-02-01",
+  "to_date": "2026-02-25",
+  "timezone": "America/Bogota",
+  "group_by": "day",
+  "widgets": ["kpis", "timeseries", "breakdowns"]
+}
+
+### User Dashboard Global Summary - Listado de Todos los Usuarios (Admin)
+GET http://localhost:8000/v1/api/user/dashboard/global/summary?skip=0&limit=10
+Authorization: Bearer {{JWT_ADMIN_TOKEN}}
+
+### Respuesta esperada:
+# {
+#   "data": {
+#     "users": [
+#       {
+#         "id": "507f1f77bcf86cd799439011",
+#         "nombre": "jhon_doe",
+#         "correo": "jhon@example.com",
+#         "cuando_se_crea": "2026-02-01T10:30:00",
+#         "cantidad_stars": 150.0,
+#         "cantidad_series_creadas": 5,
+#         "cantidad_stars_usadas": 50,
+#         "cantidad_vistas": 1250
+#       }
+#     ],
+#     "total": 100,
+#     "skip": 0,
+#     "limit": 10,
+#     "generated_at": "2026-02-25T16:30:00"
+#   }
+# }
+
+### User Dashboard Global Summary - Página 2 (skip=10)
+GET http://localhost:8000/v1/api/user/dashboard/global/summary?skip=10&limit=10
+Authorization: Bearer {{JWT_ADMIN_TOKEN}}
+
+### User Dashboard Global Summary - 50 usuarios por página
+GET http://localhost:8000/v1/api/user/dashboard/global/summary?skip=0&limit=50
+Authorization: Bearer {{JWT_ADMIN_TOKEN}}
+
+
+
+

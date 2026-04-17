@@ -10,6 +10,7 @@ from fastapi import UploadFile, File
 from fastapi.security import HTTPAuthorizationCredentials
 
 from auth.auth import auth
+from auth.cookie_handler import get_current_user_from_cookie_no_credentials
 from auth.utils import auth_schema
 from utils import upload_file
 
@@ -72,6 +73,10 @@ async def get_series(
     Get a series by ID with all its games and game_provisional data.
     Only returns games that have valid game_provisional.
     Requires authentication.
+    
+    Access Rules:
+    - If series is not published to any team, access is allowed
+    - If series is published to teams, user must be a member of at least one team
     """
     if not ObjectId.is_valid(series_id):
         raise HTTPException(
@@ -80,6 +85,15 @@ async def get_series(
         )
 
     try:
+        # Check if user has access to this series
+        has_access = await service.check_series_access(series_id, str(user.get("_id")))
+
+        if not has_access:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to access this series",
+            )
+
         series_with_games = await service.get_series_with_games_service(series_id)
         if not series_with_games:
             raise HTTPException(
@@ -123,7 +137,6 @@ async def update_series(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid series ID",
         )
-
 
     series_data = SchemaUpdateSeries(
         title=title,
@@ -493,7 +506,9 @@ async def publish_series(
             series_id,
             publish_data.publish_type,
             str(user.get("_id")),
-            requested_is_published=publish_data.is_published
+            requested_is_published=publish_data.is_published,
+            publish_to_team=publish_data.publish_to_team,
+            team_id=publish_data.team_id
         )
         series_db["_id"] = str(series_db["_id"])
         return series_db
@@ -558,6 +573,7 @@ async def list_published_series(
 @router.get("/published/{series_id}", status_code=status.HTTP_200_OK)
 async def get_published_series_detail(
         series_id: str,
+        user: dict = Depends(get_current_user_from_cookie_no_credentials),  # Extrae de Cookie
         service: SeriesService = Depends(get_series_service)
 ):
     """
@@ -571,7 +587,8 @@ async def get_published_series_detail(
         )
 
     try:
-        series_with_games = await service.get_published_series_detail_service(series_id)
+        series_with_games = await service.get_published_series_detail_service(series_id,
+                                                                              user and user.get("team_id", None))
         if not series_with_games:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -628,3 +645,123 @@ async def debug_series_analytics_mapping(
             detail=f"Error in debug series analytics mapping: {str(e)}",
         )
 
+
+@router.get("/team/{team_id}", status_code=status.HTTP_200_OK)
+async def get_team_series(
+        team_id: str,
+        published_only: bool = False,
+        page: int = 1,
+        limit: int = 10,
+        game_category: str = None,
+        search_series_name: str = None,
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema),
+        service: SeriesService = Depends(get_series_service)
+):
+    """
+    Get all series belonging to a team's owner (dueño del equipo).
+    
+    Query parameters:
+    - published_only: If True, returns only published series (default: False - returns all)
+    - page: Page number for pagination (default: 1)
+    - limit: Number of results per page (default: 10)
+    
+    Returns:
+    - results: List of series
+    - count: Total count of series
+    - page: Current page
+    - total_pages: Total number of pages
+    """
+    try:
+        if not ObjectId.is_valid(team_id):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid team ID",
+            )
+
+        result = await service.get_team_series_service(
+            team_id=team_id,
+            published_only=published_only,
+            page=page,
+            limit=limit,
+            search_name=search_series_name,
+            category_id=game_category
+        )
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting team series: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Error getting team series",
+        )
+
+#
+# @router.get("/team/{team_id}/published", status_code=status.HTTP_200_OK, response_model=SchemaListPublishedSeries)
+# async def get_team_published_series(
+#         team_id: str,
+#         page: int = 1,
+#         limit: int = 10,
+#         category_id: str = None,
+#         search_name: str = None,
+#         service: SeriesService = Depends(get_series_service)
+# ):
+#     """
+#     Get all published series belonging to a team's owner (dueño del equipo).
+#     Same pagination response structure as list_published_series endpoint.
+#
+#     Query parameters:
+#     - page (int, default=1): Page number for pagination
+#     - limit (int, default=10): Number of series per page
+#     - category_id (str, optional): Filter series by category ID
+#     - search_name (str, optional): Search series by name (case-insensitive)
+#
+#     Returns:
+#     - count: Total count of published series
+#     - results: List of published series
+#     - page: Current page
+#     - total_pages: Total number of pages
+#     """
+#     try:
+#         if not ObjectId.is_valid(team_id):
+#             raise HTTPException(
+#                 status_code=status.HTTP_400_BAD_REQUEST,
+#                 detail="Invalid team ID",
+#             )
+#
+#         if page < 1:
+#             page = 1
+#         if limit < 1 or limit > 100:
+#             limit = 10
+#
+#         skip = (page - 1) * limit
+#         series_list, total = await service.get_team_published_series_service(
+#             team_id=team_id,
+#             skip=skip,
+#             limit=limit,
+#             category_id=category_id,
+#             search_name=search_name
+#         )
+#
+#         for series in series_list:
+#             series["_id"] = str(series["_id"])
+#
+#         total_pages = (total + limit - 1) // limit
+#
+#         return {
+#             "count": total,
+#             "results": series_list,
+#             "page": page,
+#             "total_pages": total_pages
+#         }
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         logger.error(f"Error getting team published series: {str(e)}")
+#         raise HTTPException(
+#             status_code=status.HTTP_400_BAD_REQUEST,
+#             detail="Error getting team published series",
+#         )
+#
