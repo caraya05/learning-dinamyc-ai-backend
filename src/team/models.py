@@ -22,4 +22,6 @@ class Team(BaseModel):
     created_by: str = Field(default="system", example="system")
     updated_at: datetime.datetime = Field(default_factory=datetime.datetime.utcnow)
     updated_by: str = Field(default="system", example="system")
+    selected_visual_style_id: Optional[str] = Field(default=None, example="507f1f77bcf86cd799439012")
+
 

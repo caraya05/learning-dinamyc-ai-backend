@@ -21,4 +21,5 @@ class SchemaRetrieveUser(ResponseModel):
     team_id: Optional[str] = Field(default=None, example="507f1f77bcf86cd799439011")
     team_role: Optional[str] = Field(default=None, example="owner")
     is_team_owner: Optional[bool] = Field(default=False, example=False)
+    visual_style_id: Optional[str] = Field(default=None, example="507f1f77bcf86cd799439012")
 

@@ -71,6 +71,7 @@ async def get_current_user(
     This endpoint retrieves the current user's information.
 
     If the user belongs to a team, the stars returned will be the owner's stars.
+    Also retrieves the selected visual style ID for the user and the team (if applicable).
 
     It uses JWT for authentication. The JWT token is expected to be provided in the Authorization header.
     user_db (dict): Current user from auth dependency
@@ -88,20 +89,34 @@ async def get_current_user(
     team_id = user_db.get("team_id")
 
     if team_id:
-        # User belongs to a team, get the owner's stars
+        # User belongs to a team, get the owner's stars and team visual style
         team_db = await db["team"].find_one({"_id": ObjectId(team_id)})
 
         if team_db:
+            print("User belongs to a team, retrieving owner's stars and team visual style")  # Debug print
             owner_id = team_db.get("owner_id")
 
             if owner_id:
+                print(f"Team owner ID: {owner_id}")  # Debug print
                 # Get owner's user data
                 owner_db = await db["user"].find_one({"_id": ObjectId(owner_id)})
 
                 if owner_db:
+                    print(f"Owner's user data: {owner_db}")
                     # Replace stars with owner's stars
                     user_db["stars"] = owner_db.get("stars", 0)
+                    user_db["visual_style_id"] = owner_db.get("selected_visual_style_id")
 
+            # Get team's selected visual style
+            team_visual_style_id = team_db.get("selected_visual_style_id")
+            if team_visual_style_id:
+                user_db["visual_style_id"] = team_visual_style_id
+    else:
+        print("User does not belong to a team, using user's own stars and visual style")  # Debug print
+        user_db["stars"] = user_db.get("stars", 0)
+        user_db["visual_style_id"] = user_db.get("selected_visual_style_id")
+
+    print(f"User DB: {user_db}")  # Debug print to check the user data being returned
     try:
         return user_db
     except Exception as ex:

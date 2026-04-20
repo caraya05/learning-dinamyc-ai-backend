@@ -25,3 +25,4 @@ class User(BaseModel):
     team_id: Optional[str] = Field(default=None, example="507f1f77bcf86cd799439011")
     team_role: Optional[str] = Field(default=None, example="owner")  # owner, creator, viewer, admin
     is_team_owner: bool = Field(default=False, example=False)
+    selected_visual_style_id: Optional[str] = Field(default=None, example="507f1f77bcf86cd799439012")

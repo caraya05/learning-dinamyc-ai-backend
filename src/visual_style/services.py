@@ -79,7 +79,12 @@ class VisualStyleService:
             'updated_by': user_id,
             'is_active': True,
             'times_used': 0,
-            'games_using_style': []
+            'games_using_style': [],
+            # Task tracking fields
+            'task_status': 'pending',
+            'task_progress': 0,
+            'task_message': '',
+            'task_updated_at': datetime.utcnow()
         }
         result = await self.db['visual_style'].insert_one(doc)
         created_doc = await self.db['visual_style'].find_one({'_id': result.inserted_id})
@@ -116,10 +121,23 @@ class VisualStyleService:
     async def get_user_visual_styles(self, user_id: str, skip: int = 0,
                                      limit: int = 10) -> Tuple[List[dict], int]:
         """Get user styles"""
-        total = await self.db['visual_style'].count_documents({'user_id': user_id, 'is_active': True})
+        total = await self.db['visual_style'].count_documents({'created_by': user_id, 'is_active': True})
         styles = await self.db['visual_style'].find(
-            {'user_id': user_id, 'is_active': True}
-        ).skip(skip).limit(limit).to_list(None)
+            {'created_by': user_id, 'is_active': True}
+        ).sort('updated_at', -1).skip(skip).limit(limit).to_list(None)
+        for s in styles:
+            s['_id'] = str(s['_id'])
+        return styles, total
+
+    async def get_user_completed_visual_styles(self, user_id: str, skip: int = 0,
+                                               limit: int = 10) -> Tuple[List[dict], int]:
+        """Get only completed user styles, ordered by updated_at"""
+        total = await self.db['visual_style'].count_documents(
+            {'created_by': user_id, 'is_active': True, 'status': VisualStyleStatus.COMPLETED}
+        )
+        styles = await self.db['visual_style'].find(
+            {'created_by': user_id, 'is_active': True, 'status': VisualStyleStatus.COMPLETED}
+        ).sort('updated_at', -1).skip(skip).limit(limit).to_list(None)
         for s in styles:
             s['_id'] = str(s['_id'])
         return styles, total
@@ -814,3 +832,198 @@ Colores: {color_palette}"""
             print(f"❌ Error saving generated images: {str(e)}")
             logger.error(f"Error saving generated images for style {visual_style_id}: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail=f"Failed to save images: {str(e)}")
+
+    async def update_visual_style(self, visual_style_id: str, updates: dict) -> dict:
+        """Update visual style fields
+
+        Args:
+            visual_style_id: String ID of visual style
+            updates: Dictionary with fields to update
+                Allowed fields: name, description, original_prompt
+
+        Returns:
+            Updated document
+        """
+        if not ObjectId.is_valid(visual_style_id):
+            raise HTTPException(status_code=400, detail="Invalid ID")
+
+        # Only allow specific fields to be updated
+        allowed_fields = ['name', 'description', 'original_prompt']
+        update_data = {}
+
+        for field in allowed_fields:
+            if field in updates and updates[field] is not None:
+                update_data[field] = updates[field]
+
+        if not update_data:
+            raise HTTPException(status_code=400, detail="No valid fields to update")
+
+        # Add metadata
+        update_data['updated_at'] = datetime.utcnow()
+
+        updated_doc = await self.db['visual_style'].find_one_and_update(
+            {'_id': ObjectId(visual_style_id)},
+            {'$set': update_data},
+            return_document=True
+        )
+
+        if not updated_doc:
+            raise HTTPException(status_code=404, detail="Visual style not found")
+
+        updated_doc['_id'] = str(updated_doc['_id'])
+        return updated_doc
+
+    async def select_user_visual_style(self, user_id: str, visual_style_id: str) -> dict:
+        """Select a visual style for user
+
+        Args:
+            user_id: User ID
+            visual_style_id: Visual style ID to select
+
+        Returns:
+            Updated user document
+        """
+        try:
+            print(f"\n{'='*70}")
+            print(f"🎨 SELECT USER VISUAL STYLE")
+            print(f"{'='*70}")
+            print(f"👤 User ID: {user_id}")
+            print(f"🎨 Style ID: {visual_style_id}")
+
+            # Validate visual style exists and is completed
+            if not ObjectId.is_valid(visual_style_id):
+                raise HTTPException(status_code=400, detail="Invalid style ID")
+
+            vs = await self.db['visual_style'].find_one({'_id': ObjectId(visual_style_id)})
+            if not vs:
+                raise HTTPException(status_code=404, detail="Visual style not found")
+
+            if vs.get('status') != VisualStyleStatus.COMPLETED:
+                raise HTTPException(status_code=400, detail="Visual style not completed yet")
+
+            print(f"✅ Visual style found: {vs.get('name')}")
+
+            # Update visual style with updated_at timestamp
+            print(f"📤 Updating visual style updated_at...")
+            await self.db['visual_style'].update_one(
+                {'_id': ObjectId(visual_style_id)},
+                {'$set': {'updated_at': datetime.utcnow()}}
+            )
+            print(f"✅ Visual style updated_at timestamp updated!")
+
+            # Update user with selected visual style
+            print(f"📤 Updating user profile...")
+            user_update = await self.db['user'].find_one_and_update(
+                {'_id': ObjectId(user_id)},
+                {'$set': {'selected_visual_style_id': visual_style_id}},
+                return_document=True
+            )
+
+            if not user_update:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            print(f"✅ Visual style selected successfully!")
+            print(f"{'='*70}\n")
+
+            return {
+                'user_id': str(user_update.get('_id')),
+                'selected_visual_style_id': visual_style_id,
+                'style_name': vs.get('name'),
+                'message': 'Visual style selected successfully'
+            }
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"❌ Error selecting visual style: {e}")
+            logger.error(f"Error selecting visual style: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Error selecting visual style: {str(e)}")
+
+    async def get_user_selected_visual_style(self, user_id: str) -> dict:
+        """Get selected visual style for user
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            Selected visual style or empty dict if none selected
+        """
+        try:
+            print(f"\n{'='*70}")
+            print(f"🎨 GET USER SELECTED VISUAL STYLE")
+            print(f"{'='*70}")
+            print(f"👤 User ID: {user_id}")
+
+            # Get user
+            user = await self.db['user'].find_one({'_id': ObjectId(user_id)})
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            selected_style_id = user.get('selected_visual_style_id')
+
+            if not selected_style_id:
+                print(f"ℹ️ No visual style selected")
+                print(f"{'='*70}\n")
+                return {'selected_visual_style_id': None}
+
+            # Get visual style
+            vs = await self.db['visual_style'].find_one({'_id': ObjectId(selected_style_id)})
+
+            if not vs:
+                print(f"⚠️ Selected style not found, clearing selection")
+                # Clear invalid selection
+                await self.db['user'].update_one(
+                    {'_id': ObjectId(user_id)},
+                    {'$set': {'selected_visual_style_id': None}}
+                )
+                return {'selected_visual_style_id': None}
+
+            vs['_id'] = str(vs['_id'])
+
+            print(f"✅ Selected style found: {vs.get('name')}")
+            print(f"{'='*70}\n")
+
+            return vs
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"❌ Error getting selected visual style: {e}")
+            logger.error(f"Error getting selected visual style: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Error getting selected visual style: {str(e)}")
+
+    async def clear_user_visual_style_selection(self, user_id: str) -> dict:
+        """Clear selected visual style for user
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            Confirmation dict
+        """
+        try:
+            print(f"\n{'='*70}")
+            print(f"🗑️ CLEAR USER VISUAL STYLE SELECTION")
+            print(f"{'='*70}")
+            print(f"👤 User ID: {user_id}")
+
+            # Update user to clear selection
+            result = await self.db['user'].update_one(
+                {'_id': ObjectId(user_id)},
+                {'$set': {'selected_visual_style_id': None}}
+            )
+
+            if result.matched_count == 0:
+                raise HTTPException(status_code=404, detail="User not found")
+
+            print(f"✅ Visual style selection cleared!")
+            print(f"{'='*70}\n")
+
+            return {'cleared': True, 'message': 'Visual style selection cleared'}
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            print(f"❌ Error clearing visual style selection: {e}")
+            logger.error(f"Error clearing visual style selection: {e}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Error clearing selection: {str(e)}")
