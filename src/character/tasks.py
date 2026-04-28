@@ -1,4 +1,3 @@
-import random
 import traceback
 import requests
 import base64
@@ -20,10 +19,9 @@ from task.services import update_task_service
 from utils import upload_image
 from voice.elevenlabs import generate_audio
 from voice.utils import get_variants_service
+from visual_style.utils import get_character_style_prompt, get_style_metadata
 
 from io import BytesIO
-
-import logging
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -2045,6 +2043,10 @@ async def _generate_image_character(_user_id,
             f"mirando al frente con los brazos hacia abajo."
             f"genero: {_gender},"
         )
+
+        # Integrar estilo visual del usuario si está disponible
+        prompt_base = await get_character_style_prompt(_user_id, prompt_base)
+        style_metadata = await get_style_metadata(_user_id)
 
         # Si existe referencia de imagen, usar generate_image(), sino usar generate_gpt()
         image_face = None

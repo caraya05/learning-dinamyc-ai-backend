@@ -1175,7 +1175,41 @@ Personaje Principal del juego anterior (DEBE SER EL MISMO):
 async def create_character_service(character: SchemaCreateCharacter, user_id: str, game_id: str,
                                    file: UploadFile | None = None):
     try:
-
+        # Check if character already exists with same name, game_id, and location_id
+        def normalize_character_name(name: str) -> str:
+            """Extract base name, removing anything in parentheses.
+            E.g., 'Cody (zorro)' → 'Cody'
+            """
+            if not name:
+                return ""
+            # Remove content in parentheses and trim whitespace
+            base_name = name.split('(')[0].strip()
+            return base_name.lower()
+        
+        normalized_input_name = normalize_character_name(character.name)
+        
+        # Search for existing character by normalized name
+        all_characters = await db["character"].find({
+            "game_id": game_id,
+            "location_id": character.location_id,
+            "is_active": True
+        }).to_list(None)
+        
+        for char_doc in all_characters:
+            if normalize_character_name(char_doc.get("name", "")) == normalized_input_name:
+                print(f"✅ Personaje '{character.name}' (base: '{normalized_input_name}') ya existe, reutilizando...")
+                return char_doc
+        
+        existing_character = await db["character"].find_one({
+            "name": character.name,
+            "game_id": game_id,
+            "location_id": character.location_id,
+            "is_active": True
+        })
+        
+        if existing_character:
+            print(f"✅ Personaje '{character.name}' ya existe, reutilizando...")
+            return existing_character
         character_db = Character(**character.dict())
         character_db.created_by = user_id
         character_db.updated_by = user_id
@@ -1230,13 +1264,27 @@ async def create_character_service(character: SchemaCreateCharacter, user_id: st
                 data=character_db_state.dict(),
             )
 
+        task_db = await create_task_service(
+            _task_id="",
+            _user_id=game_db.get("created_by", "anonymous"),
+            _task_data={},
+            _element_id=game_db.get("provisional_id", ""),
+            _element_type="game_provisional",
+            _process="create_audio_event",
+        )
+
         task_celery = generate_character_task.delay(
             _character_id=str(character_created.inserted_id),
             _user_id=user_id,
-            _task_id="",
+            _task_id=str(task_db['_id']),
             _location_id=character.location_id,
             _state_game_id=state_game['_id'],
             _game_id=game_id,
+        )
+
+        await update_task_service(
+            _id=str(task_db["_id"]),
+            _task_id=task_celery.id,
         )
 
         if character_db := await db["character"].find_one({"_id": character_created.inserted_id}):
@@ -1347,6 +1395,12 @@ async def create_location_service(location: SchemaCreateLocation, user_id: str, 
             _state_game_id=state_game["_id"]
         )
 
+        await update_task_service(
+            _id=str(task_db["_id"]),
+            _task_id=task_celery.id,
+        )
+
+
         # Actualizar la tarea con el ID de celery
         await update_task_service(
             _id=str(task_db["_id"]),
@@ -1435,16 +1489,33 @@ async def create_event_service(event: SchemaCreateEvent, user_id: str):
         is_equal_option_number=event.is_equal_option_number,
     )
 
+    game_db = await db['game'].find_one({'_id': ObjectId(event.game_id)})
+
     event_created = await db["event"].insert_one(event_schema.dict())
 
     if event.prompt_user_image and not event.image:
+
+        task_db = await create_task_service(
+            _task_id="",
+            _user_id=user_id,
+            _task_data={},
+            _element_id=game_db.get("provisional_id", ""),
+            _element_type="game.provisional",
+            _process="create_event_image",
+        )
+
         task_celery = generate_image_event_task.delay(
             _game_id=str(event.game_id),
             _event_id=str(event_created.inserted_id),
             _state_game=event.state_game_init,
             _user_id=user_id,
             _prompt_user_image=event.prompt_user_image,
-            _task_id="",
+            _task_id=str(task_db['_id']),
+        )
+
+        await update_task_service(
+            _id=str(task_db["_id"]),
+            _task_id=task_celery.id,
         )
 
         event_db = await db["event"].find_one({"_id": event_created.inserted_id})

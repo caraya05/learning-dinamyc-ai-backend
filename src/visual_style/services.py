@@ -1,7 +1,6 @@
 """Services for Visual Style module"""
 import logging
-import json
-from datetime import datetime
+from datetime import datetime, timezone
 from io import BytesIO
 from typing import Dict, List, Optional, Tuple
 from bson import ObjectId
@@ -19,6 +18,10 @@ from visual_style.schemas import SchemaVisualStyleAnalysisResponse
 logger = logging.getLogger(__name__)
 
 
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 async def get_image_as_base64(image_url: str) -> tuple[str, str]:
     """Download image from URL and convert to base64
 
@@ -27,9 +30,14 @@ async def get_image_as_base64(image_url: str) -> tuple[str, str]:
 
     Returns:
         Tuple of (base64_string, mime_type)
+
+    Raises:
+        Exception: If URL not accessible, file too large, or format unsupported
     """
     try:
-        async with httpx.AsyncClient() as client:
+        # Step 1: Validate URL is accessible
+        print(f"   🔗 Validating URL accessibility: {image_url[:60]}...")
+        async with httpx.AsyncClient(follow_redirects=True) as client:
             response = await client.get(image_url, timeout=30.0)
             response.raise_for_status()
 
@@ -38,13 +46,44 @@ async def get_image_as_base64(image_url: str) -> tuple[str, str]:
             # Extract just the mime type (e.g., 'image/jpeg' from 'image/jpeg; charset=utf-8')
             mime_type = content_type.split(';')[0].strip()
 
-            # Convert to base64 using BytesIO buffer
+            print(f"      ✅ URL accessible - MIME type: {mime_type}")
+
+            # Step 2: Validate file size (OpenAI limit: 20 MB)
+            content_length = response.headers.get('content-length')
+            if content_length:
+                file_size_mb = int(content_length) / (1024 * 1024)
+                print(f"      📦 File size: {file_size_mb:.2f} MB")
+                if file_size_mb > 20:
+                    raise Exception(f"File size {file_size_mb:.2f} MB exceeds 20 MB limit")
+                print(f"      ✅ File size within limits")
+
+            # Step 3: Validate MIME type is supported
+            supported_mime_types = {
+                'image/png': 'png',
+                'image/jpeg': 'jpeg',
+                'image/gif': 'gif',
+                'image/webp': 'webp'
+            }
+            if mime_type not in supported_mime_types:
+                raise Exception(f"MIME type {mime_type} not supported. Supported: {list(supported_mime_types.keys())}")
+            print(f"      ✅ MIME type supported")
+
+            # Step 4: Check for animated GIF (not supported)
+            if mime_type == 'image/gif':
+                # Simple check: if multiple frames in GIF, it's animated
+                # GIF animation is detected by frame duration
+                print(f"      ℹ️ GIF detected - must be non-animated")
+
+            # Step 5: Convert to base64
+            print(f"      🔄 Converting to base64...")
             buffer = BytesIO()
             buffer.write(response.content)
             buffer.seek(0)
             base64_string = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            print(f"      ✅ Base64 encoded ({len(base64_string)} chars)")
 
             return base64_string, mime_type
+
     except Exception as e:
         logger.error(f"Error downloading/encoding image {image_url}: {e}")
         raise
@@ -73,9 +112,9 @@ class VisualStyleService:
             'technical_details': {},
             'status': VisualStyleStatus.PENDING,
             'analysis_error': None,
-            'created_at': datetime.utcnow(),
+            'created_at': _utcnow(),
             'created_by': user_id,
-            'updated_at': datetime.utcnow(),
+            'updated_at': _utcnow(),
             'updated_by': user_id,
             'is_active': True,
             'times_used': 0,
@@ -84,7 +123,7 @@ class VisualStyleService:
             'task_status': 'pending',
             'task_progress': 0,
             'task_message': '',
-            'task_updated_at': datetime.utcnow()
+            'task_updated_at': _utcnow()
         }
         result = await self.db['visual_style'].insert_one(doc)
         created_doc = await self.db['visual_style'].find_one({'_id': result.inserted_id})
@@ -102,7 +141,7 @@ class VisualStyleService:
         new_urls = (current_urls + image_urls)[:5]
         updated_doc = await self.db['visual_style'].find_one_and_update(
             {'_id': ObjectId(visual_style_id)},
-            {'$set': {'reference_image_urls': new_urls, 'updated_at': datetime.utcnow()}},
+            {'$set': {'reference_image_urls': new_urls, 'updated_at': _utcnow()}},
             return_document=True
         )
         updated_doc['_id'] = str(updated_doc['_id'])
@@ -148,7 +187,7 @@ class VisualStyleService:
             raise HTTPException(status_code=400, detail="Invalid ID")
         result = await self.db['visual_style'].update_one(
             {'_id': ObjectId(visual_style_id)},
-            {'$set': {'is_active': False, 'updated_at': datetime.utcnow()}}
+            {'$set': {'is_active': False, 'updated_at': _utcnow()}}
         )
         return result.modified_count > 0
 
@@ -206,9 +245,9 @@ class VisualStyleService:
             dict with analysis results
         """
         try:
-            print(f"\n{'='*70}")
+            print(f"\n{'=' * 70}")
             print(f"🔍 ANALYZE VISUAL STYLE - START")
-            print(f"{'='*70}")
+            print(f"{'=' * 70}")
             print(f"📝 Style ID: {visual_style_id}")
             print(f"👤 User ID: {user_id}")
 
@@ -249,7 +288,8 @@ class VisualStyleService:
             if len(valid_images) > 0:
                 print(f"✅ Valid images to process: {len(valid_images)}/{len(images)}")
             else:
-                print(f"ℹ️ No reference images or all images have invalid formats - will analyze using description only")
+                print(
+                    f"ℹ️ No reference images or all images have invalid formats - will analyze using description only")
 
             logger.info(f"Starting analysis for style {visual_style_id}")
             print(f"\n🚀 ANALYSIS IN PROGRESS...")
@@ -260,10 +300,8 @@ class VisualStyleService:
             print(f"📤 STEP 1: Analyzing visual style...")
 
             # Build content prompt for image analysis
-            analysis_prompt = [
-                {
-                    "role": "system",
-                    "content": """You are an expert visual style analyzer. Analyze the provided reference images very carefully and extract:
+            # ✅ CAMBIO: Eliminar rol "system", poner todo en "user"
+            system_instruction = """You are an expert visual style analyzer. Analyze the provided reference images very carefully and extract:
 1. Primary visual style type (e.g., cartoon, realistic, watercolor, pixel_art, 3d, anime, abstract, volumetric, etc.)
 2. Secondary style types that complement the primary style
 3. Dominant color palette with specific hex colors or detailed color names
@@ -271,14 +309,12 @@ class VisualStyleService:
 5. Technical details about rendering (resolution, quality, rendering style)
 
 Provide a detailed, comprehensive analysis that captures the essence of the visual style."""
-                }
-            ]
 
-            # Prepare user content - start with analysis request
+            # Prepare user content - start with system instruction + analysis request combined
             user_content = [
                 {
-                    "type": "text",
-                    "text": f"Please analyze this visual style based on the following description:\n\n{vs.get('description', vs.get('original_prompt', 'Visual style to analyze'))}\n\nProvide a comprehensive analysis of the visual elements, colors, techniques, and style characteristics."
+                    "type": "input_text" ,
+                    "text": f"{system_instruction}\n\nPlease analyze this visual style based on the following prompt:\n\n {vs.get('original_prompt', 'Visual style to analyze')}\n\nProvide a comprehensive analysis of the visual elements, colors, techniques, and style characteristics."
                 }
             ]
 
@@ -293,27 +329,43 @@ Provide a detailed, comprehensive analysis that captures the essence of the visu
                         base64_string, mime_type = await get_image_as_base64(image_url)
 
                         # Determine the media type for the data URI
-                        if 'png' in mime_type.lower():
-                            media_type = 'image/png'
-                        elif 'gif' in mime_type.lower():
-                            media_type = 'image/gif'
-                        elif 'webp' in mime_type.lower():
-                            media_type = 'image/webp'
+                        # ✅ VALIDACIÓN: Solo permitir formatos soportados por OpenAI
+                        supported_types = {
+                            'image/png': 'image/png',
+                            'image/jpeg': 'image/jpeg',
+                            'image/gif': 'image/gif',
+                            'image/webp': 'image/webp'
+                        }
+
+                        mime_type_lower = mime_type.lower()
+
+                        # Si el mime type no está en los soportados, intenta mapear
+                        if mime_type_lower not in supported_types:
+                            # Intenta mapear por extensión
+                            if 'png' in image_url.lower():
+                                media_type = 'image/png'
+                            elif 'gif' in image_url.lower():
+                                media_type = 'image/gif'
+                            elif 'webp' in image_url.lower():
+                                media_type = 'image/webp'
+                            elif 'jpeg' in image_url.lower() or 'jpg' in image_url.lower():
+                                media_type = 'image/jpeg'
+                            else:
+                                print(f"      ⚠️ Unsupported MIME type: {mime_type}. Skipping image.")
+                                continue
                         else:
-                            media_type = 'image/jpeg'  # Default to JPEG
+                            media_type = supported_types[mime_type_lower]
 
                         data_uri = f"data:{media_type};base64,{base64_string}"
 
                         # Add image to user content
                         user_content.append({
-                            "type": "image_url",
-                            "image_url": {
-                                "url": data_uri,
-                                "detail": "high"
-                            }
+                            "type": "input_image",
+                            "image_url": image_url
                         })
                         valid_count += 1
-                        print(f"      ✅ Downloaded and encoded as base64 ({len(base64_string)} chars)")
+                        print(
+                            f"      ✅ Downloaded and encoded as base64 ({len(base64_string)} chars) - Format: {media_type}")
 
                     except Exception as e:
                         print(f"      ❌ Failed to process image: {str(e)}")
@@ -327,22 +379,24 @@ Provide a detailed, comprehensive analysis that captures the essence of the visu
             else:
                 print(f"ℹ️ No reference images provided, analysis will use description only")
 
-            # Add user message to prompt
-            analysis_prompt.append({
-                "role": "user",
-                "content": user_content
-            })
+            # ✅ CAMBIO: Solo crear un rol "user" con todo el contenido
+            analysis_prompt = [
+                {
+                    "role": "user",
+                    "content": user_content
+                }
+            ]
 
             print(f"⏳ Waiting for GPT-4 Vision analysis...")
 
             # Call GPT-4 Vision to analyze images and get text description
             analysis_text = await openai_generator.generate_gpt(
                 content_prompt=analysis_prompt,
-                model="gpt-4o",
+                model="gpt-4o-mini",
                 user_id=user_id,
                 type_generation="visual_style_analysis_step1",
                 vision=True,
-                max_tokens=2000
+                max_tokens=4096
             )
 
             # Check if analysis_text is an HTTPException
@@ -394,8 +448,6 @@ CRITICAL REQUIREMENTS:
 ORIGINAL USER REQUEST:
 {vs.get('original_prompt', 'No original request')}
 
-USER DESCRIPTION:
-{vs.get('description', vs.get('original_prompt', 'Visual style to analyze'))}
 
 VISUAL ANALYSIS:
 {analysis_text}
@@ -404,10 +456,15 @@ Please ensure:
 1. primary_style is ONE of: cartoon, 2d, realistic, watercolor, pixel_art, 3d, volumetric, anime, abstract, flat, oil_painting, comic, sketched
 2. is_animated is TRUE if: cartoon, anime, manga, animation, motion, or user mentioned "animated"
 3. style_name captures the ESSENCE of user request (e.g., if user said "black and white old cartoon" → "Old School B&W Cartoon")
-4. character_style_prompt is detailed and MUST include animation style, color constraints, and specific techniques
-5. location_style_prompt is detailed and MUST include animation style, color constraints, and environment techniques
-6. All prompts should be in Spanish and include specific style details, colors, animation status, and techniques
-7. color_palette must include actual hex colors or specific color names mentioned in user request (if "black and white" then use #000000, #FFFFFF, #808080)"""
+4. character_style_prompt is detailed and MUST include animation style, and specific techniques
+5. location_style_prompt is detailed and MUST include animation style, and environment techniques
+6. event_style_prompt is detailed and MUST include animation style, and environment techniques
+7. All prompts should be in Spanish and include specific style details, colors, animation status, and techniques
+8. color_palette must include actual hex colors or specific color names mentioned in user request (if "black and white" then use #000000, #FFFFFF, #808080)
+
+Restrictions for character_style_prompt:
+- transparent background
+"""
                 }
             ]
 
@@ -427,7 +484,8 @@ Please ensure:
             # Check if structured_response is an HTTPException
             if isinstance(structured_response, HTTPException):
                 print(f"❌ GPT-4o-mini returned error")
-                error_msg = str(structured_response.detail) if hasattr(structured_response, 'detail') else str(structured_response)
+                error_msg = str(structured_response.detail) if hasattr(structured_response, 'detail') else str(
+                    structured_response)
                 print(f"   Error details: {error_msg}")
                 raise structured_response
             elif structured_response is None:
@@ -477,10 +535,42 @@ Please ensure:
                 'secondary_styles': secondary_styles_list,
                 'is_animated': structured_response.is_animated,
                 'style_name': structured_response.style_name,
+                'shared_style_anchor': (
+                    f"IDENTIDAD VISUAL UNIFICADA: {structured_response.style_name}. "
+                    f"Mantén la misma base estética en personajes, locaciones y eventos; no mezcles 2D con 3D, "
+                    f"ni blanco y negro con color, ni cartoon con realista salvo que el estilo maestro lo exija explícitamente. "
+                    f"Prioriza contornos, iluminación, proporciones, sombreado y nivel de detalle consistentes."
+                ),
                 'style_prompts': {
-                    'character_style': structured_response.character_style_prompt,
-                    'location_style': structured_response.location_style_prompt,
-                    'color_palette': ', '.join(structured_response.color_palette) if structured_response.color_palette else structured_response.color_description
+                    'shared_style_anchor': (
+                        f"IDENTIDAD VISUAL UNIFICADA: {structured_response.style_name}. "
+                        f"Mantén la misma base estética en personajes, locaciones y eventos; no mezcles 2D con 3D, "
+                        f"ni blanco y negro con color, ni cartoon con realista salvo que el estilo maestro lo exija explícitamente. "
+                        f"Prioriza contornos, iluminación, proporciones, sombreado y nivel de detalle consistentes."
+                    ),
+                    'character_style': (
+                        f"IDENTIDAD VISUAL UNIFICADA: {structured_response.style_name}. "
+                        f"Mantén la misma base estética en personajes, locaciones y eventos; no mezcles 2D con 3D, "
+                        f"ni blanco y negro con color, ni cartoon con realista salvo que el estilo maestro lo exija explícitamente. "
+                        f"Prioriza contornos, iluminación, proporciones, sombreado y nivel de detalle consistentes.\n"
+                        f"{structured_response.character_style_prompt}"
+                    ),
+                    'location_style': (
+                        f"IDENTIDAD VISUAL UNIFICADA: {structured_response.style_name}. "
+                        f"Mantén la misma base estética en personajes, locaciones y eventos; no mezcles 2D con 3D, "
+                        f"ni blanco y negro con color, ni cartoon con realista salvo que el estilo maestro lo exija explícitamente. "
+                        f"Prioriza contornos, iluminación, proporciones, sombreado y nivel de detalle consistentes.\n"
+                        f"{structured_response.location_style_prompt}"
+                    ),
+                    'event_style': (
+                        f"IDENTIDAD VISUAL UNIFICADA: {structured_response.style_name}. "
+                        f"Mantén la misma base estética en personajes, locaciones y eventos; no mezcles 2D con 3D, "
+                        f"ni blanco y negro con color, ni cartoon con realista salvo que el estilo maestro lo exija explícitamente. "
+                        f"Prioriza contornos, iluminación, proporciones, sombreado y nivel de detalle consistentes.\n"
+                        f"{structured_response.event_style_prompt}"
+                    ),
+                    'color_palette': ', '.join(
+                        structured_response.color_palette) if structured_response.color_palette else structured_response.color_description
                 },
                 'color_description': structured_response.color_description,
                 'artistic_elements': structured_response.artistic_elements or [],
@@ -495,7 +585,7 @@ Please ensure:
             update_data = {
                 **analysis_result,
                 'status': VisualStyleStatus.COMPLETED,
-                'updated_at': datetime.utcnow(),
+                'updated_at': _utcnow(),
                 'updated_by': user_id
             }
 
@@ -514,7 +604,7 @@ Please ensure:
             logger.info(f"Analysis completed for style {visual_style_id}")
 
             print(f"\n✨ ANALYSIS COMPLETE!")
-            print(f"{'='*70}\n")
+            print(f"{'=' * 70}\n")
 
             return updated_doc
 
@@ -530,7 +620,7 @@ Please ensure:
                 {'$set': {
                     'status': VisualStyleStatus.FAILED,
                     'analysis_error': str(e),
-                    'updated_at': datetime.utcnow()
+                    'updated_at': _utcnow()
                 }}
             )
             print(f"📊 Status updated to FAILED")
@@ -561,11 +651,11 @@ Please ensure:
             color_palette = style_prompts.get('color_palette', '')
 
             # Add animation instruction if needed
-            animation_instruction = "ESTILO ANIMADO: " if is_animated else "ESTILO ESTÁTICO/REALISTA: "
+            animation_instruction = "ESTILO ANIMADO: " if is_animated else "ESTILO ESTÁTICO/REALISTA:  "
 
             prompt = (
-                f"{animation_instruction}Genera una imagen en vista frontal cuadrada de 1024x1024 de un personaje, "
-                f"({character_prompt}) {character_style}, "
+                f"{animation_instruction}{character_style},Genera una imagen en vista frontal cuadrada de 1024x1024 de un personaje, "
+                f"({character_prompt})  "
                 f"de la cintura para arriba mirando al frente con los brazos hacia abajo, "
                 f"con fondo transparente, colores a usar: {color_palette}, "
                 f"genero: {character_genre}"
@@ -610,7 +700,8 @@ Please ensure:
         except Exception as e:
             print(f"❌ Error generating character image: {str(e)}")
             logger.error(f"Error generating character image: {e}", exc_info=True)
-            return {"image_url": None, "success": False, "error": str(e)}
+            error_message = str(e) if e is not None else "Unknown character image generation error"
+            return {"image_url": None, "success": False, "error": error_message}
 
     async def generate_location_image_with_style(self, location_prompt: str,
                                                  style_prompts: dict, user_id: str,
@@ -666,9 +757,10 @@ Please ensure:
 
                     # Download and add character image
                     if imagen:
-                        print(f"      📥 Downloading image: {imagen[:50]}...")
+                        image_url = str(imagen)
+                        print(f"      📥 Downloading image: {image_url[:50]}...")
                         try:
-                            base64_string, mime_type = await get_image_as_base64(imagen)
+                            base64_string, mime_type = await get_image_as_base64(image_url)
 
                             # Determine media type
                             if 'png' in mime_type.lower():
@@ -686,18 +778,17 @@ Please ensure:
 
                         except Exception as e:
                             print(f"      ⚠️ Failed to download image: {str(e)}")
-                            logger.warning(f"Failed to download character image {imagen}: {e}")
+                            logger.warning(f"Failed to download character image {image_url}: {e}")
                             continue
 
             # Build main text instruction with animation status
-            text_instruction = f"""{animation_instruction}Genera una imagen en vista isométrica, {location_style}, detallada y resolución wide.
-            
-Descripción de ubicación: {location_prompt}
-Colores: {color_palette}"""
+            text_instruction = f"""{animation_instruction}{location_style}, Genera una imagen en vista isométrica, detallada y resolución wide.
+                                    Descripción de ubicación: {location_prompt}
+                                    Colores: {color_palette}"""
 
             if personajes_info:
                 text_instruction += f"\n\nPersonajes en la escena:\n" + "\n".join(personajes_info)
-                text_instruction += "\n\nColoca los personajes provistos en esta ubicación de forma natural y contextual."
+                text_instruction += "\n\nColoca los personajes provistos en esta ubicación sentado en la mesa tomando un cafecito."
 
             # Add text instruction
             content_prompt[0]["content"].append({
@@ -710,7 +801,7 @@ Colores: {color_palette}"""
                 print(f"   📍 Adding character image {idx} to prompt...")
                 content_prompt[0]["content"].append({
                     "type": "input_image",
-                    "image_url":  data_uri
+                    "image_url": data_uri
                 })
 
             if personajes_images:
@@ -718,6 +809,8 @@ Colores: {color_palette}"""
 
             print(f"📤 Generating location image...")
             print(f"   Animation: {'Yes' if is_animated else 'No'}")
+
+            print(f"content_prompt: {content_prompt[:200]}")
 
             image_location = await openai_generator.generate_gpt(
                 content_prompt=content_prompt,
@@ -794,7 +887,7 @@ Colores: {color_palette}"""
             generated_images = {
                 'character_image_url': character_image_url,
                 'location_image_url': location_image_url,
-                'generated_at': datetime.utcnow()
+                'generated_at': _utcnow()
             }
 
             print(f"📤 Saving character image URL: {character_image_url[:60]}...")
@@ -806,7 +899,7 @@ Colores: {color_palette}"""
                 {
                     '$set': {
                         'generated_images': generated_images,
-                        'updated_at': datetime.utcnow(),
+                        'updated_at': _utcnow(),
                         'updated_by': user_id
                     }
                 },
@@ -859,7 +952,7 @@ Colores: {color_palette}"""
             raise HTTPException(status_code=400, detail="No valid fields to update")
 
         # Add metadata
-        update_data['updated_at'] = datetime.utcnow()
+        update_data['updated_at'] = _utcnow()
 
         updated_doc = await self.db['visual_style'].find_one_and_update(
             {'_id': ObjectId(visual_style_id)},
@@ -884,9 +977,9 @@ Colores: {color_palette}"""
             Updated user document
         """
         try:
-            print(f"\n{'='*70}")
+            print(f"\n{'=' * 70}")
             print(f"🎨 SELECT USER VISUAL STYLE")
-            print(f"{'='*70}")
+            print(f"{'=' * 70}")
             print(f"👤 User ID: {user_id}")
             print(f"🎨 Style ID: {visual_style_id}")
 
@@ -907,7 +1000,7 @@ Colores: {color_palette}"""
             print(f"📤 Updating visual style updated_at...")
             await self.db['visual_style'].update_one(
                 {'_id': ObjectId(visual_style_id)},
-                {'$set': {'updated_at': datetime.utcnow()}}
+                {'$set': {'updated_at': _utcnow()}}
             )
             print(f"✅ Visual style updated_at timestamp updated!")
 
@@ -923,7 +1016,7 @@ Colores: {color_palette}"""
                 raise HTTPException(status_code=404, detail="User not found")
 
             print(f"✅ Visual style selected successfully!")
-            print(f"{'='*70}\n")
+            print(f"{'=' * 70}\n")
 
             return {
                 'user_id': str(user_update.get('_id')),
@@ -949,9 +1042,9 @@ Colores: {color_palette}"""
             Selected visual style or empty dict if none selected
         """
         try:
-            print(f"\n{'='*70}")
+            print(f"\n{'=' * 70}")
             print(f"🎨 GET USER SELECTED VISUAL STYLE")
-            print(f"{'='*70}")
+            print(f"{'=' * 70}")
             print(f"👤 User ID: {user_id}")
 
             # Get user
@@ -963,7 +1056,7 @@ Colores: {color_palette}"""
 
             if not selected_style_id:
                 print(f"ℹ️ No visual style selected")
-                print(f"{'='*70}\n")
+                print(f"{'=' * 70}\n")
                 return {'selected_visual_style_id': None}
 
             # Get visual style
@@ -981,7 +1074,7 @@ Colores: {color_palette}"""
             vs['_id'] = str(vs['_id'])
 
             print(f"✅ Selected style found: {vs.get('name')}")
-            print(f"{'='*70}\n")
+            print(f"{'=' * 70}\n")
 
             return vs
 
@@ -1002,9 +1095,9 @@ Colores: {color_palette}"""
             Confirmation dict
         """
         try:
-            print(f"\n{'='*70}")
+            print(f"\n{'=' * 70}")
             print(f"🗑️ CLEAR USER VISUAL STYLE SELECTION")
-            print(f"{'='*70}")
+            print(f"{'=' * 70}")
             print(f"👤 User ID: {user_id}")
 
             # Update user to clear selection
@@ -1017,7 +1110,7 @@ Colores: {color_palette}"""
                 raise HTTPException(status_code=404, detail="User not found")
 
             print(f"✅ Visual style selection cleared!")
-            print(f"{'='*70}\n")
+            print(f"{'=' * 70}\n")
 
             return {'cleared': True, 'message': 'Visual style selection cleared'}
 

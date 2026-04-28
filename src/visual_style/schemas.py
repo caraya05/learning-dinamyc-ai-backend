@@ -93,6 +93,7 @@ class SchemaVisualStyleAnalysisResponse(BaseModel):
     primary_style: str = Field(..., description="Primary visual style type (cartoon, realistic, watercolor, pixel_art, 3d, volumetric, anime, abstract, flat, oil_painting, comic, or sketched)")
     character_style_prompt: str = Field(..., description="Detailed prompt in Spanish for DALL-E to generate characters in this style")
     location_style_prompt: str = Field(..., description="Detailed prompt in Spanish for DALL-E to generate locations in this style")
+    event_style_prompt: str = Field(..., description="Detailed prompt in Spanish for DALL-E to generate events in this style")
     color_description: str = Field(..., description="Description of dominant colors and color palettes")
     secondary_styles: List[str] = Field(default_factory=list, description="Secondary style types that complement the primary style")
     color_palette: List[str] = Field(default_factory=list, description="List of hex colors (#RRGGBB) or color names from the palette")

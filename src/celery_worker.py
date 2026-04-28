@@ -6,6 +6,10 @@ from celery.schedules import crontab
 from celery import shared_task
 from datetime import timedelta
 import redis
+import nest_asyncio
+
+# Permitir event loops anidados (necesario para Celery + async)
+nest_asyncio.apply()
 
 from event.tasks import async_generate_image_event
 from character.tasks import async_generate_character_task, async_generate_image_character_task, \
@@ -93,6 +97,7 @@ task_routes = {
     'generate_voice_character_task': {'queue': 'voice_queue'},
     'analyze_visual_style_task': {'queue': 'default'},
     'update_voice_list': {'queue': 'maintenance_queue'},  # Nueva cola para tareas de mantenimiento
+    'monitor_and_update_game_tasks': {'queue': 'default'},  # Monitoreo de tareas
     '*': {'queue': 'default'},
 }
 
@@ -434,26 +439,52 @@ def create_game_provisional_task(id_game_provisional: str):
 
 @celery.task(name="create_game_provisional_task_2")
 def create_game_provisional_task_2(id_game_provisional: str, user_id: str):
+    """
+    Celery task wrapper for async game creation.
+    Handles event loop creation safely with nest_asyncio support.
+    """
     try:
+        # Intenta obtener el event loop actual
         loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            raise RuntimeError("Event loop is closed")
     except RuntimeError:
+        # Si no hay event loop o está cerrado, crear uno nuevo
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    return loop.run_until_complete(
-        async_create_game_provisional_task_2(id_game_provisional, user_id)
-    )
+
+    try:
+        return loop.run_until_complete(
+            async_create_game_provisional_task_2(id_game_provisional, user_id)
+        )
+    except Exception as e:
+        print(f"❌ Error in create_game_provisional_task_2: {e}")
+        raise
 
 
 @celery.task(name="continue_create_game_provisional_2")
 def continue_create_game_provisional_2(id_game_provisional: str, user_id: str):
+    """
+    Celery task wrapper for continuing async game creation.
+    Handles event loop creation safely with nest_asyncio support.
+    """
     try:
+        # Intenta obtener el event loop actual
         loop = asyncio.get_event_loop()
+        if loop.is_closed():
+            raise RuntimeError("Event loop is closed")
     except RuntimeError:
+        # Si no hay event loop o está cerrado, crear uno nuevo
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    return loop.run_until_complete(
-        async_continue_create_game_provisional_2(id_game_provisional, user_id)
-    )
+
+    try:
+        return loop.run_until_complete(
+            async_continue_create_game_provisional_2(id_game_provisional, user_id)
+        )
+    except Exception as e:
+        print(f"❌ Error in continue_create_game_provisional_2: {e}")
+        raise
 
 #TODO deprecated
 @celery.task(name="generate_scene_interactions_task")

@@ -124,6 +124,8 @@ def register_visual_style_tasks(celery):
                     )
                     print(f"Character image result: {char_image_result['success']}")
 
+                    print(f"Character image URL: {char_image_result['image_url']}")
+
                     if char_image_result['success']:
                         await update_task_status(style_id, 'generating_character', 60, 'Character image generated')
 
@@ -144,6 +146,7 @@ def register_visual_style_tasks(celery):
                         is_animated=is_animated
                     )
                     print(f"Location image result: {loc_image_result['success']}")
+                    print(f"Location image URL: {loc_image_result['image_url']}")
 
                     if loc_image_result['success']:
                         await update_task_status(style_id, 'generating_location', 100, 'Location image generated')

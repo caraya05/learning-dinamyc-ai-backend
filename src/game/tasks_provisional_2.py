@@ -290,13 +290,14 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
                     # Guardar último id de tarea para uso opcional en el estado
                     last_task_character_id = task_character.id
 
+                    # TASK_DB 2 # CREATION CHARACTER 1
                     task_db = await create_task_service(
                         _task_id=task_character.id,
                         _user_id=_user_id,
                         _task_data={},
                         _element_id=_id_game_provisional,
                         _element_type="game_provisional",
-                        _process="create_image_character",
+                        _process="developing a character's image",
                     )
 
                     task_character_2 = detection_voice_character_task.delay(
@@ -307,13 +308,14 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
                         _user_id=_user_id
                     )
 
+                    # TASK_DB 3 # DETECTION VOICE
                     task_db = await create_task_service(
                         _task_id=task_character_2.id,
                         _user_id=_user_id,
                         _task_data={},
                         _element_id=_id_game_provisional,
                         _element_type="game_provisional",
-                        _process="detection_voice_character",
+                        _process="character voice recognition",
                     )
 
             # Guardar los personajes actualizados (posiblemente con datos reutilizados)
@@ -375,13 +377,14 @@ async def create_game_provisional_2(_id_game_provisional: str, _user_id: str = N
                     event_intro.url_image_reference
                 )
 
+                # TASK_DB 4 # CREATION EVENT
                 task_db = await create_task_service(
                     _task_id=task_event.id,
                     _user_id=_user_id,
                     _task_data={},
                     _element_id=_id_game_provisional,
                     _element_type="game_provisional",
-                    _process="create_image_event",
+                    _process="designing the cover art",
                 )
 
                 await update_game_provisional_status(_id_game_provisional, "create_image_event", 60,
@@ -867,8 +870,6 @@ class InteractionProvisional(BaseModel):
                                                 description="Index of the correct option in case of option_multiple interactions")
 
 
-# Helpers para mezclar opciones manteniendo referencia al índice correcto
-
 def _shuffle_options_with_index(options: list, correct_index: int | None):
     if not options:
         return options, correct_index
@@ -1000,6 +1001,10 @@ async def extract_interactions_from_script(script: str, locations, characters, l
 async def async_create_game_provisional_task_2(id_game_provisional: str, user_id: str = None) -> str:
     """
     Asynchronous task to create a provisional game.
+    AHORA: Antes de retornar, lanza automáticamente las 3 tareas encadenadas:
+      1. create_game_provisional_2
+      2. async_continue_create_game_provisional_2
+      3. monitor_and_update_game_tasks_task
     """
     # logger.info(f"Iniciando tarea asíncrona para crear juego provisional con ID: {id_game_provisional}")
     try:
@@ -1772,33 +1777,33 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
             )
             return "Game structure creation failed: structure is None"
 
-        validation_result = validate_provisional_game_structure(game_structure, game_provisional_db or {})
-
-        # Log de debug para diagnóstico
-        if not validation_result["valid"]:
-            print(f"DEBUG: Validation failed: {validation_result['error']}")
-        if validation_result.get("corrections_made"):
-            print(f"DEBUG: Corrections made: {validation_result['corrections_made']}")
-
-        if not validation_result["valid"]:
-            await update_game_provisional_status(
-                _id_game_provisional,
-                "error",
-                15,
-                f"Game structure validation failed: {validation_result['error']}",
-                task=None
-            )
-            return f"Game structure validation failed: {validation_result['error']}"
-
-        # Si hay correcciones reportarlas
-        if validation_result["corrections_made"]:
-            await update_game_provisional_status(
-                _id_game_provisional,
-                "processing",
-                18,
-                f"Structure validated with corrections: {', '.join(validation_result['corrections_made'])}",
-                task=None
-            )
+        # validation_result = validate_provisional_game_structure(game_structure, game_provisional_db or {})
+        #
+        # # Log de debug para diagnóstico
+        # if not validation_result["valid"]:
+        #     print(f"DEBUG: Validation failed: {validation_result['error']}")
+        # if validation_result.get("corrections_made"):
+        #     print(f"DEBUG: Corrections made: {validation_result['corrections_made']}")
+        #
+        # if not validation_result["valid"]:
+        #     await update_game_provisional_status(
+        #         _id_game_provisional,
+        #         "error",
+        #         15,
+        #         f"Game structure validation failed: {validation_result['error']}",
+        #         task=None
+        #     )
+        #     return f"Game structure validation failed: {validation_result['error']}"
+        #
+        # # Si hay correcciones reportarlas
+        # if validation_result["corrections_made"]:
+        #     await update_game_provisional_status(
+        #         _id_game_provisional,
+        #         "processing",
+        #         18,
+        #         f"Structure validated with corrections: {', '.join(validation_result['corrections_made'])}",
+        #         task=None
+        #     )
 
         id_map_characters = {}
         id_map_locations = {}
@@ -1886,7 +1891,7 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
             "image_minimalist": event_start.get("image") if event_start else None,
             "created_by": game_provisional_db.get("created_by", "anonymous"),
             "updated_by": game_provisional_db.get("created_by", "anonymous"),
-            "provisional_id": str(game_provisional_db.get("_id")),
+            "provisional_id": _id_game_provisional,
             "category_id": game_provisional_db.get("category"),
             "serie_id": serie_id,
             # "order": order,
@@ -2236,8 +2241,8 @@ async def async_continue_create_game_provisional_2(_id_game_provisional: str, _u
                                 _task_id=audio_task.id,
                                 _user_id=game_provisional_db.get("created_by", "anonymous"),
                                 _task_data={},
-                                _element_id=str(created_event.get("_id")),
-                                _element_type="event",
+                                _element_id=_id_game_provisional,
+                                _element_type="game_provisional",
                                 _process="create_audio_event",
                             )
 

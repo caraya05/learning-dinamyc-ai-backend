@@ -306,17 +306,18 @@ class OpenAIGenerator:
     ):
         try:
             if vision:
-                response = await self.client.chat.completions.create(
+                response = await self.client.responses.create(
                     model=model,
-                    messages=content_prompt,
-                    max_tokens=max_tokens,
+                    input=content_prompt,
                 )
             elif image:
                 response = await self.client.responses.create(
                     model=model,
                     input=content_prompt,
-                    tools=[{"type": "image_generation"}],
+                    tools=tools,
                 )
+
+                print(f"image response: {response}")
             else:
                 kwargs = {
                     "model": model,
@@ -338,9 +339,9 @@ class OpenAIGenerator:
             )
 
             if vision:
-                if hasattr(response, "choices") and response.choices:
-                    return response.choices[0].message.content
-                print("[ERROR] vision response no tiene 'choices'")
+                if hasattr(response, "output_text") and response.output_text:
+                    return response.output_text
+                print("[ERROR] vision response no tiene 'output_text' o está vacío")
                 return None
 
             if image:

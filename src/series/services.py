@@ -3,6 +3,7 @@ import traceback
 from datetime import datetime
 from bson import ObjectId
 from fastapi import HTTPException
+from pymongo.errors import AutoReconnect, ConnectionFailure, NetworkTimeout, ServerSelectionTimeoutError
 from starlette import status
 
 from core.database import db
@@ -765,9 +766,18 @@ class SeriesService:
 
             return series_list, total
 
+        except (ServerSelectionTimeoutError, AutoReconnect, NetworkTimeout, ConnectionFailure) as e:
+            self.logger.error(f"MongoDB temporarily unavailable in published series query: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Database temporarily unavailable. Please try again.",
+            )
         except Exception as e:
-            self.logger.error(f"Error getting published series: {str(e)}")
-            return [], 0
+            self.logger.error(f"Error getting published series: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Error retrieving published series",
+            )
 
     async def get_published_series_detail_service(self, series_id: str, user_db: dict = None) -> dict | None:
         """

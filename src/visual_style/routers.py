@@ -1,10 +1,17 @@
 """Routers for Visual Style module"""
 import logging
+from io import BytesIO
+from uuid import uuid4
+
 from fastapi import APIRouter, Depends, status, Form, File, UploadFile, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
+import traceback
+
+from fastapi import Request
+
 from auth.auth import auth
 from auth.utils import auth_schema
-from utils import upload_file
+from utils import upload_image
 from visual_style.services import VisualStyleService
 from celery_worker import celery
 
@@ -29,9 +36,9 @@ async def create_visual_style(
 ):
     """Create a new visual style"""
     try:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"📝 CREATE VISUAL STYLE")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"👤 User ID: {user.get('_id')}")
         print(f"📝 Name: {name}")
         print(f"📄 Prompt: {prompt[:50]}...")
@@ -42,7 +49,7 @@ async def create_visual_style(
         print(f"✅ Style created successfully!")
         print(f"📊 Style ID: {vs.get('_id')}")
         print(f"📊 Status: {vs.get('status')}")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         return vs
     except Exception as e:
@@ -51,58 +58,77 @@ async def create_visual_style(
         raise
 
 
-@router.post("/{style_id}/upload-reference-images", status_code=status.HTTP_200_OK)
+@router.patch("/{style_id}/upload-reference-images", status_code=status.HTTP_200_OK)
 async def upload_reference_images(
         style_id: str,
-        images: list[UploadFile] = File(...),
+        image: UploadFile = File(...),
         user: dict = Depends(auth),
         token: HTTPAuthorizationCredentials = Depends(auth_schema),
         service: VisualStyleService = Depends(get_visual_style_service)
 ):
-    """Upload reference images"""
+    """Upload a single reference image"""
     try:
-        print(f"\n{'='*70}")
-        print(f"📸 UPLOAD REFERENCE IMAGES")
-        print(f"{'='*70}")
+        print(f"\n{'=' * 70}")
+        print(f"📸 UPLOAD REFERENCE IMAGE")
+        print(f"{'=' * 70}")
         print(f"📝 Style ID: {style_id}")
-        print(f"📸 Number of images: {len(images)}")
+        print(f"📸 Image: {image.filename}")
 
-        # Validate image formats - GPT-4 Vision only supports: png, jpeg, gif, webp
-        valid_formats = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
+        if image:
+            file_content = image.file.read()
+            if not file_content:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File is empty",
+                )
+            image.file.seek(0)  # Reset file pointer to the beginning
+            if image.content_type not in ["image/jpeg", "image/png"]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File type not allowed, only jpeg and png",
+                )
+            if image.content_type == "image/jpeg":
+                file_name = f"visual-style-reference/{uuid4()}.jpg"
+            elif image.content_type == "image/png":
+                file_name = f"visual-style-reference/{uuid4()}.png"
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="File type not allowed, only jpeg and png",
+                )
+            img_byte_arr = BytesIO(file_content)
+            img_byte_arr.seek(0)
 
-        image_urls = []
-        for idx, img in enumerate(images[:5], 1):
-            print(f"   📤 Uploading image {idx}...")
+            url_image_reference = upload_image(
+                img_byte_arr=img_byte_arr,
+                file_name=file_name,
+                size=(512, 512),
+            )
+            print(f"   📤 Uploading image...")
+            print(f"      ✅ Uploaded: {url_image_reference[:60]}...")
 
-            # Check file extension
-            if img.filename:
-                filename_lower = img.filename.lower()
-                if not any(filename_lower.endswith(fmt) for fmt in valid_formats):
-                    print(f"      ⚠️ Skipping unsupported format: {img.filename}")
-                    print(f"         Supported formats: png, jpg, jpeg, gif, webp")
-                    continue
+            print(f"\n💾 Saving to database...")
+            result = await service.add_reference_images(style_id, [url_image_reference])
 
-            url = upload_file(img)
-            image_urls.append(url)
-            print(f"      ✅ Uploaded: {url[:60]}...")
+            print(f"✅ Image uploaded successfully!")
+            print(f"📊 Status: {result.get('status')}")
+            print(f"{'=' * 70}\n")
 
-        if not image_urls:
-            print(f"❌ No valid images to upload")
-            logger.error("No valid images provided for upload")
-            raise HTTPException(status_code=400, detail="No valid images with supported formats (png, jpg, jpeg, gif, webp)")
+            return result
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="No image provided")
 
-        print(f"\n💾 Saving to database...")
-        result = await service.add_reference_images(style_id, image_urls)
-
-        print(f"✅ Images uploaded successfully!")
-        print(f"📊 Status: {result.get('status')}")
-        print(f"{'='*70}\n")
-
-        return result
-    except Exception as e:
-        print(f"❌ Error uploading images: {e}")
-        logger.error(f"Error uploading images: {e}")
+    except HTTPException:
         raise
+    except Exception as e:
+        print(f"❌ Error uploading image: {e}")
+        logger.error(f"Error uploading image: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error uploading image"
+        )
 
 
 @router.post("/{style_id}/analyze", status_code=status.HTTP_202_ACCEPTED)
@@ -114,9 +140,9 @@ async def analyze_visual_style(
 ):
     """Trigger visual style analysis (async)"""
     try:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"🔍 TRIGGER ANALYSIS")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"📝 Style ID: {style_id}")
         print(f"👤 User ID: {user.get('_id')}")
 
@@ -128,7 +154,7 @@ async def analyze_visual_style(
         print(f"✅ Task sent to Celery!")
         print(f"📋 Task ID: {task_result.id}")
         print(f"⏳ Status: analyzing (background processing)")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         return {"status": "analyzing", "style_id": style_id}
     except Exception as e:
@@ -246,21 +272,21 @@ async def get_task_status(
         }
     """
     try:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"📊 GET TASK STATUS")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"📝 Style ID: {style_id}")
         print(f"👤 User ID: {user.get('_id')}")
-        
+
         style = await service.get_visual_style(style_id)
-        
+
         print(f"✅ Style found: {style.get('name')}")
         print(f"   task_status: {style.get('task_status', 'pending')}")
         print(f"   task_progress: {style.get('task_progress', 0)}")
         print(f"   task_message: {style.get('task_message', '')}")
         print(f"   task_updated_at: {style.get('task_updated_at', None)}")
-        print(f"{'='*70}\n")
-        
+        print(f"{'=' * 70}\n")
+
         return {
             "style_id": style.get('_id'),
             "task_status": style.get('task_status', 'pending'),
@@ -302,9 +328,9 @@ async def get_user_styles_v2(
         }
     """
     try:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"📋 GET USER VISUAL STYLES")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"👤 User ID: {user.get('_id')}")
         print(f"📄 Page: {page}, Limit: {limit}")
         if status_filter:
@@ -319,7 +345,7 @@ async def get_user_styles_v2(
 
         print(f"✅ Retrieved {len(styles)} styles")
         print(f"📊 Total: {total}, Total pages: {total_pages}")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         return {
             "results": styles,
@@ -354,9 +380,9 @@ async def get_user_styles_summary(
         }
     """
     try:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"📊 GET USER STYLES SUMMARY")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"👤 User ID: {user.get('_id')}")
 
         user_id = str(user.get("_id"))
@@ -391,7 +417,7 @@ async def get_user_styles_summary(
         print(f"   - Completed: {status_counts['completed']}")
         print(f"   - Analyzing: {status_counts['analyzing']}")
         print(f"   - Failed: {status_counts['failed']}")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         return {
             "total_styles": total,
@@ -432,9 +458,9 @@ async def get_user_completed_styles(
         }
     """
     try:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"✅ GET COMPLETED STYLES")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"👤 User ID: {user.get('_id')}")
 
         user_id = str(user.get("_id"))
@@ -447,7 +473,7 @@ async def get_user_completed_styles(
         total_pages = (total + limit - 1) // limit
 
         print(f"✅ Retrieved {len(styles)} completed styles")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         return {
             "results": styles,
@@ -462,6 +488,7 @@ async def get_user_completed_styles(
 
 @router.patch("/{style_id}", status_code=status.HTTP_200_OK)
 async def update_visual_style(
+        request: Request,
         style_id: str,
         name: str = Form(None),
         description: str = Form(None),
@@ -487,25 +514,29 @@ async def update_visual_style(
         }
     """
     try:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"📝 UPDATE VISUAL STYLE")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"📝 Style ID: {style_id}")
         print(f"👤 User ID: {user.get('_id')}")
         print(f"🔄 Re-analyze: {re_analyze}")
 
         user_id = str(user.get("_id"))
 
+        body = await request.json()
+
         # Prepare update data
         updates = {}
-        if name:
-            updates['name'] = name
-        if description:
-            updates['description'] = description
-        if original_prompt:
-            updates['original_prompt'] = original_prompt
+
+        if name or body.get('name'):
+            updates['name'] = name or body.get('name')
+
+        if original_prompt or body.get('original_prompt'):
+            updates['original_prompt'] = original_prompt or body.get('original_prompt')
 
         # Update the style
+
+        print("\n💾 Updating style in database...", updates)
         updated_doc = await service.update_visual_style(style_id, updates)
         print(f"✅ Style updated successfully!")
 
@@ -516,7 +547,7 @@ async def update_visual_style(
         }
 
         # If re_analyze is True, send the analysis task
-        if re_analyze:
+        if re_analyze or body.get('re_analyze'):
             print(f"\n📤 Re-sending analysis task...")
             task_result = celery.send_task('analyze_visual_style_task', args=[style_id, user_id])
             response['task_sent'] = task_result.id
@@ -524,11 +555,12 @@ async def update_visual_style(
             print(f"✅ Analysis task sent!")
             print(f"📋 Task ID: {task_result.id}")
 
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
         return response
 
     except Exception as e:
         print(f"❌ Error updating visual style: {e}")
+        print(traceback.format_exc())
         logger.error(f"Error updating visual style: {e}")
         raise
 
@@ -551,9 +583,9 @@ async def re_analyze_visual_style(
         }
     """
     try:
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"🔄 RE-ANALYZE VISUAL STYLE")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
         print(f"📝 Style ID: {style_id}")
         print(f"👤 User ID: {user.get('_id')}")
 
@@ -569,7 +601,7 @@ async def re_analyze_visual_style(
 
         print(f"✅ Re-analysis task sent!")
         print(f"📋 Task ID: {task_result.id}")
-        print(f"{'='*70}\n")
+        print(f"{'=' * 70}\n")
 
         return {
             "status": "re-analyzing",
@@ -659,4 +691,3 @@ async def clear_user_visual_style_selection(
     except Exception as e:
         logger.error(f"Error clearing visual style selection: {e}")
         raise
-

@@ -8,7 +8,7 @@ from bson import ObjectId
 from fastapi import HTTPException
 from fastapi import status
 from celery.result import AsyncResult
-from celery.worker.control import revoke
+
 
 from core.database import db
 
@@ -105,9 +105,15 @@ async def update_task_service(
 
 async def get_task_pending_service(user_id: str, ids: str = None, is_list: bool = False):
     try:
+        from datetime import timedelta
+
         query = {"was_notified": False, "user_id": user_id}
         if ids:
             query["_id"] = ObjectId(ids)
+
+        # ✅ Filtrar tareas creadas hace 1 día o menos (últimas 24 horas)
+        one_day_ago = datetime.now(timezone('UTC')).astimezone(timezone('America/Bogota')) - timedelta(days=1)
+        query["created_at"] = {"$gte": one_day_ago}
 
         cursor = db["task"].find(query).sort("created_at", 1)
         task = await cursor.to_list(None if is_list else 1)

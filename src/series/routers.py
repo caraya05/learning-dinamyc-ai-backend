@@ -562,6 +562,8 @@ async def list_published_series(
             "page": page,
             "total_pages": total_pages
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error listing published series: {str(e)}")
         raise HTTPException(

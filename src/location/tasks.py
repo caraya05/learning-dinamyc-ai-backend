@@ -3,8 +3,6 @@ from io import BytesIO
 from uuid import uuid4
 import base64
 import os
-import time
-import asyncio
 import logging
 
 from PIL import Image
@@ -18,8 +16,8 @@ from core.database import db
 
 from gpt_ai.utils import openai_generator
 
-from prompt.services import get_prompt_by_category_service
 from sound.services import get_sounds_service
+from visual_style.utils import get_location_style_prompt
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
@@ -70,19 +68,19 @@ async def generate_environment_location(_location_id: str, _user_id: str, _state
         response_analyze = await openai_generator.generate_gpt(
             content_prompt=[
                 {
-                    "role": "system",
-                    "content": f"Analiza cuidadosamente la imagen proporcionada y describe detalladamente el ambiente"
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": f"Analiza cuidadosamente la imagen proporcionada y describe detalladamente el ambiente"
                                f" que se muestra, incluyendo las condiciones climáticas, iluminación, y el estado "
                                f"general del entorno. Basado en la escena, determina si sería apropiado agregar efectos"
                                f" como humo o chispas que emergen de la lava para mejorar la atmósfera. No incluyas lluvia"
                                f" o nieve ya que se trata de una cueva de lava con un ambiente de calor extremo.",
-                },
-                {
-                    "role": "user",
-                    "content": [
+                        },
                         {
-                            "type": "image_url",
-                            "image_url": {"url": element_state_db["data"]["image"]}
+                            "type": "input_image",
+                            "image_url": element_state_db["data"]["image"]
                         },
                     ],
                 },
@@ -350,6 +348,9 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                 f"- La escena debe transmitir la escala y atmósfera del mundo del juego"
                 f"- Enfatizar la relación entre los personajes y su entorno"
             )
+
+            # Integrar estilo visual del usuario si está disponible
+            prompt = await get_location_style_prompt(_user_id, prompt)
             # Adjuntar imágenes como archivos en el prompt (solo si existen)
             content_prompt = [
                 {"role": "user", "content": [
@@ -407,7 +408,10 @@ async def generate_location_image(_location_id: str, _user_id: str, _state_game_
                             "size": "1024x1024",
                             "quality": "high"}]
                 )
-            image_data = base64.b64decode(image_location)
+            image_location_text = "" if image_location is None else str(image_location)
+            if not image_location_text:
+                return False, "Location image generation returned no valid image data"
+            image_data = base64.b64decode(image_location_text)
             image_face = BytesIO(image_data)
 
             image_face_square = make_image_square_centered(image_face)
@@ -655,7 +659,12 @@ async def async_generate_location_task(
     return "Location generate successfully"
 
 
-async def async_generate_image_location_task(_location_id: str, _user_id: str, _task_id: str):
+async def async_generate_image_location_task(
+        _location_id: str,
+        _user_id: str,
+        _task_id: str,
+        _state_game_id: str | None = None,
+):
     if _task_id and _task_id != "" and _task_id is not None:
         await update_task_service(_id=_task_id, _status="pending")
 
@@ -669,7 +678,7 @@ async def async_generate_image_location_task(_location_id: str, _user_id: str, _
             )
         return f"Error can't find location with id {_location_id}"
 
-    response_image, message = await generate_location_image(_location_id, _user_id)
+    response_image, message = await generate_location_image(_location_id, _user_id, _state_game_id or "")
     if not response_image:
         if _task_id and _task_id != "" and _task_id is not None:
             await update_task_service(
@@ -677,7 +686,7 @@ async def async_generate_image_location_task(_location_id: str, _user_id: str, _
             )
         return message
 
-    response_environment = await generate_environment_location(_location_id, _user_id)
+    response_environment = await generate_environment_location(_location_id, _user_id, _state_game_id or "")
     if not response_environment:
         if _task_id and _task_id != "" and _task_id is not None:
             await update_task_service(

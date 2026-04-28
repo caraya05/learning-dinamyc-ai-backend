@@ -1,5 +1,4 @@
 import asyncio
-import time
 from io import BytesIO
 
 from bson import ObjectId
@@ -10,7 +9,8 @@ import requests
 
 from state_game.services import get_state_game_by_game_id
 from task.services import update_task_service
-from utils import upload_image, upload_file
+from utils import upload_image
+from visual_style.utils import get_event_style_prompt
 from openai import BaseModel
 from pydantic import Field
 
@@ -210,7 +210,8 @@ async def async_generate_image_event(
     return "Image event generated successfully"
 
 
-async def _generate_image_event(_user_id, _prompt_user_image, _id_event, _game_provisional, is_init=False, _url_image_reference=None):
+async def _generate_image_event(_user_id, _prompt_user_image, _id_event, _game_provisional, is_init=False,
+                                _url_image_reference=None):
     try:
         game_db = await db["game_provisional"].find_one({"_id": ObjectId(_game_provisional)})
         characters = game_db.get("characters", [])
@@ -246,6 +247,7 @@ async def _generate_image_event(_user_id, _prompt_user_image, _id_event, _game_p
                 personajes_images.append(imagen)
             else:
                 personajes_info.append(f"{nombre}: {prompt_personaje}")
+
         personajes_str = '\n'.join(personajes_info)
 
         prompt_reference = ""
@@ -254,12 +256,18 @@ async def _generate_image_event(_user_id, _prompt_user_image, _id_event, _game_p
 
         prompt_base = (
             f"Genera una imagen de portada en estilo 3D medium poly  "
-            f"La imagen debe ser cuadrada. Sin texto. "
-            f"Usa la info de los personajes para crear la escena.\n"
-            f"Personajes en la escena (usa sus imágenes como referencia):\n{personajes_str}\n"
-            f"descripcion de la escena: {_prompt_user_image}"
-            f"{prompt_reference}"
+
         )
+
+        # Integrar estilo visual del usuario si está disponible
+        prompt_base = await get_event_style_prompt(_user_id, prompt_base)
+
+        prompt_base = prompt_base + (f"La imagen debe ser cuadrada. Sin texto. \n"
+                                     f"Usa la info de los personajes para crear la escena.\n"
+                                     f"Personajes en la escena (usa sus imágenes como referencia):\n{personajes_str}\n"
+                                     f"descripcion de la escena: {_prompt_user_image}"
+                                     f"{prompt_reference}")
+
         content_prompt = [
             {"role": "user", "content": [
                 {"type": "input_text", "text": prompt_base}
@@ -291,47 +299,53 @@ async def _generate_image_event(_user_id, _prompt_user_image, _id_event, _game_p
                 print(f"Error adjuntando imagen de personaje: {imagen}", e)
                 continue
 
-        # Si existe referencia de imagen, usar generate_image(), sino usar generate_gpt()
-        response_prompt_image = None
-        if _url_image_reference:
-            # Usar generate_image con la referencia en el prompt
-            simple_prompt = (
-                f"Genera una imagen de portada en estilo 3D medium poly. "
-                f"La imagen debe ser cuadrada. Sin texto. "
-                f"Personajes en la escena: {personajes_str}. "
-                f"Descripción de la escena: {_prompt_user_image}. "
-                f"Basándote en el estilo visual de esta referencia ({_url_image_reference}), "
-                f"mantén coherencia visual y estilo con esa imagen de referencia."
-            )
-            try:
-                response_prompt_image = await openai_generator.generate_image(
-                    prompt=simple_prompt,
-                    size="1024x1024",
-                    user_id=_user_id,
-                    model="gpt-image-1",
-                    style=None,
-                    type_generation="event_image"
-                )
-            except Exception as e:
-                logger.warning(f"Error generando imagen con referencia: {str(e)}, usando fallback generate_gpt")
-                response_prompt_image = None
+        # # Si existe referencia de imagen, usar generate_image(), sino usar generate_gpt()
+        # response_prompt_image = None
+        # if _url_image_reference:
+        #     # Usar generate_image con la referencia en el prompt
+        #     simple_prompt = (
+        #         f"Genera una imagen de portada en estilo 3D medium poly. "
+        #         f"La imagen debe ser cuadrada. Sin texto. "
+        #         f"Personajes en la escena: {personajes_str}. "
+        #         f"Descripción de la escena: {_prompt_user_image}. "
+        #         f"Basándote en el estilo visual de esta referencia ({_url_image_reference}), "
+        #         f"mantén coherencia visual y estilo con esa imagen de referencia."
+        #     )
+        #
+        #     try:
+        #         response_prompt_image = await openai_generator.generate_image(
+        #             prompt=simple_prompt,
+        #             size="1024x1024",
+        #             user_id=_user_id,
+        #             model="gpt-image-1",
+        #             style=None,
+        #             type_generation="event_image"
+        #         )
+        #     except Exception as e:
+        #         logger.warning(f"Error generando imagen con referencia: {str(e)}, usando fallback generate_gpt")
+        #         response_prompt_image = None
 
         # Si no hay respuesta, usar método original con generate_gpt como fallback
-        if not response_prompt_image:
-            response_prompt_image = await openai_generator.generate_gpt(
-                content_prompt=content_prompt,
-                model="gpt-4.1",
-                type_generation="create_prompt_image",
-                tools=[{"type": "image_generation", "size": "1024x1536"}],
-                image=True,
-                user_id=_user_id,
-            )
+
+        response_prompt_image = await openai_generator.generate_gpt(
+            content_prompt=content_prompt,
+            model="gpt-4.1",
+            type_generation="create_prompt_image",
+            tools=[{"type": "image_generation", "size": "1024x1536"}],
+            image=True,
+            user_id=_user_id,
+        )
 
         if not response_prompt_image:
             logger.error("La respuesta de la generación de imagen es None")
             return "Error: No se pudo generar la imagen del evento"
 
-        image_bytes = base64.b64decode(response_prompt_image)
+        try:
+            image_bytes = base64.b64decode(response_prompt_image)
+        except (TypeError, ValueError) as e:
+            logger.error(f"Error decodificando imagen: {e}")
+            return "Error: Invalid image data"
+
         image_face = BytesIO(image_bytes)
 
         image_generated = upload_image(
@@ -354,6 +368,7 @@ async def _generate_image_event(_user_id, _prompt_user_image, _id_event, _game_p
     except Exception as e:
         logger.error(f"Error in get images event service: {traceback.format_exc()}")
         return "Error in generate image event"
+
 
 async def async_generate_event_audio(event_id: str, user_id: str, text: str = None):
     """
@@ -401,5 +416,3 @@ async def async_generate_event_audio(event_id: str, user_id: str, text: str = No
         print(f"Error in async_generate_event_audio: {e}")
         print(traceback.format_exc())
         return f"Error in audio generation: {str(e)}"
-
-

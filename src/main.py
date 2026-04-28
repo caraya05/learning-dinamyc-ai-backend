@@ -1,4 +1,5 @@
 import time
+import logging
 from fastapi.responses import JSONResponse
 from fastapi import FastAPI, HTTPException, status
 from fastapi import Request
@@ -44,10 +45,14 @@ from game.routers_protional import router_ws as game_provisional_ws_routers
 from proxy import routers as proxy_routers
 from analytics import routers as analytics_routers
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await create_indexes()
+    indexes_ready = await create_indexes()
+    if not indexes_ready:
+        logger.warning("Startup in degraded mode: MongoDB indexes were not initialized")
     yield
 
 

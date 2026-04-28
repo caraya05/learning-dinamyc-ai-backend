@@ -100,7 +100,7 @@ async def create_game(
         prompt_user: str = Form(...),
         template_type: str = Form(...),
         language: str = Form("es", description="Language code for the game"),
-        series_id: str = Form(None, description="ID of the series to associate the game with")
+        series_id: str = Form(None, description="ID of the seri es to associate the game with")
 ):
     """
     This endpoint creates a new game.
@@ -171,13 +171,14 @@ async def create_game(
 
         tasks = create_game_provisional_task_2.delay(str(game_provisional_db["_id"]), str(user["_id"]))
 
+        # TASK_DB 1 # CREATION GAME
         task_db = await create_task_service(
             _task_id=tasks.id,
             _user_id=str(user["_id"]),
             _task_data={},
             _element_id=str(game_provisional_db["_id"]),
             _element_type="game_provisional",
-            _process="game_provisional_creation",
+            _process="analyzing and creating the story",
         )
 
         return {
@@ -474,7 +475,16 @@ async def update_game_provisional(
 
     if not data.is_draft:
         update_fields["state"] = "game_create"
-        continue_create_game_provisional_2.delay(id_game_provisional=id_game_provisional, user_id=str(user["_id"]))
+        tasks = continue_create_game_provisional_2.delay(id_game_provisional=id_game_provisional, user_id=str(user["_id"]))
+        # TASK_DB 1 # CREATION GAME
+        task_db = await create_task_service(
+            _task_id=tasks.id,
+            _user_id=str(user["_id"]),
+            _task_data={},
+            _element_id=id_game_provisional,
+            _element_type="game_provisional",
+            _process="continuing the creation of the game provisional after update",
+        )
 
     else:
         update_fields["state"] = "draft"
@@ -755,4 +765,69 @@ async def send_task_status_update(websocket: WebSocket, game_id: str):
             pass
         # Lanzar la excepción para que sea capturada en el nivel superior
         raise
+
+
+@router.get("/{id_game_provisional}/status-task/", status_code=status.HTTP_200_OK)
+async def game_provisional_status_task(
+        request: Request,
+        id_game_provisional: str,
+        user: dict = Depends(auth),
+        Token: HTTPAuthorizationCredentials = Depends(auth_schema)):
+
+    game_db = await db["game"].find_one({"_id": ObjectId(id_game_provisional)})
+    if game_db:
+        id_game_provisional = str(game_db["provisional_id"])
+
+    game_provisional_db = await db["game_provisional"].find_one({"_id": ObjectId(id_game_provisional)})
+
+    tasks = await db["task"].find({"element_id": id_game_provisional, "element_type": "game_provisional"}).to_list(None)
+    all_success = True
+    for index, task_db in enumerate(tasks):
+        task_db["_id"] = str(task_db["_id"])
+        task_id = task_db.get("task_id")
+        if task_id and not task_db.get("was_notified"):
+            task_celery = AsyncResult(task_id, app=celery)
+            if task_celery.state == "SUCCESS":
+                task_db["status"] = "completed"
+                task_db["message"] = "completed successfully"
+                task_db["was_notified"] = True
+            elif task_celery.state == "FAILURE":
+                task_db["status"] = "error"
+                task_db["message"] = str(task_celery.result)
+                all_success = False
+            else:
+                all_success = False
+                if task_celery.state == "PENDING":
+                    task_db["status"] = "pending"
+                    task_db["message"] = "pending"
+                else:
+                    task_db["status"] = "processing"
+                    task_db["message"] = "processing"
+
+            await db["task"].update_one({"_id": task_db["_id"]}, {"$set": {"status": task_db["status"], "message": task_db["message"]}})
+
+        tasks[index] = task_db
+
+    current_progress = game_provisional_db.get("progress",0)
+    if current_progress == 70 and all_success and tasks:
+        progress_text = "Progreso actualizado a 100%"
+        entry = {
+            "timestamp": datetime.utcnow(),
+            "task": None,
+            "status": "progress_update",
+            "percent": 100,
+            "message": progress_text
+        }
+        await db["game_provisional"].update_one(
+            {"_id": ObjectId(id_game_provisional)},
+            {"$set": {"progress": 100, "progress_text": progress_text}, "$push": {"history": entry}}
+        )
+    return {"tasks": tasks}
+
+
+
+
+
+
+
 
